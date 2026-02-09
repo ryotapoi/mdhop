@@ -6,10 +6,30 @@
 ## build
 
 - 正常系: Vault内の全Markdownを解析してDBを作成
+- 再build: 既存DBを上書き
 - 失敗系: 曖昧リンクが1件でもあればエラー
 - 失敗系: 失敗時は成果物を消すが、既存DBは残る
-- 解析対象: `**/*.md` のみ
-- `.mdhop/` 配下は除外
+- 失敗系: vault外への相対パスリンクはエラー
+- 解析対象: `**/*.md` のみ、`.mdhop/` 配下は除外
+- case-insensitive basename: `[[note]]` → `Note.md` に解決
+- case-insensitive basename衝突 + basenameリンク → ambiguousエラー
+- basename衝突あり + パス指定リンクのみ → エラーにならない
+- mtime: 全noteにos.Statの値が設定される
+- edges: wikilink / markdown link → 対応するedgeが作成される
+- backlink: B→Aのedgeが正しく作成される
+- 相対パス解決: `./Target.md` → `dir/Target.md`, `../Root.md` → `Root.md`
+- `/` 始まりリンク: vault ルート相対で解決
+- self-edge: `[[#Heading]]` → source=target=自ファイル、subpath保持
+- phantom: 未解決リンク先はphantomノード（exists_flag=0, path=NULL）
+- phantomのnameは元表記を保持（node_keyのみlower）
+- alias付きphantom: `[[Missing|alias]]` → name="Missing"
+- inline tag → tagノード + edge (link_type=tag)
+- frontmatter tag → tagノード + edge (link_type=frontmatter)、行番号はファイル全体の行番号
+- nested tag展開: `#a/b/c` → `#a`, `#a/b`, `#a/b/c`
+- code fence内のtagは無視
+- 複数ファイルの同一tagは同じtagノードを共有
+- 統合テスト: note数・phantom数・tag数・edge数の検証
+- 冪等性: 2回buildで結果が同一
 
 ## resolve
 
@@ -55,7 +75,7 @@
 
 - 旧パス未登録はエラー
 - 新パス既存はエラー
-- basename衝突が発生する移動はエラー
+- 移動後に曖昧リンクが残る場合はエラー
 - `[[a]]` / `[x](a.md)` は一意なら維持、曖昧化/別解決なら書換え
 - `[[path/to/a]]` / `[x](path/to/a.md)` は必ず書換え
 - リンク書換え対象ファイルはDBから抽出

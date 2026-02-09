@@ -1,0 +1,3 @@
+# B
+
+Another #simple tag.

@@ -1,0 +1,3 @@
+# Note
+
+Link to [[A]]
