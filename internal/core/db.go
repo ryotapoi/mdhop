@@ -111,15 +111,22 @@ func upsertPhantom(db *sql.DB, name string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	id, err := res.LastInsertId()
+	n, err := res.RowsAffected()
 	if err != nil {
 		return 0, err
 	}
-	if id == 0 {
-		row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", key)
-		if err := row.Scan(&id); err != nil {
+	if n == 1 {
+		id, err := res.LastInsertId()
+		if err != nil {
 			return 0, err
 		}
+		return id, nil
+	}
+	// ON CONFLICT: row already exists — fetch its ID.
+	var id int64
+	row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", key)
+	if err := row.Scan(&id); err != nil {
+		return 0, err
 	}
 	return id, nil
 }
@@ -135,15 +142,22 @@ func upsertTag(db *sql.DB, name string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	id, err := res.LastInsertId()
+	n, err := res.RowsAffected()
 	if err != nil {
 		return 0, err
 	}
-	if id == 0 {
-		row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", key)
-		if err := row.Scan(&id); err != nil {
+	if n == 1 {
+		id, err := res.LastInsertId()
+		if err != nil {
 			return 0, err
 		}
+		return id, nil
+	}
+	// ON CONFLICT: row already exists — fetch its ID.
+	var id int64
+	row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", key)
+	if err := row.Scan(&id); err != nil {
+		return 0, err
 	}
 	return id, nil
 }
