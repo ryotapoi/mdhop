@@ -122,6 +122,83 @@ func resolveFieldSet(fields []string) map[string]bool {
 	return m
 }
 
+// --- Stats output ---
+
+var validStatsFieldsCLI = map[string]bool{
+	"notes_total":    true,
+	"notes_exists":   true,
+	"edges_total":    true,
+	"tags_total":     true,
+	"phantoms_total": true,
+}
+
+func validateStatsFields(fields []string) error {
+	for _, f := range fields {
+		if !validStatsFieldsCLI[f] {
+			return fmt.Errorf("unknown stats field: %s", f)
+		}
+	}
+	return nil
+}
+
+func statsFieldSet(fields []string) map[string]bool {
+	if len(fields) == 0 {
+		all := make(map[string]bool)
+		for k := range validStatsFieldsCLI {
+			all[k] = true
+		}
+		return all
+	}
+	m := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		m[f] = true
+	}
+	return m
+}
+
+func printStatsJSON(w io.Writer, r *core.StatsResult, fields []string) error {
+	show := statsFieldSet(fields)
+	m := make(map[string]int)
+	if show["notes_total"] {
+		m["notes_total"] = r.NotesTotal
+	}
+	if show["notes_exists"] {
+		m["notes_exists"] = r.NotesExists
+	}
+	if show["edges_total"] {
+		m["edges_total"] = r.EdgesTotal
+	}
+	if show["tags_total"] {
+		m["tags_total"] = r.TagsTotal
+	}
+	if show["phantoms_total"] {
+		m["phantoms_total"] = r.PhantomsTotal
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(m)
+}
+
+func printStatsText(w io.Writer, r *core.StatsResult, fields []string) error {
+	show := statsFieldSet(fields)
+	if show["notes_total"] {
+		fmt.Fprintf(w, "notes_total: %d\n", r.NotesTotal)
+	}
+	if show["notes_exists"] {
+		fmt.Fprintf(w, "notes_exists: %d\n", r.NotesExists)
+	}
+	if show["edges_total"] {
+		fmt.Fprintf(w, "edges_total: %d\n", r.EdgesTotal)
+	}
+	if show["tags_total"] {
+		fmt.Fprintf(w, "tags_total: %d\n", r.TagsTotal)
+	}
+	if show["phantoms_total"] {
+		fmt.Fprintf(w, "phantoms_total: %d\n", r.PhantomsTotal)
+	}
+	return nil
+}
+
 // --- Query output ---
 
 // queryJSONOutput is the JSON-serializable form of QueryResult.

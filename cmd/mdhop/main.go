@@ -19,7 +19,9 @@ func main() {
 		err = runResolve(os.Args[2:])
 	case "query":
 		err = runQuery(os.Args[2:])
-	case "update", "add", "move", "delete", "disambiguate", "diagnose", "stats":
+	case "stats":
+		err = runStats(os.Args[2:])
+	case "update", "add", "move", "delete", "disambiguate", "diagnose":
 		err = fmt.Errorf("not yet implemented")
 	case "help", "--help", "-h":
 		printUsage()
@@ -42,6 +44,7 @@ Commands:
   build      Build the index from the vault
   resolve    Resolve a link from a source file
   query      Query related information for a node
+  stats      Show vault statistics
 
 Run 'mdhop <command> --help' for command-specific help.
 `)
