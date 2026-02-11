@@ -148,6 +148,34 @@ func TestRunStats_JSONOutput(t *testing.T) {
 	}
 }
 
+// --- Delete CLI tests ---
+
+func TestRunDelete_MissingFile(t *testing.T) {
+	err := runDelete([]string{})
+	if err == nil || !strings.Contains(err.Error(), "--file is required") {
+		t.Errorf("expected --file required error, got: %v", err)
+	}
+}
+
+func TestRunDelete_Integration(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete")
+
+	// Delete C.md (unreferenced)
+	err := runDelete([]string{"--vault", vault, "--file", "C.md"})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	// Verify C.md is gone from the index.
+	result, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if result.NotesTotal != 2 {
+		t.Errorf("notes_total = %d, want 2 after deleting C.md", result.NotesTotal)
+	}
+}
+
 // --- Diagnose CLI tests ---
 
 func TestRunDiagnose_InvalidFormat(t *testing.T) {

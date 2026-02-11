@@ -23,7 +23,9 @@ func main() {
 		err = runStats(os.Args[2:])
 	case "diagnose":
 		err = runDiagnose(os.Args[2:])
-	case "update", "add", "move", "delete", "disambiguate":
+	case "delete":
+		err = runDelete(os.Args[2:])
+	case "update", "add", "move", "disambiguate":
 		err = fmt.Errorf("not yet implemented")
 	case "help", "--help", "-h":
 		printUsage()
@@ -44,6 +46,7 @@ func printUsage() {
 
 Commands:
   build      Build the index from the vault
+  delete     Remove files from the index
   resolve    Resolve a link from a source file
   query      Query related information for a node
   stats      Show vault statistics
