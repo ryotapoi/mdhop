@@ -21,7 +21,9 @@ func main() {
 		err = runQuery(os.Args[2:])
 	case "stats":
 		err = runStats(os.Args[2:])
-	case "update", "add", "move", "delete", "disambiguate", "diagnose":
+	case "diagnose":
+		err = runDiagnose(os.Args[2:])
+	case "update", "add", "move", "delete", "disambiguate":
 		err = fmt.Errorf("not yet implemented")
 	case "help", "--help", "-h":
 		printUsage()
@@ -45,6 +47,7 @@ Commands:
   resolve    Resolve a link from a source file
   query      Query related information for a node
   stats      Show vault statistics
+  diagnose   Show basename conflicts and phantom nodes
 
 Run 'mdhop <command> --help' for command-specific help.
 `)
