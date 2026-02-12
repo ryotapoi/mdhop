@@ -27,7 +27,9 @@ func main() {
 		err = runDelete(os.Args[2:])
 	case "update":
 		err = runUpdate(os.Args[2:])
-	case "add", "move", "disambiguate":
+	case "add":
+		err = runAdd(os.Args[2:])
+	case "move", "disambiguate":
 		err = fmt.Errorf("not yet implemented")
 	case "help", "--help", "-h":
 		printUsage()
@@ -48,6 +50,7 @@ func printUsage() {
 
 Commands:
   build      Build the index from the vault
+  add        Add new files to the index
   update     Update specified files in the index
   delete     Remove files from the index
   resolve    Resolve a link from a source file
