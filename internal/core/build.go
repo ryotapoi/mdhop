@@ -1,7 +1,6 @@
 package core
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -105,7 +104,7 @@ func Build(vaultPath string) error {
 
 // resolveLink resolves a linkOccur to a target node ID and subpath.
 // Returns (0, "", nil) if the link should be skipped.
-func resolveLink(db *sql.DB, sourcePath string, link linkOccur, pathSet map[string]string, basenameToPath map[string]string, pathToID map[string]int64) (int64, string, error) {
+func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[string]string, basenameToPath map[string]string, pathToID map[string]int64) (int64, string, error) {
 	// Self-link: [[#Heading]]
 	if link.target == "" && link.subpath != "" {
 		id := pathToID[sourcePath]
@@ -164,7 +163,7 @@ func resolveLink(db *sql.DB, sourcePath string, link linkOccur, pathSet map[stri
 }
 
 // resolvePathTarget tries to find a file by path in pathSet, falling back to phantom.
-func resolvePathTarget(db *sql.DB, resolved string, link linkOccur, pathSet map[string]string, pathToID map[string]int64) (int64, string, error) {
+func resolvePathTarget(db dbExecer, resolved string, link linkOccur, pathSet map[string]string, pathToID map[string]int64) (int64, string, error) {
 	lower := strings.ToLower(resolved)
 	if actualPath, ok := pathSet[lower]; ok {
 		id := pathToID[actualPath]

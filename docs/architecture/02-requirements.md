@@ -28,9 +28,9 @@
 ### 2.2 差分更新
 
 - `update --file ...` で指定ファイルのみ再解析してDBに反映
-- ファイル削除時:
-  - note node は残し `exists=false`（参照整合性のため）
-  - source になれないため、当該 note を source に持つ edges は削除されたまま
+- ディスクから消えたファイルを指定した場合は delete と同じ扱い:
+  - 参照あり → phantom 変換（outgoing edges 削除、ノードを phantom に変換）
+  - 参照なし → ノード完全削除
 
 ### 2.3 リンク解決（resolve）
 

@@ -1,0 +1,3 @@
+[[B]]
+#tagA
+#shared

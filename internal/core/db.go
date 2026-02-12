@@ -10,6 +10,12 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// dbExecer abstracts *sql.DB and *sql.Tx for shared upsert/query functions.
+type dbExecer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
 const (
 	dataDirName = ".mdhop"
 	dbFileName  = "index.sqlite"
@@ -68,7 +74,7 @@ func initSchema(db *sql.DB) error {
 	return nil
 }
 
-func upsertNote(db *sql.DB, path, name string, mtime int64) (int64, error) {
+func upsertNote(db dbExecer, path, name string, mtime int64) (int64, error) {
 	res, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime)
 		 VALUES (?, 'note', ?, ?, 1, ?)
@@ -100,7 +106,7 @@ func noteKey(path string) string {
 	return fmt.Sprintf("note:path:%s", path)
 }
 
-func upsertPhantom(db *sql.DB, name string) (int64, error) {
+func upsertPhantom(db dbExecer, name string) (int64, error) {
 	key := fmt.Sprintf("phantom:name:%s", strings.ToLower(name))
 	res, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag)
@@ -131,7 +137,7 @@ func upsertPhantom(db *sql.DB, name string) (int64, error) {
 	return id, nil
 }
 
-func upsertTag(db *sql.DB, name string) (int64, error) {
+func upsertTag(db dbExecer, name string) (int64, error) {
 	key := fmt.Sprintf("tag:name:%s", strings.ToLower(name))
 	res, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag)
@@ -162,7 +168,7 @@ func upsertTag(db *sql.DB, name string) (int64, error) {
 	return id, nil
 }
 
-func insertEdge(db *sql.DB, sourceID, targetID int64, linkType, rawLink, subpath string, lineStart, lineEnd int) error {
+func insertEdge(db dbExecer, sourceID, targetID int64, linkType, rawLink, subpath string, lineStart, lineEnd int) error {
 	_, err := db.Exec(
 		`INSERT INTO edges (source_id, target_id, link_type, raw_link, subpath, line_start, line_end)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -171,7 +177,7 @@ func insertEdge(db *sql.DB, sourceID, targetID int64, linkType, rawLink, subpath
 	return err
 }
 
-func getNodeID(db *sql.DB, nodeKey string) (int64, error) {
+func getNodeID(db dbExecer, nodeKey string) (int64, error) {
 	var id int64
 	row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", nodeKey)
 	if err := row.Scan(&id); err != nil {
