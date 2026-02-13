@@ -14,10 +14,35 @@ type AddOptions struct {
 	AutoDisambiguate bool
 }
 
+// RewrittenLink records a single link rewrite performed by auto-disambiguate.
+type RewrittenLink struct {
+	File    string
+	OldLink string
+	NewLink string
+}
+
 // AddResult reports the outcome of the add operation.
 type AddResult struct {
-	Added    []string // files added as new notes
-	Promoted []string // phantom nodes promoted to notes
+	Added     []string        // files added as new notes
+	Promoted  []string        // phantom nodes promoted to notes
+	Rewritten []RewrittenLink // links rewritten by auto-disambiguate
+}
+
+// RewriteBackup holds original file content for rollback on failure.
+type rewriteBackup struct {
+	path    string
+	content []byte
+}
+
+// rewriteEntry holds information needed to rewrite a single edge.
+type rewriteEntry struct {
+	edgeID     int64
+	rawLink    string
+	linkType   string
+	lineStart  int
+	sourcePath string
+	sourceID   int64
+	newRawLink string
 }
 
 // Add inserts new files into the existing index DB.
@@ -26,11 +51,6 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	dbp := dbPath(vaultPath)
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
 		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	// Step 2: auto-disambiguate check.
-	if opts.AutoDisambiguate {
-		return nil, fmt.Errorf("--auto-disambiguate is not yet implemented")
 	}
 
 	// Step 3: normalize and deduplicate input paths.
@@ -114,6 +134,8 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 	}
 
+	var allRewrites []rewriteEntry
+
 	for bk, newCount := range basenameCounts {
 		if newCount <= 1 {
 			continue
@@ -125,9 +147,11 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 
 		// Find the target node that existing basename links pointed to.
 		var targetID int64
+		var isPatternA bool
 		if oldCount == 1 {
 			// Pattern A: existing unique note becomes ambiguous.
 			targetID = pathToID[oldBasenameToPath[bk]]
+			isPatternA = true
 		} else {
 			// Pattern B: phantom (oldCount == 0, adding 2+ files with same basename).
 			phantomKey := fmt.Sprintf("phantom:name:%s", bk)
@@ -140,32 +164,68 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			}
 		}
 
-		// Check if any existing edges to this target are basename links.
+		// Query edges with source info for potential rewriting.
 		rows, err := db.Query(
-			`SELECT raw_link, link_type FROM edges
-			 WHERE target_id = ?
-			 AND link_type IN ('wikilink', 'markdown')`, targetID)
+			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id
+			 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
+			 WHERE e.target_id = ?
+			 AND e.link_type IN ('wikilink', 'markdown')`, targetID)
 		if err != nil {
 			return nil, err
 		}
-		var ambiguousFound bool
+		var basenameEdges []rewriteEntry
 		for rows.Next() {
-			var rawLink, linkType string
-			if err := rows.Scan(&rawLink, &linkType); err != nil {
+			var re rewriteEntry
+			if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID); err != nil {
 				rows.Close()
 				return nil, err
 			}
-			if isBasenameRawLink(rawLink, linkType) {
-				ambiguousFound = true
-				break
+			if isBasenameRawLink(re.rawLink, re.linkType) {
+				basenameEdges = append(basenameEdges, re)
 			}
 		}
 		rows.Close()
 		if err := rows.Err(); err != nil {
 			return nil, err
 		}
-		if ambiguousFound {
+
+		if len(basenameEdges) == 0 {
+			continue
+		}
+
+		if isPatternA && opts.AutoDisambiguate {
+			// Compute new raw links for each edge.
+			targetPath := oldBasenameToPath[bk]
+			for i := range basenameEdges {
+				basenameEdges[i].newRawLink = rewriteRawLink(basenameEdges[i].rawLink, basenameEdges[i].linkType, basenameEdges[i].sourcePath, targetPath)
+			}
+			allRewrites = append(allRewrites, basenameEdges...)
+		} else {
+			// Pattern B or auto-disambiguate not enabled → error.
 			return nil, fmt.Errorf("adding files would make existing links ambiguous")
+		}
+	}
+
+	// Stale check for source files that need rewriting.
+	if len(allRewrites) > 0 {
+		sourceStaleChecked := make(map[int64]bool)
+		for _, re := range allRewrites {
+			if sourceStaleChecked[re.sourceID] {
+				continue
+			}
+			sourceStaleChecked[re.sourceID] = true
+			var dbMtime int64
+			err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", re.sourceID).Scan(&dbMtime)
+			if err != nil {
+				return nil, err
+			}
+			info, err := os.Stat(filepath.Join(vaultPath, re.sourcePath))
+			if err != nil {
+				return nil, err
+			}
+			if info.ModTime().Unix() != dbMtime {
+				return nil, fmt.Errorf("source file is stale: %s", re.sourcePath)
+			}
 		}
 	}
 
@@ -221,12 +281,38 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		parsed = append(parsed, parsedFile{file: f, links: links})
 	}
 
+	// Apply disk rewrites before transaction (so DB rollback is safe).
+	// newMtimes maps sourceID → new mtime after file write.
+	var newMtimes map[int64]int64
+	var backups []rewriteBackup
+	if len(allRewrites) > 0 {
+		// Group rewrites by source file.
+		groups := make(map[string][]rewriteEntry)
+		for _, re := range allRewrites {
+			groups[re.sourcePath] = append(groups[re.sourcePath], re)
+		}
+		var applyErr error
+		newMtimes, backups, applyErr = applyFileRewrites(vaultPath, groups)
+		if applyErr != nil {
+			return nil, applyErr
+		}
+	}
+
 	// Step 11: begin transaction.
 	tx, err := db.Begin()
 	if err != nil {
+		// Restore disk changes if transaction start fails.
+		restoreBackups(vaultPath, backups)
 		return nil, err
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			tx.Rollback()
+			// Restore disk changes on failure (best-effort).
+			restoreBackups(vaultPath, backups)
+		}
+	}()
 
 	result := &AddResult{}
 
@@ -286,6 +372,32 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 	}
 
+	// Update DB for rewritten edges.
+	if len(allRewrites) > 0 {
+		for _, re := range allRewrites {
+			if _, err := tx.Exec("UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
+				return nil, err
+			}
+			result.Rewritten = append(result.Rewritten, RewrittenLink{
+				File:    re.sourcePath,
+				OldLink: re.rawLink,
+				NewLink: re.newRawLink,
+			})
+		}
+		// Update source mtime in DB.
+		mtimeUpdated := make(map[int64]bool)
+		for _, re := range allRewrites {
+			if mtimeUpdated[re.sourceID] {
+				continue
+			}
+			mtimeUpdated[re.sourceID] = true
+			mt := newMtimes[re.sourceID]
+			if _, err := tx.Exec("UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Step 15: orphan cleanup.
 	if _, err := tx.Exec("DELETE FROM nodes WHERE type IN ('tag','phantom') AND id NOT IN (SELECT DISTINCT target_id FROM edges)"); err != nil {
 		return nil, err
@@ -295,8 +407,194 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	committed = true
 
 	return result, nil
+}
+
+// buildRewritePath constructs the rewritten path for a link target.
+// If targetPath contains "/" (subdirectory), returns vault-relative path.
+// If targetPath has no "/" (root), returns source-relative path with ./ or ../ prefix.
+func buildRewritePath(sourcePath, targetPath, linkType string) string {
+	targetNoExt := strings.TrimSuffix(targetPath, filepath.Ext(targetPath))
+
+	if strings.Contains(targetPath, "/") {
+		// Subdirectory target → vault-relative path.
+		if linkType == "wikilink" {
+			return targetNoExt
+		}
+		// markdown: determine if original had .md extension (handled by caller).
+		return targetNoExt
+	}
+
+	// Root target → source-relative path.
+	sourceDir := filepath.Dir(sourcePath)
+	rel, _ := filepath.Rel(sourceDir, ".")
+	relDir := filepath.ToSlash(filepath.Clean(rel))
+	if relDir == "." {
+		// Same directory: use "./" prefix.
+		return "./" + targetNoExt
+	}
+	return relDir + "/" + targetNoExt
+}
+
+// rewriteRawLink replaces the target in a raw link with the rewritten path.
+func rewriteRawLink(rawLink, linkType, sourcePath, targetPath string) string {
+	switch linkType {
+	case "wikilink":
+		// rawLink: [[Target]], [[Target|alias]], [[Target#Heading]], [[Target#Heading|alias]]
+		inner := strings.TrimPrefix(rawLink, "[[")
+		inner = strings.TrimSuffix(inner, "]]")
+
+		var alias, subpath string
+		// Extract alias (after |).
+		if idx := strings.Index(inner, "|"); idx >= 0 {
+			alias = inner[idx:] // includes |
+			inner = inner[:idx]
+		}
+		// Extract subpath (after #).
+		if idx := strings.Index(inner, "#"); idx >= 0 {
+			subpath = inner[idx:] // includes #
+		}
+
+		newPath := buildRewritePath(sourcePath, targetPath, linkType)
+		return "[[" + newPath + subpath + alias + "]]"
+
+	case "markdown":
+		// rawLink: [text](url), [text](url#frag)
+		start := strings.Index(rawLink, "](")
+		if start < 0 {
+			return rawLink
+		}
+		textPart := rawLink[:start+2] // "[text]("
+		urlPart := rawLink[start+2:]
+		urlPart = strings.TrimSuffix(urlPart, ")")
+
+		// Extract fragment.
+		var frag string
+		if idx := strings.Index(urlPart, "#"); idx >= 0 {
+			frag = urlPart[idx:] // includes #
+			urlPart = urlPart[:idx]
+		}
+
+		// Check if original URL had .md extension.
+		hasMdExt := strings.HasSuffix(strings.ToLower(urlPart), ".md")
+
+		newPath := buildRewritePath(sourcePath, targetPath, linkType)
+		if hasMdExt {
+			newPath += ".md"
+		}
+
+		return textPart + newPath + frag + ")"
+	}
+	return rawLink
+}
+
+// replaceOutsideInlineCode replaces occurrences of old with new in line,
+// but only outside backtick-delimited inline code spans.
+func replaceOutsideInlineCode(line, old, new string) string {
+	var result strings.Builder
+	i := 0
+	for i < len(line) {
+		if line[i] == '`' {
+			// Find the closing backtick.
+			end := strings.IndexByte(line[i+1:], '`')
+			if end < 0 {
+				// No closing backtick — rest of line is code.
+				result.WriteString(line[i:])
+				return result.String()
+			}
+			// Copy the inline code span verbatim.
+			span := line[i : i+1+end+1]
+			result.WriteString(span)
+			i += len(span)
+			continue
+		}
+		// Check for old string match.
+		if strings.HasPrefix(line[i:], old) {
+			result.WriteString(new)
+			i += len(old)
+			continue
+		}
+		result.WriteByte(line[i])
+		i++
+	}
+	return result.String()
+}
+
+// restoreBackups restores files to their original content (best-effort).
+func restoreBackups(vaultPath string, backups []rewriteBackup) {
+	for _, fb := range backups {
+		_ = os.WriteFile(filepath.Join(vaultPath, fb.path), fb.content, 0o644)
+	}
+}
+
+// applyFileRewrites applies rewrite entries to source files on disk.
+// Returns a map of sourceID → new mtime after writing, and backups for rollback.
+// On error during write, restores already-written files (best-effort).
+func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[int64]int64, []rewriteBackup, error) {
+	newMtimes := make(map[int64]int64)
+
+	// Phase 1: read all originals before any writes.
+	originals := make(map[string][]byte, len(groups))
+	for sourcePath := range groups {
+		fullPath := filepath.Join(vaultPath, sourcePath)
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		originals[sourcePath] = content
+	}
+
+	// Phase 2: compute new content and write files.
+	var written []rewriteBackup
+
+	restore := func() {
+		for _, fb := range written {
+			_ = os.WriteFile(filepath.Join(vaultPath, fb.path), fb.content, 0o644)
+		}
+	}
+
+	for sourcePath, entries := range groups {
+		fullPath := filepath.Join(vaultPath, sourcePath)
+		original := originals[sourcePath]
+		lines := strings.Split(string(original), "\n")
+
+		// Group entries by line number.
+		lineEntries := make(map[int][]rewriteEntry)
+		for _, re := range entries {
+			lineEntries[re.lineStart] = append(lineEntries[re.lineStart], re)
+		}
+
+		// Apply replacements line by line.
+		for lineNum, res := range lineEntries {
+			if lineNum < 1 || lineNum > len(lines) {
+				continue
+			}
+			idx := lineNum - 1 // convert 1-based to 0-based
+			for _, re := range res {
+				lines[idx] = replaceOutsideInlineCode(lines[idx], re.rawLink, re.newRawLink)
+			}
+		}
+
+		newContent := []byte(strings.Join(lines, "\n"))
+		if err := os.WriteFile(fullPath, newContent, 0o644); err != nil {
+			restore()
+			return nil, nil, err
+		}
+		written = append(written, rewriteBackup{path: sourcePath, content: original})
+
+		// Collect new mtime.
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			restore()
+			return nil, nil, err
+		}
+		sourceID := entries[0].sourceID
+		newMtimes[sourceID] = info.ModTime().Unix()
+	}
+
+	return newMtimes, written, nil
 }
 
 // isBasenameRawLink checks if a raw_link represents a basename link (no path separators).

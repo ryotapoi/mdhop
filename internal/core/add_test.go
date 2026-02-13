@@ -358,18 +358,475 @@ func TestAddVaultEscape(t *testing.T) {
 	}
 }
 
-func TestAddAutoDisambiguateNotImplemented(t *testing.T) {
-	vault := copyVault(t, "vault_add")
+func TestAddAutoDisambiguateBasic(t *testing.T) {
+	// Pattern A: existing unique note (sub/B.md) becomes ambiguous when adding B.md.
+	// With --auto-disambiguate, A.md's links should be rewritten to sub/B.
+	vault := copyVault(t, "vault_add_disambiguate")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	_, err := Add(vault, AddOptions{
-		Files:            []string{"A.md"},
+	// Create B.md at root to cause basename collision.
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	result, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
 		AutoDisambiguate: true,
 	})
-	if err == nil || !strings.Contains(err.Error(), "not yet implemented") {
-		t.Errorf("expected not yet implemented error, got: %v", err)
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	if len(result.Added) != 1 || result.Added[0] != "B.md" {
+		t.Errorf("Added = %v, want [B.md]", result.Added)
+	}
+
+	// Check rewritten links.
+	if len(result.Rewritten) != 5 {
+		t.Fatalf("Rewritten = %d, want 5", len(result.Rewritten))
+	}
+
+	// Verify A.md file content was rewritten.
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	lines := strings.Split(string(content), "\n")
+	// [[B]] → [[sub/B]]
+	if lines[0] != "[[sub/B]]" {
+		t.Errorf("line 1 = %q, want [[sub/B]]", lines[0])
+	}
+	// [[B|alias]] → [[sub/B|alias]]
+	if lines[1] != "[[sub/B|alias]]" {
+		t.Errorf("line 2 = %q, want [[sub/B|alias]]", lines[1])
+	}
+	// [[B#Heading]] → [[sub/B#Heading]]
+	if lines[2] != "[[sub/B#Heading]]" {
+		t.Errorf("line 3 = %q, want [[sub/B#Heading]]", lines[2])
+	}
+	// [link](B.md) → [link](sub/B.md)
+	if lines[3] != "[link](sub/B.md)" {
+		t.Errorf("line 4 = %q, want [link](sub/B.md)", lines[3])
+	}
+	// [link2](B.md#frag) → [link2](sub/B.md#frag)
+	if lines[4] != "[link2](sub/B.md#frag)" {
+		t.Errorf("line 5 = %q, want [link2](sub/B.md#frag)", lines[4])
+	}
+}
+
+func TestAddAutoDisambiguateRootTarget(t *testing.T) {
+	// When the old target is at root (B.md), rewrites should use source-relative paths.
+	vault := copyVault(t, "vault_add_disambiguate_root")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Create sub/B.md to cause collision.
+	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("# B sub\n"), 0o644); err != nil {
+		t.Fatalf("write sub/B.md: %v", err)
+	}
+
+	result, err := Add(vault, AddOptions{
+		Files:            []string{"sub/B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	if len(result.Added) != 1 {
+		t.Errorf("Added = %v, want 1 file", result.Added)
+	}
+
+	// A.md is at root → [[B]] → [[./B]]
+	contentA, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	if got := strings.TrimSpace(string(contentA)); got != "[[./B]]" {
+		t.Errorf("A.md = %q, want [[./B]]", got)
+	}
+
+	// sub/Source.md is in sub/ → [[B]] → [[../B]]
+	contentS, err := os.ReadFile(filepath.Join(vault, "sub", "Source.md"))
+	if err != nil {
+		t.Fatalf("read sub/Source.md: %v", err)
+	}
+	if got := strings.TrimSpace(string(contentS)); got != "[[../B]]" {
+		t.Errorf("sub/Source.md = %q, want [[../B]]", got)
+	}
+}
+
+func TestAddAutoDisambiguatePatternBStillErrors(t *testing.T) {
+	// Pattern B (phantom + 2 new files with same basename) → error even with --auto-disambiguate.
+	vault := copyVault(t, "vault_build_phantom")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// A.md has [[NonExistent]] → phantom.
+	// Add two files named NonExistent.
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "NonExistent.md"), []byte("# NE1\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "NonExistent.md"), []byte("# NE2\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"NonExistent.md", "sub/NonExistent.md"},
+		AutoDisambiguate: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "adding files would make existing links ambiguous") {
+		t.Errorf("expected ambiguity error, got: %v", err)
+	}
+}
+
+func TestAddAutoDisambiguateNewFileAmbiguousStillErrors(t *testing.T) {
+	// New file contains ambiguous basename link → error even with --auto-disambiguate.
+	vault := copyVault(t, "vault_add_disambiguate")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Create B.md at root (collides with sub/B.md).
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+	// Create C.md that has ambiguous link [[B]] in itself.
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatalf("write C.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md", "C.md"},
+		AutoDisambiguate: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "ambiguous link") {
+		t.Errorf("expected ambiguous link error, got: %v", err)
+	}
+}
+
+func TestAddAutoDisambiguateDBUpdated(t *testing.T) {
+	// Verify DB edges have updated raw_link and source mtime is updated.
+	vault := copyVault(t, "vault_add_disambiguate")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	// Check edges from A.md — raw_link should be rewritten.
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	for _, e := range edges {
+		if e.linkType == "wikilink" || e.linkType == "markdown" {
+			if isBasenameRawLink(e.rawLink, e.linkType) {
+				t.Errorf("edge raw_link %q is still a basename link after rewrite", e.rawLink)
+			}
+		}
+	}
+
+	// Check that A.md's mtime in DB matches disk.
+	info, err := os.Stat(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("stat A.md: %v", err)
+	}
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	var dbMtime int64
+	if err := db.QueryRow("SELECT mtime FROM nodes WHERE path = 'A.md'").Scan(&dbMtime); err != nil {
+		t.Fatalf("query mtime: %v", err)
+	}
+	if dbMtime != info.ModTime().Unix() {
+		t.Errorf("A.md mtime: DB=%d, disk=%d", dbMtime, info.ModTime().Unix())
+	}
+}
+
+func TestAddAutoDisambiguateCodeFenceIgnored(t *testing.T) {
+	// Links inside code fences are not in the edge table → not rewritten.
+	vault := copyVault(t, "vault_add_disambiguate")
+
+	// Overwrite A.md with code fence content.
+	aContent := "[[B]]\n```\n[[B]]\n```\n"
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	lines := strings.Split(string(content), "\n")
+	// Line 1: [[B]] → rewritten to [[sub/B]]
+	if lines[0] != "[[sub/B]]" {
+		t.Errorf("line 1 = %q, want [[sub/B]]", lines[0])
+	}
+	// Line 3 (inside code fence): [[B]] → should NOT be rewritten
+	if lines[2] != "[[B]]" {
+		t.Errorf("line 3 (code fence) = %q, want [[B]]", lines[2])
+	}
+}
+
+func TestAddAutoDisambiguateInlineCodeIgnored(t *testing.T) {
+	// Inline code `[[B]]` should not be rewritten, but [[B]] outside should be.
+	vault := copyVault(t, "vault_add_disambiguate")
+
+	aContent := "[[B]] and `[[B]]` here\n"
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	got := strings.TrimSpace(string(content))
+	want := "[[sub/B]] and `[[B]]` here"
+	if got != want {
+		t.Errorf("A.md = %q, want %q", got, want)
+	}
+}
+
+func TestAddAutoDisambiguateEmbed(t *testing.T) {
+	// Embed ![[B]] should be rewritten to ![[sub/B]].
+	vault := copyVault(t, "vault_add_disambiguate")
+
+	aContent := "![[B]]\n"
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	got := strings.TrimSpace(string(content))
+	want := "![[sub/B]]"
+	if got != want {
+		t.Errorf("A.md = %q, want %q", got, want)
+	}
+}
+
+func TestAddAutoDisambiguateStaleMtimeErrors(t *testing.T) {
+	// If source file mtime doesn't match DB, error should occur with no changes.
+	vault := copyVault(t, "vault_add_disambiguate")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Tamper with A.md's mtime in DB to simulate stale state.
+	db := openTestDB(t, dbPath(vault))
+	if _, err := db.Exec("UPDATE nodes SET mtime = mtime - 100 WHERE path = 'A.md'"); err != nil {
+		db.Close()
+		t.Fatalf("update mtime: %v", err)
+	}
+	db.Close()
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	beforeNotes := countNotes(t, dbPath(vault))
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "source file is stale") {
+		t.Errorf("expected stale error, got: %v", err)
+	}
+
+	// DB should be unchanged (no new notes added).
+	afterNotes := countNotes(t, dbPath(vault))
+	if beforeNotes != afterNotes {
+		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
+	}
+
+	// A.md content should not have been rewritten.
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	if strings.Contains(string(content), "sub/B") {
+		t.Error("A.md should not have been rewritten on stale error")
+	}
+}
+
+func TestAddAutoDisambiguateExtensionPreserved(t *testing.T) {
+	// markdown link extension preservation + wikilink .md removal.
+	vault := copyVault(t, "vault_add_disambiguate")
+
+	// A.md with mixed extension patterns.
+	aContent := "[[B.md]]\n[text](B)\n[text2](B.md)\n"
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	lines := strings.Split(string(content), "\n")
+	// [[B.md]] → [[sub/B]] (wikilink always strips .md)
+	if lines[0] != "[[sub/B]]" {
+		t.Errorf("line 1 = %q, want [[sub/B]]", lines[0])
+	}
+	// [text](B) → [text](sub/B) (no extension preserved)
+	if lines[1] != "[text](sub/B)" {
+		t.Errorf("line 2 = %q, want [text](sub/B)", lines[1])
+	}
+	// [text2](B.md) → [text2](sub/B.md) (extension preserved)
+	if lines[2] != "[text2](sub/B.md)" {
+		t.Errorf("line 3 = %q, want [text2](sub/B.md)", lines[2])
+	}
+}
+
+func TestAddAutoDisambiguateRebuildConsistent(t *testing.T) {
+	// After auto-disambiguate, a full rebuild should produce the same DB state.
+	vault := copyVault(t, "vault_add_disambiguate")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	// Collect state after add.
+	addEdges := countEdges(t, dbPath(vault))
+	addNotes := countNotes(t, dbPath(vault))
+
+	// Rebuild.
+	if err := Build(vault); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+
+	// Verify rebuild succeeds and produces same counts.
+	rebuildEdges := countEdges(t, dbPath(vault))
+	rebuildNotes := countNotes(t, dbPath(vault))
+
+	if addNotes != rebuildNotes {
+		t.Errorf("notes: add=%d, rebuild=%d", addNotes, rebuildNotes)
+	}
+	if addEdges != rebuildEdges {
+		t.Errorf("edges: add=%d, rebuild=%d", addEdges, rebuildEdges)
+	}
+
+	// Verify the rewritten links in A.md resolve correctly.
+	edgesA := queryEdges(t, dbPath(vault), "A.md")
+	for _, e := range edgesA {
+		if e.linkType == "wikilink" || e.linkType == "markdown" {
+			if isBasenameRawLink(e.rawLink, e.linkType) {
+				t.Errorf("after rebuild, edge raw_link %q is still basename", e.rawLink)
+			}
+		}
+	}
+}
+
+func TestAddAutoDisambiguateRestoreBackups(t *testing.T) {
+	// Verify restoreBackups correctly restores file content.
+	dir := t.TempDir()
+
+	// Create a file and modify it, then restore.
+	original := []byte("original content\n")
+	filePath := "test.md"
+	if err := os.WriteFile(filepath.Join(dir, filePath), []byte("modified content\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	backups := []rewriteBackup{
+		{path: filePath, content: original},
+	}
+	restoreBackups(dir, backups)
+
+	restored, err := os.ReadFile(filepath.Join(dir, filePath))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(restored) != string(original) {
+		t.Errorf("restored = %q, want %q", string(restored), string(original))
 	}
 }
 
