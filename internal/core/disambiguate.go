@@ -1,0 +1,239 @@
+package core
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// DisambiguateOptions controls which basename links to rewrite.
+type DisambiguateOptions struct {
+	Name   string   // basename to disambiguate (required)
+	Target string   // target file path (required if multiple candidates)
+	Files  []string // limit rewriting to these source files
+}
+
+// DisambiguateResult reports the outcome of the disambiguate operation.
+type DisambiguateResult struct {
+	Rewritten []RewrittenLink
+}
+
+// Disambiguate rewrites basename links to full paths for the given basename.
+func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
+	// Step 1: DB existence check.
+	dbp := dbPath(vaultPath)
+	if _, err := os.Stat(dbp); os.IsNotExist(err) {
+		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
+	}
+
+	// Step 2: open DB.
+	db, err := openDBAt(dbp)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// Step 3: find candidate notes matching the basename.
+	nameKey := strings.ToLower(strings.TrimSuffix(strings.ToLower(opts.Name), ".md"))
+
+	rows, err := db.Query("SELECT id, path FROM nodes WHERE type='note' AND exists_flag=1")
+	if err != nil {
+		return nil, err
+	}
+	type candidate struct {
+		id   int64
+		path string
+	}
+	var candidates []candidate
+	for rows.Next() {
+		var c candidate
+		if err := rows.Scan(&c.id, &c.path); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if basenameKey(c.path) == nameKey {
+			candidates = append(candidates, c)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Step 4: determine target.
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no note found with basename: %s", opts.Name)
+	}
+
+	var target candidate
+	if opts.Target != "" {
+		// Match --target against candidates.
+		normalizedTarget := normalizePath(opts.Target)
+		normalizedTargetMd := normalizedTarget
+		if !strings.HasSuffix(strings.ToLower(normalizedTarget), ".md") {
+			normalizedTargetMd = normalizedTarget + ".md"
+		}
+		found := false
+		for _, c := range candidates {
+			if c.path == normalizedTarget || c.path == normalizedTargetMd {
+				target = c
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("target not found among candidates: %s", opts.Target)
+		}
+	} else if len(candidates) == 1 {
+		target = candidates[0]
+	} else {
+		// Multiple candidates, --target required.
+		var paths []string
+		for _, c := range candidates {
+			paths = append(paths, c.path)
+		}
+		return nil, fmt.Errorf("multiple candidates for basename %s, --target is required: %s",
+			opts.Name, strings.Join(paths, ", "))
+	}
+
+	// Step 5: validate --file flags.
+	fileScope := make(map[string]bool)
+	for _, f := range opts.Files {
+		np := normalizePath(f)
+		// Check that the file is registered as a note.
+		var id int64
+		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'note'",
+			noteKey(np)).Scan(&id)
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("file not registered: %s", np)
+		}
+		if err != nil {
+			return nil, err
+		}
+		fileScope[np] = true
+	}
+
+	// Step 6: get incoming edges (basename links pointing to target).
+	edgeRows, err := db.Query(
+		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id
+		 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
+		 WHERE e.target_id = ? AND e.link_type IN ('wikilink', 'markdown')`, target.id)
+	if err != nil {
+		return nil, err
+	}
+	var rewrites []rewriteEntry
+	for edgeRows.Next() {
+		var re rewriteEntry
+		if err := edgeRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID); err != nil {
+			edgeRows.Close()
+			return nil, err
+		}
+		// Filter: basename links only.
+		if !isBasenameRawLink(re.rawLink, re.linkType) {
+			continue
+		}
+		// Filter: skip self-references.
+		if re.sourcePath == target.path {
+			continue
+		}
+		// Filter: --file scope.
+		if len(fileScope) > 0 && !fileScope[re.sourcePath] {
+			continue
+		}
+		// Compute new raw link.
+		newRawLink := rewriteRawLink(re.rawLink, re.linkType, re.sourcePath, target.path)
+		if newRawLink == re.rawLink {
+			continue // no change needed
+		}
+		re.newRawLink = newRawLink
+		rewrites = append(rewrites, re)
+	}
+	edgeRows.Close()
+	if err := edgeRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Step 7: no rewrites needed → success with empty result.
+	if len(rewrites) == 0 {
+		return &DisambiguateResult{}, nil
+	}
+
+	// Step 8: stale check on source files.
+	sourceStaleChecked := make(map[int64]bool)
+	for _, re := range rewrites {
+		if sourceStaleChecked[re.sourceID] {
+			continue
+		}
+		sourceStaleChecked[re.sourceID] = true
+		var dbMtime int64
+		err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", re.sourceID).Scan(&dbMtime)
+		if err != nil {
+			return nil, err
+		}
+		info, err := os.Stat(filepath.Join(vaultPath, re.sourcePath))
+		if err != nil {
+			return nil, err
+		}
+		if info.ModTime().Unix() != dbMtime {
+			return nil, fmt.Errorf("source file is stale: %s", re.sourcePath)
+		}
+	}
+
+	// Step 9: apply disk rewrites.
+	groups := make(map[string][]rewriteEntry)
+	for _, re := range rewrites {
+		groups[re.sourcePath] = append(groups[re.sourcePath], re)
+	}
+	newMtimes, backups, applyErr := applyFileRewrites(vaultPath, groups)
+	if applyErr != nil {
+		return nil, applyErr
+	}
+
+	// Step 10: DB transaction — update edges and mtimes.
+	tx, err := db.Begin()
+	if err != nil {
+		restoreBackups(vaultPath, backups)
+		return nil, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			tx.Rollback()
+			restoreBackups(vaultPath, backups)
+		}
+	}()
+
+	result := &DisambiguateResult{}
+	for _, re := range rewrites {
+		if _, err := tx.Exec("UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
+			return nil, err
+		}
+		result.Rewritten = append(result.Rewritten, RewrittenLink{
+			File:    re.sourcePath,
+			OldLink: re.rawLink,
+			NewLink: re.newRawLink,
+		})
+	}
+
+	// Update source mtime in DB.
+	mtimeUpdated := make(map[int64]bool)
+	for _, re := range rewrites {
+		if mtimeUpdated[re.sourceID] {
+			continue
+		}
+		mtimeUpdated[re.sourceID] = true
+		mt := newMtimes[re.sourceID]
+		if _, err := tx.Exec("UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	committed = true
+
+	return result, nil
+}

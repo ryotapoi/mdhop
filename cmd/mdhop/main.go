@@ -32,7 +32,7 @@ func main() {
 	case "move":
 		err = runMove(os.Args[2:])
 	case "disambiguate":
-		err = fmt.Errorf("not yet implemented")
+		err = runDisambiguate(os.Args[2:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -56,6 +56,7 @@ Commands:
   update     Update specified files in the index
   delete     Remove files from the index
   move       Move a file and update links
+  disambiguate  Rewrite basename links to full paths
   resolve    Resolve a link from a source file
   query      Query related information for a node
   stats      Show vault statistics
