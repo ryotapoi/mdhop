@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ryotapoi/mdhop/internal/testutil"
@@ -704,6 +705,44 @@ func TestBuildFullVault(t *testing.T) {
 	totalEdges := countEdges(t, dbPath(vault))
 	if totalEdges < 10 {
 		t.Errorf("expected at least 10 edges, got %d", totalEdges)
+	}
+}
+
+func TestBuildExcludesMdhopDir(t *testing.T) {
+	vault := copyVault(t, "vault_build_basic")
+	// Create a .md file inside .mdhop dir — it should be excluded from the index.
+	mdhopDir := filepath.Join(vault, ".mdhop")
+	if err := os.MkdirAll(mdhopDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(mdhopDir, "test.md"), []byte("# Hidden\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	notes := queryNodes(t, dbPath(vault), "note")
+	for _, n := range notes {
+		if strings.Contains(n.path, ".mdhop") {
+			t.Errorf("file inside .mdhop should be excluded: %s", n.path)
+		}
+	}
+}
+
+func TestBuildEdgeLineEnd(t *testing.T) {
+	vault := copyVault(t, "vault_build_edges")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	for _, e := range edges {
+		if e.lineEnd < e.lineStart {
+			t.Errorf("edge %s: lineEnd (%d) < lineStart (%d)", e.rawLink, e.lineEnd, e.lineStart)
+		}
+		// All links in A.md are single-line, so lineStart == lineEnd.
+		if e.lineEnd != e.lineStart {
+			t.Errorf("edge %s: expected lineStart == lineEnd for single-line link, got %d != %d", e.rawLink, e.lineStart, e.lineEnd)
+		}
 	}
 }
 

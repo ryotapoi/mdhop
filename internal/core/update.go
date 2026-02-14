@@ -151,7 +151,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		}
 		links := parseLinks(string(content))
 
-		// Check for ambiguous links and vault escape (same logic as build's detectAmbiguousLinks).
+		// Check for ambiguous links and vault escape (same logic as build's inline validation).
 		for _, link := range links {
 			if link.linkType != "wikilink" && link.linkType != "markdown" {
 				continue

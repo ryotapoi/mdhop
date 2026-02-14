@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -20,11 +19,63 @@ func Build(vaultPath string) error {
 	}
 
 	basenameCounts := countBasenames(files)
-	ambiguous := detectAmbiguousLinks(vaultPath, files, basenameCounts)
-	if len(ambiguous) > 0 {
-		return fmt.Errorf("ambiguous links: %s", strings.Join(ambiguous, ", "))
+
+	// Build lookup maps (no DB needed).
+	basenameToPath := make(map[string]string) // lower basename → path (only for unique basenames)
+	for _, rel := range files {
+		bk := basenameKey(rel)
+		if basenameCounts[bk] == 1 {
+			basenameToPath[bk] = rel
+		}
+	}
+	pathSet := make(map[string]string) // normalized lookup key → actual vault-relative path
+	for _, rel := range files {
+		pathSet[strings.ToLower(rel)] = rel
+		noExt := strings.TrimSuffix(rel, filepath.Ext(rel))
+		pathSet[strings.ToLower(noExt)] = rel
 	}
 
+	// Read all files, parse links, stat for mtime, and validate.
+	// Done before DB creation so failures leave no temp file behind.
+	type parsedFile struct {
+		path  string
+		mtime int64
+		links []linkOccur
+	}
+	parsed := make([]parsedFile, 0, len(files))
+	for _, rel := range files {
+		fullPath := filepath.Join(vaultPath, rel)
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			return err
+		}
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			return err
+		}
+		links := parseLinks(string(content))
+
+		// Validate links (fail-fast on ambiguous or vault-escape).
+		for _, link := range links {
+			if link.linkType != "wikilink" && link.linkType != "markdown" {
+				continue
+			}
+			if link.isRelative && escapesVault(rel, link.target) {
+				return fmt.Errorf("link escapes vault: %s in %s", link.rawLink, rel)
+			}
+			if link.isBasename && basenameCounts[strings.ToLower(link.target)] > 1 {
+				return fmt.Errorf("ambiguous link: %s in %s", link.target, rel)
+			}
+		}
+
+		parsed = append(parsed, parsedFile{
+			path:  rel,
+			mtime: info.ModTime().Unix(),
+			links: links,
+		})
+	}
+
+	// Create temp DB.
 	tmpPath := dbPath(vaultPath) + ".tmp"
 	_ = os.Remove(tmpPath)
 	defer os.Remove(tmpPath)
@@ -39,57 +90,42 @@ func Build(vaultPath string) error {
 		return err
 	}
 
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	// Pass 1: insert all note nodes.
 	pathToID := make(map[string]int64)
-	basenameToPath := make(map[string]string) // lower basename → path (only for unique basenames)
-	for _, rel := range files {
-		name := basename(rel)
-		info, err := os.Stat(filepath.Join(vaultPath, rel))
+	for _, pf := range parsed {
+		name := basename(pf.path)
+		id, err := upsertNote(tx, pf.path, name, pf.mtime)
 		if err != nil {
 			return err
 		}
-		mtime := info.ModTime().Unix()
-		id, err := upsertNote(db, rel, name, mtime)
-		if err != nil {
-			return err
-		}
-		pathToID[rel] = id
-
-		bk := basenameKey(rel)
-		if basenameCounts[bk] == 1 {
-			basenameToPath[bk] = rel
-		}
+		pathToID[pf.path] = id
 	}
 
-	// Build pathSet for path-based lookups (also with .md stripped).
-	pathSet := make(map[string]string) // normalized lookup key → actual vault-relative path
-	for _, rel := range files {
-		pathSet[strings.ToLower(rel)] = rel
-		noExt := strings.TrimSuffix(rel, filepath.Ext(rel))
-		pathSet[strings.ToLower(noExt)] = rel
-	}
-
-	// Pass 2: parse links, resolve targets, create edges.
-	for _, rel := range files {
-		content, err := os.ReadFile(filepath.Join(vaultPath, rel))
-		if err != nil {
-			return err
-		}
-		sourceID := pathToID[rel]
-		links := parseLinks(string(content))
-
-		for _, link := range links {
-			targetID, subpath, err := resolveLink(db, rel, link, pathSet, basenameToPath, pathToID)
+	// Pass 2: resolve links and create edges (using cached parsed data).
+	for _, pf := range parsed {
+		sourceID := pathToID[pf.path]
+		for _, link := range pf.links {
+			targetID, subpath, err := resolveLink(tx, pf.path, link, pathSet, basenameToPath, pathToID)
 			if err != nil {
 				return err
 			}
 			if targetID == 0 {
 				continue
 			}
-			if err := insertEdge(db, sourceID, targetID, link.linkType, link.rawLink, subpath, link.lineStart, link.lineEnd); err != nil {
+			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, subpath, link.lineStart, link.lineEnd); err != nil {
 				return err
 			}
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
 	}
 
 	if err := db.Close(); err != nil {
@@ -216,41 +252,6 @@ func countBasenames(files []string) map[string]int {
 	return seen
 }
 
-func detectAmbiguousLinks(vaultPath string, files []string, basenameCounts map[string]int) []string {
-	ambiguous := make(map[string]bool)
-	for _, rel := range files {
-		content, err := os.ReadFile(filepath.Join(vaultPath, rel))
-		if err != nil {
-			ambiguous["<read error>"] = true
-			continue
-		}
-		for _, link := range parseLinks(string(content)) {
-			// Only check wikilink/markdown for ambiguity (not tags/frontmatter).
-			if link.linkType != "wikilink" && link.linkType != "markdown" {
-				continue
-			}
-			if link.isRelative && escapesVault(rel, link.target) {
-				ambiguous["<vault escape>"] = true
-				continue
-			}
-			if !link.isBasename {
-				continue
-			}
-			if basenameCounts[strings.ToLower(link.target)] > 1 {
-				ambiguous[link.target] = true
-			}
-		}
-	}
-	if len(ambiguous) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(ambiguous))
-	for name := range ambiguous {
-		out = append(out, name)
-	}
-	sort.Strings(out)
-	return out
-}
 
 func escapesVault(fromPath, target string) bool {
 	base := filepath.Dir(fromPath)
