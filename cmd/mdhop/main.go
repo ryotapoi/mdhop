@@ -29,7 +29,9 @@ func main() {
 		err = runUpdate(os.Args[2:])
 	case "add":
 		err = runAdd(os.Args[2:])
-	case "move", "disambiguate":
+	case "move":
+		err = runMove(os.Args[2:])
+	case "disambiguate":
 		err = fmt.Errorf("not yet implemented")
 	case "help", "--help", "-h":
 		printUsage()
@@ -53,6 +55,7 @@ Commands:
   add        Add new files to the index
   update     Update specified files in the index
   delete     Remove files from the index
+  move       Move a file and update links
   resolve    Resolve a link from a source file
   query      Query related information for a node
   stats      Show vault statistics
