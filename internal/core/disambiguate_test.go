@@ -392,6 +392,223 @@ func TestDisambiguateCaseInsensitive(t *testing.T) {
 	}
 }
 
+// --- DisambiguateScan tests ---
+
+func TestDisambiguateScanBasic(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	// No build — scan works without DB.
+	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "A"})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if len(result.Rewritten) != 5 {
+		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
+		for _, r := range result.Rewritten {
+			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+		}
+	}
+
+	// Verify disk content of B.md.
+	content, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	got := string(content)
+
+	wantLines := []string{
+		"[[sub/A]]",
+		"[[sub/A|alias]]",
+		"[[sub/A#Heading]]",
+		"[link](sub/A.md)",
+		"[link2](sub/A.md#frag)",
+	}
+	for _, want := range wantLines {
+		if !strings.Contains(got, want) {
+			t.Errorf("B.md should contain %q, got:\n%s", want, got)
+		}
+	}
+}
+
+func TestDisambiguateScanMultipleCandidatesNoTarget(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	// Create another A.md in root.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# root A\n"), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+
+	_, err := DisambiguateScan(vault, DisambiguateOptions{Name: "A"})
+	if err == nil {
+		t.Fatal("expected error for multiple candidates without --target")
+	}
+	if !strings.Contains(err.Error(), "--target is required") {
+		t.Errorf("error = %q, want containing '--target is required'", err.Error())
+	}
+}
+
+func TestDisambiguateScanWithTarget(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	result, err := DisambiguateScan(vault, DisambiguateOptions{
+		Name:   "A",
+		Target: "sub/A.md",
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(result.Rewritten) != 5 {
+		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
+	}
+}
+
+func TestDisambiguateScanFileScope(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate_file_scope")
+
+	result, err := DisambiguateScan(vault, DisambiguateOptions{
+		Name:  "A",
+		Files: []string{"B.md"},
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	for _, r := range result.Rewritten {
+		if r.File != "B.md" {
+			t.Errorf("unexpected rewrite in %s", r.File)
+		}
+	}
+	if len(result.Rewritten) != 1 {
+		t.Errorf("Rewritten count = %d, want 1", len(result.Rewritten))
+	}
+
+	// D.md should remain unchanged.
+	content, err := os.ReadFile(filepath.Join(vault, "D.md"))
+	if err != nil {
+		t.Fatalf("read D.md: %v", err)
+	}
+	if !strings.Contains(string(content), "[[A]]") {
+		t.Errorf("D.md should still contain [[A]], got: %s", content)
+	}
+}
+
+func TestDisambiguateScanFileNotFound(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	_, err := DisambiguateScan(vault, DisambiguateOptions{
+		Name:  "A",
+		Files: []string{"nonexistent.md"},
+	})
+	if err == nil {
+		t.Fatal("expected error for nonexistent file")
+	}
+	if !strings.Contains(err.Error(), "file not found") {
+		t.Errorf("error = %q, want containing 'file not found'", err.Error())
+	}
+}
+
+func TestDisambiguateScanInlineCodeIgnored(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	bPath := filepath.Join(vault, "B.md")
+	if err := os.WriteFile(bPath, []byte("[[A]]\n`[[A]]` should not change\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := DisambiguateScan(vault, DisambiguateOptions{Name: "A"})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	content, err := os.ReadFile(bPath)
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	got := string(content)
+
+	if !strings.Contains(got, "`[[A]]`") {
+		t.Errorf("inline code [[A]] was incorrectly rewritten, got:\n%s", got)
+	}
+	if !strings.Contains(got, "[[sub/A]]") {
+		t.Errorf("regular [[A]] was not rewritten, got:\n%s", got)
+	}
+}
+
+func TestDisambiguateScanNoDBRequired(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	// Ensure no .mdhop directory exists.
+	mdhopDir := filepath.Join(vault, ".mdhop")
+	if _, err := os.Stat(mdhopDir); err == nil {
+		t.Fatalf(".mdhop should not exist in fixture, but it does")
+	}
+
+	// Should work without DB.
+	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "A"})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(result.Rewritten) != 5 {
+		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
+	}
+}
+
+func TestDisambiguateScanCaseInsensitive(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "a"})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(result.Rewritten) != 5 {
+		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
+	}
+}
+
+func TestDisambiguateScanPathLinkNotRewritten(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	origContent, err := os.ReadFile(filepath.Join(vault, "C.md"))
+	if err != nil {
+		t.Fatalf("read C.md: %v", err)
+	}
+
+	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "A"})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	for _, r := range result.Rewritten {
+		if r.File == "C.md" {
+			t.Errorf("C.md should not be rewritten, got: %s → %s", r.OldLink, r.NewLink)
+		}
+	}
+
+	newContent, err := os.ReadFile(filepath.Join(vault, "C.md"))
+	if err != nil {
+		t.Fatalf("read C.md: %v", err)
+	}
+	if string(newContent) != string(origContent) {
+		t.Errorf("C.md content changed:\n  before: %q\n  after:  %q", origContent, newContent)
+	}
+}
+
+func TestDisambiguateScanTargetNotFound(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+
+	_, err := DisambiguateScan(vault, DisambiguateOptions{
+		Name:   "A",
+		Target: "nonexistent/A.md",
+	})
+	if err == nil {
+		t.Fatal("expected error for target not found")
+	}
+	if !strings.Contains(err.Error(), "target not found") {
+		t.Errorf("error = %q, want containing 'target not found'", err.Error())
+	}
+}
+
 // openTestDBForDisambiguate is not needed — we reuse openTestDB from build_test.go.
 
 // queryEdgeRawLinks is a helper specific to disambiguate tests.

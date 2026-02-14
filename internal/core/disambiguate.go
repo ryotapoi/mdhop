@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -234,6 +235,149 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		return nil, err
 	}
 	committed = true
+
+	return result, nil
+}
+
+// DisambiguateScan rewrites basename links to full paths without using the DB.
+// It scans all .md files in the vault directly.
+func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
+	// Step 1: collect all .md files.
+	files, err := collectMarkdownFiles(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+
+	fileSet := make(map[string]bool, len(files))
+	for _, f := range files {
+		fileSet[f] = true
+	}
+
+	// Step 2: find candidates matching the basename.
+	nameKey := strings.ToLower(strings.TrimSuffix(strings.ToLower(opts.Name), ".md"))
+
+	var candidates []string
+	for _, f := range files {
+		if basenameKey(f) == nameKey {
+			candidates = append(candidates, f)
+		}
+	}
+
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no note found with basename: %s", opts.Name)
+	}
+
+	// Step 3: determine target.
+	var targetPath string
+	if opts.Target != "" {
+		normalizedTarget := normalizePath(opts.Target)
+		normalizedTargetMd := normalizedTarget
+		if !strings.HasSuffix(strings.ToLower(normalizedTarget), ".md") {
+			normalizedTargetMd = normalizedTarget + ".md"
+		}
+		found := false
+		for _, c := range candidates {
+			if c == normalizedTarget || c == normalizedTargetMd {
+				targetPath = c
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("target not found among candidates: %s", opts.Target)
+		}
+	} else if len(candidates) == 1 {
+		targetPath = candidates[0]
+	} else {
+		return nil, fmt.Errorf("multiple candidates for basename %s, --target is required: %s",
+			opts.Name, strings.Join(candidates, ", "))
+	}
+
+	// Step 4: validate --file flags.
+	fileScope := make(map[string]bool)
+	for _, f := range opts.Files {
+		np := normalizePath(f)
+		if !fileSet[np] {
+			return nil, fmt.Errorf("file not found: %s", np)
+		}
+		fileScope[np] = true
+	}
+
+	// Step 5: scan files for basename links matching nameKey.
+	scanFiles := files
+	if len(fileScope) > 0 {
+		scanFiles = nil
+		for _, f := range files {
+			if fileScope[f] {
+				scanFiles = append(scanFiles, f)
+			}
+		}
+	}
+
+	var rewrites []rewriteEntry
+	for _, sourcePath := range scanFiles {
+		// Skip self-references (source is the target itself).
+		if sourcePath == targetPath {
+			continue
+		}
+
+		content, err := os.ReadFile(filepath.Join(vaultPath, sourcePath))
+		if err != nil {
+			return nil, err
+		}
+
+		links := parseLinks(string(content))
+		for _, lo := range links {
+			if lo.linkType != "wikilink" && lo.linkType != "markdown" {
+				continue
+			}
+			if !lo.isBasename {
+				continue
+			}
+			if basenameKey(lo.target) != nameKey {
+				continue
+			}
+
+			newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, sourcePath, targetPath)
+			if newRawLink == lo.rawLink {
+				continue
+			}
+
+			rewrites = append(rewrites, rewriteEntry{
+				rawLink:    lo.rawLink,
+				linkType:   lo.linkType,
+				lineStart:  lo.lineStart,
+				sourcePath: sourcePath,
+				sourceID:   0,
+				newRawLink: newRawLink,
+			})
+		}
+	}
+
+	if len(rewrites) == 0 {
+		return &DisambiguateResult{}, nil
+	}
+
+	// Step 6: apply disk rewrites.
+	groups := make(map[string][]rewriteEntry)
+	for _, re := range rewrites {
+		groups[re.sourcePath] = append(groups[re.sourcePath], re)
+	}
+	_, _, applyErr := applyFileRewrites(vaultPath, groups)
+	if applyErr != nil {
+		return nil, applyErr
+	}
+
+	// Step 7: build result.
+	result := &DisambiguateResult{}
+	for _, re := range rewrites {
+		result.Rewritten = append(result.Rewritten, RewrittenLink{
+			File:    re.sourcePath,
+			OldLink: re.rawLink,
+			NewLink: re.newRawLink,
+		})
+	}
 
 	return result, nil
 }

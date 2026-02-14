@@ -12,7 +12,7 @@ func runDisambiguate(args []string) error {
 	vault := fs.String("vault", ".", "vault root directory")
 	name := fs.String("name", "", "basename to disambiguate")
 	target := fs.String("target", "", "target file path (required if multiple candidates)")
-	scan := fs.Bool("scan", false, "scan all files without DB (not yet implemented)")
+	scan := fs.Bool("scan", false, "scan all files without DB")
 	var files multiString
 	fs.Var(&files, "file", "limit rewriting to these source files")
 	if err := fs.Parse(args); err != nil {
@@ -22,7 +22,12 @@ func runDisambiguate(args []string) error {
 		return fmt.Errorf("--name is required")
 	}
 	if *scan {
-		return fmt.Errorf("--scan is not yet implemented")
+		_, err := core.DisambiguateScan(*vault, core.DisambiguateOptions{
+			Name:   *name,
+			Target: *target,
+			Files:  files,
+		})
+		return err
 	}
 	_, err := core.Disambiguate(*vault, core.DisambiguateOptions{
 		Name:   *name,
