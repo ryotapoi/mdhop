@@ -201,6 +201,11 @@ func TestQueryBacklinks(t *testing.T) {
 	if len(res.Backlinks) != 2 {
 		t.Errorf("backlinks count = %d, want 2", len(res.Backlinks))
 	}
+	for _, bl := range res.Backlinks {
+		if bl.Type != "note" {
+			t.Errorf("backlink %s: type = %q, want %q", bl.Name, bl.Type, "note")
+		}
+	}
 }
 
 func TestQueryBacklinksPhantom(t *testing.T) {
@@ -213,6 +218,11 @@ func TestQueryBacklinksPhantom(t *testing.T) {
 	expectContains(t, names, "Index")
 	if len(res.Backlinks) != 1 {
 		t.Errorf("backlinks count = %d, want 1", len(res.Backlinks))
+	}
+	for _, bl := range res.Backlinks {
+		if bl.Type != "note" {
+			t.Errorf("backlink %s: type = %q, want %q", bl.Name, bl.Type, "note")
+		}
 	}
 }
 
@@ -227,6 +237,11 @@ func TestQueryBacklinksTag(t *testing.T) {
 	expectContains(t, names, "Index")
 	if len(res.Backlinks) != 2 {
 		t.Errorf("backlinks count = %d, want 2", len(res.Backlinks))
+	}
+	for _, bl := range res.Backlinks {
+		if bl.Type != "note" {
+			t.Errorf("backlink %s: type = %q, want %q", bl.Name, bl.Type, "note")
+		}
 	}
 }
 
@@ -277,6 +292,14 @@ func TestQueryOutgoing(t *testing.T) {
 	expectContains(t, names, "Missing")
 	if len(res.Outgoing) != 3 {
 		t.Errorf("outgoing count = %d, want 3, got %v", len(res.Outgoing), names)
+	}
+	wantTypes := map[string]string{"Design": "note", "Impl": "note", "Missing": "phantom"}
+	for _, o := range res.Outgoing {
+		if wantType, ok := wantTypes[o.Name]; ok {
+			if o.Type != wantType {
+				t.Errorf("outgoing %s: type = %q, want %q", o.Name, o.Type, wantType)
+			}
+		}
 	}
 }
 
@@ -371,6 +394,16 @@ func TestQueryTwoHop(t *testing.T) {
 	if !viaNames["Impl"] {
 		t.Error("expected Impl as a via node")
 	}
+	for _, entry := range res.TwoHop {
+		if entry.Via.Type != "note" && entry.Via.Type != "phantom" && entry.Via.Type != "tag" {
+			t.Errorf("via %s: unexpected type %q", entry.Via.Name, entry.Via.Type)
+		}
+		for _, target := range entry.Targets {
+			if target.Type != "note" && target.Type != "phantom" && target.Type != "tag" {
+				t.Errorf("target %s via %s: unexpected type %q", target.Name, entry.Via.Name, target.Type)
+			}
+		}
+	}
 }
 
 func TestQueryTwoHopMaxLimit(t *testing.T) {
@@ -458,8 +491,19 @@ func TestQueryTwoHopPhantom(t *testing.T) {
 	// Via = Index.md, targets should include Design, sub/Impl, etc. (but not Missing).
 	found := false
 	for _, entry := range res.TwoHop {
+		if entry.Via.Type != "note" && entry.Via.Type != "phantom" && entry.Via.Type != "tag" {
+			t.Errorf("via %s: unexpected type %q", entry.Via.Name, entry.Via.Type)
+		}
+		for _, target := range entry.Targets {
+			if target.Type != "note" && target.Type != "phantom" && target.Type != "tag" {
+				t.Errorf("target %s via %s: unexpected type %q", target.Name, entry.Via.Name, target.Type)
+			}
+		}
 		if entry.Via.Name == "Index" {
 			found = true
+			if entry.Via.Type != "note" {
+				t.Errorf("via Index: type = %q, want %q", entry.Via.Type, "note")
+			}
 			for _, target := range entry.Targets {
 				if target.Name == "Missing" {
 					t.Error("Missing should not appear as a target")
@@ -633,6 +677,150 @@ func TestQueryFieldsUnknown(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unknown query field") {
 		t.Errorf("error = %q, want containing 'unknown query field'", err.Error())
+	}
+}
+
+// --- Snippet context lines tests ---
+
+func TestQuerySnippetContextLines(t *testing.T) {
+	vault := setupFullVault(t)
+	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
+		Fields:         []string{"snippet"},
+		IncludeSnippet: 2,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Snippets) != 4 {
+		t.Fatalf("snippets count = %d, want 4", len(res.Snippets))
+	}
+
+	// Helper to find snippets by source path and line start.
+	findSnippet := func(sourcePath string, lineStart int) *SnippetEntry {
+		for i := range res.Snippets {
+			if res.Snippets[i].SourcePath == sourcePath && res.Snippets[i].LineStart == lineStart {
+				return &res.Snippets[i]
+			}
+		}
+		return nil
+	}
+
+	// Verify line_start == line_end assumption: for single-line links with context=2,
+	// a non-boundary snippet should have exactly 2*context+1 = 5 lines.
+	// sub/Impl.md L10 (file 12 lines): start=max(0,10-2-1)=7 → LineStart=8, end=min(10+2,12)=12 → LineEnd=12
+	s := findSnippet("sub/Impl.md", 8)
+	if s == nil {
+		t.Fatal("snippet from sub/Impl.md LineStart=8 not found")
+	}
+	if s.LineEnd != 12 {
+		t.Errorf("sub/Impl.md snippet: LineEnd = %d, want 12", s.LineEnd)
+	}
+	if len(s.Lines) != 5 {
+		t.Errorf("sub/Impl.md snippet: lines count = %d, want 5 (confirms line_start==line_end)", len(s.Lines))
+	}
+
+	// Index.md L10: start=7 → LineStart=8, end=12 → LineEnd=12
+	s = findSnippet("Index.md", 8)
+	if s == nil {
+		t.Fatal("snippet from Index.md LineStart=8 not found")
+	}
+	if s.LineEnd != 12 {
+		t.Errorf("Index.md L10 snippet: LineEnd = %d, want 12", s.LineEnd)
+	}
+	if len(s.Lines) != 5 {
+		t.Errorf("Index.md L10 snippet: lines count = %d, want 5", len(s.Lines))
+	}
+
+	// Index.md L14: start=11 → LineStart=12, end=min(16,16)=16 → LineEnd=16
+	s = findSnippet("Index.md", 12)
+	if s == nil {
+		t.Fatal("snippet from Index.md LineStart=12 not found")
+	}
+	if s.LineEnd != 16 {
+		t.Errorf("Index.md L14 snippet: LineEnd = %d, want 16", s.LineEnd)
+	}
+	if len(s.Lines) != 5 {
+		t.Errorf("Index.md L14 snippet: lines count = %d, want 5", len(s.Lines))
+	}
+
+	// Index.md L16: start=13 → LineStart=14, end=min(18,16)=16 → LineEnd=16
+	s = findSnippet("Index.md", 14)
+	if s == nil {
+		t.Fatal("snippet from Index.md LineStart=14 not found")
+	}
+	if s.LineEnd != 16 {
+		t.Errorf("Index.md L16 snippet: LineEnd = %d, want 16", s.LineEnd)
+	}
+	if len(s.Lines) != 3 {
+		t.Errorf("Index.md L16 snippet: lines count = %d, want 3", len(s.Lines))
+	}
+}
+
+func TestQuerySnippetBoundary(t *testing.T) {
+	vault := setupFullVault(t)
+	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
+		Fields:         []string{"snippet"},
+		IncludeSnippet: 20,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, s := range res.Snippets {
+		switch s.SourcePath {
+		case "sub/Impl.md":
+			// 12-line file, context=20 should clamp to full file.
+			if s.LineStart != 1 {
+				t.Errorf("sub/Impl.md: LineStart = %d, want 1", s.LineStart)
+			}
+			if s.LineEnd != 12 {
+				t.Errorf("sub/Impl.md: LineEnd = %d, want 12", s.LineEnd)
+			}
+			if len(s.Lines) != 12 {
+				t.Errorf("sub/Impl.md: lines count = %d, want 12", len(s.Lines))
+			}
+		case "Index.md":
+			// 16-line file, context=20 should clamp to full file.
+			if s.LineStart != 1 {
+				t.Errorf("Index.md (L%d): LineStart = %d, want 1", s.LineStart, s.LineStart)
+			}
+			if s.LineEnd != 16 {
+				t.Errorf("Index.md: LineEnd = %d, want 16", s.LineEnd)
+			}
+			if len(s.Lines) != 16 {
+				t.Errorf("Index.md: lines count = %d, want 16", len(s.Lines))
+			}
+		}
+	}
+}
+
+// --- filterLeafTags unit tests ---
+
+func TestFilterLeafTags(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"empty", nil, nil},
+		{"single", []string{"#a"}, []string{"#a"}},
+		{"ancestor chain", []string{"#a", "#a/b", "#a/b/c"}, []string{"#a/b/c"}},
+		{"no ancestors", []string{"#a", "#b", "#c"}, []string{"#a", "#b", "#c"}},
+		{"confusing prefix", []string{"#status", "#status2", "#status/active"}, []string{"#status/active", "#status2"}},
+		{"hyphen tag", []string{"#a", "#a-1", "#a/b"}, []string{"#a-1", "#a/b"}},
+		{"mixed", []string{"#a", "#a/b", "#b", "#b/c"}, []string{"#a/b", "#b/c"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterLeafTags(tt.in)
+			if len(got) != len(tt.want) {
+				t.Fatalf("filterLeafTags(%v) = %v, want %v", tt.in, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("filterLeafTags(%v)[%d] = %q, want %q", tt.in, i, got[i], tt.want[i])
+				}
+			}
+		})
 	}
 }
 

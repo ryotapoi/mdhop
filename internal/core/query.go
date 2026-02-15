@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -182,7 +183,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 }
 
 // findEntryNode resolves an EntrySpec to a node ID and NodeInfo.
-func findEntryNode(db *sql.DB, spec EntrySpec) (int64, NodeInfo, error) {
+func findEntryNode(db dbExecer, spec EntrySpec) (int64, NodeInfo, error) {
 	count := 0
 	if spec.File != "" {
 		count++
@@ -215,12 +216,11 @@ func findEntryNode(db *sql.DB, spec EntrySpec) (int64, NodeInfo, error) {
 	return findEntryByName(db, spec.Name)
 }
 
-func findEntryByFile(db *sql.DB, file string) (int64, NodeInfo, error) {
-	path := normalizePath(file)
-	id, err := getNodeID(db, noteKey(path))
+func findEntryByKey(db dbExecer, key, errMsg string) (int64, NodeInfo, error) {
+	id, err := getNodeID(db, key)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, NodeInfo{}, fmt.Errorf("file not in index: %s", path)
+			return 0, NodeInfo{}, fmt.Errorf("%s", errMsg)
 		}
 		return 0, NodeInfo{}, err
 	}
@@ -231,42 +231,23 @@ func findEntryByFile(db *sql.DB, file string) (int64, NodeInfo, error) {
 	return id, info, nil
 }
 
-func findEntryByTag(db *sql.DB, tag string) (int64, NodeInfo, error) {
+func findEntryByFile(db dbExecer, file string) (int64, NodeInfo, error) {
+	path := normalizePath(file)
+	return findEntryByKey(db, noteKey(path), fmt.Sprintf("file not in index: %s", path))
+}
+
+func findEntryByTag(db dbExecer, tag string) (int64, NodeInfo, error) {
 	if !strings.HasPrefix(tag, "#") {
 		tag = "#" + tag
 	}
-	key := fmt.Sprintf("tag:name:%s", strings.ToLower(tag))
-	id, err := getNodeID(db, key)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, NodeInfo{}, fmt.Errorf("tag not in index: %s", tag)
-		}
-		return 0, NodeInfo{}, err
-	}
-	info, err := fetchNodeInfo(db, id)
-	if err != nil {
-		return 0, NodeInfo{}, err
-	}
-	return id, info, nil
+	return findEntryByKey(db, fmt.Sprintf("tag:name:%s", strings.ToLower(tag)), fmt.Sprintf("tag not in index: %s", tag))
 }
 
-func findEntryByPhantom(db *sql.DB, name string) (int64, NodeInfo, error) {
-	key := fmt.Sprintf("phantom:name:%s", strings.ToLower(name))
-	id, err := getNodeID(db, key)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, NodeInfo{}, fmt.Errorf("phantom not in index: %s", name)
-		}
-		return 0, NodeInfo{}, err
-	}
-	info, err := fetchNodeInfo(db, id)
-	if err != nil {
-		return 0, NodeInfo{}, err
-	}
-	return id, info, nil
+func findEntryByPhantom(db dbExecer, name string) (int64, NodeInfo, error) {
+	return findEntryByKey(db, fmt.Sprintf("phantom:name:%s", strings.ToLower(name)), fmt.Sprintf("phantom not in index: %s", name))
 }
 
-func findEntryByName(db *sql.DB, name string) (int64, NodeInfo, error) {
+func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 	if strings.HasPrefix(name, "#") {
 		return findEntryByTag(db, name)
 	}
@@ -310,23 +291,11 @@ func findEntryByName(db *sql.DB, name string) (int64, NodeInfo, error) {
 	}
 
 	// Try phantom.
-	phantomKey := fmt.Sprintf("phantom:name:%s", lower)
-	id, err := getNodeID(db, phantomKey)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, NodeInfo{}, fmt.Errorf("name not found: %s", name)
-		}
-		return 0, NodeInfo{}, err
-	}
-	info, err := fetchNodeInfo(db, id)
-	if err != nil {
-		return 0, NodeInfo{}, err
-	}
-	return id, info, nil
+	return findEntryByKey(db, fmt.Sprintf("phantom:name:%s", lower), fmt.Sprintf("name not found: %s", name))
 }
 
 // fetchNodeInfo retrieves NodeInfo for a node by ID.
-func fetchNodeInfo(db *sql.DB, nodeID int64) (NodeInfo, error) {
+func fetchNodeInfo(db dbExecer, nodeID int64) (NodeInfo, error) {
 	var typ, name, path string
 	var existsFlag int
 
@@ -346,7 +315,7 @@ func fetchNodeInfo(db *sql.DB, nodeID int64) (NodeInfo, error) {
 	}, nil
 }
 
-func queryBacklinks(db *sql.DB, targetID int64, limit int) ([]NodeInfo, error) {
+func queryBacklinks(db dbExecer, targetID int64, limit int) ([]NodeInfo, error) {
 	rows, err := db.Query(
 		`SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.source_id
@@ -372,7 +341,7 @@ func queryBacklinks(db *sql.DB, targetID int64, limit int) ([]NodeInfo, error) {
 	return result, rows.Err()
 }
 
-func queryOutgoing(db *sql.DB, sourceID int64) ([]NodeInfo, error) {
+func queryOutgoing(db dbExecer, sourceID int64) ([]NodeInfo, error) {
 	rows, err := db.Query(
 		`SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.target_id
@@ -397,7 +366,7 @@ func queryOutgoing(db *sql.DB, sourceID int64) ([]NodeInfo, error) {
 	return result, rows.Err()
 }
 
-func queryTags(db *sql.DB, sourceID int64) ([]string, error) {
+func queryTags(db dbExecer, sourceID int64) ([]string, error) {
 	rows, err := db.Query(
 		`SELECT DISTINCT n.name FROM edges e JOIN nodes n ON n.id = e.target_id
 		 WHERE e.source_id = ? AND n.type = 'tag'
@@ -425,23 +394,76 @@ func queryTags(db *sql.DB, sourceID int64) ([]string, error) {
 }
 
 func filterLeafTags(tags []string) []string {
+	if len(tags) <= 1 {
+		return tags
+	}
+	sorted := make([]string, len(tags))
+	copy(sorted, tags)
+	sort.Strings(sorted)
 	var leaves []string
-	for _, t := range tags {
-		isAncestor := false
-		for _, other := range tags {
-			if strings.HasPrefix(other, t+"/") {
-				isAncestor = true
-				break
-			}
+	for _, t := range sorted {
+		prefix := t + "/"
+		idx := sort.SearchStrings(sorted, prefix)
+		// If idx < len(sorted) and sorted[idx] starts with prefix, t has a descendant.
+		if idx < len(sorted) && strings.HasPrefix(sorted[idx], prefix) {
+			continue
 		}
-		if !isAncestor {
-			leaves = append(leaves, t)
-		}
+		leaves = append(leaves, t)
 	}
 	return leaves
 }
 
-func queryTwoHop(db *sql.DB, entryID int64, entryType string, maxTwoHop, maxViaPerTarget int) ([]TwoHopEntry, error) {
+func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
+	if len(ids) == 0 {
+		return map[int64]NodeInfo{}, nil
+	}
+
+	result := make(map[int64]NodeInfo, len(ids))
+	const chunkSize = 500
+
+	for start := 0; start < len(ids); start += chunkSize {
+		end := start + chunkSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		chunk := ids[start:end]
+
+		placeholders := strings.Repeat("?,", len(chunk))
+		placeholders = placeholders[:len(placeholders)-1] // trim trailing comma
+
+		args := make([]any, len(chunk))
+		for i, id := range chunk {
+			args[i] = id
+		}
+
+		rows, err := db.Query(
+			fmt.Sprintf(`SELECT id, type, name, COALESCE(path,''), exists_flag FROM nodes WHERE id IN (%s)`, placeholders),
+			args...,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		for rows.Next() {
+			var id int64
+			var typ, name, path string
+			var exists int
+			if err := rows.Scan(&id, &typ, &name, &path, &exists); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			result[id] = NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxViaPerTarget int) ([]TwoHopEntry, error) {
 	var seedQuery string
 	var seedIsOutbound bool
 
@@ -474,15 +496,20 @@ func queryTwoHop(db *sql.DB, entryID int64, entryType string, maxTwoHop, maxViaP
 		return nil, err
 	}
 
+	viaInfoMap, err := fetchNodeInfoBatch(db, seedIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	var entries []TwoHopEntry
 	for _, viaID := range seedIDs {
 		if len(entries) >= maxTwoHop {
 			break
 		}
 
-		viaInfo, err := fetchNodeInfo(db, viaID)
-		if err != nil {
-			return nil, err
+		viaInfo, ok := viaInfoMap[viaID]
+		if !ok {
+			return nil, fmt.Errorf("node not found in batch: id=%d", viaID)
 		}
 
 		var targetRows *sql.Rows
@@ -534,7 +561,7 @@ func queryTwoHop(db *sql.DB, entryID int64, entryType string, maxTwoHop, maxViaP
 	return entries, nil
 }
 
-func readHead(db *sql.DB, vaultPath string, nodeID int64, n int) ([]string, error) {
+func readHead(db dbExecer, vaultPath string, nodeID int64, n int) ([]string, error) {
 	var path string
 	var mtime int64
 	err := db.QueryRow(
@@ -575,7 +602,7 @@ func readHead(db *sql.DB, vaultPath string, nodeID int64, n int) ([]string, erro
 	return lines[start:end], nil
 }
 
-func readSnippets(db *sql.DB, vaultPath string, targetID int64, contextLines int) ([]SnippetEntry, error) {
+func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines int) ([]SnippetEntry, error) {
 	rows, err := db.Query(
 		`SELECT n.path, n.mtime, e.line_start, e.line_end
 		 FROM edges e JOIN nodes n ON n.id = e.source_id

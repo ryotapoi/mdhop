@@ -22,6 +22,7 @@
 - `parseMarkdownLinks` で `[[` を `[` と誤認しないよう、`[` の次が `[` ならスキップする処理が必要
 - frontmatter の行番号: yaml.v3 の `Node.Line`（YAML 内 1-based）+ offset 1（`---` 行分）= ファイル全体の行番号
 - Tag regex `[A-Za-z0-9_][A-Za-z0-9_/]*` はハイフンにマッチしない。テストフィクスチャでタグにハイフンを使うと認識されない
+- **frontmatter タグと inline タグの文字種差異**: inline タグは正規表現で `[A-Za-z0-9_/]` に制限されるが、frontmatter の `tags:` は YAML からそのまま取り込むため、ハイフン・ドット等 `/` (ASCII 47) より小さい文字を含む可能性がある。タグのソート・比較処理ではこの差異を考慮すること
 - `isBasenameRawLink` は self-link（`[[#Heading]]`, `[text](#heading)`）で false を返す必要がある。fragment 除去後に target が空なら self-link
 
 ## リライト (rewrite.go)
@@ -56,6 +57,10 @@
 - build はファイル存在時に phantom を自動解決するため、既存 phantom edge のテストには DB に直接 phantom ノードを挿入する
 - mtime stale テスト: `os.WriteFile` は同一秒内だと同じ Unix mtime を返す。DB の mtime を直接書き換えてテストする
 - disambiguate テスト: build が曖昧 basename link を拒否するため、フィクスチャではパスリンク（`[[sub/A]]`）を使い、テスト内でルート `A.md` を追加して複数候補状態を作る
+
+## query コマンド (query.go)
+
+- `*sql.DB` → `dbExecer` 変更は安全。query.go の内部関数は `Exec`, `QueryRow`, `Query` しか使わず、`dbExecer` インターフェースがこれらを全てカバーしている。公開関数 `Query()` は `*sql.DB` のまま維持（`openDBAt` の戻り値型）
 
 ## CLI 出力 (format.go)
 
