@@ -235,7 +235,7 @@ func TestQueryBacklinksLimit(t *testing.T) {
 
 func TestQueryBacklinksDistinct(t *testing.T) {
 	vault := setupFullVault(t)
-	// sub/Impl.md is linked from Index.md twice (wikilink + markdown).
+	// sub/Impl.md is linked from Index.md thrice (wikilink + markdown + relative wikilink).
 	res, err := Query(vault, EntrySpec{File: "sub/Impl.md"}, QueryOptions{Fields: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -259,7 +259,7 @@ func TestQueryOutgoing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Index.md → Design, sub/Impl (×2 but distinct), Missing (phantom). No tags, no self-link.
+	// Index.md → Design (×3 but distinct), sub/Impl (×3 but distinct), Missing (phantom). No tags, no self-link.
 	names := nodeNames(res.Outgoing)
 	expectContains(t, names, "Design")
 	expectContains(t, names, "Impl")

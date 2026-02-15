@@ -35,9 +35,9 @@ func TestStats_Full(t *testing.T) {
 	if result.PhantomsTotal != 2 {
 		t.Errorf("phantoms_total = %d, want 2", result.PhantomsTotal)
 	}
-	// 17 edges total (wikilinks + markdown links + tags + frontmatter)
-	if result.EdgesTotal != 17 {
-		t.Errorf("edges_total = %d, want 17", result.EdgesTotal)
+	// 20 edges total (wikilinks + markdown links + tags + frontmatter)
+	if result.EdgesTotal != 20 {
+		t.Errorf("edges_total = %d, want 20", result.EdgesTotal)
 	}
 }
 

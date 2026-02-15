@@ -54,7 +54,8 @@
 - Markdown link:
   - `/` 始まり: Vault ルート相対
   - `./` / `../` 始まり: `from_note` 基準
-  - それ以外: 既定は Vault ルート相対（設定で標準Markdown相対にもできる）
+  - `/` を含むがプレフィックスなし（例: `sub/C.md`）: パスとして解決
+  - `/` を含まない（例: `Design.md`）: basename 解決（`[[note]]` と同一扱い）
 
 ### 2.4 ノート取得（query）
 

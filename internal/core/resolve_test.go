@@ -234,6 +234,63 @@ func TestResolveFrontmatterTag(t *testing.T) {
 	}
 }
 
+func TestResolveMarkdownBasename(t *testing.T) {
+	vault := copyVaultForResolve(t, "vault_build_full")
+	buildVault(t, vault)
+
+	res, err := Resolve(vault, "Index.md", "[design](Design.md)")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Type != "note" {
+		t.Errorf("type = %q, want %q", res.Type, "note")
+	}
+	if res.Name != "Design" {
+		t.Errorf("name = %q, want %q", res.Name, "Design")
+	}
+	if res.Path != "Design.md" {
+		t.Errorf("path = %q, want %q", res.Path, "Design.md")
+	}
+}
+
+func TestResolveWikilinkRelative(t *testing.T) {
+	vault := copyVaultForResolve(t, "vault_build_full")
+	buildVault(t, vault)
+
+	res, err := Resolve(vault, "Index.md", "[[./sub/Impl]]")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Type != "note" {
+		t.Errorf("type = %q, want %q", res.Type, "note")
+	}
+	if res.Name != "Impl" {
+		t.Errorf("name = %q, want %q", res.Name, "Impl")
+	}
+	if res.Path != "sub/Impl.md" {
+		t.Errorf("path = %q, want %q", res.Path, "sub/Impl.md")
+	}
+}
+
+func TestResolveCaseInsensitive(t *testing.T) {
+	vault := copyVaultForResolve(t, "vault_build_full")
+	buildVault(t, vault)
+
+	res, err := Resolve(vault, "Index.md", "[[design]]")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Type != "note" {
+		t.Errorf("type = %q, want %q", res.Type, "note")
+	}
+	if res.Name != "Design" {
+		t.Errorf("name = %q, want %q", res.Name, "Design")
+	}
+	if res.Path != "Design.md" {
+		t.Errorf("path = %q, want %q", res.Path, "Design.md")
+	}
+}
+
 func TestResolveErrorSourceNotInDB(t *testing.T) {
 	vault := copyVaultForResolve(t, "vault_build_full")
 	buildVault(t, vault)

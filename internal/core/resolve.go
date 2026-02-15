@@ -85,7 +85,7 @@ func selectLinkOccur(links []linkOccur, input string) *linkOccur {
 
 // resolveLinkFromDB resolves a linkOccur to a target node ID using DB queries.
 // Mirrors resolveLink() in build.go but uses DB instead of in-memory maps.
-func resolveLinkFromDB(db *sql.DB, sourcePath string, link linkOccur) (int64, string, error) {
+func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, string, error) {
 	// Self-link: [[#Heading]]
 	if link.target == "" && link.subpath != "" {
 		id, err := getNodeID(db, noteKey(sourcePath))
@@ -140,7 +140,7 @@ func resolveLinkFromDB(db *sql.DB, sourcePath string, link linkOccur) (int64, st
 }
 
 // resolvePathFromDB finds a note node by path, falling back to phantom.
-func resolvePathFromDB(db *sql.DB, resolved string, link linkOccur) (int64, string, error) {
+func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, string, error) {
 	normalized := normalizePath(resolved)
 	lower := strings.ToLower(normalized)
 
@@ -173,7 +173,7 @@ func resolvePathFromDB(db *sql.DB, resolved string, link linkOccur) (int64, stri
 }
 
 // resolveBasenameFromDB finds a note node by basename (case-insensitive).
-func resolveBasenameFromDB(db *sql.DB, target string, link linkOccur) (int64, string, error) {
+func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, string, error) {
 	lower := strings.ToLower(target)
 
 	rows, err := db.Query(
@@ -219,7 +219,7 @@ func resolveBasenameFromDB(db *sql.DB, target string, link linkOccur) (int64, st
 }
 
 // edgeExists checks if an edge from source to target with matching subpath exists.
-func edgeExists(db *sql.DB, sourceID, targetID int64, subpath string) (bool, error) {
+func edgeExists(db dbExecer, sourceID, targetID int64, subpath string) (bool, error) {
 	var count int
 	err := db.QueryRow(
 		`SELECT COUNT(*) FROM edges WHERE source_id = ? AND target_id = ? AND COALESCE(subpath, '') = ?`,
@@ -232,7 +232,7 @@ func edgeExists(db *sql.DB, sourceID, targetID int64, subpath string) (bool, err
 }
 
 // fetchNodeResult retrieves the target node info and builds a ResolveResult.
-func fetchNodeResult(db *sql.DB, nodeID int64, subpath string) (*ResolveResult, error) {
+func fetchNodeResult(db dbExecer, nodeID int64, subpath string) (*ResolveResult, error) {
 	var typ, name string
 	var path sql.NullString
 	var existsFlag int

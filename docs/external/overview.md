@@ -181,6 +181,7 @@
 - markdown link: `[text](note.md)`, `[text](./note.md#heading)`
   - `note.md` は `[[note]]` と同一扱い
 - tag: `#tag`, `#nested/tag`, frontmatter `tags`
+  - ネストタグは祖先に展開される: `#a/b/c` → `#a`, `#a/b`, `#a/b/c` の各タグが resolve 可能
 - url: `https://...`（将来拡張）
 - frontmatter 内リンクは指定キーのみ（設定で制御）
 - frontmatter の `aliases` は初期バージョンでは解析しない
@@ -198,7 +199,8 @@
 - Markdown link:
   - `/` 始まり: Vault ルート相対
   - `./` / `../` 始まり: `from_note` 基準
-  - それ以外: `[[note]]` と同一扱い（basename 解決）
+  - `/` を含むがプレフィックスなし（例: `sub/C.md`）: パスとして解決
+  - `/` を含まない（例: `Design.md`）: basename 解決（`[[note]]` と同一扱い）
   - Vault 外へ出るパスは厳密モードではエラー
 
 ### resolve の一致モード
