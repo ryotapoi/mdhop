@@ -79,18 +79,6 @@ func validateQueryFields(fields []string) error {
 	return nil
 }
 
-func isFieldActive(field string, fields []string) bool {
-	if len(fields) == 0 {
-		return true
-	}
-	for _, f := range fields {
-		if f == field {
-			return true
-		}
-	}
-	return false
-}
-
 // Query returns related information for the given entry node.
 func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, error) {
 	dbp := dbPath(vaultPath)

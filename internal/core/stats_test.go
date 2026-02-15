@@ -104,18 +104,6 @@ func TestStats_FieldsFilter(t *testing.T) {
 	}
 }
 
-func TestStats_UnknownField(t *testing.T) {
-	vault := t.TempDir()
-
-	_, err := Stats(vault, StatsOptions{Fields: []string{"invalid"}})
-	if err == nil {
-		t.Fatal("expected error for unknown field")
-	}
-	if got := err.Error(); got != "unknown stats field: invalid" {
-		t.Errorf("error = %q, want unknown stats field message", got)
-	}
-}
-
 func TestStats_Tags(t *testing.T) {
 	vault := setupVaultForStats(t, "vault_build_tags")
 

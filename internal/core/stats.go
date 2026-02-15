@@ -19,29 +19,8 @@ type StatsResult struct {
 	PhantomsTotal int
 }
 
-var validStatsFields = map[string]bool{
-	"notes_total":    true,
-	"notes_exists":   true,
-	"edges_total":    true,
-	"tags_total":     true,
-	"phantoms_total": true,
-}
-
-func validateStatsFields(fields []string) error {
-	for _, f := range fields {
-		if !validStatsFields[f] {
-			return fmt.Errorf("unknown stats field: %s", f)
-		}
-	}
-	return nil
-}
-
 // Stats returns aggregate statistics for the indexed vault.
 func Stats(vaultPath string, opts StatsOptions) (*StatsResult, error) {
-	if err := validateStatsFields(opts.Fields); err != nil {
-		return nil, err
-	}
-
 	dbp := dbPath(vaultPath)
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
 		return nil, fmt.Errorf("index not found: run 'mdhop build' first")

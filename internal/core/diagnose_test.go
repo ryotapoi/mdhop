@@ -129,14 +129,3 @@ func TestDiagnose_FieldsFilter(t *testing.T) {
 	}
 }
 
-func TestDiagnose_UnknownField(t *testing.T) {
-	vault := t.TempDir()
-
-	_, err := Diagnose(vault, DiagnoseOptions{Fields: []string{"invalid"}})
-	if err == nil {
-		t.Fatal("expected error for unknown field")
-	}
-	if got := err.Error(); got != "unknown diagnose field: invalid" {
-		t.Errorf("error = %q, want unknown diagnose field message", got)
-	}
-}

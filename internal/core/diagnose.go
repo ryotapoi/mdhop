@@ -24,26 +24,8 @@ type DiagnoseResult struct {
 	Phantoms          []string           // sorted by name
 }
 
-var validDiagnoseFields = map[string]bool{
-	"basename_conflicts": true,
-	"phantoms":           true,
-}
-
-func validateDiagnoseFields(fields []string) error {
-	for _, f := range fields {
-		if !validDiagnoseFields[f] {
-			return fmt.Errorf("unknown diagnose field: %s", f)
-		}
-	}
-	return nil
-}
-
 // Diagnose returns diagnostic information for the indexed vault.
 func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
-	if err := validateDiagnoseFields(opts.Fields); err != nil {
-		return nil, err
-	}
-
 	dbp := dbPath(vaultPath)
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
 		return nil, fmt.Errorf("index not found: run 'mdhop build' first")

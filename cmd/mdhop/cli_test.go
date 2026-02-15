@@ -148,6 +148,72 @@ func TestRunStats_JSONOutput(t *testing.T) {
 	}
 }
 
+func TestPrintStatsText_FieldsFilter(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_build_full")
+
+	result, err := core.Stats(vault, core.StatsOptions{})
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := printStatsText(&buf, result, []string{"notes_total", "tags_total"}); err != nil {
+		t.Fatalf("printStatsText: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "notes_total:") {
+		t.Errorf("expected notes_total in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "tags_total:") {
+		t.Errorf("expected tags_total in output, got:\n%s", out)
+	}
+	if strings.Contains(out, "notes_exists:") {
+		t.Errorf("unexpected notes_exists in output, got:\n%s", out)
+	}
+	if strings.Contains(out, "edges_total:") {
+		t.Errorf("unexpected edges_total in output, got:\n%s", out)
+	}
+	if strings.Contains(out, "phantoms_total:") {
+		t.Errorf("unexpected phantoms_total in output, got:\n%s", out)
+	}
+}
+
+func TestPrintStatsJSON_FieldsFilter(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_build_full")
+
+	result, err := core.Stats(vault, core.StatsOptions{})
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := printStatsJSON(&buf, result, []string{"notes_total"}); err != nil {
+		t.Fatalf("printStatsJSON: %v", err)
+	}
+
+	var m map[string]int
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatalf("json unmarshal: %v", err)
+	}
+
+	if _, ok := m["notes_total"]; !ok {
+		t.Error("expected notes_total in JSON output")
+	}
+	if _, ok := m["notes_exists"]; ok {
+		t.Error("unexpected notes_exists in JSON output")
+	}
+	if _, ok := m["edges_total"]; ok {
+		t.Error("unexpected edges_total in JSON output")
+	}
+	if _, ok := m["tags_total"]; ok {
+		t.Error("unexpected tags_total in JSON output")
+	}
+	if _, ok := m["phantoms_total"]; ok {
+		t.Error("unexpected phantoms_total in JSON output")
+	}
+}
+
 // --- Delete CLI tests ---
 
 func TestRunDelete_MissingFile(t *testing.T) {
@@ -261,5 +327,53 @@ func TestRunDiagnose_JSONOutput(t *testing.T) {
 	}
 	if len(conflicts[0].Paths) != 2 {
 		t.Fatalf("conflict paths count = %d, want 2", len(conflicts[0].Paths))
+	}
+}
+
+func TestPrintDiagnoseText_FieldsFilter(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_build_full")
+
+	result, err := core.Diagnose(vault, core.DiagnoseOptions{})
+	if err != nil {
+		t.Fatalf("diagnose: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := printDiagnoseText(&buf, result, []string{"phantoms"}); err != nil {
+		t.Fatalf("printDiagnoseText: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "phantoms:") {
+		t.Errorf("expected phantoms in output, got:\n%s", out)
+	}
+	if strings.Contains(out, "basename_conflicts:") {
+		t.Errorf("unexpected basename_conflicts in output, got:\n%s", out)
+	}
+}
+
+func TestPrintDiagnoseJSON_FieldsFilter(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_build_full")
+
+	result, err := core.Diagnose(vault, core.DiagnoseOptions{})
+	if err != nil {
+		t.Fatalf("diagnose: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := printDiagnoseJSON(&buf, result, []string{"basename_conflicts"}); err != nil {
+		t.Fatalf("printDiagnoseJSON: %v", err)
+	}
+
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatalf("json unmarshal: %v", err)
+	}
+
+	if _, ok := m["basename_conflicts"]; !ok {
+		t.Error("expected basename_conflicts in JSON output")
+	}
+	if _, ok := m["phantoms"]; ok {
+		t.Error("unexpected phantoms in JSON output")
 	}
 }
