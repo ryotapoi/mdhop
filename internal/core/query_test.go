@@ -142,6 +142,17 @@ func TestQueryEntryNameAmbiguous(t *testing.T) {
 	}
 }
 
+func TestQueryErrorMultipleEntry(t *testing.T) {
+	vault := setupFullVault(t)
+	_, err := Query(vault, EntrySpec{File: "Index.md", Tag: "overview"}, QueryOptions{})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "multiple entry") {
+		t.Errorf("error = %q, want containing 'multiple entry'", err.Error())
+	}
+}
+
 func TestQueryErrorNoEntry(t *testing.T) {
 	vault := setupFullVault(t)
 	_, err := Query(vault, EntrySpec{}, QueryOptions{})

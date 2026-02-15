@@ -327,8 +327,7 @@ func findEntryByName(db *sql.DB, name string) (int64, NodeInfo, error) {
 
 // fetchNodeInfo retrieves NodeInfo for a node by ID.
 func fetchNodeInfo(db *sql.DB, nodeID int64) (NodeInfo, error) {
-	var typ, name string
-	var path sql.NullString
+	var typ, name, path string
 	var existsFlag int
 
 	err := db.QueryRow(
@@ -342,7 +341,7 @@ func fetchNodeInfo(db *sql.DB, nodeID int64) (NodeInfo, error) {
 	return NodeInfo{
 		Type:   typ,
 		Name:   name,
-		Path:   path.String,
+		Path:   path,
 		Exists: existsFlag == 1,
 	}, nil
 }
