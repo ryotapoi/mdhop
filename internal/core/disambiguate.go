@@ -23,21 +23,21 @@ type DisambiguateResult struct {
 
 // Disambiguate rewrites basename links to full paths for the given basename.
 func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
-	// Step 1: DB existence check.
+	// DB existence check.
 	dbp := dbPath(vaultPath)
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
 		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
 	}
 
-	// Step 2: open DB.
+	// Open DB.
 	db, err := openDBAt(dbp)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	// Step 3: find candidate notes matching the basename.
-	nameKey := strings.ToLower(strings.TrimSuffix(strings.ToLower(opts.Name), ".md"))
+	// Find candidate notes matching the basename.
+	nameKey := strings.TrimSuffix(strings.ToLower(opts.Name), ".md")
 
 	rows, err := db.Query("SELECT id, path FROM nodes WHERE type='note' AND exists_flag=1")
 	if err != nil {
@@ -63,43 +63,24 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		return nil, err
 	}
 
-	// Step 4: determine target.
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no note found with basename: %s", opts.Name)
+	// Determine target.
+	var candidatePaths []string
+	for _, c := range candidates {
+		candidatePaths = append(candidatePaths, c.path)
 	}
-
+	targetPath, err := resolveDisambiguateTarget(opts.Name, candidatePaths, opts.Target)
+	if err != nil {
+		return nil, err
+	}
 	var target candidate
-	if opts.Target != "" {
-		// Match --target against candidates.
-		normalizedTarget := normalizePath(opts.Target)
-		normalizedTargetMd := normalizedTarget
-		if !strings.HasSuffix(strings.ToLower(normalizedTarget), ".md") {
-			normalizedTargetMd = normalizedTarget + ".md"
+	for _, c := range candidates {
+		if c.path == targetPath {
+			target = c
+			break
 		}
-		found := false
-		for _, c := range candidates {
-			if c.path == normalizedTarget || c.path == normalizedTargetMd {
-				target = c
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf("target not found among candidates: %s", opts.Target)
-		}
-	} else if len(candidates) == 1 {
-		target = candidates[0]
-	} else {
-		// Multiple candidates, --target required.
-		var paths []string
-		for _, c := range candidates {
-			paths = append(paths, c.path)
-		}
-		return nil, fmt.Errorf("multiple candidates for basename %s, --target is required: %s",
-			opts.Name, strings.Join(paths, ", "))
 	}
 
-	// Step 5: validate --file flags.
+	// Validate --file flags.
 	fileScope := make(map[string]bool)
 	for _, f := range opts.Files {
 		np := normalizePath(f)
@@ -116,7 +97,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		fileScope[np] = true
 	}
 
-	// Step 6: get incoming edges (basename links pointing to target).
+	// Get incoming edges (basename links pointing to target).
 	edgeRows, err := db.Query(
 		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id
 		 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
@@ -156,12 +137,12 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		return nil, err
 	}
 
-	// Step 7: no rewrites needed → success with empty result.
+	// No rewrites needed.
 	if len(rewrites) == 0 {
 		return &DisambiguateResult{}, nil
 	}
 
-	// Step 8: stale check on source files.
+	// Stale check on source files.
 	sourceStaleChecked := make(map[int64]bool)
 	for _, re := range rewrites {
 		if sourceStaleChecked[re.sourceID] {
@@ -182,7 +163,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		}
 	}
 
-	// Step 9: apply disk rewrites.
+	// Apply disk rewrites.
 	groups := make(map[string][]rewriteEntry)
 	for _, re := range rewrites {
 		groups[re.sourcePath] = append(groups[re.sourcePath], re)
@@ -192,7 +173,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		return nil, applyErr
 	}
 
-	// Step 10: DB transaction — update edges and mtimes.
+	// DB transaction — update edges and mtimes.
 	tx, err := db.Begin()
 	if err != nil {
 		restoreBackups(vaultPath, backups)
@@ -239,10 +220,38 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 	return result, nil
 }
 
+// resolveDisambiguateTarget picks the target path from candidates.
+// If target is specified, it normalizes and matches against candidates.
+// If target is empty and there is exactly one candidate, it auto-selects.
+// Otherwise it returns an error listing candidates.
+func resolveDisambiguateTarget(name string, candidates []string, target string) (string, error) {
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("no note found with basename: %s", name)
+	}
+	if target != "" {
+		normalized := normalizePath(target)
+		normalizedMd := normalized
+		if !strings.HasSuffix(strings.ToLower(normalized), ".md") {
+			normalizedMd = normalized + ".md"
+		}
+		for _, c := range candidates {
+			if c == normalized || c == normalizedMd {
+				return c, nil
+			}
+		}
+		return "", fmt.Errorf("target not found among candidates: %s", target)
+	}
+	if len(candidates) == 1 {
+		return candidates[0], nil
+	}
+	return "", fmt.Errorf("multiple candidates for basename %s, --target is required: %s",
+		name, strings.Join(candidates, ", "))
+}
+
 // DisambiguateScan rewrites basename links to full paths without using the DB.
 // It scans all .md files in the vault directly.
 func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
-	// Step 1: collect all .md files.
+	// Collect all .md files.
 	files, err := collectMarkdownFiles(vaultPath)
 	if err != nil {
 		return nil, err
@@ -254,8 +263,8 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 		fileSet[f] = true
 	}
 
-	// Step 2: find candidates matching the basename.
-	nameKey := strings.ToLower(strings.TrimSuffix(strings.ToLower(opts.Name), ".md"))
+	// Find candidates matching the basename.
+	nameKey := strings.TrimSuffix(strings.ToLower(opts.Name), ".md")
 
 	var candidates []string
 	for _, f := range files {
@@ -264,37 +273,13 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 		}
 	}
 
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no note found with basename: %s", opts.Name)
+	// Determine target.
+	targetPath, err := resolveDisambiguateTarget(opts.Name, candidates, opts.Target)
+	if err != nil {
+		return nil, err
 	}
 
-	// Step 3: determine target.
-	var targetPath string
-	if opts.Target != "" {
-		normalizedTarget := normalizePath(opts.Target)
-		normalizedTargetMd := normalizedTarget
-		if !strings.HasSuffix(strings.ToLower(normalizedTarget), ".md") {
-			normalizedTargetMd = normalizedTarget + ".md"
-		}
-		found := false
-		for _, c := range candidates {
-			if c == normalizedTarget || c == normalizedTargetMd {
-				targetPath = c
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf("target not found among candidates: %s", opts.Target)
-		}
-	} else if len(candidates) == 1 {
-		targetPath = candidates[0]
-	} else {
-		return nil, fmt.Errorf("multiple candidates for basename %s, --target is required: %s",
-			opts.Name, strings.Join(candidates, ", "))
-	}
-
-	// Step 4: validate --file flags.
+	// Validate --file flags.
 	fileScope := make(map[string]bool)
 	for _, f := range opts.Files {
 		np := normalizePath(f)
@@ -304,7 +289,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 		fileScope[np] = true
 	}
 
-	// Step 5: scan files for basename links matching nameKey.
+	// Scan files for basename links matching nameKey.
 	scanFiles := files
 	if len(fileScope) > 0 {
 		scanFiles = nil
@@ -359,7 +344,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 		return &DisambiguateResult{}, nil
 	}
 
-	// Step 6: apply disk rewrites.
+	// Apply disk rewrites.
 	groups := make(map[string][]rewriteEntry)
 	for _, re := range rewrites {
 		groups[re.sourcePath] = append(groups[re.sourcePath], re)
@@ -369,7 +354,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 		return nil, applyErr
 	}
 
-	// Step 7: build result.
+	// Build result.
 	result := &DisambiguateResult{}
 	for _, re := range rewrites {
 		result.Rewritten = append(result.Rewritten, RewrittenLink{

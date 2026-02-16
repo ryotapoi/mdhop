@@ -1,7 +1,6 @@
 package core
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
@@ -609,36 +608,3 @@ func TestDisambiguateScanTargetNotFound(t *testing.T) {
 	}
 }
 
-// openTestDBForDisambiguate is not needed — we reuse openTestDB from build_test.go.
-
-// queryEdgeRawLinks is a helper specific to disambiguate tests.
-func queryEdgeRawLinks(t *testing.T, dbp string, sourceFile, targetFile string) []string {
-	t.Helper()
-	db, err := sql.Open("sqlite", "file:"+dbp)
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	defer db.Close()
-
-	rows, err := db.Query(
-		`SELECT e.raw_link FROM edges e
-		 JOIN nodes sn ON sn.id = e.source_id
-		 JOIN nodes tn ON tn.id = e.target_id
-		 WHERE sn.node_key = ? AND tn.node_key = ?
-		 ORDER BY e.line_start`,
-		noteKey(sourceFile), noteKey(targetFile))
-	if err != nil {
-		t.Fatalf("query edges: %v", err)
-	}
-	defer rows.Close()
-
-	var links []string
-	for rows.Next() {
-		var rl string
-		if err := rows.Scan(&rl); err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		links = append(links, rl)
-	}
-	return links
-}

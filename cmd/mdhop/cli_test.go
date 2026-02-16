@@ -511,3 +511,50 @@ func TestPrintDiagnoseJSON_FieldsFilter(t *testing.T) {
 		t.Error("unexpected phantoms in JSON output")
 	}
 }
+
+// --- Disambiguate CLI tests ---
+
+func TestRunDisambiguate_MissingName(t *testing.T) {
+	err := runDisambiguate([]string{})
+	if err == nil || !strings.Contains(err.Error(), "--name is required") {
+		t.Errorf("expected --name required error, got: %v", err)
+	}
+}
+
+func TestRunDisambiguate_Integration(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_disambiguate")
+
+	err := runDisambiguate([]string{"--vault", vault, "--name", "A"})
+	if err != nil {
+		t.Fatalf("disambiguate: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	if !strings.Contains(string(content), "[[sub/A]]") {
+		t.Errorf("B.md should contain [[sub/A]], got:\n%s", content)
+	}
+}
+
+func TestRunDisambiguate_ScanIntegration(t *testing.T) {
+	root := filepath.Join("..", "..", "testdata", "vault_disambiguate")
+	vault := filepath.Join(t.TempDir(), "vault")
+	if err := testutil.CopyDir(root, vault); err != nil {
+		t.Fatalf("copy vault: %v", err)
+	}
+
+	err := runDisambiguate([]string{"--vault", vault, "--name", "A", "--scan"})
+	if err != nil {
+		t.Fatalf("disambiguate scan: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	if !strings.Contains(string(content), "[[sub/A]]") {
+		t.Errorf("B.md should contain [[sub/A]], got:\n%s", content)
+	}
+}
