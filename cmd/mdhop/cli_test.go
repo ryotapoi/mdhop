@@ -248,6 +248,49 @@ func TestRunDelete_Integration(t *testing.T) {
 	}
 }
 
+// --- Update CLI tests ---
+
+func TestRunUpdate_MissingFile(t *testing.T) {
+	err := runUpdate([]string{})
+	if err == nil || !strings.Contains(err.Error(), "--file is required") {
+		t.Errorf("expected --file required error, got: %v", err)
+	}
+}
+
+func TestRunUpdate_Integration(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_update")
+
+	// Get baseline edge count.
+	before, err := core.Stats(vault, core.StatsOptions{Fields: []string{"edges_total"}})
+	if err != nil {
+		t.Fatalf("stats before: %v", err)
+	}
+
+	// Modify A.md: add a link to C.
+	aPath := filepath.Join(vault, "A.md")
+	content, err := os.ReadFile(aPath)
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	if err := os.WriteFile(aPath, append(content, []byte("\n[[C]]\n")...), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+
+	// Run update.
+	if err := runUpdate([]string{"--vault", vault, "--file", "A.md"}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	// Verify edges increased.
+	after, err := core.Stats(vault, core.StatsOptions{Fields: []string{"edges_total"}})
+	if err != nil {
+		t.Fatalf("stats after: %v", err)
+	}
+	if after.EdgesTotal <= before.EdgesTotal {
+		t.Errorf("edges_total did not increase: before=%d, after=%d", before.EdgesTotal, after.EdgesTotal)
+	}
+}
+
 // --- Diagnose CLI tests ---
 
 func TestRunDiagnose_InvalidFormat(t *testing.T) {

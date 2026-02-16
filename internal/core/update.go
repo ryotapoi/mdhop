@@ -236,7 +236,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 
 // buildMapsFromDB constructs in-memory maps from existing DB note nodes,
 // mirroring build's Pass 1 structure.
-func buildMapsFromDB(db *sql.DB) (pathToID map[string]int64, pathSet map[string]string, basenameCounts map[string]int, err error) {
+func buildMapsFromDB(db dbExecer) (pathToID map[string]int64, pathSet map[string]string, basenameCounts map[string]int, err error) {
 	pathToID = make(map[string]int64)
 	pathSet = make(map[string]string)
 	basenameCounts = make(map[string]int)
