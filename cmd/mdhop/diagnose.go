@@ -21,7 +21,7 @@ func runDiagnose(args []string) error {
 	}
 
 	fieldList := parseFields(*fields)
-	if err := validateDiagnoseFields(fieldList); err != nil {
+	if err := validateFields(fieldList, validDiagnoseFieldsCLI, "diagnose"); err != nil {
 		return err
 	}
 

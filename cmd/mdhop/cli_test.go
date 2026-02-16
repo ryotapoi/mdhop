@@ -54,6 +54,15 @@ func TestRunQuery_InvalidFormat(t *testing.T) {
 	}
 }
 
+func TestRunQuery_InvalidField(t *testing.T) {
+	// Use an empty temp dir (no index) to verify validation happens before DB open.
+	vault := t.TempDir()
+	err := runQuery([]string{"--vault", vault, "--file", "A.md", "--fields", "bad"})
+	if err == nil || !strings.Contains(err.Error(), "unknown query field") {
+		t.Errorf("expected unknown query field error, got: %v", err)
+	}
+}
+
 // --- Stats CLI tests ---
 
 func TestRunStats_InvalidFormat(t *testing.T) {
@@ -363,7 +372,7 @@ func TestRunMove_Integration(t *testing.T) {
 	}
 
 	// Verify DB updated: old path should be gone, new path should exist.
-	_, err = core.Query(vault, core.EntrySpec{File: "A.md"}, core.QueryOptions{Fields: []string{"type"}})
+	_, err = core.Query(vault, core.EntrySpec{File: "A.md"}, core.QueryOptions{})
 	if err == nil {
 		t.Error("querying A.md should fail after move")
 	}

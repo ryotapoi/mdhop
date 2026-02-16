@@ -30,7 +30,7 @@ func runResolve(args []string) error {
 	}
 
 	parsedFields := parseFields(*fields)
-	if err := validateResolveFields(parsedFields); err != nil {
+	if err := validateFields(parsedFields, validResolveFields, "resolve"); err != nil {
 		return err
 	}
 

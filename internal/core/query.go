@@ -61,24 +61,6 @@ type QueryResult struct {
 	Snippets  []SnippetEntry // nil = not requested
 }
 
-var validQueryFields = map[string]bool{
-	"backlinks": true,
-	"tags":      true,
-	"twohop":    true,
-	"outgoing":  true,
-	"head":      true,
-	"snippet":   true,
-}
-
-func validateQueryFields(fields []string) error {
-	for _, f := range fields {
-		if !validQueryFields[f] {
-			return fmt.Errorf("unknown query field: %s", f)
-		}
-	}
-	return nil
-}
-
 // Query returns related information for the given entry node.
 func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, error) {
 	dbp := dbPath(vaultPath)
@@ -91,10 +73,6 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		return nil, err
 	}
 	defer db.Close()
-
-	if err := validateQueryFields(opts.Fields); err != nil {
-		return nil, err
-	}
 
 	nodeID, info, err := findEntryNode(db, entry)
 	if err != nil {

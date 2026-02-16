@@ -38,21 +38,39 @@ func validateFormat(format string) error {
 	return nil
 }
 
+// validateFields checks that all fields are in the valid set.
+// name is used in the error message (e.g. "resolve", "query").
+func validateFields(fields []string, valid map[string]bool, name string) error {
+	for _, f := range fields {
+		if !valid[f] {
+			return fmt.Errorf("unknown %s field: %s", name, f)
+		}
+	}
+	return nil
+}
+
+// fieldSet returns a set of fields to show. If fields is nil/empty, all valid fields are shown.
+func fieldSet(fields []string, valid map[string]bool) map[string]bool {
+	if len(fields) == 0 {
+		all := make(map[string]bool)
+		for k := range valid {
+			all[k] = true
+		}
+		return all
+	}
+	m := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		m[f] = true
+	}
+	return m
+}
+
 var validResolveFields = map[string]bool{
 	"type":    true,
 	"name":    true,
 	"path":    true,
 	"exists":  true,
 	"subpath": true,
-}
-
-func validateResolveFields(fields []string) error {
-	for _, f := range fields {
-		if !validResolveFields[f] {
-			return fmt.Errorf("unknown resolve field: %s", f)
-		}
-	}
-	return nil
 }
 
 // --- Resolve output ---
@@ -65,7 +83,7 @@ func printResolveJSON(w io.Writer, r *core.ResolveResult, fields []string) error
 }
 
 func printResolveText(w io.Writer, r *core.ResolveResult, fields []string) error {
-	show := resolveFieldSet(fields)
+	show := fieldSet(fields, validResolveFields)
 
 	if show["type"] {
 		fmt.Fprintf(w, "type: %s\n", r.Type)
@@ -86,7 +104,7 @@ func printResolveText(w io.Writer, r *core.ResolveResult, fields []string) error
 }
 
 func buildResolveMap(r *core.ResolveResult, fields []string) map[string]any {
-	show := resolveFieldSet(fields)
+	show := fieldSet(fields, validResolveFields)
 	m := make(map[string]any)
 	if show["type"] {
 		m["type"] = r.Type
@@ -106,22 +124,6 @@ func buildResolveMap(r *core.ResolveResult, fields []string) map[string]any {
 	return m
 }
 
-// resolveFieldSet returns a set of fields to show. If fields is nil/empty, all are shown.
-func resolveFieldSet(fields []string) map[string]bool {
-	if len(fields) == 0 {
-		all := make(map[string]bool)
-		for k := range validResolveFields {
-			all[k] = true
-		}
-		return all
-	}
-	m := make(map[string]bool, len(fields))
-	for _, f := range fields {
-		m[f] = true
-	}
-	return m
-}
-
 // --- Stats output ---
 
 var validStatsFieldsCLI = map[string]bool{
@@ -132,32 +134,8 @@ var validStatsFieldsCLI = map[string]bool{
 	"phantoms_total": true,
 }
 
-func validateStatsFields(fields []string) error {
-	for _, f := range fields {
-		if !validStatsFieldsCLI[f] {
-			return fmt.Errorf("unknown stats field: %s", f)
-		}
-	}
-	return nil
-}
-
-func statsFieldSet(fields []string) map[string]bool {
-	if len(fields) == 0 {
-		all := make(map[string]bool)
-		for k := range validStatsFieldsCLI {
-			all[k] = true
-		}
-		return all
-	}
-	m := make(map[string]bool, len(fields))
-	for _, f := range fields {
-		m[f] = true
-	}
-	return m
-}
-
 func printStatsJSON(w io.Writer, r *core.StatsResult, fields []string) error {
-	show := statsFieldSet(fields)
+	show := fieldSet(fields, validStatsFieldsCLI)
 	m := make(map[string]int)
 	if show["notes_total"] {
 		m["notes_total"] = r.NotesTotal
@@ -180,7 +158,7 @@ func printStatsJSON(w io.Writer, r *core.StatsResult, fields []string) error {
 }
 
 func printStatsText(w io.Writer, r *core.StatsResult, fields []string) error {
-	show := statsFieldSet(fields)
+	show := fieldSet(fields, validStatsFieldsCLI)
 	if show["notes_total"] {
 		fmt.Fprintf(w, "notes_total: %d\n", r.NotesTotal)
 	}
@@ -206,37 +184,13 @@ var validDiagnoseFieldsCLI = map[string]bool{
 	"phantoms":           true,
 }
 
-func validateDiagnoseFields(fields []string) error {
-	for _, f := range fields {
-		if !validDiagnoseFieldsCLI[f] {
-			return fmt.Errorf("unknown diagnose field: %s", f)
-		}
-	}
-	return nil
-}
-
-func diagnoseFieldSet(fields []string) map[string]bool {
-	if len(fields) == 0 {
-		all := make(map[string]bool)
-		for k := range validDiagnoseFieldsCLI {
-			all[k] = true
-		}
-		return all
-	}
-	m := make(map[string]bool, len(fields))
-	for _, f := range fields {
-		m[f] = true
-	}
-	return m
-}
-
 type diagnoseJSONConflict struct {
 	Name  string   `json:"name"`
 	Paths []string `json:"paths"`
 }
 
 func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) error {
-	show := diagnoseFieldSet(fields)
+	show := fieldSet(fields, validDiagnoseFieldsCLI)
 	m := make(map[string]any)
 	if show["basename_conflicts"] {
 		conflicts := make([]diagnoseJSONConflict, len(r.BasenameConflicts))
@@ -258,7 +212,7 @@ func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) err
 }
 
 func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) error {
-	show := diagnoseFieldSet(fields)
+	show := fieldSet(fields, validDiagnoseFieldsCLI)
 	if show["basename_conflicts"] {
 		fmt.Fprintln(w, "basename_conflicts:")
 		for _, c := range r.BasenameConflicts {
@@ -276,6 +230,15 @@ func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) err
 		}
 	}
 	return nil
+}
+
+var validQueryFieldsCLI = map[string]bool{
+	"backlinks": true,
+	"tags":      true,
+	"twohop":    true,
+	"outgoing":  true,
+	"head":      true,
+	"snippet":   true,
 }
 
 // --- Query output ---

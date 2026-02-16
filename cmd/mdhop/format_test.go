@@ -57,20 +57,37 @@ func TestValidateFormat(t *testing.T) {
 	}
 }
 
-func TestValidateResolveFields(t *testing.T) {
-	tests := []struct {
+func TestValidateFields(t *testing.T) {
+	cases := []struct {
+		name    string
 		fields  []string
-		wantErr bool
+		valid   map[string]bool
+		label   string
+		wantErr string // "" means no error
 	}{
-		{nil, false},
-		{[]string{"type", "name"}, false},
-		{[]string{"type", "invalid"}, true},
+		{"resolve nil", nil, validResolveFields, "resolve", ""},
+		{"resolve valid", []string{"type", "name"}, validResolveFields, "resolve", ""},
+		{"resolve invalid", []string{"type", "invalid"}, validResolveFields, "resolve", "unknown resolve field: invalid"},
+		{"stats valid", []string{"notes_total"}, validStatsFieldsCLI, "stats", ""},
+		{"stats invalid", []string{"bad"}, validStatsFieldsCLI, "stats", "unknown stats field: bad"},
+		{"diagnose valid", []string{"phantoms"}, validDiagnoseFieldsCLI, "diagnose", ""},
+		{"diagnose invalid", []string{"bad"}, validDiagnoseFieldsCLI, "diagnose", "unknown diagnose field: bad"},
+		{"query valid", []string{"backlinks", "tags"}, validQueryFieldsCLI, "query", ""},
+		{"query invalid", []string{"bad"}, validQueryFieldsCLI, "query", "unknown query field: bad"},
 	}
-	for _, tt := range tests {
-		err := validateResolveFields(tt.fields)
-		if (err != nil) != tt.wantErr {
-			t.Errorf("validateResolveFields(%v) error = %v, wantErr %v", tt.fields, err, tt.wantErr)
-		}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateFields(tt.fields, tt.valid, tt.label)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			} else {
+				if err == nil || err.Error() != tt.wantErr {
+					t.Errorf("error = %v, want %q", err, tt.wantErr)
+				}
+			}
+		})
 	}
 }
 

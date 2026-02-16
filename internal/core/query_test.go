@@ -669,17 +669,6 @@ func TestQueryFieldsFilter(t *testing.T) {
 	}
 }
 
-func TestQueryFieldsUnknown(t *testing.T) {
-	vault := setupFullVault(t)
-	_, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"bad"}})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "unknown query field") {
-		t.Errorf("error = %q, want containing 'unknown query field'", err.Error())
-	}
-}
-
 // --- Snippet context lines tests ---
 
 func TestQuerySnippetContextLines(t *testing.T) {

@@ -21,7 +21,7 @@ func runStats(args []string) error {
 	}
 
 	fieldList := parseFields(*fields)
-	if err := validateStatsFields(fieldList); err != nil {
+	if err := validateFields(fieldList, validStatsFieldsCLI, "stats"); err != nil {
 		return err
 	}
 

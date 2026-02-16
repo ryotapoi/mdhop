@@ -29,6 +29,11 @@ func runQuery(args []string) error {
 		return err
 	}
 
+	fieldList := parseFields(*fields)
+	if err := validateFields(fieldList, validQueryFieldsCLI, "query"); err != nil {
+		return err
+	}
+
 	entry := core.EntrySpec{
 		File:    *file,
 		Tag:     *tag,
@@ -37,7 +42,7 @@ func runQuery(args []string) error {
 	}
 
 	opts := core.QueryOptions{
-		Fields:          parseFields(*fields),
+		Fields:          fieldList,
 		IncludeHead:     *includeHead,
 		IncludeSnippet:  *includeSnippet,
 		MaxBacklinks:    *maxBacklinks,
