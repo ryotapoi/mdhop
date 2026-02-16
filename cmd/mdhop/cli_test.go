@@ -330,6 +330,52 @@ func TestRunAdd_Integration(t *testing.T) {
 	}
 }
 
+// --- Move CLI tests ---
+
+func TestRunMove_MissingFrom(t *testing.T) {
+	err := runMove([]string{"--to", "X.md"})
+	if err == nil || !strings.Contains(err.Error(), "--from is required") {
+		t.Errorf("expected --from required error, got: %v", err)
+	}
+}
+
+func TestRunMove_MissingTo(t *testing.T) {
+	err := runMove([]string{"--from", "A.md"})
+	if err == nil || !strings.Contains(err.Error(), "--to is required") {
+		t.Errorf("expected --to required error, got: %v", err)
+	}
+}
+
+func TestRunMove_Integration(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_move_basic")
+
+	err := runMove([]string{"--vault", vault, "--from", "A.md", "--to", "sub/A.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// Verify A.md moved on disk.
+	if _, err := os.Stat(filepath.Join(vault, "A.md")); err == nil {
+		t.Error("A.md should not exist on disk after move")
+	}
+	if _, err := os.Stat(filepath.Join(vault, "sub", "A.md")); err != nil {
+		t.Error("sub/A.md should exist on disk after move")
+	}
+
+	// Verify DB updated: old path should be gone, new path should exist.
+	_, err = core.Query(vault, core.EntrySpec{File: "A.md"}, core.QueryOptions{Fields: []string{"type"}})
+	if err == nil {
+		t.Error("querying A.md should fail after move")
+	}
+	qr, err := core.Query(vault, core.EntrySpec{File: "sub/A.md"}, core.QueryOptions{})
+	if err != nil {
+		t.Fatalf("querying sub/A.md: %v", err)
+	}
+	if qr.Entry.Type != "note" {
+		t.Errorf("sub/A.md type = %q, want note", qr.Entry.Type)
+	}
+}
+
 // --- Diagnose CLI tests ---
 
 func TestRunDiagnose_InvalidFormat(t *testing.T) {

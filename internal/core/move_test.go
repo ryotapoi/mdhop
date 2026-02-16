@@ -370,12 +370,10 @@ func TestMove_PhantomPromotion(t *testing.T) {
 	}
 }
 
-// --- Test 10: orphan cleanup (tag removed after move) ---
-func TestMove_OrphanCleanup(t *testing.T) {
-	// Create a vault where moving a file removes its only tag reference.
+// --- Test 10: phantom promotion with orphan cleanup verification ---
+func TestMove_PhantomPromotionAndOrphanCleanup(t *testing.T) {
 	vault := t.TempDir()
-	// A.md has a unique tag that only A references.
-	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("#uniquetag\ncontent\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[Phantom1]]\n[[Phantom2]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
@@ -384,77 +382,29 @@ func TestMove_OrphanCleanup(t *testing.T) {
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
-
 	dbp := dbPath(vault)
 
-	// Verify #uniquetag exists before move.
-	tags := queryNodes(t, dbp, "tag")
-	var foundBefore bool
-	for _, n := range tags {
-		if n.name == "#uniquetag" {
-			foundBefore = true
-		}
-	}
-	if !foundBefore {
-		t.Fatal("expected #uniquetag before move")
-	}
-
-	// Rewrite A.md to remove the tag, then move it.
-	// Actually, move doesn't change file content (except relative links).
-	// To trigger orphan cleanup, we need the tag to become unreferenced.
-	// The moved file still has #uniquetag, so the tag persists.
-	// Instead: create a file with a tag, remove the tag from file content,
-	// then use update (not move). But we're testing move's orphan cleanup.
-
-	// Better approach: A.md links to phantom [[Z]] via a relative path.
-	// After moving A.md, the outgoing edges are re-resolved from new location.
-	// If the old phantom Z has no other references, it should be cleaned up.
-
-	// Simplest test: use the vault_move_phantom fixture but verify phantom X
-	// gets promoted (not orphaned). The orphan cleanup happens for tags/phantoms
-	// that become unreferenced after edge reconstruction.
-
-	// Let's test a different scenario:
-	// A.md has only #uniquetag. B.md links to A.
-	// Move A.md to X.md — outgoing edges re-created from moved content.
-	// #uniquetag should persist (moved file still has it).
-	// This confirms the re-parse works. For actual deletion, let's test differently:
-
-	// Create a file that references a phantom. Move it so the phantom is promoted,
-	// and the old phantom gets cleaned up.
-	vault2 := t.TempDir()
-	if err := os.WriteFile(filepath.Join(vault2, "A.md"), []byte("[[Phantom1]]\n[[Phantom2]]\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(vault2, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := Build(vault2); err != nil {
-		t.Fatalf("build vault2: %v", err)
-	}
-	dbp2 := dbPath(vault2)
-
 	// Both Phantom1 and Phantom2 should exist.
-	phantoms := queryNodes(t, dbp2, "phantom")
+	phantoms := queryNodes(t, dbp, "phantom")
 	if len(phantoms) != 2 {
 		t.Fatalf("expected 2 phantoms, got %d", len(phantoms))
 	}
 
 	// Move A.md to Phantom1.md → phantom "phantom1" is promoted.
 	// Phantom2 is still referenced by moved file's outgoing [[Phantom2]].
-	_, err := Move(vault2, MoveOptions{From: "A.md", To: "Phantom1.md"})
+	_, err := Move(vault, MoveOptions{From: "A.md", To: "Phantom1.md"})
 	if err != nil {
 		t.Fatalf("move: %v", err)
 	}
 
 	// Phantom1 should be promoted (no longer phantom).
-	phantoms = queryNodes(t, dbp2, "phantom")
+	phantoms = queryNodes(t, dbp, "phantom")
 	for _, n := range phantoms {
 		if strings.ToLower(n.name) == "phantom1" {
 			t.Error("Phantom1 should be promoted, not remain as phantom")
 		}
 	}
-	// Phantom2 should still exist.
+	// Phantom2 should still exist (still referenced).
 	var p2Exists bool
 	for _, n := range phantoms {
 		if strings.ToLower(n.name) == "phantom2" {
@@ -464,10 +414,6 @@ func TestMove_OrphanCleanup(t *testing.T) {
 	if !p2Exists {
 		t.Error("Phantom2 should still exist")
 	}
-
-	// Now verify: if we change the content so Phantom2 is no longer referenced,
-	// orphan cleanup would remove it. But move preserves content, so Phantom2 stays.
-	// This confirms orphan cleanup runs but doesn't delete still-referenced nodes.
 }
 
 // --- Test 11: mkdir auto-creation ---
@@ -562,7 +508,180 @@ func TestMove_SelfReference(t *testing.T) {
 	}
 }
 
-// --- Test 15: already moved on disk (from absent, to present) ---
+// --- Test 15: Phase 2.5 — third-party basename links become ambiguous ---
+func TestMove_AmbiguousThirdParty(t *testing.T) {
+	vault := t.TempDir()
+	// A.md is unique with basename "A". B.md links to it via [[A]].
+	// C.md exists with no links to A.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Move C.md to sub/A.md → basename "A" count becomes 2.
+	// B.md's [[A]] (basename link to A.md) is NOT an incoming link to C.md,
+	// so it won't be in incomingRewrites. Phase 2.5 should detect it.
+	_, err := Move(vault, MoveOptions{From: "C.md", To: "sub/A.md"})
+	if err == nil {
+		t.Fatal("expected ambiguity error from Phase 2.5")
+	}
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("expected ambiguity error, got: %v", err)
+	}
+}
+
+// --- Test 16: both from and to absent on disk ---
+func TestMove_BothAbsentOnDisk(t *testing.T) {
+	vault := copyVault(t, "vault_move_error")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Remove A.md from disk after build.
+	if err := os.Remove(filepath.Join(vault, "A.md")); err != nil {
+		t.Fatalf("remove A.md: %v", err)
+	}
+
+	// X.md doesn't exist on disk either → default case.
+	_, err := Move(vault, MoveOptions{From: "A.md", To: "X.md"})
+	if err == nil {
+		t.Fatal("expected error when both from and to are absent on disk")
+	}
+	if !strings.Contains(err.Error(), "source file not found on disk") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- Test 17: same path → error ---
+func TestMove_SamePath(t *testing.T) {
+	vault := copyVault(t, "vault_move_error")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Move(vault, MoveOptions{From: "A.md", To: "A.md"})
+	if err == nil {
+		t.Fatal("expected error for same source and destination")
+	}
+	if !strings.Contains(err.Error(), "source and destination are the same") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- Test 18: multiple incoming rewrites from different files ---
+func TestMove_MultipleIncomingRewrites(t *testing.T) {
+	vault := t.TempDir()
+	// A.md exists. B.md, C.md, D.md all have path links to A.md.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[b link](./A.md)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("[[./A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "D.md"), []byte("[d link](./A.md)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "sub/A.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// All three files should have rewritten links with correct new values.
+	rewrittenFiles := make(map[string]string)
+	for _, rw := range result.Rewritten {
+		if rw.File == "sub/A.md" {
+			continue // outgoing rewrites
+		}
+		rewrittenFiles[rw.File] = rw.NewLink
+	}
+
+	// Target has subdirectory → vault-relative rewrite (no ./ prefix).
+	// B.md: [b link](./A.md) → [b link](sub/A.md)
+	if got, ok := rewrittenFiles["B.md"]; !ok {
+		t.Error("B.md path link should be rewritten")
+	} else if got != "[b link](sub/A.md)" {
+		t.Errorf("B.md new link = %q, want %q", got, "[b link](sub/A.md)")
+	}
+	// C.md: [[./A]] → [[sub/A]]
+	if got, ok := rewrittenFiles["C.md"]; !ok {
+		t.Error("C.md wikilink path link should be rewritten")
+	} else if got != "[[sub/A]]" {
+		t.Errorf("C.md new link = %q, want %q", got, "[[sub/A]]")
+	}
+	// D.md: [d link](./A.md) → [d link](sub/A.md)
+	if got, ok := rewrittenFiles["D.md"]; !ok {
+		t.Error("D.md path link should be rewritten")
+	} else if got != "[d link](sub/A.md)" {
+		t.Errorf("D.md new link = %q, want %q", got, "[d link](sub/A.md)")
+	}
+
+	// Verify disk content was actually rewritten with correct new links.
+	bContent, _ := os.ReadFile(filepath.Join(vault, "B.md"))
+	if !strings.Contains(string(bContent), "sub/A.md") {
+		t.Errorf("B.md should contain sub/A.md, got: %s", string(bContent))
+	}
+	cContent, _ := os.ReadFile(filepath.Join(vault, "C.md"))
+	if !strings.Contains(string(cContent), "[[sub/A]]") {
+		t.Errorf("C.md should contain [[sub/A]], got: %s", string(cContent))
+	}
+	dContent, _ := os.ReadFile(filepath.Join(vault, "D.md"))
+	if !strings.Contains(string(dContent), "sub/A.md") {
+		t.Errorf("D.md should contain sub/A.md, got: %s", string(dContent))
+	}
+}
+
+// --- Test 19: already-moved stale file → error ---
+func TestMove_AlreadyMovedStale(t *testing.T) {
+	vault := copyVault(t, "vault_move_basic")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Simulate user already moved and then edited the file.
+	if err := os.MkdirAll(filepath.Join(vault, "newsub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(vault, "A.md"), filepath.Join(vault, "newsub", "A.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Modify the file content to change mtime.
+	time.Sleep(1100 * time.Millisecond)
+	if err := os.WriteFile(filepath.Join(vault, "newsub", "A.md"), []byte("modified content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Move(vault, MoveOptions{From: "A.md", To: "newsub/A.md"})
+	if err == nil {
+		t.Fatal("expected stale error for already-moved file")
+	}
+	if !strings.Contains(err.Error(), "moved file is stale") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- Test 20: already moved on disk (from absent, to present) ---
 func TestMove_AlreadyMoved(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
 	if err := Build(vault); err != nil {

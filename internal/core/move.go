@@ -110,11 +110,6 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	oldBasenameCounts := make(map[string]int, len(basenameCounts))
-	for k, v := range basenameCounts {
-		oldBasenameCounts[k] = v
-	}
-
 	// Remove from from maps.
 	delete(pathToID, from)
 	fromLower := strings.ToLower(from)
@@ -230,17 +225,6 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		if err := rows.Err(); err != nil {
 			return nil, err
 		}
-	}
-
-	// Also check the from basename: if from was the only file with that basename
-	// and now it's gone, basename links from other files pointing to from via basename
-	// would resolve to nothing (or a different file if another file has the same basename).
-	fromBK := basenameKey(from)
-	if fromBK != toBK && oldBasenameCounts[fromBK] == 1 && basenameCounts[fromBK] > 0 {
-		// From's basename now resolves to a different file. This shouldn't happen
-		// in normal usage, but check anyway.
-		// Actually this is fine — the incoming edges for nodeID were already handled above.
-		// Other edges targeting a different node with the same basename are unaffected.
 	}
 
 	// Stale check for incoming rewrite source files.
