@@ -494,9 +494,9 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}
 
 	// 5.6: phantom promotion — check if to's basename matches a phantom.
-	phantomKey := fmt.Sprintf("phantom:name:%s", basenameKey(to))
+	pk := phantomKey(basename(to))
 	var phantomID int64
-	err = tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", phantomKey).Scan(&phantomID)
+	err = tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
 	if err == nil {
 		// Reassign incoming edges from phantom to moved note.
 		if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE target_id = ?", nodeID, phantomID); err != nil {

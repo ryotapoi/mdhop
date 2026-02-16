@@ -45,6 +45,11 @@ func TestDeleteUnreferencedFile(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
+	// Remove from disk first (delete reflects file removal).
+	if err := os.Remove(filepath.Join(vault, "C.md")); err != nil {
+		t.Fatalf("remove C.md: %v", err)
+	}
+
 	result, err := Delete(vault, DeleteOptions{Files: []string{"C.md"}})
 	if err != nil {
 		t.Fatalf("delete: %v", err)
@@ -70,6 +75,10 @@ func TestDeleteReferencedFileBecomesPhantom(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.Remove(filepath.Join(vault, "B.md")); err != nil {
+		t.Fatalf("remove B.md: %v", err)
 	}
 
 	result, err := Delete(vault, DeleteOptions{Files: []string{"B.md"}})
@@ -147,6 +156,10 @@ func TestDeleteOrphanTagCleanup(t *testing.T) {
 		t.Fatal("#only_b tag should exist before delete")
 	}
 
+	if err := os.Remove(filepath.Join(vault, "B.md")); err != nil {
+		t.Fatalf("remove B.md: %v", err)
+	}
+
 	if _, err := Delete(vault, DeleteOptions{Files: []string{"B.md"}}); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
@@ -175,6 +188,13 @@ func TestDeleteMultipleFiles(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.Remove(filepath.Join(vault, "B.md")); err != nil {
+		t.Fatalf("remove B.md: %v", err)
+	}
+	if err := os.Remove(filepath.Join(vault, "C.md")); err != nil {
+		t.Fatalf("remove C.md: %v", err)
 	}
 
 	result, err := Delete(vault, DeleteOptions{Files: []string{"B.md", "C.md"}})
@@ -248,6 +268,11 @@ func TestDeleteReferencedFileBecomesNewPhantom(t *testing.T) {
 		}
 	}
 
+	// Remove from disk, then delete from index.
+	if err := os.Remove(missingPath); err != nil {
+		t.Fatalf("remove Missing.md: %v", err)
+	}
+
 	// Delete Missing.md — incoming references exist, so it becomes a new phantom.
 	result, err := Delete(vault, DeleteOptions{Files: []string{"Missing.md"}})
 	if err != nil {
@@ -311,6 +336,10 @@ func TestDeleteExistingPhantomEdgeReassignment(t *testing.T) {
 	}
 	db.Close()
 
+	if err := os.Remove(filepath.Join(vault, "B.md")); err != nil {
+		t.Fatalf("remove B.md: %v", err)
+	}
+
 	// Delete B.md — A references B, so it should reassign edges to existing phantom.
 	result, err := Delete(vault, DeleteOptions{Files: []string{"B.md"}})
 	if err != nil {
@@ -347,5 +376,50 @@ func TestDeleteExistingPhantomEdgeReassignment(t *testing.T) {
 	}
 	if phantomCount != 1 {
 		t.Errorf("expected exactly 1 phantom B, got %d", phantomCount)
+	}
+}
+
+func TestDeleteFileStillExistsOnDisk(t *testing.T) {
+	vault := copyVault(t, "vault_delete")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	beforeNotes := countNotes(t, dbPath(vault))
+	beforeEdges := countEdges(t, dbPath(vault))
+
+	// Do NOT remove C.md from disk — delete should fail.
+	_, err := Delete(vault, DeleteOptions{Files: []string{"C.md"}})
+	if err == nil || !strings.Contains(err.Error(), "file still exists on disk") {
+		t.Errorf("expected 'file still exists on disk' error, got: %v", err)
+	}
+
+	// DB should be unchanged.
+	afterNotes := countNotes(t, dbPath(vault))
+	afterEdges := countEdges(t, dbPath(vault))
+	if beforeNotes != afterNotes {
+		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
+	}
+	if beforeEdges != afterEdges {
+		t.Errorf("edges changed: %d → %d", beforeEdges, afterEdges)
+	}
+}
+
+func TestDeleteDuplicateFileArgs(t *testing.T) {
+	vault := copyVault(t, "vault_delete")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.Remove(filepath.Join(vault, "C.md")); err != nil {
+		t.Fatalf("remove C.md: %v", err)
+	}
+
+	// Pass C.md twice — should succeed, processing only once.
+	result, err := Delete(vault, DeleteOptions{Files: []string{"C.md", "C.md"}})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(result.Deleted) != 1 || result.Deleted[0] != "C.md" {
+		t.Errorf("Deleted = %v, want [C.md]", result.Deleted)
 	}
 }

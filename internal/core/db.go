@@ -107,8 +107,12 @@ func noteKey(path string) string {
 	return fmt.Sprintf("note:path:%s", path)
 }
 
+func phantomKey(name string) string {
+	return fmt.Sprintf("phantom:name:%s", strings.ToLower(name))
+}
+
 func upsertPhantom(db dbExecer, name string) (int64, error) {
-	key := fmt.Sprintf("phantom:name:%s", strings.ToLower(name))
+	key := phantomKey(name)
 	res, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag)
 		 VALUES (?, 'phantom', ?, NULL, 0)
@@ -185,4 +189,64 @@ func getNodeID(db dbExecer, nodeKey string) (int64, error) {
 		return 0, err
 	}
 	return id, nil
+}
+
+// removeOrPhantomize removes a note node. If it has incoming references
+// (excluding self-links via source_id != nodeID), converts to phantom.
+// Otherwise fully deletes the node and its edges.
+func removeOrPhantomize(tx dbExecer, nodeID int64, name string) (phantomized bool, err error) {
+	// Check incoming edges (excluding self-links).
+	var incomingCount int
+	if err := tx.QueryRow("SELECT COUNT(*) FROM edges WHERE target_id = ? AND source_id != ?", nodeID, nodeID).Scan(&incomingCount); err != nil {
+		return false, err
+	}
+
+	if incomingCount > 0 {
+		// Phantom conversion: has incoming references.
+		// Delete all outgoing edges.
+		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", nodeID); err != nil {
+			return false, err
+		}
+
+		// Check if a phantom with the same name already exists.
+		pk := phantomKey(name)
+		var existingPhantomID int64
+		err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&existingPhantomID)
+		if err == nil {
+			// Existing phantom found: reassign incoming edges and delete the note node.
+			if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE target_id = ?", existingPhantomID, nodeID); err != nil {
+				return false, err
+			}
+			if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", nodeID); err != nil {
+				return false, err
+			}
+		} else if err == sql.ErrNoRows {
+			// No existing phantom: convert note to phantom in-place.
+			if _, err := tx.Exec(
+				"UPDATE nodes SET type='phantom', node_key=?, path=NULL, exists_flag=0, mtime=NULL WHERE id=?",
+				pk, nodeID,
+			); err != nil {
+				return false, err
+			}
+		} else {
+			return false, err
+		}
+		return true, nil
+	}
+
+	// Complete deletion: no incoming references.
+	if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ? OR target_id = ?", nodeID, nodeID); err != nil {
+		return false, err
+	}
+	if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", nodeID); err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+// cleanupOrphanedNodes removes tag and phantom nodes not referenced by any edge.
+// url nodes are not affected.
+func cleanupOrphanedNodes(tx dbExecer) error {
+	_, err := tx.Exec("DELETE FROM nodes WHERE type IN ('tag','phantom') AND id NOT IN (SELECT DISTINCT target_id FROM edges)")
+	return err
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -225,6 +226,11 @@ func TestRunDelete_MissingFile(t *testing.T) {
 
 func TestRunDelete_Integration(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_delete")
+
+	// Remove file from disk first (delete reflects file removal).
+	if err := os.Remove(filepath.Join(vault, "C.md")); err != nil {
+		t.Fatalf("remove C.md: %v", err)
+	}
 
 	// Delete C.md (unreferenced)
 	err := runDelete([]string{"--vault", vault, "--file", "C.md"})

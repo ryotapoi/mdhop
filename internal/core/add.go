@@ -137,8 +137,8 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			isPatternA = true
 		} else {
 			// Pattern B: phantom (oldCount == 0, adding 2+ files with same basename).
-			phantomKey := fmt.Sprintf("phantom:name:%s", bk)
-			err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", phantomKey).Scan(&targetID)
+			pk := phantomKey(bk)
+			err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&targetID)
 			if err == sql.ErrNoRows {
 				continue // no phantom, so no existing basename links
 			}
@@ -312,10 +312,9 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 
 	// Step 13: phantom → note promotion.
 	for _, pf := range parsed {
-		bk := basenameKey(pf.file.path)
-		phantomKey := fmt.Sprintf("phantom:name:%s", bk)
+		pk := phantomKey(basename(pf.file.path))
 		var phantomID int64
-		err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", phantomKey).Scan(&phantomID)
+		err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
 		if err == sql.ErrNoRows {
 			continue // no phantom to promote
 		}

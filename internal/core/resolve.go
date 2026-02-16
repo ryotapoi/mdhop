@@ -160,8 +160,8 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 	// Not found → look for phantom.
 	name := filepath.Base(normalized)
 	name = strings.TrimSuffix(name, filepath.Ext(name))
-	phantomKey := fmt.Sprintf("phantom:name:%s", strings.ToLower(name))
-	err = db.QueryRow(`SELECT id FROM nodes WHERE node_key = ?`, phantomKey).Scan(&id)
+	pk := phantomKey(name)
+	err = db.QueryRow(`SELECT id FROM nodes WHERE node_key = ?`, pk).Scan(&id)
 	if err == nil {
 		return id, link.subpath, nil
 	}
@@ -205,9 +205,9 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 	}
 
 	// 0 matches → look for phantom.
-	phantomKey := fmt.Sprintf("phantom:name:%s", strings.ToLower(target))
+	pk := phantomKey(target)
 	var id int64
-	err = db.QueryRow(`SELECT id FROM nodes WHERE node_key = ?`, phantomKey).Scan(&id)
+	err = db.QueryRow(`SELECT id FROM nodes WHERE node_key = ?`, pk).Scan(&id)
 	if err == nil {
 		return id, link.subpath, nil
 	}
