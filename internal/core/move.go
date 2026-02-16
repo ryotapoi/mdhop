@@ -509,8 +509,8 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		return nil, err
 	}
 
-	// 5.7: orphan cleanup.
-	if _, err := tx.Exec("DELETE FROM nodes WHERE type IN ('tag','phantom') AND id NOT IN (SELECT DISTINCT target_id FROM edges)"); err != nil {
+	// Orphan cleanup.
+	if err := cleanupOrphanedNodes(tx); err != nil {
 		return nil, err
 	}
 

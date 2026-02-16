@@ -291,6 +291,45 @@ func TestRunUpdate_Integration(t *testing.T) {
 	}
 }
 
+// --- Add CLI tests ---
+
+func TestRunAdd_MissingFile(t *testing.T) {
+	err := runAdd([]string{})
+	if err == nil || !strings.Contains(err.Error(), "--file is required") {
+		t.Errorf("expected --file required error, got: %v", err)
+	}
+}
+
+func TestRunAdd_Integration(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_add")
+
+	// Get baseline notes count.
+	before, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
+	if err != nil {
+		t.Fatalf("stats before: %v", err)
+	}
+
+	// Create a new file on disk.
+	newFile := filepath.Join(vault, "C.md")
+	if err := os.WriteFile(newFile, []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatalf("write C.md: %v", err)
+	}
+
+	// Run add.
+	if err := runAdd([]string{"--vault", vault, "--file", "C.md"}); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	// Verify notes_total increased.
+	after, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
+	if err != nil {
+		t.Fatalf("stats after: %v", err)
+	}
+	if after.NotesTotal != before.NotesTotal+1 {
+		t.Errorf("notes_total = %d, want %d", after.NotesTotal, before.NotesTotal+1)
+	}
+}
+
 // --- Diagnose CLI tests ---
 
 func TestRunDiagnose_InvalidFormat(t *testing.T) {

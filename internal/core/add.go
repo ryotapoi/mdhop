@@ -30,13 +30,13 @@ type AddResult struct {
 
 // Add inserts new files into the existing index DB.
 func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
-	// Step 1: DB existence check.
+	// DB existence check.
 	dbp := dbPath(vaultPath)
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
 		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
 	}
 
-	// Step 3: normalize and deduplicate input paths.
+	// Normalize and deduplicate input paths.
 	type addFile struct {
 		path  string
 		mtime int64
@@ -58,7 +58,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	}
 	defer db.Close()
 
-	// Step 4: check that no file is already registered.
+	// Check that no file is already registered.
 	for _, f := range files {
 		key := noteKey(f.path)
 		var id int64
@@ -71,7 +71,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 	}
 
-	// Step 5: check disk existence and collect mtime.
+	// Check disk existence and collect mtime.
 	for i := range files {
 		info, err := os.Stat(filepath.Join(vaultPath, files[i].path))
 		if os.IsNotExist(err) {
@@ -83,7 +83,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		files[i].mtime = info.ModTime().Unix()
 	}
 
-	// Step 6: build maps from DB + save oldBasenameCounts copy.
+	// Build maps from DB + save oldBasenameCounts copy.
 	pathToID, pathSet, basenameCounts, err := buildMapsFromDB(db)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		oldBasenameCounts[k] = v
 	}
 
-	// Step 7: adjust maps for post-add state.
+	// Adjust maps for post-add state.
 	for _, f := range files {
 		rel := strings.ToLower(f.path)
 		pathSet[rel] = f.path
@@ -103,7 +103,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		basenameCounts[bk]++
 	}
 
-	// Step 8: check if adding causes existing links to become ambiguous.
+	// Check if adding causes existing links to become ambiguous.
 	// Build oldBasenameToPath for pattern A detection.
 	oldBasenameToPath := make(map[string]string)
 	for bk, count := range oldBasenameCounts {
@@ -212,7 +212,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 	}
 
-	// Step 9: build basenameToPath (includes both existing and new files).
+	// Build basenameToPath (includes both existing and new files).
 	basenameToPath := make(map[string]string)
 	for bk, count := range basenameCounts {
 		if count != 1 {
@@ -236,7 +236,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 	}
 
-	// Step 10: parse all new files and check for ambiguous links.
+	// Parse all new files and check for ambiguous links.
 	type parsedFile struct {
 		file  addFile
 		links []linkOccur
@@ -281,7 +281,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 	}
 
-	// Step 11: begin transaction.
+	// Begin transaction.
 	tx, err := db.Begin()
 	if err != nil {
 		// Restore disk changes if transaction start fails.
@@ -299,7 +299,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 
 	result := &AddResult{}
 
-	// Step 12: insert all note nodes.
+	// Insert all note nodes.
 	for _, pf := range parsed {
 		name := basename(pf.file.path)
 		id, err := upsertNote(tx, pf.file.path, name, pf.file.mtime)
@@ -310,7 +310,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		result.Added = append(result.Added, pf.file.path)
 	}
 
-	// Step 13: phantom → note promotion.
+	// Phantom → note promotion.
 	for _, pf := range parsed {
 		pk := phantomKey(basename(pf.file.path))
 		var phantomID int64
@@ -337,7 +337,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		result.Promoted = append(result.Promoted, pf.file.path)
 	}
 
-	// Step 14: resolve links and create edges.
+	// Resolve links and create edges.
 	for _, pf := range parsed {
 		sourceID := pathToID[pf.file.path]
 		for _, link := range pf.links {
@@ -380,12 +380,12 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 	}
 
-	// Step 15: orphan cleanup.
-	if _, err := tx.Exec("DELETE FROM nodes WHERE type IN ('tag','phantom') AND id NOT IN (SELECT DISTINCT target_id FROM edges)"); err != nil {
+	// Orphan cleanup.
+	if err := cleanupOrphanedNodes(tx); err != nil {
 		return nil, err
 	}
 
-	// Step 16: commit.
+	// Commit.
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
