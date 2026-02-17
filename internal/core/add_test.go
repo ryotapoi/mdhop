@@ -358,6 +358,24 @@ func TestAddVaultEscape(t *testing.T) {
 	}
 }
 
+func TestAddEscapeVaultNonRelative(t *testing.T) {
+	vault := copyVault(t, "vault_add")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Create a file with a non-relative vault-escaping link.
+	if err := os.WriteFile(filepath.Join(vault, "Escape.md"),
+		[]byte("[link](sub/../../outside.md)\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{Files: []string{"Escape.md"}})
+	if err == nil || !strings.Contains(err.Error(), "escapes vault") {
+		t.Errorf("expected vault escape error, got: %v", err)
+	}
+}
+
 func TestAddAutoDisambiguateBasic(t *testing.T) {
 	// Pattern A: existing unique note (sub/B.md) becomes ambiguous when adding B.md.
 	// With --auto-disambiguate, A.md's links should be rewritten to sub/B.

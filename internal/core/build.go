@@ -63,6 +63,9 @@ func Build(vaultPath string) error {
 			if link.isRelative && escapesVault(rel, link.target) {
 				return fmt.Errorf("link escapes vault: %s in %s", link.rawLink, rel)
 			}
+			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
+				return fmt.Errorf("link escapes vault: %s in %s", link.rawLink, rel)
+			}
 			if link.isBasename && basenameCounts[strings.ToLower(link.target)] > 1 {
 				return fmt.Errorf("ambiguous link: %s in %s", link.target, rel)
 			}
@@ -167,6 +170,11 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[str
 		return resolvePathTarget(db, resolved, link, pathSet, pathToID)
 	}
 
+	// Vault-absolute path escape check (defense-in-depth).
+	if !link.isBasename && pathEscapesVault(target) {
+		return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
+	}
+
 	// Absolute path (/ prefix, markdown link only): /sub/B.md → sub/B.md
 	if strings.HasPrefix(target, "/") {
 		stripped := strings.TrimPrefix(target, "/")
@@ -256,8 +264,14 @@ func countBasenames(files []string) map[string]int {
 func escapesVault(fromPath, target string) bool {
 	base := filepath.Dir(fromPath)
 	joined := filepath.Clean(filepath.Join(base, target))
-	if strings.HasPrefix(joined, "..") {
-		return true
-	}
-	return false
+	return joined == ".." || strings.HasPrefix(joined, "../")
+}
+
+// pathEscapesVault checks whether a vault-absolute path escapes the vault root.
+// It strips a leading "/" before normalizing, so both "sub/../../X.md" and
+// "/sub/../../X.md" are handled correctly.
+func pathEscapesVault(target string) bool {
+	stripped := strings.TrimPrefix(target, "/")
+	n := normalizePath(stripped)
+	return n == ".." || strings.HasPrefix(n, "../")
 }

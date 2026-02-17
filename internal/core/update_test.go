@@ -401,6 +401,24 @@ func TestUpdateVaultEscape(t *testing.T) {
 	}
 }
 
+func TestUpdateEscapeVaultNonRelative(t *testing.T) {
+	vault := copyVault(t, "vault_update")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Write a non-relative path that escapes vault via ".."
+	if err := os.WriteFile(filepath.Join(vault, "A.md"),
+		[]byte("[link](sub/../../Outside.md)\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := Update(vault, UpdateOptions{Files: []string{"A.md"}})
+	if err == nil || !strings.Contains(err.Error(), "escapes vault") {
+		t.Errorf("expected vault escape error, got: %v", err)
+	}
+}
+
 func TestUpdateDeletedFileExistingPhantom(t *testing.T) {
 	vault := copyVault(t, "vault_update")
 	if err := Build(vault); err != nil {

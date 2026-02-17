@@ -159,6 +159,9 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 			if link.isRelative && escapesVault(cf.path, link.target) {
 				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, cf.path)
 			}
+			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
+				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, cf.path)
+			}
 			if link.isBasename && basenameCounts[strings.ToLower(link.target)] > 1 {
 				return nil, fmt.Errorf("ambiguous link: %s in %s", link.target, cf.path)
 			}

@@ -286,6 +286,44 @@ func TestBuildFailsOnVaultEscapeLink(t *testing.T) {
 	}
 }
 
+func TestBuildEscapeVaultNonRelative(t *testing.T) {
+	vault := copyVault(t, "vault_build_basic")
+	// sub/../../Outside.md escapes vault via a non-relative path containing ".."
+	if err := os.WriteFile(filepath.Join(vault, "Escape.md"),
+		[]byte("[link](sub/../../Outside.md)\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	err := Build(vault)
+	if err == nil || !strings.Contains(err.Error(), "escapes vault") {
+		t.Fatalf("expected vault escape error, got: %v", err)
+	}
+}
+
+func TestBuildEscapeVaultAbsolutePrefix(t *testing.T) {
+	vault := copyVault(t, "vault_build_basic")
+	// /sub/../../Outside.md also escapes vault (leading / stripped then normalized)
+	if err := os.WriteFile(filepath.Join(vault, "Escape.md"),
+		[]byte("[link](/sub/../../Outside.md)\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	err := Build(vault)
+	if err == nil || !strings.Contains(err.Error(), "escapes vault") {
+		t.Fatalf("expected vault escape error, got: %v", err)
+	}
+}
+
+func TestBuildNonEscapingDotDot(t *testing.T) {
+	vault := copyVault(t, "vault_build_basic")
+	// sub/../A.md resolves to A.md which exists — should succeed
+	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"),
+		[]byte("[link](sub/../A.md)\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("expected success for non-escaping dotdot path, got: %v", err)
+	}
+}
+
 // --- Edge tests ---
 
 func TestBuildEdgesWikilink(t *testing.T) {

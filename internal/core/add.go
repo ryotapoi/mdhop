@@ -256,6 +256,9 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			if link.isRelative && escapesVault(f.path, link.target) {
 				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, f.path)
 			}
+			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
+				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, f.path)
+			}
 			if link.isBasename && basenameCounts[strings.ToLower(link.target)] > 1 {
 				return nil, fmt.Errorf("ambiguous link: %s in %s", link.target, f.path)
 			}

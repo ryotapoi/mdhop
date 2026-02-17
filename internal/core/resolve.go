@@ -119,6 +119,11 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 		return resolvePathFromDB(db, resolved, link)
 	}
 
+	// Vault-absolute path escape check (defense-in-depth).
+	if !link.isBasename && pathEscapesVault(target) {
+		return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
+	}
+
 	// Absolute path (/ prefix): /sub/B.md → sub/B.md
 	if strings.HasPrefix(target, "/") {
 		stripped := strings.TrimPrefix(target, "/")
