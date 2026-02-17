@@ -17,6 +17,9 @@
 - ルート優先なし: basename重複 + ルートになし → ambiguousエラー（従来通り）
 - ルート優先ラウンドトリップ: build 2回で結果が同一
 - basename衝突あり + パス指定リンクのみ → エラーにならない
+- 複数ユーザーエラー（曖昧+escape混在）が最大N件まで収集されること
+- 1件時は従来フォーマット維持（後方互換）
+- 上限到達時の打ち切りとサマリーメッセージ
 - mtime: 全noteにos.Statの値が設定される
 - edges: wikilink / markdown link → 対応するedgeが作成される
 - backlink: B→Aのedgeが正しく作成される

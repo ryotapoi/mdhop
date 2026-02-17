@@ -901,3 +901,83 @@ func TestBuildIdempotent(t *testing.T) {
 		t.Errorf("tags changed: %d → %d", firstTags, secondTags)
 	}
 }
+
+func TestBuildCollectsMultipleErrors(t *testing.T) {
+	vault := copyVault(t, "vault_build_multi_error")
+	err := Build(vault)
+	if err == nil {
+		t.Fatal("expected build error")
+	}
+	msg := err.Error()
+	// Should contain all 3 errors: 2 ambiguous + 1 escape.
+	if !strings.Contains(msg, "ambiguous link: A") {
+		t.Errorf("missing ambiguous A error: %s", msg)
+	}
+	if !strings.Contains(msg, "ambiguous link: B") {
+		t.Errorf("missing ambiguous B error: %s", msg)
+	}
+	if !strings.Contains(msg, "escapes vault") {
+		t.Errorf("missing vault escape error: %s", msg)
+	}
+	if !strings.Contains(msg, "3 errors total") {
+		t.Errorf("missing summary line: %s", msg)
+	}
+	// DB should not be created.
+	if _, err := os.Stat(dbPath(vault)); err == nil {
+		t.Error("DB should not exist after build failure")
+	}
+}
+
+func TestBuildSingleErrorFormatUnchanged(t *testing.T) {
+	vault := copyVault(t, "vault_build_conflict")
+	err := Build(vault)
+	if err == nil {
+		t.Fatal("expected build error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "ambiguous link") {
+		t.Errorf("expected ambiguous link error, got: %s", msg)
+	}
+	// Single error should NOT contain "errors" summary.
+	if strings.Contains(msg, "errors") {
+		t.Errorf("single error should not have summary line, got: %s", msg)
+	}
+}
+
+func TestBuildErrorCapAtMax(t *testing.T) {
+	vault := t.TempDir()
+	// Create 7 ambiguous basenames (each in sub1/ and sub2/, no root).
+	for _, dir := range []string{"sub1", "sub2"} {
+		if err := os.MkdirAll(filepath.Join(vault, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := []string{"A", "B", "C", "D", "E", "F", "G"}
+	for _, name := range names {
+		for _, dir := range []string{"sub1", "sub2"} {
+			path := filepath.Join(vault, dir, name+".md")
+			if err := os.WriteFile(path, []byte("# "+name+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// Reference file with ambiguous link.
+		refPath := filepath.Join(vault, "Ref_"+name+".md")
+		if err := os.WriteFile(refPath, []byte("[["+name+"]]\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	err := Build(vault)
+	if err == nil {
+		t.Fatal("expected build error")
+	}
+	msg := err.Error()
+	// Should be capped at maxBuildErrors (5).
+	lines := strings.Split(strings.TrimSpace(msg), "\n")
+	// 5 error lines + 1 summary line = 6 lines.
+	if len(lines) != 6 {
+		t.Errorf("expected 6 lines (5 errors + summary), got %d:\n%s", len(lines), msg)
+	}
+	if !strings.Contains(msg, "too many errors (first 5 shown)") {
+		t.Errorf("missing cap summary: %s", msg)
+	}
+}

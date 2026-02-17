@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const maxBuildErrors = 5
+
 // Build parses the vault and creates the index DB.
 func Build(vaultPath string) error {
 	if _, err := ensureDataDir(vaultPath); err != nil {
@@ -47,6 +49,7 @@ func Build(vaultPath string) error {
 		links []linkOccur
 	}
 	parsed := make([]parsedFile, 0, len(files))
+	var userErrors []string
 	for _, rel := range files {
 		fullPath := filepath.Join(vaultPath, rel)
 		content, err := os.ReadFile(fullPath)
@@ -59,20 +62,26 @@ func Build(vaultPath string) error {
 		}
 		links := parseLinks(string(content))
 
-		// Validate links (fail-fast on ambiguous or vault-escape).
+		// Validate links: collect user errors (ambiguous, vault-escape) up to maxBuildErrors.
 		for _, link := range links {
 			if link.linkType != "wikilink" && link.linkType != "markdown" {
 				continue
 			}
 			if link.isRelative && escapesVault(rel, link.target) {
-				return fmt.Errorf("link escapes vault: %s in %s", link.rawLink, rel)
+				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
+			} else if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
+				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
+			} else if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
+				userErrors = append(userErrors, fmt.Sprintf("ambiguous link: %s in %s", link.target, rel))
+			} else {
+				continue
 			}
-			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
-				return fmt.Errorf("link escapes vault: %s in %s", link.rawLink, rel)
+			if len(userErrors) >= maxBuildErrors {
+				break
 			}
-			if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
-				return fmt.Errorf("ambiguous link: %s in %s", link.target, rel)
-			}
+		}
+		if len(userErrors) >= maxBuildErrors {
+			break
 		}
 
 		parsed = append(parsed, parsedFile{
@@ -80,6 +89,9 @@ func Build(vaultPath string) error {
 			mtime: info.ModTime().Unix(),
 			links: links,
 		})
+	}
+	if len(userErrors) > 0 {
+		return formatBuildErrors(userErrors)
 	}
 
 	// Create temp DB.
@@ -235,6 +247,23 @@ func resolvePathTarget(db dbExecer, resolved string, link linkOccur, pathSet map
 		return 0, "", err
 	}
 	return id, link.subpath, nil
+}
+
+func formatBuildErrors(errs []string) error {
+	if len(errs) == 1 {
+		return fmt.Errorf("%s", errs[0])
+	}
+	var b strings.Builder
+	for _, e := range errs {
+		b.WriteString(e)
+		b.WriteByte('\n')
+	}
+	if len(errs) >= maxBuildErrors {
+		fmt.Fprintf(&b, "too many errors (first %d shown)", maxBuildErrors)
+	} else {
+		fmt.Fprintf(&b, "%d errors total", len(errs))
+	}
+	return fmt.Errorf("%s", b.String())
 }
 
 func collectMarkdownFiles(vaultPath string) ([]string, error) {
