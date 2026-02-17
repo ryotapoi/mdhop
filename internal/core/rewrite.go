@@ -10,6 +10,7 @@ import (
 type rewriteBackup struct {
 	path    string
 	content []byte
+	perm    os.FileMode
 }
 
 // rewriteEntry holds information needed to rewrite a single edge.
@@ -133,10 +134,20 @@ func replaceOutsideInlineCode(line, old, new string) string {
 	return result.String()
 }
 
+// writeFilePreservePerm writes data to path with the given permission bits.
+// os.WriteFile applies umask on file creation, so os.Chmod is called to
+// ensure the exact permission bits are set.
+func writeFilePreservePerm(path string, data []byte, perm os.FileMode) error {
+	if err := os.WriteFile(path, data, perm); err != nil {
+		return err
+	}
+	return os.Chmod(path, perm)
+}
+
 // restoreBackups restores files to their original content (best-effort).
 func restoreBackups(vaultPath string, backups []rewriteBackup) {
 	for _, fb := range backups {
-		_ = os.WriteFile(filepath.Join(vaultPath, fb.path), fb.content, 0o644)
+		_ = writeFilePreservePerm(filepath.Join(vaultPath, fb.path), fb.content, fb.perm)
 	}
 }
 
@@ -148,8 +159,14 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 
 	// Phase 1: read all originals before any writes.
 	originals := make(map[string][]byte, len(groups))
+	perms := make(map[string]os.FileMode, len(groups))
 	for sourcePath := range groups {
 		fullPath := filepath.Join(vaultPath, sourcePath)
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		perms[sourcePath] = info.Mode().Perm()
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, nil, err
@@ -162,7 +179,7 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 
 	restore := func() {
 		for _, fb := range written {
-			_ = os.WriteFile(filepath.Join(vaultPath, fb.path), fb.content, 0o644)
+			_ = writeFilePreservePerm(filepath.Join(vaultPath, fb.path), fb.content, fb.perm)
 		}
 	}
 
@@ -189,11 +206,11 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 		}
 
 		newContent := []byte(strings.Join(lines, "\n"))
-		if err := os.WriteFile(fullPath, newContent, 0o644); err != nil {
+		if err := writeFilePreservePerm(fullPath, newContent, perms[sourcePath]); err != nil {
 			restore()
 			return nil, nil, err
 		}
-		written = append(written, rewriteBackup{path: sourcePath, content: original})
+		written = append(written, rewriteBackup{path: sourcePath, content: original, perm: perms[sourcePath]})
 
 		// Collect new mtime.
 		info, err := os.Stat(fullPath)

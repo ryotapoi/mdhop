@@ -835,7 +835,7 @@ func TestAddAutoDisambiguateRestoreBackups(t *testing.T) {
 	}
 
 	backups := []rewriteBackup{
-		{path: filePath, content: original},
+		{path: filePath, content: original, perm: 0o644},
 	}
 	restoreBackups(dir, backups)
 

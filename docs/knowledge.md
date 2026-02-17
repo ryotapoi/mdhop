@@ -30,6 +30,7 @@
 - `buildRewritePath` はサブディレクトリターゲットに vault-relative パスを返す。発リンクの相対パスリライトには `filepath.Rel` ベースの `rewriteOutgoingRelativeLink` を別途使う
 - `applyFileRewrites()` の `sourceID=0` 固定は `newMtimes` を無視する前提でのみ安全。mtime を使う拡張時は要注意
 - `applyFileRewrites` はバックアップを返す設計にし、呼び出し元がリライト失敗時に復元できるようにする
+- `os.WriteFile` は新規作成時に umask でパーミッションがマスクされる。既存ファイルの上書きでもファイルが削除→再作成される可能性があるため、パーミッションを保持するには `os.WriteFile` 後に `os.Chmod` を併用する（`writeFilePreservePerm`）
 - 曖昧リンク判定で `basenameKey(link.target)` を使うと `.md` 以外の拡張子も削られる。`strings.ToLower(link.target)` を使う（update.go と一貫性を保つ）
 
 ## パス操作

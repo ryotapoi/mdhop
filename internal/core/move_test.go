@@ -733,3 +733,39 @@ func TestMove_AlreadyMoved(t *testing.T) {
 		t.Error("C.md path link should be rewritten even for already-moved case")
 	}
 }
+
+// --- Test 21: file permission preserved after move with outgoing rewrite ---
+func TestMovePreservesPermission(t *testing.T) {
+	vault := t.TempDir()
+	// A.md has a relative outgoing link to B.md.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[link](./B.md)\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(vault, "A.md"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Move A.md to sub/A.md — outgoing relative link gets rewritten.
+	_, err := Move(vault, MoveOptions{From: "A.md", To: "sub/A.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// Verify moved file has preserved permission.
+	info, err := os.Stat(filepath.Join(vault, "sub", "A.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("moved file perm = %o, want %o", perm, 0o600)
+	}
+}

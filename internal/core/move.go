@@ -258,6 +258,11 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	} else {
 		movedFilePath = filepath.Join(vaultPath, to)
 	}
+	movedInfo, err := os.Stat(movedFilePath)
+	if err != nil {
+		return nil, err
+	}
+	movedPerm := movedInfo.Mode().Perm()
 	movedContent, err := os.ReadFile(movedFilePath)
 	if err != nil {
 		return nil, err
@@ -318,7 +323,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	var movedFileBackup *rewriteBackup
 	if len(outgoingRewrites) > 0 {
 		// Save backup of the file at its current disk location.
-		movedFileBackup = &rewriteBackup{path: from, content: movedContent}
+		movedFileBackup = &rewriteBackup{path: from, content: movedContent, perm: movedPerm}
 		if !needDiskMove {
 			movedFileBackup.path = to
 		}
@@ -340,7 +345,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		movedContent = []byte(strings.Join(lines, "\n"))
 
 		// Write the rewritten content back to the current disk location.
-		if err := os.WriteFile(movedFilePath, movedContent, 0o644); err != nil {
+		if err := writeFilePreservePerm(movedFilePath, movedContent, movedPerm); err != nil {
 			restoreBackups(vaultPath, incomingBackups)
 			return nil, err
 		}
@@ -353,14 +358,14 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		if err := os.MkdirAll(toDir, 0o755); err != nil {
 			// Rollback: restore incoming and moved file.
 			if movedFileBackup != nil {
-				_ = os.WriteFile(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, 0o644)
+				_ = writeFilePreservePerm(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, movedFileBackup.perm)
 			}
 			restoreBackups(vaultPath, incomingBackups)
 			return nil, err
 		}
 		if err := os.Rename(filepath.Join(vaultPath, from), toFull); err != nil {
 			if movedFileBackup != nil {
-				_ = os.WriteFile(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, 0o644)
+				_ = writeFilePreservePerm(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, movedFileBackup.perm)
 			}
 			restoreBackups(vaultPath, incomingBackups)
 			return nil, err
@@ -375,7 +380,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 			_ = os.Rename(filepath.Join(vaultPath, to), filepath.Join(vaultPath, from))
 		}
 		if movedFileBackup != nil {
-			_ = os.WriteFile(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, 0o644)
+			_ = writeFilePreservePerm(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, movedFileBackup.perm)
 		}
 		restoreBackups(vaultPath, incomingBackups)
 		return nil, err
@@ -389,7 +394,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 			_ = os.Rename(filepath.Join(vaultPath, to), filepath.Join(vaultPath, from))
 		}
 		if movedFileBackup != nil {
-			_ = os.WriteFile(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, 0o644)
+			_ = writeFilePreservePerm(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, movedFileBackup.perm)
 		}
 		restoreBackups(vaultPath, incomingBackups)
 		return nil, err
@@ -407,7 +412,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 					// After rollback of Rename, file is back at 'from'.
 					diskPath = from
 				}
-				_ = os.WriteFile(filepath.Join(vaultPath, diskPath), movedFileBackup.content, 0o644)
+				_ = writeFilePreservePerm(filepath.Join(vaultPath, diskPath), movedFileBackup.content, movedFileBackup.perm)
 			}
 			restoreBackups(vaultPath, incomingBackups)
 		}
