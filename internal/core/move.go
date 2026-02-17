@@ -106,10 +106,17 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}
 
 	// Phase 1: build maps and adjust for post-move state.
-	pathToID, pathSet, basenameCounts, err := buildMapsFromDB(db)
+	pathToID, pathSet, basenameCounts, rootBasenameToPath, err := buildMapsFromDB(db)
 	if err != nil {
 		return nil, err
 	}
+
+	// Save pre-move pathSet for Phase 2/2.5 root-priority checks.
+	preMovePathSet := make(map[string]string, len(pathSet))
+	for k, v := range pathSet {
+		preMovePathSet[k] = v
+	}
+
 	// Remove from from maps.
 	delete(pathToID, from)
 	fromLower := strings.ToLower(from)
@@ -117,6 +124,9 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	fromNoExt := strings.TrimSuffix(from, filepath.Ext(from))
 	delete(pathSet, strings.ToLower(fromNoExt))
 	basenameCounts[basenameKey(from)]--
+	if isRootFile(from) {
+		delete(rootBasenameToPath, basenameKey(from))
+	}
 
 	// Add to to maps.
 	pathToID[to] = nodeID
@@ -125,6 +135,9 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	toNoExt := strings.TrimSuffix(to, filepath.Ext(to))
 	pathSet[strings.ToLower(toNoExt)] = to
 	basenameCounts[basenameKey(to)]++
+	if isRootFile(to) {
+		rootBasenameToPath[basenameKey(to)] = to
+	}
 
 	// Build basenameToPath (count == 1 only).
 	basenameToPath := make(map[string]string)
@@ -162,17 +175,22 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 			toBK := basenameKey(to)
 			if fromBK != toBK {
 				// Basename changed → must rewrite.
-				re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, re.sourcePath, to)
+				re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, to)
 				incomingRewrites = append(incomingRewrites, re)
 			} else if basenameCounts[toBK] > 1 {
-				// Basename unchanged but ambiguous after move → must rewrite.
-				re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, re.sourcePath, to)
-				incomingRewrites = append(incomingRewrites, re)
+				// Basename unchanged but ambiguous after move.
+				// Root priority: skip rewrite if root file exists both before AND after move.
+				preRoot := hasRootInPathSet(toBK, preMovePathSet)
+				postRoot := hasRootInPathSet(toBK, pathSet)
+				if !(preRoot && postRoot) {
+					re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, to)
+					incomingRewrites = append(incomingRewrites, re)
+				}
 			}
 			// else: basename unchanged and unique → no rewrite needed.
 		} else {
 			// Path link → always rewrite.
-			re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, re.sourcePath, to)
+			re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, to)
 			incomingRewrites = append(incomingRewrites, re)
 		}
 	}
@@ -184,46 +202,52 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	// Phase 2.5: vault-wide ambiguity check for the destination basename.
 	toBK := basenameKey(to)
 	if basenameCounts[toBK] > 1 {
-		// The destination basename is ambiguous. Check if there are basename links
-		// targeting this basename from files other than the moved file.
-		// These links would become ambiguous after the move.
-		rows, err := db.Query(
-			`SELECT e.raw_link, e.link_type, sn.path
-			 FROM edges e
-			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-			 JOIN nodes tn ON tn.id = e.target_id
-			 WHERE tn.name = ? AND e.link_type IN ('wikilink', 'markdown')`,
-			basename(to))
-		if err != nil {
-			return nil, err
-		}
-		for rows.Next() {
-			var rawLink, linkType, sourcePath string
-			if err := rows.Scan(&rawLink, &linkType, &sourcePath); err != nil {
-				rows.Close()
+		// Root priority: if root file exists both before AND after move, basename links
+		// still resolve to root → no ambiguity.
+		preRoot := hasRootInPathSet(toBK, preMovePathSet)
+		postRoot := hasRootInPathSet(toBK, pathSet)
+		if !(preRoot && postRoot) {
+			// The destination basename is ambiguous. Check if there are basename links
+			// targeting this basename from files other than the moved file.
+			// These links would become ambiguous after the move.
+			rows, err := db.Query(
+				`SELECT e.raw_link, e.link_type, sn.path
+				 FROM edges e
+				 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
+				 JOIN nodes tn ON tn.id = e.target_id
+				 WHERE tn.name = ? AND e.link_type IN ('wikilink', 'markdown')`,
+				basename(to))
+			if err != nil {
 				return nil, err
 			}
-			if sourcePath == from {
-				continue // handled in outgoing phase
-			}
-			if isBasenameRawLink(rawLink, linkType) {
-				// Check if this edge is already being rewritten.
-				alreadyHandled := false
-				for _, re := range incomingRewrites {
-					if re.sourcePath == sourcePath && re.rawLink == rawLink {
-						alreadyHandled = true
-						break
+			for rows.Next() {
+				var rawLink, linkType, sourcePath string
+				if err := rows.Scan(&rawLink, &linkType, &sourcePath); err != nil {
+					rows.Close()
+					return nil, err
+				}
+				if sourcePath == from {
+					continue // handled in outgoing phase
+				}
+				if isBasenameRawLink(rawLink, linkType) {
+					// Check if this edge is already being rewritten.
+					alreadyHandled := false
+					for _, re := range incomingRewrites {
+						if re.sourcePath == sourcePath && re.rawLink == rawLink {
+							alreadyHandled = true
+							break
+						}
+					}
+					if !alreadyHandled {
+						rows.Close()
+						return nil, fmt.Errorf("move would make existing links ambiguous for basename: %s", basename(to))
 					}
 				}
-				if !alreadyHandled {
-					rows.Close()
-					return nil, fmt.Errorf("move would make existing links ambiguous for basename: %s", basename(to))
-				}
 			}
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			return nil, err
+			rows.Close()
+			if err := rows.Err(); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -282,7 +306,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 			continue
 		}
 		// Ambiguity check on post-move maps.
-		if link.isBasename && basenameCounts[strings.ToLower(link.target)] > 1 {
+		if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
 			return nil, fmt.Errorf("ambiguous link after move: %s in %s", link.target, to)
 		}
 		// Relative link rewrite.
@@ -434,7 +458,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	// 5.3: re-parse moved file content and create new edges (using new path).
 	newLinks := parseLinks(string(movedContent))
 	for _, link := range newLinks {
-		targetID, subpath, err := resolveLink(tx, to, link, pathSet, basenameToPath, pathToID)
+		targetID, subpath, err := resolveLink(tx, to, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
 		if err != nil {
 			return nil, err
 		}

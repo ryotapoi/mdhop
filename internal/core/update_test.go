@@ -149,9 +149,9 @@ func TestUpdateDeletedFileNoRefs(t *testing.T) {
 	}
 }
 
-func TestUpdateAmbiguousLink(t *testing.T) {
+func TestUpdateAmbiguousLinkRootPriority(t *testing.T) {
+	// D.md at root + sub/D.md → [[D]] resolves to root D.md via root priority → success.
 	vault := copyVault(t, "vault_update")
-	// Add D.md with same basename concept to create collision.
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -164,9 +164,50 @@ func TestUpdateAmbiguousLink(t *testing.T) {
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
+
+	// Update A.md to link to [[D]] — root priority resolves to D.md at root.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[B]]\n[[D]]\n#tagA\n#shared\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := Update(vault, UpdateOptions{Files: []string{"A.md"}})
+	if err != nil {
+		t.Fatalf("expected success (root priority), got: %v", err)
+	}
+
+	// Verify the edge points to root D.md.
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	var hasDNote bool
+	for _, e := range edges {
+		if e.targetName == "D" && e.targetType == "note" {
+			hasDNote = true
+		}
+	}
+	if !hasDNote {
+		t.Error("A→D edge should exist and point to note")
+	}
+}
+
+func TestUpdateAmbiguousLinkNoRoot(t *testing.T) {
+	// sub1/D.md + sub2/D.md (no root) → [[D]] is ambiguous → error.
+	vault := copyVault(t, "vault_update")
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "D.md"), []byte("# D1\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub2", "D.md"), []byte("# D2\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
 	beforeEdges := countEdges(t, dbPath(vault))
 
-	// Now update A.md to add an ambiguous link to D (which has two candidates).
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[B]]\n[[D]]\n#tagA\n#shared\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -176,7 +217,6 @@ func TestUpdateAmbiguousLink(t *testing.T) {
 		t.Errorf("expected ambiguous link error, got: %v", err)
 	}
 
-	// DB should be unchanged.
 	afterEdges := countEdges(t, dbPath(vault))
 	if beforeEdges != afterEdges {
 		t.Errorf("edges changed: %d → %d", beforeEdges, afterEdges)
@@ -636,5 +676,59 @@ func TestUpdateIncomingEdgesPreserved(t *testing.T) {
 	}
 	if !hasBtoAAfter {
 		t.Error("B→A incoming edge should be preserved after updating A")
+	}
+}
+
+func TestUpdateRootDeletedResolvesToSubdir(t *testing.T) {
+	// A.md(root) + sub/A.md. B.md has [[A]].
+	// Delete A.md from disk, then update A.md + B.md.
+	// After update, basename "a" count = 1 (sub/A.md only).
+	// B.md's [[A]] resolves to sub/A.md (unique basename) → no ambiguity.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Delete root A.md from disk.
+	if err := os.Remove(filepath.Join(vault, "A.md")); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	// Update B.md content to trigger re-parse.
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Update(vault, UpdateOptions{Files: []string{"A.md", "B.md"}})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	// A.md should be phantom-converted or deleted.
+	if len(result.Phantomed)+len(result.Deleted) == 0 {
+		t.Error("A.md should be phantomed or deleted")
+	}
+
+	// B.md's [[A]] should now point to sub/A.md (the only remaining A).
+	edges := queryEdges(t, dbPath(vault), "B.md")
+	var foundA bool
+	for _, e := range edges {
+		if e.targetName == "A" && e.targetType == "note" {
+			foundA = true
+		}
+	}
+	if !foundA {
+		t.Error("B→A edge should exist pointing to sub/A.md")
 	}
 }

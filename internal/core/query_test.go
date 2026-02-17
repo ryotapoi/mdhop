@@ -142,6 +142,26 @@ func TestQueryEntryNameAmbiguous(t *testing.T) {
 	}
 }
 
+func TestQueryEntryNameRootPriority(t *testing.T) {
+	vault := copyVaultForQuery(t, "vault_query_ambiguous_name")
+	// Add A.md at root — root-priority resolves [[A]] to root file.
+	if err := os.MkdirAll(vault, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A at root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	buildForQuery(t, vault)
+
+	result, err := Query(vault, EntrySpec{Name: "A"}, QueryOptions{})
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	if result.Entry.Path != "A.md" {
+		t.Errorf("Path = %q, want %q", result.Entry.Path, "A.md")
+	}
+}
+
 func TestQueryErrorMultipleEntry(t *testing.T) {
 	vault := setupFullVault(t)
 	_, err := Query(vault, EntrySpec{File: "Index.md", Tag: "overview"}, QueryOptions{})

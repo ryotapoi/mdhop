@@ -125,7 +125,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 			continue
 		}
 		// Compute new raw link.
-		newRawLink := rewriteRawLink(re.rawLink, re.linkType, re.sourcePath, target.path)
+		newRawLink := rewriteRawLink(re.rawLink, re.linkType, target.path)
 		if newRawLink == re.rawLink {
 			continue // no change needed
 		}
@@ -324,7 +324,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 				continue
 			}
 
-			newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, sourcePath, targetPath)
+			newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, targetPath)
 			if newRawLink == lo.rawLink {
 				continue
 			}

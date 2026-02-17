@@ -155,6 +155,7 @@ phantom クエリ用 seed:
 
 - basename = `name`（noteの場合）に対して
 - `COUNT(note where name=basename and exists=true)` が 2以上なら path必須
+  - **例外**: ルート直下にそのファイルがある場合、`[[basename]]` はルートファイルに解決されるため path 不要
 
 この導出は DB から可能なので、固定的な lockfile は必須ではない。
 ただし “例外ルール（常にpath必須）” を入れたい場合は設定として上書きできるようにしてもよい。

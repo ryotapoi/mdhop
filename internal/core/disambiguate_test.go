@@ -593,6 +593,28 @@ func TestDisambiguateScanPathLinkNotRewritten(t *testing.T) {
 	}
 }
 
+func TestDisambiguateScanRootTarget(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate")
+	// Add A.md at root. Target is root file → rewrite result is [[A]] (unchanged) → 0 rewrites.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A at root\n"), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+
+	result, err := DisambiguateScan(vault, DisambiguateOptions{
+		Name:   "A",
+		Target: "A.md",
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(result.Rewritten) != 0 {
+		t.Errorf("Rewritten count = %d, want 0 (root file target → no change)", len(result.Rewritten))
+		for _, r := range result.Rewritten {
+			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+		}
+	}
+}
+
 func TestDisambiguateScanTargetNotFound(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
 

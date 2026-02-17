@@ -84,7 +84,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	}
 
 	// Build maps from DB + save oldBasenameCounts copy.
-	pathToID, pathSet, basenameCounts, err := buildMapsFromDB(db)
+	pathToID, pathSet, basenameCounts, rootBasenameToPath, err := buildMapsFromDB(db)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +101,9 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		pathSet[strings.ToLower(noExt)] = f.path
 		bk := basenameKey(f.path)
 		basenameCounts[bk]++
+		if isRootFile(f.path) {
+			rootBasenameToPath[bk] = f.path
+		}
 	}
 
 	// Check if adding causes existing links to become ambiguous.
@@ -133,10 +136,25 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		var isPatternA bool
 		if oldCount == 1 {
 			// Pattern A: existing unique note becomes ambiguous.
-			targetID = pathToID[oldBasenameToPath[bk]]
+			oldTarget := oldBasenameToPath[bk]
+			if isRootFile(oldTarget) {
+				continue // Root-priority: [[A]] still resolves to root A.md → no ambiguity.
+			}
+			targetID = pathToID[oldTarget]
 			isPatternA = true
 		} else {
 			// Pattern B: phantom (oldCount == 0, adding 2+ files with same basename).
+			// Check if any of the new files is at root → root priority resolves.
+			hasNewRoot := false
+			for _, f := range files {
+				if basenameKey(f.path) == bk && isRootFile(f.path) {
+					hasNewRoot = true
+					break
+				}
+			}
+			if hasNewRoot {
+				continue // Root priority: [[A]] resolves to root file → not ambiguous.
+			}
 			pk := phantomKey(bk)
 			err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&targetID)
 			if err == sql.ErrNoRows {
@@ -180,7 +198,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			// Compute new raw links for each edge.
 			targetPath := oldBasenameToPath[bk]
 			for i := range basenameEdges {
-				basenameEdges[i].newRawLink = rewriteRawLink(basenameEdges[i].rawLink, basenameEdges[i].linkType, basenameEdges[i].sourcePath, targetPath)
+				basenameEdges[i].newRawLink = rewriteRawLink(basenameEdges[i].rawLink, basenameEdges[i].linkType, targetPath)
 			}
 			allRewrites = append(allRewrites, basenameEdges...)
 		} else {
@@ -259,7 +277,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
 				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, f.path)
 			}
-			if link.isBasename && basenameCounts[strings.ToLower(link.target)] > 1 {
+			if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
 				return nil, fmt.Errorf("ambiguous link: %s in %s", link.target, f.path)
 			}
 		}
@@ -313,8 +331,26 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		result.Added = append(result.Added, pf.file.path)
 	}
 
-	// Phantom → note promotion.
+	// Phantom → note promotion (root-priority aware).
+	// When multiple files share a basename, prefer root file for phantom promotion.
+	rootForBasename := make(map[string]string) // bk → root file path
 	for _, pf := range parsed {
+		bk := basenameKey(pf.file.path)
+		if isRootFile(pf.file.path) {
+			rootForBasename[bk] = pf.file.path
+		}
+	}
+	promotedBasenames := make(map[string]bool)
+	for _, pf := range parsed {
+		bk := basenameKey(pf.file.path)
+		if promotedBasenames[bk] {
+			continue
+		}
+		// If a root file exists for this basename but this isn't it, skip (root will promote).
+		if rp, ok := rootForBasename[bk]; ok && rp != pf.file.path {
+			continue
+		}
+
 		pk := phantomKey(basename(pf.file.path))
 		var phantomID int64
 		err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
@@ -337,6 +373,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			return nil, err
 		}
 
+		promotedBasenames[bk] = true
 		result.Promoted = append(result.Promoted, pf.file.path)
 	}
 
@@ -344,7 +381,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	for _, pf := range parsed {
 		sourceID := pathToID[pf.file.path]
 		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.file.path, link, pathSet, basenameToPath, pathToID)
+			targetID, subpath, err := resolveLink(tx, pf.file.path, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
 			if err != nil {
 				return nil, err
 			}

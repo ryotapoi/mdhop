@@ -25,9 +25,15 @@
 - **frontmatter タグと inline タグの文字種差異**: inline タグは正規表現で `[A-Za-z0-9_/]` に制限されるが、frontmatter の `tags:` は YAML からそのまま取り込むため、ハイフン・ドット等 `/` (ASCII 47) より小さい文字を含む可能性がある。タグのソート・比較処理ではこの差異を考慮すること
 - `isBasenameRawLink` は self-link（`[[#Heading]]`, `[text](#heading)`）で false を返す必要がある。fragment 除去後に target が空なら self-link
 
+## ルート優先ルール
+
+- `pathSet` のキー構造が前提: ルート `A.md` は `"a"` キー、サブディレクトリ `sub/A.md` は `"sub/a"` キー。`pathSet["a"]` はルートファイル専用のため `hasRootInPathSet` が機能する
+- move の Phase 2（incoming rewrite）が先に basename リンクを rewrite するため、Phase 2.5 ではそのエッジは処理済み。テストで「Phase 2.5 でエラー」を期待するなら、incoming edge を持たない第三者ファイルのリンクを使う
+- update でファイル削除すると `basenameCounts` が減る。ルート削除後に残りが 1 つなら basename 一意→非曖昧
+
 ## リライト (rewrite.go)
 
-- `buildRewritePath` はサブディレクトリターゲットに vault-relative パスを返す。発リンクの相対パスリライトには `filepath.Rel` ベースの `rewriteOutgoingRelativeLink` を別途使う
+- `buildRewritePath` は vault-relative パスを返す（ルートもサブディレクトリも統一）。発リンクの相対パスリライトには `filepath.Rel` ベースの `rewriteOutgoingRelativeLink` を別途使う
 - `applyFileRewrites()` の `sourceID=0` 固定は `newMtimes` を無視する前提でのみ安全。mtime を使う拡張時は要注意
 - `applyFileRewrites` はバックアップを返す設計にし、呼び出し元がリライト失敗時に復元できるようにする
 - `os.WriteFile` は新規作成時に umask でパーミッションがマスクされる。既存ファイルの上書きでもファイルが削除→再作成される可能性があるため、パーミッションを保持するには `os.WriteFile` 後に `os.Chmod` を併用する（`writeFilePreservePerm`）

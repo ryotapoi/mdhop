@@ -86,7 +86,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	}
 
 	// Build in-memory maps from DB (mirrors build's Pass 1).
-	pathToID, pathSet, basenameCounts, err := buildMapsFromDB(db)
+	pathToID, pathSet, basenameCounts, rootBasenameToPath, err := buildMapsFromDB(db)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +106,9 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 				if basenameCounts[bk] <= 0 {
 					delete(basenameCounts, bk)
 				}
+				if isRootFile(cf.path) {
+					delete(rootBasenameToPath, bk)
+				}
 			}
 		} else {
 			// Ensure present in maps (normally already there for registered notes).
@@ -117,6 +120,9 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 				pathSet[strings.ToLower(noExt)] = cf.path
 				bk := basenameKey(cf.path)
 				basenameCounts[bk]++
+				if isRootFile(cf.path) {
+					rootBasenameToPath[bk] = cf.path
+				}
 			}
 		}
 	}
@@ -162,7 +168,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
 				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, cf.path)
 			}
-			if link.isBasename && basenameCounts[strings.ToLower(link.target)] > 1 {
+			if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
 				return nil, fmt.Errorf("ambiguous link: %s in %s", link.target, cf.path)
 			}
 		}
@@ -193,7 +199,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 
 		// Re-resolve links and create new edges.
 		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.cf.path, link, pathSet, basenameToPath, pathToID)
+			targetID, subpath, err := resolveLink(tx, pf.cf.path, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
 			if err != nil {
 				return nil, err
 			}
@@ -239,14 +245,15 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 
 // buildMapsFromDB constructs in-memory maps from existing DB note nodes,
 // mirroring build's Pass 1 structure.
-func buildMapsFromDB(db dbExecer) (pathToID map[string]int64, pathSet map[string]string, basenameCounts map[string]int, err error) {
+func buildMapsFromDB(db dbExecer) (pathToID map[string]int64, pathSet map[string]string, basenameCounts map[string]int, rootBasenameToPath map[string]string, err error) {
 	pathToID = make(map[string]int64)
 	pathSet = make(map[string]string)
 	basenameCounts = make(map[string]int)
+	rootBasenameToPath = make(map[string]string)
 
 	rows, err := db.Query("SELECT id, path FROM nodes WHERE type='note' AND exists_flag=1")
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	defer rows.Close()
 
@@ -254,7 +261,7 @@ func buildMapsFromDB(db dbExecer) (pathToID map[string]int64, pathSet map[string
 		var id int64
 		var path string
 		if err := rows.Scan(&id, &path); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		pathToID[path] = id
 
@@ -265,7 +272,10 @@ func buildMapsFromDB(db dbExecer) (pathToID map[string]int64, pathSet map[string
 
 		bk := basenameKey(path)
 		basenameCounts[bk]++
+		if isRootFile(path) {
+			rootBasenameToPath[bk] = path
+		}
 	}
 
-	return pathToID, pathSet, basenameCounts, rows.Err()
+	return pathToID, pathSet, basenameCounts, rootBasenameToPath, rows.Err()
 }

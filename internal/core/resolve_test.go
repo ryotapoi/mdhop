@@ -318,9 +318,8 @@ func TestResolveErrorLinkNotInSource(t *testing.T) {
 	}
 }
 
-func TestResolveErrorAmbiguousBasename(t *testing.T) {
-	// Build a DB with two notes that have the same basename, then try to resolve.
-	// Since Build rejects ambiguous links, we create the DB directly.
+func TestResolveBasenameRootPriority(t *testing.T) {
+	// Design.md is at root + insert other/Design.md → root priority resolves to root.
 	vault := filepath.Join(t.TempDir(), "vault")
 	if err := testutil.CopyDir(filepath.Join("..", "..", "testdata", "vault_build_full"), vault); err != nil {
 		t.Fatalf("copy vault: %v", err)
@@ -329,17 +328,55 @@ func TestResolveErrorAmbiguousBasename(t *testing.T) {
 
 	// Manually insert a second note with the same basename as "Design".
 	db := openTestDB(t, dbPath(vault))
-	defer db.Close()
 	_, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime) VALUES (?, 'note', 'Design', 'other/Design.md', 1, 0)`,
 		noteKey("other/Design.md"),
 	)
 	if err != nil {
+		db.Close()
 		t.Fatalf("insert duplicate: %v", err)
 	}
 	db.Close()
 
-	// Now resolve [[Design]] from Index.md — should be ambiguous.
+	// Root priority: Design.md is at root → resolves to it.
+	res, err := Resolve(vault, "Index.md", "[[Design]]")
+	if err != nil {
+		t.Fatalf("expected success (root priority), got: %v", err)
+	}
+	if res.Path != "Design.md" {
+		t.Errorf("path = %q, want %q", res.Path, "Design.md")
+	}
+}
+
+func TestResolveBasenameAmbiguousNoRoot(t *testing.T) {
+	// Two notes in subdirs (no root) → ambiguous.
+	vault := filepath.Join(t.TempDir(), "vault")
+	if err := testutil.CopyDir(filepath.Join("..", "..", "testdata", "vault_build_full"), vault); err != nil {
+		t.Fatalf("copy vault: %v", err)
+	}
+	buildVault(t, vault)
+
+	// Rename Design.md in DB to sub1/Design.md (no root).
+	db := openTestDB(t, dbPath(vault))
+	_, err := db.Exec(
+		`UPDATE nodes SET path = 'sub1/Design.md', node_key = ? WHERE path = 'Design.md'`,
+		noteKey("sub1/Design.md"),
+	)
+	if err != nil {
+		db.Close()
+		t.Fatalf("update path: %v", err)
+	}
+	// Insert second note at sub2/Design.md.
+	_, err = db.Exec(
+		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime) VALUES (?, 'note', 'Design', 'sub2/Design.md', 1, 0)`,
+		noteKey("sub2/Design.md"),
+	)
+	if err != nil {
+		db.Close()
+		t.Fatalf("insert duplicate: %v", err)
+	}
+	db.Close()
+
 	_, err = Resolve(vault, "Index.md", "[[Design]]")
 	if err == nil {
 		t.Fatal("expected error, got nil")

@@ -22,10 +22,14 @@ func Build(vaultPath string) error {
 
 	// Build lookup maps (no DB needed).
 	basenameToPath := make(map[string]string) // lower basename → path (only for unique basenames)
+	rootBasenameToPath := make(map[string]string) // lower basename → path (root files only)
 	for _, rel := range files {
 		bk := basenameKey(rel)
 		if basenameCounts[bk] == 1 {
 			basenameToPath[bk] = rel
+		}
+		if isRootFile(rel) {
+			rootBasenameToPath[bk] = rel
 		}
 	}
 	pathSet := make(map[string]string) // normalized lookup key → actual vault-relative path
@@ -66,7 +70,7 @@ func Build(vaultPath string) error {
 			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
 				return fmt.Errorf("link escapes vault: %s in %s", link.rawLink, rel)
 			}
-			if link.isBasename && basenameCounts[strings.ToLower(link.target)] > 1 {
+			if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
 				return fmt.Errorf("ambiguous link: %s in %s", link.target, rel)
 			}
 		}
@@ -114,7 +118,7 @@ func Build(vaultPath string) error {
 	for _, pf := range parsed {
 		sourceID := pathToID[pf.path]
 		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.path, link, pathSet, basenameToPath, pathToID)
+			targetID, subpath, err := resolveLink(tx, pf.path, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
 			if err != nil {
 				return err
 			}
@@ -143,7 +147,7 @@ func Build(vaultPath string) error {
 
 // resolveLink resolves a linkOccur to a target node ID and subpath.
 // Returns (0, "", nil) if the link should be skipped.
-func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[string]string, basenameToPath map[string]string, pathToID map[string]int64) (int64, string, error) {
+func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[string]string, basenameToPath map[string]string, rootBasenameToPath map[string]string, pathToID map[string]int64) (int64, string, error) {
 	// Self-link: [[#Heading]]
 	if link.target == "" && link.subpath != "" {
 		id := pathToID[sourcePath]
@@ -191,6 +195,11 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[str
 	if link.isBasename {
 		lower := strings.ToLower(target)
 		if path, ok := basenameToPath[lower]; ok {
+			id := pathToID[path]
+			return id, link.subpath, nil
+		}
+		// Fallback: root-priority resolution for ambiguous basenames.
+		if path, ok := rootBasenameToPath[lower]; ok {
 			id := pathToID[path]
 			return id, link.subpath, nil
 		}

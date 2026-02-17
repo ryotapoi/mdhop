@@ -178,11 +178,12 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 }
 
 // resolveBasenameFromDB finds a note node by basename (case-insensitive).
+// When multiple notes match, applies root-priority rule: if one is at vault root, use it.
 func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, string, error) {
 	lower := strings.ToLower(target)
 
 	rows, err := db.Query(
-		`SELECT id FROM nodes WHERE type='note' AND LOWER(name) = ?`,
+		`SELECT id, path FROM nodes WHERE type='note' AND LOWER(name) = ?`,
 		lower,
 	)
 	if err != nil {
@@ -190,23 +191,33 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 	}
 	defer rows.Close()
 
-	var ids []int64
+	type match struct {
+		id   int64
+		path string
+	}
+	var matches []match
 	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
+		var m match
+		if err := rows.Scan(&m.id, &m.path); err != nil {
 			return 0, "", err
 		}
-		ids = append(ids, id)
+		matches = append(matches, m)
 	}
 	if err := rows.Err(); err != nil {
 		return 0, "", err
 	}
 
-	if len(ids) == 1 {
-		return ids[0], link.subpath, nil
+	if len(matches) == 1 {
+		return matches[0].id, link.subpath, nil
 	}
-	if len(ids) > 1 {
-		return 0, "", fmt.Errorf("ambiguous link: %s resolves to %d notes", target, len(ids))
+	if len(matches) > 1 {
+		// Root-priority: if one match is at vault root, resolve to it.
+		for _, m := range matches {
+			if isRootFile(m.path) {
+				return m.id, link.subpath, nil
+			}
+		}
+		return 0, "", fmt.Errorf("ambiguous link: %s resolves to %d notes", target, len(matches))
 	}
 
 	// 0 matches → look for phantom.

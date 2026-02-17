@@ -240,13 +240,13 @@ func TestAddPhantomPromotion(t *testing.T) {
 	}
 }
 
-func TestAddAmbiguousLinkInNewFile(t *testing.T) {
+func TestAddAmbiguousLinkInNewFileRootPriority(t *testing.T) {
+	// X.md at root + sub/X.md → root priority resolves [[X]] to root.
 	vault := copyVault(t, "vault_add")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Create two files with the same basename in different directories.
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -257,7 +257,6 @@ func TestAddAmbiguousLinkInNewFile(t *testing.T) {
 		t.Fatalf("write X.md: %v", err)
 	}
 
-	// Add both, then try to add a file that links to X by basename.
 	result, err := Add(vault, AddOptions{Files: []string{"X.md", "sub/X.md"}})
 	if err != nil {
 		t.Fatalf("add X files: %v", err)
@@ -266,32 +265,62 @@ func TestAddAmbiguousLinkInNewFile(t *testing.T) {
 		t.Errorf("Added = %v, want 2 files", result.Added)
 	}
 
-	// Now add a file with ambiguous link to X.
+	// Linker.md with [[X]] — root priority resolves to X.md at root → success.
 	if err := os.WriteFile(filepath.Join(vault, "Linker.md"), []byte("[[X]]\n"), 0o644); err != nil {
 		t.Fatalf("write Linker.md: %v", err)
 	}
 
-	beforeNotes := countNotes(t, dbPath(vault))
 	_, err = Add(vault, AddOptions{Files: []string{"Linker.md"}})
-	if err == nil || !strings.Contains(err.Error(), "ambiguous link") {
-		t.Errorf("expected ambiguous link error, got: %v", err)
-	}
-
-	// DB should be unchanged.
-	afterNotes := countNotes(t, dbPath(vault))
-	if beforeNotes != afterNotes {
-		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
+	if err != nil {
+		t.Fatalf("expected success (root priority), got: %v", err)
 	}
 }
 
-func TestAddCausesExistingAmbiguity(t *testing.T) {
+func TestAddAmbiguousLinkInNewFileNoRoot(t *testing.T) {
+	// sub1/X.md + sub2/X.md (no root) → [[X]] is ambiguous → error.
 	vault := copyVault(t, "vault_add")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// A.md contains [[B]] — a basename link to B.md.
-	// Adding sub/B.md would make [[B]] ambiguous.
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "X.md"), []byte("# X\n"), 0o644); err != nil {
+		t.Fatalf("write sub1/X.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub2", "X.md"), []byte("# X\n"), 0o644); err != nil {
+		t.Fatalf("write sub2/X.md: %v", err)
+	}
+
+	result, err := Add(vault, AddOptions{Files: []string{"sub1/X.md", "sub2/X.md"}})
+	if err != nil {
+		t.Fatalf("add X files: %v", err)
+	}
+	if len(result.Added) != 2 {
+		t.Errorf("Added = %v, want 2 files", result.Added)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "Linker.md"), []byte("[[X]]\n"), 0o644); err != nil {
+		t.Fatalf("write Linker.md: %v", err)
+	}
+
+	_, err = Add(vault, AddOptions{Files: []string{"Linker.md"}})
+	if err == nil || !strings.Contains(err.Error(), "ambiguous link") {
+		t.Errorf("expected ambiguous link error, got: %v", err)
+	}
+}
+
+func TestAddCausesExistingAmbiguityRootPriority(t *testing.T) {
+	// B.md is at root. Adding sub/B.md → Pattern A, but old target is root → skip.
+	vault := copyVault(t, "vault_add")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -299,16 +328,38 @@ func TestAddCausesExistingAmbiguity(t *testing.T) {
 		t.Fatalf("write sub/B.md: %v", err)
 	}
 
-	beforeNotes := countNotes(t, dbPath(vault))
 	_, err := Add(vault, AddOptions{Files: []string{"sub/B.md"}})
-	if err == nil || !strings.Contains(err.Error(), "adding files would make existing links ambiguous") {
-		t.Errorf("expected existing ambiguity error, got: %v", err)
+	if err != nil {
+		t.Fatalf("expected success (root priority, Pattern A skip), got: %v", err)
+	}
+}
+
+func TestAddCausesExistingAmbiguityNoRoot(t *testing.T) {
+	// sub/B.md is the old unique target. Adding sub2/B.md → Pattern A, old target NOT root → error.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("# B\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
 	}
 
-	// DB should be unchanged.
-	afterNotes := countNotes(t, dbPath(vault))
-	if beforeNotes != afterNotes {
-		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
+	if err := os.WriteFile(filepath.Join(vault, "sub2", "B.md"), []byte("# B2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Add(vault, AddOptions{Files: []string{"sub2/B.md"}})
+	if err == nil || !strings.Contains(err.Error(), "adding files would make existing links ambiguous") {
+		t.Errorf("expected existing ambiguity error, got: %v", err)
 	}
 }
 
@@ -435,7 +486,8 @@ func TestAddAutoDisambiguateBasic(t *testing.T) {
 }
 
 func TestAddAutoDisambiguateRootTarget(t *testing.T) {
-	// When the old target is at root (B.md), rewrites should use source-relative paths.
+	// Old target B.md is at root → Pattern A skip (root priority).
+	// No rewrites needed — [[B]] still resolves to root B.md.
 	vault := copyVault(t, "vault_add_disambiguate_root")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
@@ -458,34 +510,37 @@ func TestAddAutoDisambiguateRootTarget(t *testing.T) {
 		t.Errorf("Added = %v, want 1 file", result.Added)
 	}
 
-	// A.md is at root → [[B]] → [[./B]]
+	// No rewrites should occur (root priority, Pattern A skip).
+	if len(result.Rewritten) != 0 {
+		t.Errorf("Rewritten = %d, want 0 (root priority skip)", len(result.Rewritten))
+	}
+
+	// A.md content should be unchanged — [[B]] still valid.
 	contentA, err := os.ReadFile(filepath.Join(vault, "A.md"))
 	if err != nil {
 		t.Fatalf("read A.md: %v", err)
 	}
-	if got := strings.TrimSpace(string(contentA)); got != "[[./B]]" {
-		t.Errorf("A.md = %q, want [[./B]]", got)
+	if got := strings.TrimSpace(string(contentA)); got != "[[B]]" {
+		t.Errorf("A.md = %q, want [[B]] (unchanged)", got)
 	}
 
-	// sub/Source.md is in sub/ → [[B]] → [[../B]]
+	// sub/Source.md content should also be unchanged.
 	contentS, err := os.ReadFile(filepath.Join(vault, "sub", "Source.md"))
 	if err != nil {
 		t.Fatalf("read sub/Source.md: %v", err)
 	}
-	if got := strings.TrimSpace(string(contentS)); got != "[[../B]]" {
-		t.Errorf("sub/Source.md = %q, want [[../B]]", got)
+	if got := strings.TrimSpace(string(contentS)); got != "[[B]]" {
+		t.Errorf("sub/Source.md = %q, want [[B]] (unchanged)", got)
 	}
 }
 
-func TestAddAutoDisambiguatePatternBStillErrors(t *testing.T) {
-	// Pattern B (phantom + 2 new files with same basename) → error even with --auto-disambiguate.
+func TestAddAutoDisambiguatePatternBRootPriority(t *testing.T) {
+	// Pattern B: phantom + 2 new files. NonExistent.md at root → root priority → success.
 	vault := copyVault(t, "vault_build_phantom")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// A.md has [[NonExistent]] → phantom.
-	// Add two files named NonExistent.
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -496,8 +551,40 @@ func TestAddAutoDisambiguatePatternBStillErrors(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	_, err := Add(vault, AddOptions{
+	result, err := Add(vault, AddOptions{
 		Files:            []string{"NonExistent.md", "sub/NonExistent.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("expected success (root priority, Pattern B), got: %v", err)
+	}
+	if len(result.Added) != 2 {
+		t.Errorf("Added = %v, want 2 files", result.Added)
+	}
+}
+
+func TestAddAutoDisambiguatePatternBNoRoot(t *testing.T) {
+	// Pattern B: phantom + 2 new files, both in subdirs (no root) → error.
+	vault := copyVault(t, "vault_build_phantom")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "NonExistent.md"), []byte("# NE1\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub2", "NonExistent.md"), []byte("# NE2\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"sub1/NonExistent.md", "sub2/NonExistent.md"},
 		AutoDisambiguate: true,
 	})
 	if err == nil || !strings.Contains(err.Error(), "adding files would make existing links ambiguous") {
@@ -505,24 +592,51 @@ func TestAddAutoDisambiguatePatternBStillErrors(t *testing.T) {
 	}
 }
 
-func TestAddAutoDisambiguateNewFileAmbiguousStillErrors(t *testing.T) {
-	// New file contains ambiguous basename link → error even with --auto-disambiguate.
+func TestAddAutoDisambiguateNewFileWithRootPriority(t *testing.T) {
+	// New file C.md has [[B]]. B.md at root + sub/B.md → root priority → success.
 	vault := copyVault(t, "vault_add_disambiguate")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Create B.md at root (collides with sub/B.md).
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
 		t.Fatalf("write B.md: %v", err)
 	}
-	// Create C.md that has ambiguous link [[B]] in itself.
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatalf("write C.md: %v", err)
+	}
+
+	result, err := Add(vault, AddOptions{
+		Files:            []string{"B.md", "C.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("expected success (root priority), got: %v", err)
+	}
+	if len(result.Added) != 2 {
+		t.Errorf("Added = %v, want 2 files", result.Added)
+	}
+}
+
+func TestAddAutoDisambiguateNewFileAmbiguousNoRoot(t *testing.T) {
+	// New file has [[B]], sub/B.md exists, add sub2/B.md (no root B) → ambiguous → error.
+	vault := copyVault(t, "vault_add_disambiguate")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub2", "B.md"), []byte("# B2\n"), 0o644); err != nil {
+		t.Fatalf("write sub2/B.md: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("[[B]]\n"), 0o644); err != nil {
 		t.Fatalf("write C.md: %v", err)
 	}
 
 	_, err := Add(vault, AddOptions{
-		Files:            []string{"B.md", "C.md"},
+		Files:            []string{"sub2/B.md", "C.md"},
 		AutoDisambiguate: true,
 	})
 	if err == nil || !strings.Contains(err.Error(), "ambiguous link") {
@@ -919,16 +1033,13 @@ func TestAddSelfLinkNotBlockedByAmbiguity(t *testing.T) {
 	}
 }
 
-func TestAddDuplicateBasenameNewFiles(t *testing.T) {
-	// Adding two files with the same basename simultaneously
-	// when an existing phantom with basename links exists → error.
+func TestAddDuplicateBasenameNewFilesRootPriority(t *testing.T) {
+	// Adding NonExistent.md (root) + sub/NonExistent.md → root priority → success.
 	vault := copyVault(t, "vault_build_phantom")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// A.md has [[NonExistent]] — a basename link to phantom "NonExistent".
-	// Create two files named NonExistent in different dirs.
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -939,15 +1050,128 @@ func TestAddDuplicateBasenameNewFiles(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	beforeNotes := countNotes(t, dbPath(vault))
-	_, err := Add(vault, AddOptions{Files: []string{"NonExistent.md", "sub/NonExistent.md"}})
+	result, err := Add(vault, AddOptions{Files: []string{"NonExistent.md", "sub/NonExistent.md"}})
+	if err != nil {
+		t.Fatalf("expected success (root priority), got: %v", err)
+	}
+	if len(result.Added) != 2 {
+		t.Errorf("Added = %v, want 2 files", result.Added)
+	}
+}
+
+func TestAddDuplicateBasenameNewFilesNoRoot(t *testing.T) {
+	// Adding sub1/NonExistent.md + sub2/NonExistent.md (no root) → error.
+	vault := copyVault(t, "vault_build_phantom")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "NonExistent.md"), []byte("# NE1\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub2", "NonExistent.md"), []byte("# NE2\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{Files: []string{"sub1/NonExistent.md", "sub2/NonExistent.md"}})
 	if err == nil || !strings.Contains(err.Error(), "adding files would make existing links ambiguous") {
 		t.Errorf("expected existing ambiguity error, got: %v", err)
 	}
+}
 
-	// DB should be unchanged.
-	afterNotes := countNotes(t, dbPath(vault))
-	if beforeNotes != afterNotes {
-		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
+func TestAddPhantomPromotionRootPriority(t *testing.T) {
+	// Phantom [[NonExistent]] exists. Add sub/NonExistent.md and NonExistent.md (root).
+	// Root file should be promoted (not the sub one).
+	vault := copyVault(t, "vault_build_phantom")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// Add sub first in list, then root — root should still win for promotion.
+	if err := os.WriteFile(filepath.Join(vault, "sub", "NonExistent.md"), []byte("# NE sub\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "NonExistent.md"), []byte("# NE root\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	result, err := Add(vault, AddOptions{Files: []string{"sub/NonExistent.md", "NonExistent.md"}})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if len(result.Added) != 2 {
+		t.Errorf("Added = %v, want 2 files", result.Added)
+	}
+
+	// Phantom should be promoted to root NonExistent.md.
+	if len(result.Promoted) != 1 || result.Promoted[0] != "NonExistent.md" {
+		t.Errorf("Promoted = %v, want [NonExistent.md] (root priority)", result.Promoted)
+	}
+
+	// Incoming edges from A.md should point to root NonExistent.md.
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	var targetPath string
+	err = db.QueryRow(`
+		SELECT n.path FROM edges e
+		JOIN nodes sn ON sn.id = e.source_id AND sn.path = 'A.md'
+		JOIN nodes n ON n.id = e.target_id
+		WHERE e.raw_link = '[[NonExistent]]'
+	`).Scan(&targetPath)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if targetPath != "NonExistent.md" {
+		t.Errorf("[[NonExistent]] target = %q, want NonExistent.md (root)", targetPath)
+	}
+}
+
+func TestAddAutoDisambiguateSubdirTarget(t *testing.T) {
+	// Old unique target sub/B.md. Add B.md at root → Pattern A, old target NOT root.
+	// Auto-disambiguate rewrites [[B]] → [[sub/B]].
+	vault := copyVault(t, "vault_add_disambiguate")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	result, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	// Rewrites should happen — old target is sub/B.md (not root).
+	if len(result.Rewritten) != 5 {
+		t.Fatalf("Rewritten = %d, want 5", len(result.Rewritten))
+	}
+
+	// Verify rewrite content.
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	lines := strings.Split(string(content), "\n")
+	if lines[0] != "[[sub/B]]" {
+		t.Errorf("line 1 = %q, want [[sub/B]]", lines[0])
+	}
+
+	// Rebuild should succeed.
+	if err := Build(vault); err != nil {
+		t.Fatalf("rebuild after auto-disambiguate: %v", err)
 	}
 }

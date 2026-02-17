@@ -13,6 +13,9 @@
 - 解析対象: `**/*.md` のみ、`.mdhop/` 配下は除外
 - case-insensitive basename: `[[note]]` → `Note.md` に解決
 - case-insensitive basename衝突 + basenameリンク → ambiguousエラー
+- ルート優先: basename重複 + ルート直下にファイルあり → build成功、basename リンクはルートに解決
+- ルート優先なし: basename重複 + ルートになし → ambiguousエラー（従来通り）
+- ルート優先ラウンドトリップ: build 2回で結果が同一
 - basename衝突あり + パス指定リンクのみ → エラーにならない
 - mtime: 全noteにos.Statの値が設定される
 - edges: wikilink / markdown link → 対応するedgeが作成される
@@ -42,11 +45,13 @@
 - `[text](/note.md)` はVault相対
 - source に実在しないリンクはエラー
 - 曖昧候補はエラー
+- ルート優先: basename重複でもルートファイルに解決
 
 ## query
 
 - 起点: `--file/--tag/--phantom/--name` のいずれか
 - `--name #tag` はタグ扱い、曖昧ならエラー
+- `--name` のルート優先: basename重複でもルートファイルに解決
 - `backlinks/tags/outgoing/twohop` の出力
 - `twohop` は via→targets 構造
 - `backlinks/outgoing/twohop` は type を含める
@@ -63,6 +68,9 @@
 - 追加ファイル内に曖昧リンクが含まれる場合はエラー
 - `--auto-disambiguate` あり: 既存リンクの書換えが行われる
 - `--auto-disambiguate` ありでも、追加ファイルに曖昧リンクが含まれる場合はエラー
+- ルート優先: 旧一意先がルート → auto-disambiguate スキップ
+- ルート優先: 追加ファイルにルートファイルあり → basename リンク非曖昧
+- ルート優先: phantom promotion でルートファイルを優先
 
 ## update
 
@@ -72,6 +80,7 @@
 - ディスク不在+参照なし → 完全削除
 - ディスク不在+参照あり+同名phantom既存 → edges付替え+note削除
 - 曖昧リンクを追加した更新はエラー（DB変更なし）
+- ルート優先: basename重複でもルートファイルがあればエラーにならない
 - vault外への相対リンク → エラー（DB変更なし）
 - orphan cleanup: タグ参照がなくなったら削除
 - mtime: 更新後 mtime が os.Stat と一致
@@ -89,6 +98,9 @@
 - 旧パス未登録はエラー
 - 新パス既存はエラー
 - 移動後に曖昧リンクが残る場合はエラー
+- ルート優先: move前後でルートファイルが存続 → 曖昧エラーにならない
+- ルート優先: ルートファイルが移動で消失 → エラー
+- ルート優先: basename不変 + ルート存続 → incoming rewrite スキップ
 - `[[a]]` / `[x](a.md)` は一意なら維持、曖昧化/別解決なら書換え
 - `[[path/to/a]]` / `[x](path/to/a.md)` は必ず書換え
 - リンク書換え対象ファイルはDBから抽出
@@ -127,3 +139,4 @@
 - `--name` の大小文字不問
 - パス指定リンクは対象外
 - `--target` 不一致時のエラー
+- ルート優先: ルートファイルが target → rewrite 結果が変化なし（0件）

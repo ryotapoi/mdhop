@@ -253,6 +253,12 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 		return matches[0].id, matches[0].info, nil
 	}
 	if len(matches) > 1 {
+		// Root-priority: if one match is at vault root, resolve to it.
+		for _, m := range matches {
+			if isRootFile(m.info.Path) {
+				return m.id, m.info, nil
+			}
+		}
 		return 0, NodeInfo{}, fmt.Errorf("ambiguous name: %s matches %d notes", name, len(matches))
 	}
 

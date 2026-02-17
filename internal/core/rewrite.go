@@ -24,34 +24,14 @@ type rewriteEntry struct {
 	newRawLink string
 }
 
-// buildRewritePath constructs the rewritten path for a link target.
-// If targetPath contains "/" (subdirectory), returns vault-relative path.
-// If targetPath has no "/" (root), returns source-relative path with ./ or ../ prefix.
-func buildRewritePath(sourcePath, targetPath, linkType string) string {
-	targetNoExt := strings.TrimSuffix(targetPath, filepath.Ext(targetPath))
-
-	if strings.Contains(targetPath, "/") {
-		// Subdirectory target → vault-relative path.
-		if linkType == "wikilink" {
-			return targetNoExt
-		}
-		// markdown: determine if original had .md extension (handled by caller).
-		return targetNoExt
-	}
-
-	// Root target → source-relative path.
-	sourceDir := filepath.Dir(sourcePath)
-	rel, _ := filepath.Rel(sourceDir, ".")
-	relDir := filepath.ToSlash(filepath.Clean(rel))
-	if relDir == "." {
-		// Same directory: use "./" prefix.
-		return "./" + targetNoExt
-	}
-	return relDir + "/" + targetNoExt
+// buildRewritePath constructs the vault-relative rewritten path for a link target.
+// Returns the target path without extension (e.g. "A.md" → "A", "sub/A.md" → "sub/A").
+func buildRewritePath(targetPath string) string {
+	return strings.TrimSuffix(targetPath, filepath.Ext(targetPath))
 }
 
 // rewriteRawLink replaces the target in a raw link with the rewritten path.
-func rewriteRawLink(rawLink, linkType, sourcePath, targetPath string) string {
+func rewriteRawLink(rawLink, linkType, targetPath string) string {
 	switch linkType {
 	case "wikilink":
 		// rawLink: [[Target]], [[Target|alias]], [[Target#Heading]], [[Target#Heading|alias]]
@@ -69,7 +49,7 @@ func rewriteRawLink(rawLink, linkType, sourcePath, targetPath string) string {
 			subpath = inner[idx:] // includes #
 		}
 
-		newPath := buildRewritePath(sourcePath, targetPath, linkType)
+		newPath := buildRewritePath(targetPath)
 		return "[[" + newPath + subpath + alias + "]]"
 
 	case "markdown":
@@ -92,7 +72,7 @@ func rewriteRawLink(rawLink, linkType, sourcePath, targetPath string) string {
 		// Check if original URL had .md extension.
 		hasMdExt := strings.HasSuffix(strings.ToLower(urlPart), ".md")
 
-		newPath := buildRewritePath(sourcePath, targetPath, linkType)
+		newPath := buildRewritePath(targetPath)
 		if hasMdExt {
 			newPath += ".md"
 		}

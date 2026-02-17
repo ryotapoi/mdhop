@@ -746,6 +746,90 @@ func TestBuildFullVault(t *testing.T) {
 	}
 }
 
+func TestBuildRootPriority(t *testing.T) {
+	// A.md at root + sub/A.md → basename "A" collides.
+	// B.md has [[A]] → root priority resolves to root A.md → build succeeds.
+	vault := copyVault(t, "vault_build_root_priority")
+	if err := Build(vault); err != nil {
+		t.Fatalf("expected build success (root priority), got: %v", err)
+	}
+
+	// [[A]] in B.md should point to root A.md.
+	edges := queryEdges(t, dbPath(vault), "B.md")
+	var foundA bool
+	for _, e := range edges {
+		if e.targetName == "A" && e.targetType == "note" {
+			foundA = true
+			// Check it resolves to the root file via DB query.
+			db := openTestDB(t, dbPath(vault))
+			var path string
+			err := db.QueryRow("SELECT path FROM nodes WHERE id = (SELECT target_id FROM edges WHERE raw_link='[[A]]' AND source_id = (SELECT id FROM nodes WHERE path='B.md'))").Scan(&path)
+			db.Close()
+			if err != nil {
+				t.Fatalf("query: %v", err)
+			}
+			if path != "A.md" {
+				t.Errorf("[[A]] resolves to %q, want A.md (root)", path)
+			}
+		}
+	}
+	if !foundA {
+		t.Error("B→A edge not found")
+	}
+}
+
+func TestBuildRootPriorityNoRoot(t *testing.T) {
+	// sub1/A.md + sub2/A.md (no root A). B.md has [[A]] → ambiguous → error.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "A.md"), []byte("# A1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub2", "A.md"), []byte("# A2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err == nil {
+		t.Fatal("expected build error for ambiguous link (no root)")
+	}
+}
+
+func TestBuildRootPriorityRoundTrip(t *testing.T) {
+	// Build → add (causes collision, root-priority resolves) → rebuild → should succeed.
+	vault := copyVault(t, "vault_build_root_priority")
+
+	// Initial build: A.md(root) + sub/A.md + B.md has [[A]].
+	if err := Build(vault); err != nil {
+		t.Fatalf("first build: %v", err)
+	}
+
+	// Add another file with same basename at subdir.
+	sub2 := filepath.Join(vault, "sub2")
+	if err := os.MkdirAll(sub2, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub2, "A.md"), []byte("# A in sub2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Add(vault, AddOptions{Files: []string{"sub2/A.md"}})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	// Rebuild should still succeed (root-priority resolves [[A]] to root A.md).
+	if err := Build(vault); err != nil {
+		t.Fatalf("rebuild after add: %v", err)
+	}
+}
+
 func TestBuildExcludesMdhopDir(t *testing.T) {
 	vault := copyVault(t, "vault_build_basic")
 	// Create a .md file inside .mdhop dir — it should be excluded from the index.

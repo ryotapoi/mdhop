@@ -57,6 +57,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 原則:
 - basename が Vault 内で一意 → `[[basename]]` が“最短”で安全
 - basename が複数 → `[[path/to/basename]]`（Vault ルート相対）で一意化
+  - ただしルート直下にそのファイルがあれば `[[basename]]` はルートに解決（ルート優先）
 
 重要:
 - basename の重複が発生した瞬間（1→2）に、既存の `[[basename]]` の意味を保つため

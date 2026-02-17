@@ -57,12 +57,11 @@ func TestMove_TargetExistsOnDisk(t *testing.T) {
 	}
 }
 
-// --- Test 4: move causes ambiguous links → error ---
+// --- Test 4: move causes ambiguous links (root priority resolves) ---
 func TestMove_AmbiguousAfterMove(t *testing.T) {
-	// Create a vault where moving a file creates basename ambiguity.
-	// A.md (content only), B.md has [[A]], C.md has [[A]].
-	// Move A.md to sub/C.md → basename "C" collides with C.md.
-	// The outgoing links from moved file may have ambiguous targets.
+	// A.md has [[C]], B.md has [[A]], C.md exists at root.
+	// Move A.md to sub/C.md → basename "C" now has C.md + sub/C.md.
+	// Root priority: C.md is at root → [[C]] resolves to root C.md → no ambiguity.
 	vault := t.TempDir()
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[C]]\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -76,12 +75,37 @@ func TestMove_AmbiguousAfterMove(t *testing.T) {
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	// Move A.md to sub/C.md → basename "C" now has C.md + sub/C.md.
-	// A.md's outgoing [[C]] becomes ambiguous (two files with basename C).
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	_, err := Move(vault, MoveOptions{From: "A.md", To: "sub/C.md"})
+	if err != nil {
+		t.Fatalf("expected success (root priority), got: %v", err)
+	}
+}
+
+// --- Test 4b: move causes ambiguous links (no root file) → error ---
+func TestMove_AmbiguousAfterMoveNoRoot(t *testing.T) {
+	// A.md has [[C]], sub/C.md exists (no root C).
+	// Move A.md to sub2/C.md → basename "C" has sub/C.md + sub2/C.md, no root.
+	// → outgoing [[C]] is ambiguous → error.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[C]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "C.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Move(vault, MoveOptions{From: "A.md", To: "sub2/C.md"})
 	if err == nil {
 		t.Fatal("expected ambiguity error")
 	}
@@ -218,11 +242,12 @@ func TestMove_BasenameChanged(t *testing.T) {
 	}
 
 	// [[A]] in B.md should be rewritten because basename changed.
+	// X.md is at root → vault-relative rewrite gives [[X]].
 	var bRewritten bool
 	for _, rw := range result.Rewritten {
 		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
 			bRewritten = true
-			if rw.NewLink != "[[./X]]" {
+			if rw.NewLink != "[[X]]" {
 				t.Errorf("B.md rewrite unexpected: %s", rw.NewLink)
 			}
 		}
@@ -232,11 +257,12 @@ func TestMove_BasenameChanged(t *testing.T) {
 	}
 
 	// sub/D.md [[A]] should be rewritten too.
+	// X.md is at root → vault-relative rewrite gives [[X]].
 	var dWikiRewritten bool
 	for _, rw := range result.Rewritten {
 		if rw.File == "sub/D.md" && rw.OldLink == "[[A]]" {
 			dWikiRewritten = true
-			if rw.NewLink != "[[../X]]" {
+			if rw.NewLink != "[[X]]" {
 				t.Errorf("sub/D.md wikilink rewrite unexpected: %s", rw.NewLink)
 			}
 		}
@@ -508,11 +534,10 @@ func TestMove_SelfReference(t *testing.T) {
 	}
 }
 
-// --- Test 15: Phase 2.5 — third-party basename links become ambiguous ---
-func TestMove_AmbiguousThirdParty(t *testing.T) {
+// --- Test 15: Phase 2.5 — root priority resolves third-party ambiguity ---
+func TestMove_AmbiguousThirdPartyRootPriority(t *testing.T) {
 	vault := t.TempDir()
-	// A.md is unique with basename "A". B.md links to it via [[A]].
-	// C.md exists with no links to A.
+	// A.md at root. B.md links to [[A]]. C.md exists.
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -530,9 +555,38 @@ func TestMove_AmbiguousThirdParty(t *testing.T) {
 	}
 
 	// Move C.md to sub/A.md → basename "A" count becomes 2.
-	// B.md's [[A]] (basename link to A.md) is NOT an incoming link to C.md,
-	// so it won't be in incomingRewrites. Phase 2.5 should detect it.
+	// Root priority: A.md is at root before AND after move → [[A]] resolves to root.
 	_, err := Move(vault, MoveOptions{From: "C.md", To: "sub/A.md"})
+	if err != nil {
+		t.Fatalf("expected success (root priority), got: %v", err)
+	}
+}
+
+// --- Test 15b: Phase 2.5 — no root file → ambiguity error ---
+func TestMove_AmbiguousThirdPartyNoRoot(t *testing.T) {
+	vault := t.TempDir()
+	// sub1/A.md exists (not at root). B.md links to [[A]]. C.md exists.
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Move C.md to sub2/A.md → basename "A" has sub1/A.md + sub2/A.md, no root.
+	_, err := Move(vault, MoveOptions{From: "C.md", To: "sub2/A.md"})
 	if err == nil {
 		t.Fatal("expected ambiguity error from Phase 2.5")
 	}
@@ -767,5 +821,228 @@ func TestMovePreservesPermission(t *testing.T) {
 	}
 	if perm := info.Mode().Perm(); perm != 0o600 {
 		t.Errorf("moved file perm = %o, want %o", perm, 0o600)
+	}
+}
+
+// --- Test 22: rename to root target → vault-relative rewrite [[X]] ---
+func TestMove_RenameToRoot(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "X.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// [[A]] → [[X]] (vault-relative, root target)
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
+			found = true
+			if rw.NewLink != "[[X]]" {
+				t.Errorf("B.md rewrite = %q, want [[X]]", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Error("B.md [[A]] should be rewritten")
+	}
+}
+
+// --- Test 23: move root file out → Phase 2 rewrites incoming links ---
+func TestMove_RootFileMovedOut(t *testing.T) {
+	// A.md(root) + sub/A.md. B.md has [[A]].
+	// Move A.md → sub2/A.md → root file gone.
+	// Phase 2 rewrites B.md's [[A]] to [[sub2/A]] (incoming link to moved file).
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "sub2/A.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// B.md's [[A]] should be rewritten to [[sub2/A]].
+	var bRewritten bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
+			bRewritten = true
+			if rw.NewLink != "[[sub2/A]]" {
+				t.Errorf("B.md rewrite = %q, want [[sub2/A]]", rw.NewLink)
+			}
+		}
+	}
+	if !bRewritten {
+		t.Error("B.md [[A]] should be rewritten when root file moved out")
+	}
+}
+
+// --- Test 23b: Phase 2.5 error — third-party basename link not covered by Phase 2 ---
+func TestMove_RootFileMovedOutThirdParty(t *testing.T) {
+	// A.md(root) + sub/A.md. B.md has [[A]] pointing to A.md.
+	// C.md has [[A]] pointing to A.md (same target).
+	// Move A.md → sub2/A.md. Phase 2 rewrites B.md and C.md's [[A]].
+	// Both are incoming links, so Phase 2.5 finds them alreadyHandled → success.
+	// Actually this is a success case since Phase 2 handles all incoming links.
+	// For a real Phase 2.5 error, we need a basename link to a *different* target.
+	// E.g., sub/A.md has [[B]], D.md has [[A]] pointing to sub/A.md (not from).
+	// But wait — D.md's [[A]] points to A.md (root priority), not sub/A.md.
+	// After move, [[A]] from D would need to resolve but the target changed.
+	// This scenario is complex; let's test the meaning-change case instead.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Move C.md → A.md (root). Pre-move: no root A → preRoot false.
+	// B.md's [[A]] currently points to sub/A.md. After move, [[A]] would resolve
+	// to root A.md (new root). This is a meaning change.
+	_, err := Move(vault, MoveOptions{From: "C.md", To: "A.md"})
+	if err == nil {
+		t.Fatal("expected error (meaning change — new root file changes [[A]] resolution)")
+	}
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("expected ambiguity error, got: %v", err)
+	}
+}
+
+// --- Test 24: root file survives move of other file → success ---
+func TestMove_RootFileSurvives(t *testing.T) {
+	// A.md(root) + sub/A.md. B.md has [[A]]. D.md exists.
+	// Move D.md → sub2/A.md → root A.md still exists → [[A]] resolves → success.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "D.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Move(vault, MoveOptions{From: "D.md", To: "sub2/A.md"})
+	if err != nil {
+		t.Fatalf("expected success (root A.md survives), got: %v", err)
+	}
+}
+
+// --- Test 25: meaning change prevention — new root file ---
+func TestMove_MeaningChangeNewRoot(t *testing.T) {
+	// sub/A.md is unique A. B.md has [[A]]. C.md exists.
+	// Move C.md → A.md → now root A.md exists, but pre-move root had no A.
+	// → Phase 2.5: preRoot false → error (meaning of [[A]] would change).
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Move C.md → A.md (root) → basename A gets 2 files.
+	// pre-move: no root A → preRoot false → can't apply root priority relaxation.
+	_, err := Move(vault, MoveOptions{From: "C.md", To: "A.md"})
+	if err == nil {
+		t.Fatal("expected error (meaning change)")
+	}
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("expected ambiguity error, got: %v", err)
+	}
+}
+
+// --- Test 26: Phase 2 — basename unchanged + ambiguous + root survives → no rewrite ---
+func TestMove_Phase2RootSkipsRewrite(t *testing.T) {
+	// A.md(root) + sub/A.md. B.md has path link to A.md.
+	// Move sub/A.md → sub2/A.md → basename unchanged, ambiguous.
+	// Root A.md survives before AND after → incoming basename links don't need rewrite.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "sub/A.md", To: "sub2/A.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// B.md's [[A]] should NOT be rewritten (root A.md is the target, not moved).
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
+			t.Errorf("[[A]] in B.md should NOT be rewritten (root priority), but got %s", rw.NewLink)
+		}
 	}
 }
