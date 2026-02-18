@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // DeleteOptions controls which files to remove from the index.
 type DeleteOptions struct {
-	Files []string // vault-relative paths
+	Files       []string // vault-relative paths
+	RemoveFiles bool     // if true, delete files from disk before updating DB
 }
 
 // DeleteResult reports which nodes were deleted or converted to phantom.
@@ -33,7 +35,7 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	}
 	defer db.Close()
 
-	// Normalize, deduplicate input paths, and collect node info for validation.
+	// Phase 1: Normalize, deduplicate input paths, and collect node info for validation.
 	type nodeInfo struct {
 		id   int64
 		name string
@@ -60,16 +62,43 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 		nodes = append(nodes, nodeInfo{id: id, name: name, path: np})
 	}
 
-	// Check that files no longer exist on disk.
-	for _, n := range nodes {
-		diskPath := filepath.Join(vaultPath, n.path)
-		if _, err := os.Stat(diskPath); err == nil {
-			return nil, fmt.Errorf("file still exists on disk: %s (delete the file first, then run delete)", n.path)
-		} else if !os.IsNotExist(err) {
+	// Phase 2: disk operations.
+	if opts.RemoveFiles {
+		// Vault containment check + os.Remove for each file.
+		vaultAbs, err := filepath.Abs(vaultPath)
+		if err != nil {
 			return nil, err
+		}
+		for _, n := range nodes {
+			targetAbs, err := filepath.Abs(filepath.Join(vaultPath, n.path))
+			if err != nil {
+				return nil, err
+			}
+			rel, err := filepath.Rel(vaultAbs, targetAbs)
+			if err != nil {
+				return nil, err
+			}
+			rel = filepath.ToSlash(rel)
+			if rel == ".." || strings.HasPrefix(rel, "../") {
+				return nil, fmt.Errorf("path escapes vault: %s", n.path)
+			}
+			if err := os.Remove(targetAbs); err != nil && !os.IsNotExist(err) {
+				return nil, err
+			}
+		}
+	} else {
+		// Check that files no longer exist on disk.
+		for _, n := range nodes {
+			diskPath := filepath.Join(vaultPath, n.path)
+			if _, err := os.Stat(diskPath); err == nil {
+				return nil, fmt.Errorf("file still exists on disk: %s (delete the file first, then run delete)", n.path)
+			} else if !os.IsNotExist(err) {
+				return nil, err
+			}
 		}
 	}
 
+	// Phase 3: DB transaction.
 	tx, err := db.Begin()
 	if err != nil {
 		return nil, err

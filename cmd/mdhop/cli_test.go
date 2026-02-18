@@ -264,6 +264,75 @@ func TestRunDelete_Integration(t *testing.T) {
 	}
 }
 
+func TestRunDelete_Rm_FileExists(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete")
+
+	// C.md still exists on disk; --rm should remove it and update index.
+	if _, err := os.Stat(filepath.Join(vault, "C.md")); err != nil {
+		t.Fatalf("C.md should exist before --rm: %v", err)
+	}
+
+	err := runDelete([]string{"--vault", vault, "--file", "C.md", "--rm"})
+	if err != nil {
+		t.Fatalf("delete --rm: %v", err)
+	}
+
+	// Verify file is gone from disk.
+	if _, err := os.Stat(filepath.Join(vault, "C.md")); !os.IsNotExist(err) {
+		t.Error("C.md should not exist on disk after --rm")
+	}
+
+	// Verify gone from index.
+	result, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if result.NotesTotal != 2 {
+		t.Errorf("notes_total = %d, want 2", result.NotesTotal)
+	}
+}
+
+func TestRunDelete_Rm_FileAlreadyGone(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete")
+
+	// Remove file first, then --rm should still succeed (idempotent).
+	os.Remove(filepath.Join(vault, "C.md"))
+
+	err := runDelete([]string{"--vault", vault, "--file", "C.md", "--rm"})
+	if err != nil {
+		t.Fatalf("delete --rm with already-removed file: %v", err)
+	}
+
+	result, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if result.NotesTotal != 2 {
+		t.Errorf("notes_total = %d, want 2", result.NotesTotal)
+	}
+}
+
+func TestRunDelete_Rm_UnregisteredFile(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete")
+
+	// Create an unregistered file.
+	unregistered := filepath.Join(vault, "unregistered.md")
+	if err := os.WriteFile(unregistered, []byte("test"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	// --rm should fail for unregistered file and not delete it.
+	err := runDelete([]string{"--vault", vault, "--file", "unregistered.md", "--rm"})
+	if err == nil || !strings.Contains(err.Error(), "file not registered") {
+		t.Errorf("expected 'file not registered' error, got: %v", err)
+	}
+
+	// File should still exist on disk.
+	if _, err := os.Stat(unregistered); err != nil {
+		t.Error("unregistered file should still exist after failed --rm")
+	}
+}
+
 // --- Update CLI tests ---
 
 func TestRunUpdate_InvalidFormat(t *testing.T) {

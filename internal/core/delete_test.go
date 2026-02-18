@@ -423,3 +423,101 @@ func TestDeleteDuplicateFileArgs(t *testing.T) {
 		t.Errorf("Deleted = %v, want [C.md]", result.Deleted)
 	}
 }
+
+func TestDeleteRemoveFiles(t *testing.T) {
+	vault := copyVault(t, "vault_delete")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// C.md exists on disk — RemoveFiles should remove it.
+	result, err := Delete(vault, DeleteOptions{Files: []string{"C.md"}, RemoveFiles: true})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(result.Deleted) != 1 || result.Deleted[0] != "C.md" {
+		t.Errorf("Deleted = %v, want [C.md]", result.Deleted)
+	}
+
+	// File should be gone from disk.
+	if _, err := os.Stat(filepath.Join(vault, "C.md")); !os.IsNotExist(err) {
+		t.Error("C.md should not exist on disk after RemoveFiles")
+	}
+}
+
+func TestDeleteRemoveFiles_AlreadyRemoved(t *testing.T) {
+	vault := copyVault(t, "vault_delete")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Remove file first — RemoveFiles should still succeed (idempotent).
+	os.Remove(filepath.Join(vault, "C.md"))
+
+	result, err := Delete(vault, DeleteOptions{Files: []string{"C.md"}, RemoveFiles: true})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(result.Deleted) != 1 || result.Deleted[0] != "C.md" {
+		t.Errorf("Deleted = %v, want [C.md]", result.Deleted)
+	}
+}
+
+func TestDeleteRemoveFiles_Phantomize(t *testing.T) {
+	vault := copyVault(t, "vault_delete")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// B.md is referenced by A.md — should become phantom.
+	result, err := Delete(vault, DeleteOptions{Files: []string{"B.md"}, RemoveFiles: true})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(result.Phantomed) != 1 || result.Phantomed[0] != "B.md" {
+		t.Errorf("Phantomed = %v, want [B.md]", result.Phantomed)
+	}
+
+	// File should be gone from disk.
+	if _, err := os.Stat(filepath.Join(vault, "B.md")); !os.IsNotExist(err) {
+		t.Error("B.md should not exist on disk after RemoveFiles")
+	}
+}
+
+func TestDeleteRemoveFiles_VaultEscape(t *testing.T) {
+	vault := copyVault(t, "vault_delete")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Inject a malicious path directly into the DB.
+	db, err := openDBAt(dbPath(vault))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	_, err = db.Exec(
+		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime) VALUES (?, 'note', 'evil', ?, 1, 0)`,
+		noteKey("../evil.md"), "../evil.md")
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	db.Close()
+
+	// Create the file outside vault so os.Remove would succeed without protection.
+	evilPath := filepath.Join(vault, "..", "evil.md")
+	if err := os.WriteFile(evilPath, []byte("evil"), 0o644); err != nil {
+		t.Fatalf("write evil.md: %v", err)
+	}
+	defer os.Remove(evilPath)
+
+	// RemoveFiles should reject vault-escaping path.
+	_, err = Delete(vault, DeleteOptions{Files: []string{"../evil.md"}, RemoveFiles: true})
+	if err == nil || !strings.Contains(err.Error(), "path escapes vault") {
+		t.Errorf("expected 'path escapes vault' error, got: %v", err)
+	}
+
+	// File outside vault should still exist.
+	if _, err := os.Stat(evilPath); err != nil {
+		t.Error("evil.md outside vault should not be deleted")
+	}
+}
