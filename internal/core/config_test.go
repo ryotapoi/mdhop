@@ -227,3 +227,83 @@ func TestGlobMatch(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadConfig_WithBuildSection(t *testing.T) {
+	dir := t.TempDir()
+	content := `build:
+  exclude_paths:
+    - "daily/*"
+    - "templates/*"
+exclude:
+  paths:
+    - "archive/*"
+`
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Build.ExcludePaths) != 2 {
+		t.Errorf("build.exclude_paths = %v, want 2 items", cfg.Build.ExcludePaths)
+	}
+	if cfg.Build.ExcludePaths[0] != "daily/*" {
+		t.Errorf("build.exclude_paths[0] = %q, want %q", cfg.Build.ExcludePaths[0], "daily/*")
+	}
+	// Ensure query exclude is also parsed.
+	if len(cfg.Exclude.Paths) != 1 {
+		t.Errorf("exclude.paths = %v, want 1 item", cfg.Exclude.Paths)
+	}
+}
+
+func TestValidateGlobPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		patterns []string
+		wantErr  bool
+	}{
+		{"valid patterns", []string{"daily/*", "templates/*"}, false},
+		{"empty", []string{}, false},
+		{"nil", nil, false},
+		{"bracket error", []string{"[abc]/*"}, true},
+		{"mixed valid and bracket", []string{"daily/*", "[x]"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateGlobPatterns(tt.patterns)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateGlobPatterns(%v) error = %v, wantErr %v", tt.patterns, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFilterBuildExcludes(t *testing.T) {
+	files := []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}
+	tests := []struct {
+		name     string
+		patterns []string
+		want     []string
+	}{
+		{"no patterns", nil, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}},
+		{"empty patterns", []string{}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}},
+		{"single pattern", []string{"daily/*"}, []string{"A.md", "B.md", "templates/T.md"}},
+		{"multiple patterns", []string{"daily/*", "templates/*"}, []string{"A.md", "B.md"}},
+		{"case sensitive", []string{"Daily/*"}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}},
+		{"no match", []string{"archive/*"}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterBuildExcludes(files, tt.patterns)
+			if len(got) != len(tt.want) {
+				t.Fatalf("filterBuildExcludes len = %d, want %d (got %v)", len(got), len(tt.want), got)
+			}
+			for i, f := range got {
+				if f != tt.want[i] {
+					t.Errorf("filterBuildExcludes[%d] = %q, want %q", i, f, tt.want[i])
+				}
+			}
+		})
+	}
+}

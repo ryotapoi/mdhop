@@ -1043,3 +1043,143 @@ func TestBuildErrorCapAtMax(t *testing.T) {
 		t.Errorf("missing cap summary: %s", msg)
 	}
 }
+
+// --- Build exclude tests ---
+
+func TestBuildExclude_FiltersFiles(t *testing.T) {
+	vault := copyVault(t, "vault_build_exclude")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	notes := queryNodes(t, dbPath(vault), "note")
+	for _, n := range notes {
+		if strings.HasPrefix(n.path, "daily/") || strings.HasPrefix(n.path, "templates/") {
+			t.Errorf("excluded file should not be indexed: %s", n.path)
+		}
+	}
+	// Should have 2 notes: A.md, B.md
+	if len(notes) != 2 {
+		t.Errorf("expected 2 notes, got %d", len(notes))
+	}
+}
+
+func TestBuildExclude_PhantomForPathLink(t *testing.T) {
+	vault := copyVault(t, "vault_build_exclude")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	// A.md has [link](daily/D.md) → daily/D.md is excluded → should be phantom
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	var found bool
+	for _, e := range edges {
+		if e.rawLink == "[link](daily/D.md)" {
+			found = true
+			if e.targetType != "phantom" {
+				t.Errorf("daily/D.md link should be phantom, got %s", e.targetType)
+			}
+		}
+	}
+	if !found {
+		t.Error("edge for [link](daily/D.md) not found")
+	}
+}
+
+func TestBuildExclude_PhantomForBasenameLink(t *testing.T) {
+	vault := copyVault(t, "vault_build_exclude")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	// A.md has [[D]] → daily/D.md is excluded → D has no other match → phantom
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	var found bool
+	for _, e := range edges {
+		if e.rawLink == "[[D]]" {
+			found = true
+			if e.targetType != "phantom" {
+				t.Errorf("[[D]] should be phantom, got %s", e.targetType)
+			}
+		}
+	}
+	if !found {
+		t.Error("edge for [[D]] not found")
+	}
+}
+
+func TestBuildExclude_RemovesAmbiguity(t *testing.T) {
+	vault := copyVault(t, "vault_build_exclude_ambiguity")
+	// E.md at root + sub/E.md → normally ambiguous. But sub/* is excluded → E is unique.
+	if err := Build(vault); err != nil {
+		t.Fatalf("build should succeed (exclude resolves ambiguity): %v", err)
+	}
+	edges := queryEdges(t, dbPath(vault), "X.md")
+	var found bool
+	for _, e := range edges {
+		if e.rawLink == "[[E]]" {
+			found = true
+			if e.targetType != "note" {
+				t.Errorf("[[E]] should resolve to note, got %s", e.targetType)
+			}
+		}
+	}
+	if !found {
+		t.Error("edge for [[E]] not found")
+	}
+}
+
+func TestBuildExclude_TagsNotIndexed(t *testing.T) {
+	vault := copyVault(t, "vault_build_exclude")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	tags := queryNodes(t, dbPath(vault), "tag")
+	tagNames := make(map[string]bool)
+	for _, tag := range tags {
+		tagNames[tag.name] = true
+	}
+	// #daily from daily/D.md should not be indexed.
+	if tagNames["#daily"] {
+		t.Error("tag #daily from excluded file should not be indexed")
+	}
+	// #project from A.md should be indexed.
+	if !tagNames["#project"] {
+		t.Error("tag #project should be indexed")
+	}
+}
+
+func TestBuildExclude_NoConfig(t *testing.T) {
+	// vault_build_basic has no mdhop.yaml → Build should work normally.
+	vault := copyVault(t, "vault_build_basic")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build without config should succeed: %v", err)
+	}
+}
+
+func TestBuildExclude_EmptyPatterns(t *testing.T) {
+	vault := copyVault(t, "vault_build_exclude")
+	// Overwrite mdhop.yaml with empty patterns.
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build with empty patterns: %v", err)
+	}
+	// All 4 files should be indexed.
+	notes := queryNodes(t, dbPath(vault), "note")
+	if len(notes) != 4 {
+		t.Errorf("expected 4 notes, got %d", len(notes))
+	}
+}
+
+func TestBuildExclude_InvalidPattern(t *testing.T) {
+	vault := copyVault(t, "vault_build_exclude")
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - \"[abc]/*\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := Build(vault)
+	if err == nil {
+		t.Fatal("expected error for bracket pattern")
+	}
+	if !strings.Contains(err.Error(), "unsupported glob pattern") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

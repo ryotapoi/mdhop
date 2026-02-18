@@ -630,3 +630,21 @@ func TestDisambiguateScanTargetNotFound(t *testing.T) {
 	}
 }
 
+func TestDisambiguateScan_RespectsExclude(t *testing.T) {
+	vault := copyVault(t, "vault_build_exclude_ambiguity")
+	// Vault has E.md (root) + sub/E.md. sub/* is excluded.
+	// DisambiguateScan should only see E.md → single candidate → no --target needed.
+	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "E"})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	// X.md has [[E]] which already resolves to the root file basename → rewrite to "E" (no change).
+	// So 0 rewrites expected.
+	if len(result.Rewritten) != 0 {
+		t.Errorf("Rewritten count = %d, want 0", len(result.Rewritten))
+		for _, r := range result.Rewritten {
+			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+		}
+	}
+}
+

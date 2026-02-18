@@ -256,6 +256,16 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 	if err != nil {
 		return nil, err
 	}
+
+	cfg, err := LoadConfig(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
+		return nil, err
+	}
+	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
+
 	sort.Strings(files)
 
 	fileSet := make(map[string]bool, len(files))

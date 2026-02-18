@@ -40,6 +40,14 @@
 - inline tag 終端: ピリオド・General Punctuation で終端
 - 統合テスト: note数・phantom数・tag数・edge数の検証
 - 冪等性: 2回buildで結果が同一
+- build除外: `build.exclude_paths` に一致するファイルがインデックスから除外される
+- build除外: 除外ファイルへのパスリンクが phantom になる
+- build除外: 除外ファイルへの basename リンクが phantom になる
+- build除外: basename 重複の片方が除外されて曖昧リンクが解消される
+- build除外: 除外ファイル内のタグがインデックスに入らない
+- build除外: mdhop.yaml なしで Build が正常動作
+- build除外: 空の exclude_paths で全ファイルがインデックスされる
+- build除外: `[` を含むパターンでエラー
 
 ## resolve
 
@@ -168,3 +176,4 @@
 - パス指定リンクは対象外
 - `--target` 不一致時のエラー
 - ルート優先: ルートファイルが target → rewrite 結果が変化なし（0件）
+- `--scan` が `build.exclude_paths` に従う（除外ファイルが候補・走査対象にならない）

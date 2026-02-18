@@ -20,6 +20,15 @@ func Build(vaultPath string) error {
 		return err
 	}
 
+	cfg, err := LoadConfig(vaultPath)
+	if err != nil {
+		return err
+	}
+	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
+		return err
+	}
+	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
+
 	basenameCounts := countBasenames(files)
 
 	// Build lookup maps (no DB needed).

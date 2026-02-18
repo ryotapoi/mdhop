@@ -18,9 +18,15 @@
 - 将来的に `.mdhop/meta.json` を置く場合は、スキーマバージョンやインデックス作成情報を保持する
 - 設定ファイル: Vault 直下の `mdhop.yaml`（YAML 形式）
   - ファイルがなければデフォルト設定（除外なし）で動作する
-  - 現在は `exclude` セクションのみサポート（query に適用）
+  - `build` セクション: build 時のファイル除外
+  - `exclude` セクション: query 結果のフィルタ
 
 ```yaml
+build:
+  exclude_paths:
+    - "daily/*"
+    - "templates/*"
+
 exclude:
   paths:
     - "daily/*"
@@ -144,6 +150,10 @@ exclude:
   - 必須: なし
   - 任意: `--vault`
   - 補足: 曖昧リンクが存在する場合は **エラー**（厳密モード）
+  - 補足: `mdhop.yaml` の `build.exclude_paths` に一致するファイルはインデックスから除外される
+    - 除外ファイルへのリンクは phantom ノードとして扱われる
+    - 除外ファイル内のタグはインデックスに含まれない
+    - query の `exclude.paths` とは独立（build 除外はインデックス作成前にフィルタ、query 除外はクエリ結果をフィルタ）
 - `update`
   - 必須: `--file`（複数回指定可）
   - 任意: `--vault`, `--format`
@@ -180,6 +190,7 @@ exclude:
   - 補足: `--name` が一意なら自動で対象決定。複数ある場合は `--target` 必須。
   - 補足: `--file` 指定時は対象ファイルのみ書き換える
   - 補足: `--scan` を指定すると DB を使わずに全ファイルを走査して書き換える（初期救済用）
+  - 補足: `--scan` は `build.exclude_paths` に従う（除外ファイルは候補にも走査対象にもならない）
 - `resolve`
   - 必須: `--from`, `--link`
   - 任意: `--vault`, `--format`, `--fields`

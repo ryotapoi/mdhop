@@ -11,7 +11,13 @@ import (
 
 // Config represents the mdhop.yaml configuration file.
 type Config struct {
+	Build   BuildConfig   `yaml:"build"`
 	Exclude ExcludeConfig `yaml:"exclude"`
+}
+
+// BuildConfig holds build-time settings.
+type BuildConfig struct {
+	ExcludePaths []string `yaml:"exclude_paths"`
 }
 
 // ExcludeConfig holds exclusion patterns from the config file.
@@ -45,6 +51,37 @@ func LoadConfig(vaultPath string) (Config, error) {
 	return cfg, nil
 }
 
+// validateGlobPatterns checks that none of the patterns use unsupported character classes.
+func validateGlobPatterns(patterns []string) error {
+	for _, p := range patterns {
+		if strings.Contains(p, "[") {
+			return fmt.Errorf("unsupported glob pattern (character class): %s", p)
+		}
+	}
+	return nil
+}
+
+// filterBuildExcludes removes files matching any of the given glob patterns.
+func filterBuildExcludes(files []string, patterns []string) []string {
+	if len(patterns) == 0 {
+		return files
+	}
+	result := make([]string, 0, len(files))
+	for _, f := range files {
+		excluded := false
+		for _, p := range patterns {
+			if globMatch(p, f) {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			result = append(result, f)
+		}
+	}
+	return result
+}
+
 // NewExcludeFilter merges config and CLI exclusions into an ExcludeFilter.
 // Returns nil if there are no exclusions.
 func NewExcludeFilter(cfg ExcludeConfig, cliPaths, cliTags []string) (*ExcludeFilter, error) {
@@ -55,10 +92,8 @@ func NewExcludeFilter(cfg ExcludeConfig, cliPaths, cliTags []string) (*ExcludeFi
 	tags = append(tags, cfg.Tags...)
 	tags = append(tags, cliTags...)
 
-	for _, p := range paths {
-		if strings.Contains(p, "[") {
-			return nil, fmt.Errorf("unsupported glob pattern (character class): %s", p)
-		}
+	if err := validateGlobPatterns(paths); err != nil {
+		return nil, err
 	}
 
 	if len(paths) == 0 && len(tags) == 0 {
