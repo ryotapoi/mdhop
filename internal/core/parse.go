@@ -1,8 +1,8 @@
 package core
 
 import (
-	"regexp"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -201,9 +201,30 @@ func parseMarkdownLinks(line string, lineNum int) []linkOccur {
 	return out
 }
 
-// tagPattern matches #tag patterns.
-// Must start after whitespace or beginning of line, # followed by word chars and slashes.
-var tagPattern = regexp.MustCompile(`(?:^|[ \t])#([A-Za-z0-9_][A-Za-z0-9_/]*)`)
+// isTagRune reports whether r is allowed in a tag body (blacklist approach, Obsidian-compatible).
+func isTagRune(r rune) bool {
+	if r <= 0x20 || unicode.IsSpace(r) {
+		return false
+	}
+	switch r {
+	case '\'', '"', '!', '#', '$', '%', '&', '(', ')', '*', '+', ',', '.', ':', ';',
+		'<', '=', '>', '?', '@', '^', '{', '|', '}', '~', '[', ']', '\\', '`':
+		return false
+	}
+	if r >= 0x2000 && r <= 0x206F {
+		return false
+	}
+	if r >= 0x2E00 && r <= 0x2E7F {
+		return false
+	}
+	return true
+}
+
+// isTagFirstRune reports whether r is allowed as the first character of a tag.
+// Digits and '/' are not allowed at the start.
+func isTagFirstRune(r rune) bool {
+	return isTagRune(r) && !unicode.IsDigit(r) && r != '/'
+}
 
 func parseTags(line string, lineNum int) []linkOccur {
 	// Skip heading lines (lines starting with # ).
@@ -213,14 +234,45 @@ func parseTags(line string, lineNum int) []linkOccur {
 	}
 
 	var out []linkOccur
-	matches := tagPattern.FindAllStringSubmatchIndex(line, -1)
-	for _, m := range matches {
-		// m[2]:m[3] is the capture group (tag name without #).
-		tagName := line[m[2]:m[3]]
+	runes := []rune(line)
+	n := len(runes)
+
+	for i := 0; i < n; i++ {
+		if runes[i] != '#' {
+			continue
+		}
+		// '#' must be at start of line or preceded by a space character.
+		if i > 0 && !unicode.IsSpace(runes[i-1]) {
+			continue
+		}
+		// Read tag body.
+		start := i + 1
+		if start >= n || !isTagFirstRune(runes[start]) {
+			continue
+		}
+		end := start + 1
+		for end < n && isTagRune(runes[end]) {
+			end++
+		}
+		// Trim trailing slashes.
+		for end > start && runes[end-1] == '/' {
+			end--
+		}
+		if end <= start {
+			continue
+		}
+		tagName := string(runes[start:end])
 		// Expand nested tags: #a/b/c → #a, #a/b, #a/b/c
-		parts := strings.Split(tagName, "/")
-		for i := range parts {
-			prefix := strings.Join(parts[:i+1], "/")
+		// Filter out empty segments (from "//") before expansion.
+		rawParts := strings.Split(tagName, "/")
+		parts := rawParts[:0]
+		for _, p := range rawParts {
+			if p != "" {
+				parts = append(parts, p)
+			}
+		}
+		for j := range parts {
+			prefix := strings.Join(parts[:j+1], "/")
 			out = append(out, linkOccur{
 				target:     "#" + prefix,
 				isBasename: false,
@@ -232,6 +284,8 @@ func parseTags(line string, lineNum int) []linkOccur {
 				lineEnd:    lineNum,
 			})
 		}
+		// Advance past the tag.
+		i = end - 1
 	}
 	return out
 }

@@ -312,6 +312,171 @@ func TestParseMarkdownLinkSlashPrefix(t *testing.T) {
 	}
 }
 
+func TestParseTagUnicodeJapanese(t *testing.T) {
+	links := parseLinks("text #あいうえお end\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#あいうえお" {
+		t.Errorf("target = %q, want #あいうえお", tags[0].target)
+	}
+}
+
+func TestParseTagHyphenated(t *testing.T) {
+	links := parseLinks("text #my-tag end\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#my-tag" {
+		t.Errorf("target = %q, want #my-tag", tags[0].target)
+	}
+}
+
+func TestParseTagUnicodeNested(t *testing.T) {
+	links := parseLinks("#日本語/サブタグ\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 2 {
+		t.Fatalf("expected 2 tags, got %d: %+v", len(tags), tags)
+	}
+	expected := []string{"#日本語", "#日本語/サブタグ"}
+	for i, tag := range tags {
+		if tag.target != expected[i] {
+			t.Errorf("tag[%d] = %q, want %q", i, tag.target, expected[i])
+		}
+	}
+}
+
+func TestParseTagMixedUnicodeASCII(t *testing.T) {
+	links := parseLinks("#project-日本語\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#project-日本語" {
+		t.Errorf("target = %q, want #project-日本語", tags[0].target)
+	}
+}
+
+func TestParseTagDigitFirst(t *testing.T) {
+	links := parseLinks("#123\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 0 {
+		t.Errorf("digit-first should not be a tag, got %d: %+v", len(tags), tags)
+	}
+}
+
+func TestParseTagDigitNotFirst(t *testing.T) {
+	links := parseLinks("#tag123\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#tag123" {
+		t.Errorf("target = %q, want #tag123", tags[0].target)
+	}
+}
+
+func TestParseTagUnicodePunctTermination(t *testing.T) {
+	// U+2014 (EM DASH) is in General Punctuation range → terminates tag
+	links := parseLinks("#tag\u2014rest\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#tag" {
+		t.Errorf("target = %q, want #tag", tags[0].target)
+	}
+}
+
+func TestParseTagMultiLevelHeadingNotTag(t *testing.T) {
+	for _, line := range []string{"## Heading", "### Heading", "##heading"} {
+		links := parseLinks(line + "\n")
+		tags := filterByType(links, "tag")
+		if len(tags) != 0 {
+			t.Errorf("line %q: expected 0 tags, got %d: %+v", line, len(tags), tags)
+		}
+	}
+}
+
+func TestParseTagMultipleUnicode(t *testing.T) {
+	links := parseLinks("#alpha #ベータ #gamma-delta\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 3 {
+		t.Fatalf("expected 3 tags, got %d: %+v", len(tags), tags)
+	}
+	expected := []string{"#alpha", "#ベータ", "#gamma-delta"}
+	for i, tag := range tags {
+		if tag.target != expected[i] {
+			t.Errorf("tag[%d] = %q, want %q", i, tag.target, expected[i])
+		}
+	}
+}
+
+func TestParseTagTrailingSlash(t *testing.T) {
+	links := parseLinks("#tag/\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#tag" {
+		t.Errorf("target = %q, want #tag", tags[0].target)
+	}
+}
+
+func TestParseTagTrailingPeriod(t *testing.T) {
+	// Period is in the blacklist → terminates tag
+	links := parseLinks("#tag.\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#tag" {
+		t.Errorf("target = %q, want #tag", tags[0].target)
+	}
+}
+
+func TestParseTagSlashFirst(t *testing.T) {
+	links := parseLinks("#/tag\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 0 {
+		t.Errorf("slash-first should not be a tag, got %d: %+v", len(tags), tags)
+	}
+}
+
+func TestParseTagHyphenFirst(t *testing.T) {
+	links := parseLinks("#-tag\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#-tag" {
+		t.Errorf("target = %q, want #-tag", tags[0].target)
+	}
+}
+
+func TestParseTagURLFragment(t *testing.T) {
+	// '#' preceded by '/' (not space) → not a tag boundary
+	links := parseLinks("https://example.com/#tag\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 0 {
+		t.Errorf("URL fragment should not be a tag, got %d: %+v", len(tags), tags)
+	}
+}
+
+func TestParseTagNBSP(t *testing.T) {
+	// U+00A0 (NBSP) is unicode.IsSpace → acts as tag boundary
+	links := parseLinks("text\u00A0#tag end\n")
+	tags := filterByType(links, "tag")
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag after NBSP, got %d: %+v", len(tags), tags)
+	}
+	if tags[0].target != "#tag" {
+		t.Errorf("target = %q, want #tag", tags[0].target)
+	}
+}
+
 func filterByType(links []linkOccur, linkType string) []linkOccur {
 	var out []linkOccur
 	for _, l := range links {

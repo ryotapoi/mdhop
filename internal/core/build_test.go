@@ -642,6 +642,68 @@ func TestBuildTagsSharedAcrossFiles(t *testing.T) {
 	}
 }
 
+func TestBuildTagsUnicode(t *testing.T) {
+	vault := copyVault(t, "vault_build_tags_unicode")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	tags := queryNodes(t, dbPath(vault), "tag")
+	tagNames := make(map[string]bool)
+	for _, tag := range tags {
+		tagNames[tag.name] = true
+	}
+	// Inline Unicode tags
+	if !tagNames["#my-tag"] {
+		t.Error("tag #my-tag not found")
+	}
+	if !tagNames["#あいうえお"] {
+		t.Error("tag #あいうえお not found")
+	}
+	// Nested Unicode expansion
+	if !tagNames["#parent"] {
+		t.Error("tag #parent not found (nested expansion)")
+	}
+	if !tagNames["#parent/子タグ"] {
+		t.Error("tag #parent/子タグ not found")
+	}
+	// Frontmatter Unicode tag
+	if !tagNames["#日本語タグ"] {
+		t.Error("tag #日本語タグ not found (frontmatter)")
+	}
+	// Digit-first should not exist
+	if tagNames["#123"] {
+		t.Error("digit-first #123 should not be a tag")
+	}
+	// #my-tag shared between A.md and B.md
+	edgesA := queryEdges(t, dbPath(vault), "A.md")
+	edgesB := queryEdges(t, dbPath(vault), "B.md")
+	var aTargetKey, bTargetKey string
+	for _, e := range edgesA {
+		if e.targetName == "#my-tag" {
+			aTargetKey = e.targetKey
+		}
+	}
+	for _, e := range edgesB {
+		if e.targetName == "#my-tag" {
+			bTargetKey = e.targetKey
+		}
+	}
+	if aTargetKey == "" || bTargetKey == "" {
+		t.Fatalf("#my-tag should be shared: A=%q B=%q", aTargetKey, bTargetKey)
+	}
+	if aTargetKey != bTargetKey {
+		t.Errorf("should be same tag node: A=%s B=%s", aTargetKey, bTargetKey)
+	}
+	// Total tag count: #my-tag, #あいうえお, #parent, #parent/子タグ, #日本語タグ = 5
+	if len(tags) != 5 {
+		names := make([]string, 0, len(tags))
+		for _, tag := range tags {
+			names = append(names, tag.name)
+		}
+		t.Errorf("expected 5 tags, got %d: %v", len(tags), names)
+	}
+}
+
 // --- Integration tests ---
 
 func TestBuildFullVault(t *testing.T) {

@@ -21,8 +21,8 @@
 
 - `parseMarkdownLinks` で `[[` を `[` と誤認しないよう、`[` の次が `[` ならスキップする処理が必要
 - frontmatter の行番号: yaml.v3 の `Node.Line`（YAML 内 1-based）+ offset 1（`---` 行分）= ファイル全体の行番号
-- Tag regex `[A-Za-z0-9_][A-Za-z0-9_/]*` はハイフンにマッチしない。テストフィクスチャでタグにハイフンを使うと認識されない
-- **frontmatter タグと inline タグの文字種差異**: inline タグは正規表現で `[A-Za-z0-9_/]` に制限されるが、frontmatter の `tags:` は YAML からそのまま取り込むため、ハイフン・ドット等 `/` (ASCII 47) より小さい文字を含む可能性がある。タグのソート・比較処理ではこの差異を考慮すること
+- Tag parser はブラックリスト方式。ハイフン・アンダースコア・Unicode 文字は許可。先頭数字は Obsidian 準拠で不可
+- **frontmatter タグと inline タグの文字種差異**: inline は Unicode 対応済みだが、frontmatter は YAML からそのまま取り込むためブラックリスト対象の句読点も含み得る。この差異は実用上問題にならない
 - `isBasenameRawLink` は self-link（`[[#Heading]]`, `[text](#heading)`）で false を返す必要がある。fragment 除去後に target が空なら self-link
 
 ## ルート優先ルール

@@ -34,6 +34,10 @@
 - nested tag展開: `#a/b/c` → `#a`, `#a/b`, `#a/b/c`
 - code fence内のtagは無視
 - 複数ファイルの同一tagは同じtagノードを共有
+- inline tag Unicode: `#あいうえお`, `#my-tag` → 認識される
+- inline tag 先頭数字: `#123` → 認識されない
+- inline tag ネスト Unicode: `#parent/子タグ` → 展開動作
+- inline tag 終端: ピリオド・General Punctuation で終端
 - 統合テスト: note数・phantom数・tag数・edge数の検証
 - 冪等性: 2回buildで結果が同一
 

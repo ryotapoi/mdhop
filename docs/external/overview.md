@@ -181,7 +181,7 @@
 - wikilink: `[[Note]]`, `[[Note|alias]]`, `[[Note#Heading]]`, `[[Note#^block]]`
 - markdown link: `[text](note.md)`, `[text](./note.md#heading)`
   - `note.md` は `[[note]]` と同一扱い
-- tag: `#tag`, `#nested/tag`, frontmatter `tags`
+- tag: `#tag`, `#nested/tag`, `#日本語タグ`, `#my-tag`, frontmatter `tags`
   - ネストタグは祖先に展開される: `#a/b/c` → `#a`, `#a/b`, `#a/b/c` の各タグが resolve 可能
 - url: `https://...`（将来拡張）
 - frontmatter 内リンクは指定キーのみ（設定で制御）
