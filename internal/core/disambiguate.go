@@ -83,7 +83,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 	// Validate --file flags.
 	fileScope := make(map[string]bool)
 	for _, f := range opts.Files {
-		np := normalizePath(f)
+		np := NormalizePath(f)
 		// Check that the file is registered as a note.
 		var id int64
 		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'note'",
@@ -229,7 +229,7 @@ func resolveDisambiguateTarget(name string, candidates []string, target string) 
 		return "", fmt.Errorf("no note found with basename: %s", name)
 	}
 	if target != "" {
-		normalized := normalizePath(target)
+		normalized := NormalizePath(target)
 		normalizedMd := normalized
 		if !strings.HasSuffix(strings.ToLower(normalized), ".md") {
 			normalizedMd = normalized + ".md"
@@ -282,7 +282,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 	// Validate --file flags.
 	fileScope := make(map[string]bool)
 	for _, f := range opts.Files {
-		np := normalizePath(f)
+		np := NormalizePath(f)
 		if !fileSet[np] {
 			return nil, fmt.Errorf("file not found: %s", np)
 		}

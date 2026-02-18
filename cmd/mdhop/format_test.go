@@ -377,3 +377,213 @@ func TestPrintQueryJSON_NilSections(t *testing.T) {
 		t.Error("nil tags should be omitted from JSON")
 	}
 }
+
+// --- Mutation output tests ---
+
+func TestPrintDeleteText(t *testing.T) {
+	r := &core.DeleteResult{Deleted: []string{"C.md"}, Phantomed: []string{"B.md"}}
+	var buf bytes.Buffer
+	printDeleteText(&buf, r)
+	got := buf.String()
+	if !strings.Contains(got, "deleted:\n- C.md\n") {
+		t.Errorf("missing deleted section:\n%s", got)
+	}
+	if !strings.Contains(got, "phantomed:\n- B.md\n") {
+		t.Errorf("missing phantomed section:\n%s", got)
+	}
+}
+
+func TestPrintDeleteText_Empty(t *testing.T) {
+	r := &core.DeleteResult{}
+	var buf bytes.Buffer
+	printDeleteText(&buf, r)
+	if buf.String() != "" {
+		t.Errorf("expected empty output for empty result, got:\n%s", buf.String())
+	}
+}
+
+func TestPrintDeleteJSON(t *testing.T) {
+	r := &core.DeleteResult{Phantomed: []string{"B.md"}}
+	var buf bytes.Buffer
+	if err := printDeleteJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	// deleted should be [] not null
+	if string(m["deleted"]) != "[]" {
+		t.Errorf("deleted = %s, want []", m["deleted"])
+	}
+	var phantomed []string
+	if err := json.Unmarshal(m["phantomed"], &phantomed); err != nil {
+		t.Fatal(err)
+	}
+	if len(phantomed) != 1 || phantomed[0] != "B.md" {
+		t.Errorf("phantomed = %v, want [B.md]", phantomed)
+	}
+}
+
+func TestPrintUpdateText(t *testing.T) {
+	r := &core.UpdateResult{Updated: []string{"A.md"}, Deleted: []string{"C.md"}, Phantomed: []string{"B.md"}}
+	var buf bytes.Buffer
+	printUpdateText(&buf, r)
+	got := buf.String()
+	if !strings.Contains(got, "updated:\n- A.md\n") {
+		t.Errorf("missing updated:\n%s", got)
+	}
+	if !strings.Contains(got, "deleted:\n- C.md\n") {
+		t.Errorf("missing deleted:\n%s", got)
+	}
+	if !strings.Contains(got, "phantomed:\n- B.md\n") {
+		t.Errorf("missing phantomed:\n%s", got)
+	}
+}
+
+func TestPrintUpdateJSON_EmptySlices(t *testing.T) {
+	r := &core.UpdateResult{Updated: []string{"A.md"}}
+	var buf bytes.Buffer
+	if err := printUpdateJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	if string(m["deleted"]) != "[]" {
+		t.Errorf("deleted = %s, want []", m["deleted"])
+	}
+	if string(m["phantomed"]) != "[]" {
+		t.Errorf("phantomed = %s, want []", m["phantomed"])
+	}
+}
+
+func TestPrintAddText(t *testing.T) {
+	r := &core.AddResult{
+		Added:    []string{"C.md"},
+		Promoted: []string{"C.md"},
+		Rewritten: []core.RewrittenLink{
+			{File: "B.md", OldLink: "[[A]]", NewLink: "[[sub/A]]"},
+		},
+	}
+	var buf bytes.Buffer
+	printAddText(&buf, r)
+	got := buf.String()
+	if !strings.Contains(got, "added:\n- C.md\n") {
+		t.Errorf("missing added:\n%s", got)
+	}
+	if !strings.Contains(got, "promoted:\n- C.md\n") {
+		t.Errorf("missing promoted:\n%s", got)
+	}
+	if !strings.Contains(got, "rewritten:\n- file: B.md\n") {
+		t.Errorf("missing rewritten:\n%s", got)
+	}
+	if !strings.Contains(got, `old: "[[A]]"`) {
+		t.Errorf("missing old:\n%s", got)
+	}
+	if !strings.Contains(got, `new: "[[sub/A]]"`) {
+		t.Errorf("missing new:\n%s", got)
+	}
+}
+
+func TestPrintAddJSON(t *testing.T) {
+	r := &core.AddResult{Added: []string{"C.md"}}
+	var buf bytes.Buffer
+	if err := printAddJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	if string(m["promoted"]) != "[]" {
+		t.Errorf("promoted = %s, want []", m["promoted"])
+	}
+	if string(m["rewritten"]) != "[]" {
+		t.Errorf("rewritten = %s, want []", m["rewritten"])
+	}
+}
+
+func TestPrintMoveText(t *testing.T) {
+	r := &core.MoveResult{
+		Rewritten: []core.RewrittenLink{
+			{File: "B.md", OldLink: "[[A]]", NewLink: "[[sub/A]]"},
+		},
+	}
+	var buf bytes.Buffer
+	printMoveText(&buf, "A.md", "sub/A.md", r)
+	got := buf.String()
+	if !strings.Contains(got, "from: A.md\n") {
+		t.Errorf("missing from:\n%s", got)
+	}
+	if !strings.Contains(got, "to: sub/A.md\n") {
+		t.Errorf("missing to:\n%s", got)
+	}
+	if !strings.Contains(got, "rewritten:\n- file: B.md\n") {
+		t.Errorf("missing rewritten:\n%s", got)
+	}
+}
+
+func TestPrintMoveJSON(t *testing.T) {
+	r := &core.MoveResult{}
+	var buf bytes.Buffer
+	if err := printMoveJSON(&buf, "A.md", "sub/A.md", r); err != nil {
+		t.Fatal(err)
+	}
+	var m struct {
+		From      string          `json:"from"`
+		To        string          `json:"to"`
+		Rewritten []rewrittenJSON `json:"rewritten"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.From != "A.md" {
+		t.Errorf("from = %s, want A.md", m.From)
+	}
+	if m.To != "sub/A.md" {
+		t.Errorf("to = %s, want sub/A.md", m.To)
+	}
+	if m.Rewritten == nil || len(m.Rewritten) != 0 {
+		t.Errorf("rewritten = %v, want []", m.Rewritten)
+	}
+}
+
+func TestPrintDisambiguateText(t *testing.T) {
+	r := &core.DisambiguateResult{
+		Rewritten: []core.RewrittenLink{
+			{File: "B.md", OldLink: "[[A]]", NewLink: "[[sub/A]]"},
+		},
+	}
+	var buf bytes.Buffer
+	printDisambiguateText(&buf, r)
+	got := buf.String()
+	if !strings.Contains(got, "rewritten:\n- file: B.md\n") {
+		t.Errorf("missing rewritten:\n%s", got)
+	}
+}
+
+func TestPrintDisambiguateText_Empty(t *testing.T) {
+	r := &core.DisambiguateResult{}
+	var buf bytes.Buffer
+	printDisambiguateText(&buf, r)
+	if buf.String() != "" {
+		t.Errorf("expected empty output, got:\n%s", buf.String())
+	}
+}
+
+func TestPrintDisambiguateJSON(t *testing.T) {
+	r := &core.DisambiguateResult{}
+	var buf bytes.Buffer
+	if err := printDisambiguateJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	if string(m["rewritten"]) != "[]" {
+		t.Errorf("rewritten = %s, want []", m["rewritten"])
+	}
+}

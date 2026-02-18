@@ -30,7 +30,7 @@ func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
 	}
 	defer db.Close()
 
-	fromPath = normalizePath(fromPath)
+	fromPath = NormalizePath(fromPath)
 
 	// Look up source node.
 	sourceID, err := getNodeID(db, noteKey(fromPath))
@@ -115,7 +115,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 		if escapesVault(sourcePath, target) {
 			return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
 		}
-		resolved := normalizePath(filepath.Join(filepath.Dir(sourcePath), target))
+		resolved := NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
 		return resolvePathFromDB(db, resolved, link)
 	}
 
@@ -146,7 +146,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 
 // resolvePathFromDB finds a note node by path, falling back to phantom.
 func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, string, error) {
-	normalized := normalizePath(resolved)
+	normalized := NormalizePath(resolved)
 	lower := strings.ToLower(normalized)
 
 	// Try exact path match (case-insensitive).

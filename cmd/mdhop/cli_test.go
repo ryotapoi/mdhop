@@ -226,6 +226,13 @@ func TestPrintStatsJSON_FieldsFilter(t *testing.T) {
 
 // --- Delete CLI tests ---
 
+func TestRunDelete_InvalidFormat(t *testing.T) {
+	err := runDelete([]string{"--file", "A.md", "--format", "yaml"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("expected invalid format error, got: %v", err)
+	}
+}
+
 func TestRunDelete_MissingFile(t *testing.T) {
 	err := runDelete([]string{})
 	if err == nil || !strings.Contains(err.Error(), "--file is required") {
@@ -258,6 +265,13 @@ func TestRunDelete_Integration(t *testing.T) {
 }
 
 // --- Update CLI tests ---
+
+func TestRunUpdate_InvalidFormat(t *testing.T) {
+	err := runUpdate([]string{"--file", "A.md", "--format", "yaml"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("expected invalid format error, got: %v", err)
+	}
+}
 
 func TestRunUpdate_MissingFile(t *testing.T) {
 	err := runUpdate([]string{})
@@ -302,6 +316,13 @@ func TestRunUpdate_Integration(t *testing.T) {
 
 // --- Add CLI tests ---
 
+func TestRunAdd_InvalidFormat(t *testing.T) {
+	err := runAdd([]string{"--file", "A.md", "--format", "yaml"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("expected invalid format error, got: %v", err)
+	}
+}
+
 func TestRunAdd_MissingFile(t *testing.T) {
 	err := runAdd([]string{})
 	if err == nil || !strings.Contains(err.Error(), "--file is required") {
@@ -340,6 +361,13 @@ func TestRunAdd_Integration(t *testing.T) {
 }
 
 // --- Move CLI tests ---
+
+func TestRunMove_InvalidFormat(t *testing.T) {
+	err := runMove([]string{"--from", "A.md", "--to", "B.md", "--format", "yaml"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("expected invalid format error, got: %v", err)
+	}
+}
 
 func TestRunMove_MissingFrom(t *testing.T) {
 	err := runMove([]string{"--to", "X.md"})
@@ -522,6 +550,13 @@ func TestPrintDiagnoseJSON_FieldsFilter(t *testing.T) {
 }
 
 // --- Disambiguate CLI tests ---
+
+func TestRunDisambiguate_InvalidFormat(t *testing.T) {
+	err := runDisambiguate([]string{"--name", "A", "--format", "yaml"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("expected invalid format error, got: %v", err)
+	}
+}
 
 func TestRunDisambiguate_MissingName(t *testing.T) {
 	err := runDisambiguate([]string{})

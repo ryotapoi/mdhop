@@ -42,7 +42,7 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	seen := make(map[string]bool)
 	var nodes []nodeInfo
 	for _, f := range opts.Files {
-		np := normalizePath(f)
+		np := NormalizePath(f)
 		if seen[np] {
 			continue
 		}

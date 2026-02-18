@@ -76,10 +76,7 @@ var validResolveFields = map[string]bool{
 // --- Resolve output ---
 
 func printResolveJSON(w io.Writer, r *core.ResolveResult, fields []string) error {
-	m := buildResolveMap(r, fields)
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(m)
+	return encodeJSON(w, buildResolveMap(r, fields))
 }
 
 func printResolveText(w io.Writer, r *core.ResolveResult, fields []string) error {
@@ -152,9 +149,7 @@ func printStatsJSON(w io.Writer, r *core.StatsResult, fields []string) error {
 	if show["phantoms_total"] {
 		m["phantoms_total"] = r.PhantomsTotal
 	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(m)
+	return encodeJSON(w, m)
 }
 
 func printStatsText(w io.Writer, r *core.StatsResult, fields []string) error {
@@ -206,9 +201,7 @@ func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) err
 			m["phantoms"] = []string{}
 		}
 	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(m)
+	return encodeJSON(w, m)
 }
 
 func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) error {
@@ -327,9 +320,7 @@ func printQueryJSON(w io.Writer, r *core.QueryResult) error {
 		}
 	}
 
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return encodeJSON(w, out)
 }
 
 func printQueryText(w io.Writer, r *core.QueryResult) error {
@@ -411,4 +402,186 @@ func nodeInfoOneLine(n core.NodeInfo) string {
 	default:
 		return fmt.Sprintf("%s: %s", n.Type, n.Name)
 	}
+}
+
+// --- Mutation output (delete/update/add/move/disambiguate) ---
+
+// rewrittenJSON is the JSON-serializable form of RewrittenLink.
+type rewrittenJSON struct {
+	File string `json:"file"`
+	Old  string `json:"old"`
+	New  string `json:"new"`
+}
+
+func toRewrittenJSON(rls []core.RewrittenLink) []rewrittenJSON {
+	out := make([]rewrittenJSON, len(rls))
+	for i, r := range rls {
+		out[i] = rewrittenJSON{File: r.File, Old: r.OldLink, New: r.NewLink}
+	}
+	return out
+}
+
+func printRewrittenText(w io.Writer, rls []core.RewrittenLink) {
+	if len(rls) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "rewritten:")
+	for _, r := range rls {
+		fmt.Fprintf(w, "- file: %s\n", r.File)
+		fmt.Fprintf(w, "  old: %q\n", r.OldLink)
+		fmt.Fprintf(w, "  new: %q\n", r.NewLink)
+	}
+}
+
+func printStringListText(w io.Writer, label string, items []string) {
+	if len(items) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "%s:\n", label)
+	for _, item := range items {
+		fmt.Fprintf(w, "- %s\n", item)
+	}
+}
+
+// encodeJSON writes v as indented JSON to w.
+func encodeJSON(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
+
+// --- Delete output ---
+
+type deleteJSONOutput struct {
+	Deleted   []string `json:"deleted"`
+	Phantomed []string `json:"phantomed"`
+}
+
+func printDeleteText(w io.Writer, r *core.DeleteResult) {
+	printStringListText(w, "deleted", r.Deleted)
+	printStringListText(w, "phantomed", r.Phantomed)
+}
+
+func printDeleteJSON(w io.Writer, r *core.DeleteResult) error {
+	out := deleteJSONOutput{
+		Deleted:   r.Deleted,
+		Phantomed: r.Phantomed,
+	}
+	if out.Deleted == nil {
+		out.Deleted = []string{}
+	}
+	if out.Phantomed == nil {
+		out.Phantomed = []string{}
+	}
+	return encodeJSON(w, out)
+}
+
+// --- Update output ---
+
+type updateJSONOutput struct {
+	Updated   []string `json:"updated"`
+	Deleted   []string `json:"deleted"`
+	Phantomed []string `json:"phantomed"`
+}
+
+func printUpdateText(w io.Writer, r *core.UpdateResult) {
+	printStringListText(w, "updated", r.Updated)
+	printStringListText(w, "deleted", r.Deleted)
+	printStringListText(w, "phantomed", r.Phantomed)
+}
+
+func printUpdateJSON(w io.Writer, r *core.UpdateResult) error {
+	out := updateJSONOutput{
+		Updated:   r.Updated,
+		Deleted:   r.Deleted,
+		Phantomed: r.Phantomed,
+	}
+	if out.Updated == nil {
+		out.Updated = []string{}
+	}
+	if out.Deleted == nil {
+		out.Deleted = []string{}
+	}
+	if out.Phantomed == nil {
+		out.Phantomed = []string{}
+	}
+	return encodeJSON(w, out)
+}
+
+// --- Add output ---
+
+type addJSONOutput struct {
+	Added    []string        `json:"added"`
+	Promoted []string        `json:"promoted"`
+	Rewritten []rewrittenJSON `json:"rewritten"`
+}
+
+func printAddText(w io.Writer, r *core.AddResult) {
+	printStringListText(w, "added", r.Added)
+	printStringListText(w, "promoted", r.Promoted)
+	printRewrittenText(w, r.Rewritten)
+}
+
+func printAddJSON(w io.Writer, r *core.AddResult) error {
+	out := addJSONOutput{
+		Added:    r.Added,
+		Promoted: r.Promoted,
+		Rewritten: toRewrittenJSON(r.Rewritten),
+	}
+	if out.Added == nil {
+		out.Added = []string{}
+	}
+	if out.Promoted == nil {
+		out.Promoted = []string{}
+	}
+	if out.Rewritten == nil {
+		out.Rewritten = []rewrittenJSON{}
+	}
+	return encodeJSON(w, out)
+}
+
+// --- Move output ---
+
+type moveJSONOutput struct {
+	From      string          `json:"from"`
+	To        string          `json:"to"`
+	Rewritten []rewrittenJSON `json:"rewritten"`
+}
+
+func printMoveText(w io.Writer, from, to string, r *core.MoveResult) {
+	fmt.Fprintf(w, "from: %s\n", from)
+	fmt.Fprintf(w, "to: %s\n", to)
+	printRewrittenText(w, r.Rewritten)
+}
+
+func printMoveJSON(w io.Writer, from, to string, r *core.MoveResult) error {
+	out := moveJSONOutput{
+		From:      from,
+		To:        to,
+		Rewritten: toRewrittenJSON(r.Rewritten),
+	}
+	if out.Rewritten == nil {
+		out.Rewritten = []rewrittenJSON{}
+	}
+	return encodeJSON(w, out)
+}
+
+// --- Disambiguate output ---
+
+type disambiguateJSONOutput struct {
+	Rewritten []rewrittenJSON `json:"rewritten"`
+}
+
+func printDisambiguateText(w io.Writer, r *core.DisambiguateResult) {
+	printRewrittenText(w, r.Rewritten)
+}
+
+func printDisambiguateJSON(w io.Writer, r *core.DisambiguateResult) error {
+	out := disambiguateJSONOutput{
+		Rewritten: toRewrittenJSON(r.Rewritten),
+	}
+	if out.Rewritten == nil {
+		out.Rewritten = []rewrittenJSON{}
+	}
+	return encodeJSON(w, out)
 }

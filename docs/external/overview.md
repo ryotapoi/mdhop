@@ -55,7 +55,7 @@
 
 - `--vault <path>` : Vault ルートを指定（省略時はカレントディレクトリ）
 
-### resolve/query の出力
+### resolve/query/diagnose/stats の出力
 
 - `--format json|text` : 出力形式を指定する（default: text）
 - `--fields <comma-separated>` : 出力フィールドを制限する
@@ -117,19 +117,19 @@
   - 補足: 曖昧リンクが存在する場合は **エラー**（厳密モード）
 - `update`
   - 必須: `--file`（複数回指定可）
-  - 任意: `--vault`
+  - 任意: `--vault`, `--format`
   - 補足: 更新後の内容に、曖昧リンクが含まれる場合は **エラー**
     - 対象: `[[a]]` / `[x](a.md)` など basename 解決が必要なリンク
 - `add`
   - 必須: `--file`（複数回指定可）
-  - 任意: `--vault`
+  - 任意: `--vault`, `--format`
   - 補足: 既存ファイルが指定された場合はエラー
   - 補足: 追加ファイル内に曖昧リンクが含まれる場合は **エラー**
   - `--auto-disambiguate` : 衝突が発生する場合に、既存リンクを自動でフルパス化して
     **意味を保てる時だけ許可**する（厳密モードでは失敗しない前提）
 - `move`
   - 必須: `--from`, `--to`
-  - 任意: `--vault`
+  - 任意: `--vault`, `--format`
   - 補足: ディスク上のファイル移動も行う（移動先ディレクトリは自動作成）
   - 補足: `--from` がディスクになく `--to` がディスクにある場合、既に移動済みとみなしてリンク書き換え+DB更新のみ行う
   - 補足: `--to` がディスク上に既に存在する場合は **エラー**（上書き防止）
@@ -142,11 +142,11 @@
   - 補足: 移動元・書き換え対象ファイルの mtime が DB と一致しない場合は **エラー**（stale 検出）
 - `delete`
   - 必須: `--file`（複数回指定可）
-  - 任意: `--vault`
+  - 任意: `--vault`, `--format`
   - 補足: 未登録ファイルが指定された場合はエラー
 - `disambiguate`
   - 必須: `--name`
-  - 任意: `--target`, `--file`, `--vault`
+  - 任意: `--target`, `--file`, `--vault`, `--format`
   - 補足: `--name` が一意なら自動で対象決定。複数ある場合は `--target` 必須。
   - 補足: `--file` 指定時は対象ファイルのみ書き換える
   - 補足: `--scan` を指定すると DB を使わずに全ファイルを走査して書き換える（初期救済用）
@@ -223,6 +223,17 @@
   - `--max-twohop`（default: 100）
   - `--max-via-per-target`（default: 10）
   - 並び順の詳細は将来定義する
+
+### ミューテーション系の出力
+
+- `--format json|text`（default: text）
+- `--fields` は不要（結果はフラットで小さい）
+- text では空スライスのセクションを省略、JSON では `[]` を出力する
+- delete: `deleted`, `phantomed`
+- update: `updated`, `deleted`, `phantomed`
+- add: `added`, `promoted`, `rewritten`
+- move: `from`, `to`, `rewritten`
+- disambiguate: `rewritten`
 
 ## 出力形式
 

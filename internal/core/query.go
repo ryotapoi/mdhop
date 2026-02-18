@@ -198,7 +198,7 @@ func findEntryByKey(db dbExecer, key, errMsg string) (int64, NodeInfo, error) {
 }
 
 func findEntryByFile(db dbExecer, file string) (int64, NodeInfo, error) {
-	path := normalizePath(file)
+	path := NormalizePath(file)
 	return findEntryByKey(db, noteKey(path), fmt.Sprintf("file not in index: %s", path))
 }
 

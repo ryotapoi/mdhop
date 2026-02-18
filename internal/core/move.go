@@ -29,8 +29,8 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
 	}
 
-	from := normalizePath(opts.From)
-	to := normalizePath(opts.To)
+	from := NormalizePath(opts.From)
+	to := NormalizePath(opts.To)
 
 	if from == to {
 		return nil, fmt.Errorf("source and destination are the same: %s", from)
@@ -554,7 +554,7 @@ func rewriteOutgoingRelativeLink(rawLink, linkType, from, to string) (string, er
 		}
 
 		// Resolve from old location.
-		resolvedTarget := normalizePath(filepath.Join(filepath.Dir(from), inner))
+		resolvedTarget := NormalizePath(filepath.Join(filepath.Dir(from), inner))
 
 		// Compute relative from new location.
 		rel, err := filepath.Rel(filepath.Dir(to), resolvedTarget)
@@ -564,7 +564,7 @@ func rewriteOutgoingRelativeLink(rawLink, linkType, from, to string) (string, er
 		rel = filepath.ToSlash(rel)
 
 		// Check vault escape.
-		if strings.HasPrefix(normalizePath(filepath.Join(filepath.Dir(to), rel)), "..") {
+		if strings.HasPrefix(NormalizePath(filepath.Join(filepath.Dir(to), rel)), "..") {
 			return "", fmt.Errorf("rewritten link would escape vault: %s", rawLink)
 		}
 
@@ -596,7 +596,7 @@ func rewriteOutgoingRelativeLink(rawLink, linkType, from, to string) (string, er
 		hasMdExt := strings.HasSuffix(strings.ToLower(urlPart), ".md")
 
 		// Resolve from old location.
-		resolvedTarget := normalizePath(filepath.Join(filepath.Dir(from), urlPart))
+		resolvedTarget := NormalizePath(filepath.Join(filepath.Dir(from), urlPart))
 
 		// Compute relative from new location.
 		rel, err := filepath.Rel(filepath.Dir(to), resolvedTarget)
@@ -606,7 +606,7 @@ func rewriteOutgoingRelativeLink(rawLink, linkType, from, to string) (string, er
 		rel = filepath.ToSlash(rel)
 
 		// Check vault escape.
-		if strings.HasPrefix(normalizePath(filepath.Join(filepath.Dir(to), rel)), "..") {
+		if strings.HasPrefix(NormalizePath(filepath.Join(filepath.Dir(to), rel)), "..") {
 			return "", fmt.Errorf("rewritten link would escape vault: %s", rawLink)
 		}
 

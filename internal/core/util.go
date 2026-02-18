@@ -5,7 +5,8 @@ import (
 	"strings"
 )
 
-func normalizePath(path string) string {
+// NormalizePath cleans a vault-relative path: forward slashes, no leading "./".
+func NormalizePath(path string) string {
 	clean := filepath.ToSlash(filepath.Clean(path))
 	return strings.TrimPrefix(clean, "./")
 }

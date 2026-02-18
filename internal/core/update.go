@@ -44,7 +44,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	seen := make(map[string]bool)
 	var files []fileInfo
 	for _, f := range opts.Files {
-		np := normalizePath(f)
+		np := NormalizePath(f)
 		if seen[np] {
 			continue
 		}

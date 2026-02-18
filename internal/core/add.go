@@ -44,7 +44,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	seen := make(map[string]bool)
 	var files []addFile
 	for _, f := range opts.Files {
-		np := normalizePath(f)
+		np := NormalizePath(f)
 		if seen[np] {
 			continue
 		}

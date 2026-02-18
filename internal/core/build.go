@@ -179,7 +179,7 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[str
 
 	// Relative path resolution: ./Target or ../Root
 	if link.isRelative {
-		resolved := normalizePath(filepath.Join(filepath.Dir(sourcePath), target))
+		resolved := NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
 		if escapesVault(sourcePath, target) {
 			return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
 		}
@@ -283,7 +283,7 @@ func collectMarkdownFiles(vaultPath string) ([]string, error) {
 			if err != nil {
 				return err
 			}
-			files = append(files, normalizePath(rel))
+			files = append(files, NormalizePath(rel))
 		}
 		return nil
 	})
@@ -310,6 +310,6 @@ func escapesVault(fromPath, target string) bool {
 // "/sub/../../X.md" are handled correctly.
 func pathEscapesVault(target string) bool {
 	stripped := strings.TrimPrefix(target, "/")
-	n := normalizePath(stripped)
+	n := NormalizePath(stripped)
 	return n == ".." || strings.HasPrefix(n, "../")
 }
