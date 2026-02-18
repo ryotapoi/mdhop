@@ -67,6 +67,18 @@
 - `--include-head/--include-snippet` の出力
 - stale（mtime不一致）検出でエラー
 - `max-*` の上限適用
+- `--exclude` でパス除外: backlinks/outgoing/twohop/snippet から除外パスが消える
+- `--exclude` 複数パス除外
+- `--exclude-tag` でタグ除外: tags から消える、twohop の via から消える
+- `--exclude` でパス除外時に twohop の via/targets 両方から消える
+- `--exclude` 時に phantom が消えないこと（NULL 安全性）
+- エントリノード自体は除外されない
+- `--no-exclude` で config の除外を無視
+- CLI `--exclude`/`--exclude-tag` と config の除外がマージされる
+- nil exclude（除外なし）で全結果が返る（回帰ガード）
+- config ファイルなし → ゼロ Config
+- config YAML 不正 → エラー
+- glob パターンに `[` → エラー
 
 ## add
 

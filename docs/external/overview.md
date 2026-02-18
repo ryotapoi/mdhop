@@ -16,7 +16,19 @@
 - Vault 直下に `.mdhop/` を作成し、SQLite などの実行時データを配置する
 - `.mdhop/` の主なファイルは `index.sqlite` とする
 - 将来的に `.mdhop/meta.json` を置く場合は、スキーマバージョンやインデックス作成情報を保持する
-  - 設定ファイルの場所は将来決める（初期バージョンでは設定不要）
+- 設定ファイル: Vault 直下の `mdhop.yaml`（YAML 形式）
+  - ファイルがなければデフォルト設定（除外なし）で動作する
+  - 現在は `exclude` セクションのみサポート（query に適用）
+
+```yaml
+exclude:
+  paths:
+    - "daily/*"
+    - "templates/*"
+  tags:
+    - "#daily"
+    - "#template"
+```
 
 ## コマンドと挙動（厳密モード前提）
 
@@ -108,6 +120,23 @@
 - `--max-backlinks <N>` : Backlinks の上限（default: 100）
 - `--max-twohop <N>` : 2hop の上限（default: 100）
 - `--max-via-per-target <N>` : 2hop の共通ターゲットごとの上限（default: 10）
+- `--exclude <glob>` : 指定パターンに一致するパスを結果から除外する（複数回指定可）
+- `--exclude-tag <tag>` : 指定タグを結果から除外する（複数回指定可、`#` 付き推奨）
+- `--no-exclude` : `mdhop.yaml` の除外設定を無視する
+
+### 除外フィルタの仕様
+
+- 適用範囲: query のみ（stats/diagnose は対象外）
+- 除外対象: backlinks, outgoing, tags, twohop（via と targets 両方）, snippet
+- エントリノード自体は除外されない（`--file daily/D.md --exclude "daily/*"` は正常動作）
+- `mdhop.yaml` の `exclude` と CLI の `--exclude`/`--exclude-tag` はマージして適用する
+- パス除外の glob パターン:
+  - SQLite GLOB 互換。`*` は任意文字列（`/` を含む）にマッチ、`?` は 1 文字にマッチ
+  - case-sensitive（`Daily/*` は `daily/D.md` にマッチしない）
+  - `[...]` 文字クラスは未サポート（パターンに `[` を含むとエラー）
+  - `**` は不要（`*` が `/` にもマッチするため）
+- タグ除外: 完全一致、case-insensitive
+- twohop の除外: 除外タグ/パスに一致する via はエントリごと削除される
 
 ### コマンド詳細（必須/任意）
 
@@ -157,7 +186,8 @@
 - `query`
   - 必須: `--file` または `--tag` または `--phantom` または `--name`
   - 任意: `--vault`, `--format`, `--fields`, `--include-head`, `--include-snippet`,
-    `--max-backlinks`, `--max-twohop`, `--max-via-per-target`
+    `--max-backlinks`, `--max-twohop`, `--max-via-per-target`,
+    `--exclude`, `--exclude-tag`, `--no-exclude`
 - `diagnose`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`

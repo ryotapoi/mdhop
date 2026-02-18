@@ -20,12 +20,13 @@ type EntrySpec struct {
 
 // QueryOptions controls which fields to return and their limits.
 type QueryOptions struct {
-	Fields          []string // nil/empty = all standard fields
-	IncludeHead     int      // 0 = skip
-	IncludeSnippet  int      // 0 = skip
-	MaxBacklinks    int      // default 100
-	MaxTwoHop       int      // default 100
-	MaxViaPerTarget int      // default 10
+	Fields          []string       // nil/empty = all standard fields
+	IncludeHead     int            // 0 = skip
+	IncludeSnippet  int            // 0 = skip
+	MaxBacklinks    int            // default 100
+	MaxTwoHop       int            // default 100
+	MaxViaPerTarget int            // default 10
+	Exclude         *ExcludeFilter // nil = no exclusion
 }
 
 // NodeInfo describes a node in the graph.
@@ -91,8 +92,10 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 
 	result := &QueryResult{Entry: info}
 
+	ef := opts.Exclude
+
 	if isFieldActive("backlinks", opts.Fields) {
-		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks)
+		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +104,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 
 	if isFieldActive("outgoing", opts.Fields) {
 		if info.Type == "note" {
-			og, err := queryOutgoing(db, nodeID)
+			og, err := queryOutgoing(db, nodeID, ef)
 			if err != nil {
 				return nil, err
 			}
@@ -111,7 +114,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 
 	if isFieldActive("tags", opts.Fields) {
 		if info.Type == "note" {
-			tags, err := queryTags(db, nodeID)
+			tags, err := queryTags(db, nodeID, ef)
 			if err != nil {
 				return nil, err
 			}
@@ -120,7 +123,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive("twohop", opts.Fields) {
-		th, err := queryTwoHop(db, nodeID, info.Type, opts.MaxTwoHop, opts.MaxViaPerTarget)
+		th, err := queryTwoHop(db, nodeID, info.Type, opts.MaxTwoHop, opts.MaxViaPerTarget, ef)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +141,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive("snippet", opts.Fields) && opts.IncludeSnippet > 0 {
-		snippets, err := readSnippets(db, vaultPath, nodeID, opts.IncludeSnippet)
+		snippets, err := readSnippets(db, vaultPath, nodeID, opts.IncludeSnippet, ef)
 		if err != nil {
 			return nil, err
 		}
@@ -287,15 +290,22 @@ func fetchNodeInfo(db dbExecer, nodeID int64) (NodeInfo, error) {
 	}, nil
 }
 
-func queryBacklinks(db dbExecer, targetID int64, limit int) ([]NodeInfo, error) {
-	rows, err := db.Query(
-		`SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
+func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter) ([]NodeInfo, error) {
+	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.source_id
-		 WHERE e.target_id = ?
-		 ORDER BY n.path, n.name
-		 LIMIT ?`,
-		targetID, limit,
-	)
+		 WHERE e.target_id = ?`
+	args := []any{targetID}
+
+	if ef != nil {
+		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
+		q += pathSQL
+		args = append(args, pathArgs...)
+	}
+
+	q += ` ORDER BY n.path, n.name LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -313,14 +323,21 @@ func queryBacklinks(db dbExecer, targetID int64, limit int) ([]NodeInfo, error) 
 	return result, rows.Err()
 }
 
-func queryOutgoing(db dbExecer, sourceID int64) ([]NodeInfo, error) {
-	rows, err := db.Query(
-		`SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
+func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter) ([]NodeInfo, error) {
+	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.target_id
-		 WHERE e.source_id = ? AND e.target_id != ? AND n.type IN ('note','phantom')
-		 ORDER BY n.path, n.name`,
-		sourceID, sourceID,
-	)
+		 WHERE e.source_id = ? AND e.target_id != ? AND n.type IN ('note','phantom')`
+	args := []any{sourceID, sourceID}
+
+	if ef != nil {
+		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
+		q += pathSQL
+		args = append(args, pathArgs...)
+	}
+
+	q += ` ORDER BY n.path, n.name`
+
+	rows, err := db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -338,13 +355,20 @@ func queryOutgoing(db dbExecer, sourceID int64) ([]NodeInfo, error) {
 	return result, rows.Err()
 }
 
-func queryTags(db dbExecer, sourceID int64) ([]string, error) {
-	rows, err := db.Query(
-		`SELECT DISTINCT n.name FROM edges e JOIN nodes n ON n.id = e.target_id
-		 WHERE e.source_id = ? AND n.type = 'tag'
-		 ORDER BY n.name`,
-		sourceID,
-	)
+func queryTags(db dbExecer, sourceID int64, ef *ExcludeFilter) ([]string, error) {
+	q := `SELECT DISTINCT n.name FROM edges e JOIN nodes n ON n.id = e.target_id
+		 WHERE e.source_id = ? AND n.type = 'tag'`
+	args := []any{sourceID}
+
+	if ef != nil {
+		tagSQL, tagArgs := ef.TagExcludeSQL("n.name")
+		q += tagSQL
+		args = append(args, tagArgs...)
+	}
+
+	q += ` ORDER BY n.name`
+
+	rows, err := db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -435,7 +459,7 @@ func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
 	return result, nil
 }
 
-func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxViaPerTarget int) ([]TwoHopEntry, error) {
+func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxViaPerTarget int, ef *ExcludeFilter) ([]TwoHopEntry, error) {
 	var seedQuery string
 	var seedIsOutbound bool
 
@@ -484,28 +508,34 @@ func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxVia
 			return nil, fmt.Errorf("node not found in batch: id=%d", viaID)
 		}
 
-		var targetRows *sql.Rows
-		if seedIsOutbound {
-			// For outbound seed: find other sources B where B→X (excluding entry).
-			targetRows, err = db.Query(
-				`SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
-				 FROM edges e JOIN nodes n ON n.id = e.source_id
-				 WHERE e.target_id = ? AND e.source_id != ?
-				 ORDER BY n.path, n.name
-				 LIMIT ?`,
-				viaID, entryID, maxViaPerTarget,
-			)
-		} else {
-			// For inbound seed: find other targets B where X→B (excluding entry).
-			targetRows, err = db.Query(
-				`SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
-				 FROM edges e JOIN nodes n ON n.id = e.target_id
-				 WHERE e.source_id = ? AND e.target_id != ?
-				 ORDER BY n.path, n.name
-				 LIMIT ?`,
-				viaID, entryID, maxViaPerTarget,
-			)
+		if ef != nil && ef.IsViaExcluded(viaInfo) {
+			continue
 		}
+
+		var targetQuery string
+		var targetArgs []any
+		if seedIsOutbound {
+			targetQuery = `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
+				 FROM edges e JOIN nodes n ON n.id = e.source_id
+				 WHERE e.target_id = ? AND e.source_id != ?`
+			targetArgs = []any{viaID, entryID}
+		} else {
+			targetQuery = `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
+				 FROM edges e JOIN nodes n ON n.id = e.target_id
+				 WHERE e.source_id = ? AND e.target_id != ?`
+			targetArgs = []any{viaID, entryID}
+		}
+
+		if ef != nil {
+			pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
+			targetQuery += pathSQL
+			targetArgs = append(targetArgs, pathArgs...)
+		}
+
+		targetQuery += ` ORDER BY n.path, n.name LIMIT ?`
+		targetArgs = append(targetArgs, maxViaPerTarget)
+
+		targetRows, err := db.Query(targetQuery, targetArgs...)
 		if err != nil {
 			return nil, err
 		}
@@ -574,14 +604,21 @@ func readHead(db dbExecer, vaultPath string, nodeID int64, n int) ([]string, err
 	return lines[start:end], nil
 }
 
-func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines int) ([]SnippetEntry, error) {
-	rows, err := db.Query(
-		`SELECT n.path, n.mtime, e.line_start, e.line_end
+func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines int, ef *ExcludeFilter) ([]SnippetEntry, error) {
+	q := `SELECT n.path, n.mtime, e.line_start, e.line_end
 		 FROM edges e JOIN nodes n ON n.id = e.source_id
-		 WHERE e.target_id = ?
-		 ORDER BY n.path, e.line_start`,
-		targetID,
-	)
+		 WHERE e.target_id = ?`
+	args := []any{targetID}
+
+	if ef != nil {
+		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
+		q += pathSQL
+		args = append(args, pathArgs...)
+	}
+
+	q += ` ORDER BY n.path, e.line_start`
+
+	rows, err := db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}

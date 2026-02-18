@@ -68,6 +68,8 @@
 ## query コマンド (query.go)
 
 - `*sql.DB` → `dbExecer` 変更は安全。query.go の内部関数は `Exec`, `QueryRow`, `Query` しか使わず、`dbExecer` インターフェースがこれらを全てカバーしている。公開関数 `Query()` は `*sql.DB` のまま維持（`openDBAt` の戻り値型）
+- 除外フィルタの SQL WHERE で `n.path` が NULL（phantom/tag）のノードを誤除外しないよう `n.path IS NULL OR NOT (n.path GLOB ?)` が必要。`NOT (NULL GLOB ?)` は NULL を返し WHERE で偽になるため
+- タグの `name` 列は `upsertTag` で元の大文字小文字のまま保存される（`node_key` のみ小文字化）。タグの比較クエリでは `LOWER(n.name)` が必要
 
 ## CLI 出力 (format.go)
 

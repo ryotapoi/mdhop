@@ -21,6 +21,11 @@ func runQuery(args []string) error {
 	maxBacklinks := fs.Int("max-backlinks", 0, "max backlinks (default 100)")
 	maxTwoHop := fs.Int("max-twohop", 0, "max twohop entries (default 100)")
 	maxViaPerTarget := fs.Int("max-via-per-target", 0, "max targets per via (default 10)")
+	var excludePaths multiString
+	var excludeTags multiString
+	fs.Var(&excludePaths, "exclude", "exclude paths matching glob (repeatable)")
+	fs.Var(&excludeTags, "exclude-tag", "exclude tag (repeatable)")
+	noExclude := fs.Bool("no-exclude", false, "disable config file exclusions")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -31,6 +36,19 @@ func runQuery(args []string) error {
 
 	fieldList := parseFields(*fields)
 	if err := validateFields(fieldList, validQueryFieldsCLI, "query"); err != nil {
+		return err
+	}
+
+	var cfgExclude core.ExcludeConfig
+	if !*noExclude {
+		cfg, err := core.LoadConfig(*vault)
+		if err != nil {
+			return err
+		}
+		cfgExclude = cfg.Exclude
+	}
+	ef, err := core.NewExcludeFilter(cfgExclude, excludePaths, excludeTags)
+	if err != nil {
 		return err
 	}
 
@@ -48,6 +66,7 @@ func runQuery(args []string) error {
 		MaxBacklinks:    *maxBacklinks,
 		MaxTwoHop:       *maxTwoHop,
 		MaxViaPerTarget: *maxViaPerTarget,
+		Exclude:         ef,
 	}
 
 	result, err := core.Query(*vault, entry, opts)
