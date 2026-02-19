@@ -84,11 +84,11 @@ func TestMove_AmbiguousAfterMove(t *testing.T) {
 	}
 }
 
-// --- Test 4b: move causes ambiguous links (no root file) → error ---
+// --- Test 4b: move causes ambiguous outgoing link (no root file) → outgoing rewrite ---
 func TestMove_AmbiguousAfterMoveNoRoot(t *testing.T) {
 	// A.md has [[C]], sub/C.md exists (no root C).
 	// Move A.md to sub2/C.md → basename "C" has sub/C.md + sub2/C.md, no root.
-	// → outgoing [[C]] is ambiguous → error.
+	// → outgoing [[C]] is rewritten to [[sub/C]] (pre-move target).
 	vault := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatal(err)
@@ -105,12 +105,44 @@ func TestMove_AmbiguousAfterMoveNoRoot(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Move(vault, MoveOptions{From: "A.md", To: "sub2/C.md"})
-	if err == nil {
-		t.Fatal("expected ambiguity error")
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "sub2/C.md"})
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "ambiguous") {
-		t.Errorf("expected ambiguity error, got: %v", err)
+
+	// [[C]] should be rewritten to [[sub/C]] in the moved file.
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "sub2/C.md" && rw.OldLink == "[[C]]" {
+			found = true
+			if rw.NewLink != "[[sub/C]]" {
+				t.Errorf("expected [[sub/C]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Error("outgoing [[C]] should be rewritten")
+	}
+
+	// Verify disk content.
+	content, err := os.ReadFile(filepath.Join(vault, "sub2", "C.md"))
+	if err != nil {
+		t.Fatalf("read sub2/C.md: %v", err)
+	}
+	if !strings.Contains(string(content), "[[sub/C]]") {
+		t.Errorf("disk should contain [[sub/C]], got: %s", string(content))
+	}
+
+	// Verify DB edge.
+	edges := queryEdges(t, dbPath(vault), "sub2/C.md")
+	var edgeFound bool
+	for _, e := range edges {
+		if e.rawLink == "[[sub/C]]" && e.targetName == "C" {
+			edgeFound = true
+		}
+	}
+	if !edgeFound {
+		t.Error("DB should have edge with raw_link [[sub/C]]")
 	}
 }
 
@@ -562,7 +594,7 @@ func TestMove_AmbiguousThirdPartyRootPriority(t *testing.T) {
 	}
 }
 
-// --- Test 15b: Phase 2.5 — no root file → ambiguity error ---
+// --- Test 15b: Phase 2.5 — no root file → collateral rewrite ---
 func TestMove_AmbiguousThirdPartyNoRoot(t *testing.T) {
 	vault := t.TempDir()
 	// sub1/A.md exists (not at root). B.md links to [[A]]. C.md exists.
@@ -586,12 +618,44 @@ func TestMove_AmbiguousThirdPartyNoRoot(t *testing.T) {
 	}
 
 	// Move C.md to sub2/A.md → basename "A" has sub1/A.md + sub2/A.md, no root.
-	_, err := Move(vault, MoveOptions{From: "C.md", To: "sub2/A.md"})
-	if err == nil {
-		t.Fatal("expected ambiguity error from Phase 2.5")
+	// B.md's [[A]] (pointing to sub1/A.md) should be collateral-rewritten to [[sub1/A]].
+	result, err := Move(vault, MoveOptions{From: "C.md", To: "sub2/A.md"})
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "ambiguous") {
-		t.Errorf("expected ambiguity error, got: %v", err)
+
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
+			found = true
+			if rw.NewLink != "[[sub1/A]]" {
+				t.Errorf("expected [[sub1/A]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Error("B.md [[A]] should be collateral-rewritten to [[sub1/A]]")
+	}
+
+	// Verify disk.
+	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	if !strings.Contains(string(bContent), "[[sub1/A]]") {
+		t.Errorf("B.md disk should contain [[sub1/A]], got: %s", string(bContent))
+	}
+
+	// Verify DB edge.
+	edges := queryEdges(t, dbPath(vault), "B.md")
+	var edgeFound bool
+	for _, e := range edges {
+		if e.rawLink == "[[sub1/A]]" && e.targetName == "A" {
+			edgeFound = true
+		}
+	}
+	if !edgeFound {
+		t.Error("DB should have edge with raw_link [[sub1/A]]")
 	}
 }
 
@@ -902,18 +966,12 @@ func TestMove_RootFileMovedOut(t *testing.T) {
 	}
 }
 
-// --- Test 23b: Phase 2.5 error — third-party basename link not covered by Phase 2 ---
+// --- Test 23b: Phase 2.5 collateral — new root file changes resolution ---
 func TestMove_RootFileMovedOutThirdParty(t *testing.T) {
-	// A.md(root) + sub/A.md. B.md has [[A]] pointing to A.md.
-	// C.md has [[A]] pointing to A.md (same target).
-	// Move A.md → sub2/A.md. Phase 2 rewrites B.md and C.md's [[A]].
-	// Both are incoming links, so Phase 2.5 finds them alreadyHandled → success.
-	// Actually this is a success case since Phase 2 handles all incoming links.
-	// For a real Phase 2.5 error, we need a basename link to a *different* target.
-	// E.g., sub/A.md has [[B]], D.md has [[A]] pointing to sub/A.md (not from).
-	// But wait — D.md's [[A]] points to A.md (root priority), not sub/A.md.
-	// After move, [[A]] from D would need to resolve but the target changed.
-	// This scenario is complex; let's test the meaning-change case instead.
+	// sub/A.md exists (unique A). B.md has [[A]] pointing to sub/A.md.
+	// C.md exists. Move C.md → A.md (root).
+	// Pre-move: no root A. Post-move: root A.md (former C.md) + sub/A.md.
+	// B.md's [[A]] (pointing to sub/A.md) should be collateral-rewritten to [[sub/A]].
 	vault := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatal(err)
@@ -931,15 +989,44 @@ func TestMove_RootFileMovedOutThirdParty(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Move C.md → A.md (root). Pre-move: no root A → preRoot false.
-	// B.md's [[A]] currently points to sub/A.md. After move, [[A]] would resolve
-	// to root A.md (new root). This is a meaning change.
-	_, err := Move(vault, MoveOptions{From: "C.md", To: "A.md"})
-	if err == nil {
-		t.Fatal("expected error (meaning change — new root file changes [[A]] resolution)")
+	result, err := Move(vault, MoveOptions{From: "C.md", To: "A.md"})
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "ambiguous") {
-		t.Errorf("expected ambiguity error, got: %v", err)
+
+	// B.md's [[A]] should be collateral-rewritten to [[sub/A]].
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
+			found = true
+			if rw.NewLink != "[[sub/A]]" {
+				t.Errorf("expected [[sub/A]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Error("B.md [[A]] should be collateral-rewritten to [[sub/A]]")
+	}
+
+	// Verify disk.
+	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	if !strings.Contains(string(bContent), "[[sub/A]]") {
+		t.Errorf("B.md disk should contain [[sub/A]], got: %s", string(bContent))
+	}
+
+	// Verify DB edge.
+	edges := queryEdges(t, dbPath(vault), "B.md")
+	var edgeFound bool
+	for _, e := range edges {
+		if e.rawLink == "[[sub/A]]" && e.targetName == "A" {
+			edgeFound = true
+		}
+	}
+	if !edgeFound {
+		t.Error("DB should have edge with raw_link [[sub/A]]")
 	}
 }
 
@@ -976,11 +1063,11 @@ func TestMove_RootFileSurvives(t *testing.T) {
 	}
 }
 
-// --- Test 25: meaning change prevention — new root file ---
+// --- Test 25: meaning change — new root file → collateral rewrite ---
 func TestMove_MeaningChangeNewRoot(t *testing.T) {
 	// sub/A.md is unique A. B.md has [[A]]. C.md exists.
 	// Move C.md → A.md → now root A.md exists, but pre-move root had no A.
-	// → Phase 2.5: preRoot false → error (meaning of [[A]] would change).
+	// → B.md's [[A]] (pointing to sub/A.md) is collateral-rewritten to [[sub/A]].
 	vault := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatal(err)
@@ -998,14 +1085,44 @@ func TestMove_MeaningChangeNewRoot(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Move C.md → A.md (root) → basename A gets 2 files.
-	// pre-move: no root A → preRoot false → can't apply root priority relaxation.
-	_, err := Move(vault, MoveOptions{From: "C.md", To: "A.md"})
-	if err == nil {
-		t.Fatal("expected error (meaning change)")
+	result, err := Move(vault, MoveOptions{From: "C.md", To: "A.md"})
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "ambiguous") {
-		t.Errorf("expected ambiguity error, got: %v", err)
+
+	// B.md's [[A]] should be collateral-rewritten to [[sub/A]].
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
+			found = true
+			if rw.NewLink != "[[sub/A]]" {
+				t.Errorf("expected [[sub/A]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Error("B.md [[A]] should be collateral-rewritten to [[sub/A]]")
+	}
+
+	// Verify disk.
+	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	if !strings.Contains(string(bContent), "[[sub/A]]") {
+		t.Errorf("B.md disk should contain [[sub/A]], got: %s", string(bContent))
+	}
+
+	// Verify DB edge.
+	edges := queryEdges(t, dbPath(vault), "B.md")
+	var edgeFound bool
+	for _, e := range edges {
+		if e.rawLink == "[[sub/A]]" && e.targetName == "A" {
+			edgeFound = true
+		}
+	}
+	if !edgeFound {
+		t.Error("DB should have edge with raw_link [[sub/A]]")
 	}
 }
 
@@ -1044,5 +1161,338 @@ func TestMove_Phase2RootSkipsRewrite(t *testing.T) {
 		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
 			t.Errorf("[[A]] in B.md should NOT be rewritten (root priority), but got %s", rw.NewLink)
 		}
+	}
+}
+
+// --- Test 27: collateral + incoming rewrite in same file ---
+func TestMove_CollateralAndIncomingSameFile(t *testing.T) {
+	// X.md has [[A]] (→ A.md) and [[B]] (→ sub1/B.md).
+	// Move A.md → sub2/B.md.
+	// [[A]] → incoming rewrite → [[sub2/B]]
+	// [[B]] → collateral rewrite → [[sub1/B]]
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "X.md"), []byte("[[A]]\n[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "sub2/B.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// Check rewrites in X.md.
+	var incomingFound, collateralFound bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "X.md" && rw.OldLink == "[[A]]" {
+			incomingFound = true
+			if rw.NewLink != "[[sub2/B]]" {
+				t.Errorf("incoming rewrite: expected [[sub2/B]], got %s", rw.NewLink)
+			}
+		}
+		if rw.File == "X.md" && rw.OldLink == "[[B]]" {
+			collateralFound = true
+			if rw.NewLink != "[[sub1/B]]" {
+				t.Errorf("collateral rewrite: expected [[sub1/B]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !incomingFound {
+		t.Error("X.md [[A]] should be rewritten (incoming)")
+	}
+	if !collateralFound {
+		t.Error("X.md [[B]] should be rewritten (collateral)")
+	}
+
+	// Verify disk.
+	xContent, err := os.ReadFile(filepath.Join(vault, "X.md"))
+	if err != nil {
+		t.Fatalf("read X.md: %v", err)
+	}
+	if !strings.Contains(string(xContent), "[[sub2/B]]") {
+		t.Errorf("X.md disk should contain [[sub2/B]], got: %s", string(xContent))
+	}
+	if !strings.Contains(string(xContent), "[[sub1/B]]") {
+		t.Errorf("X.md disk should contain [[sub1/B]], got: %s", string(xContent))
+	}
+
+	// Verify DB edges.
+	edges := queryEdges(t, dbPath(vault), "X.md")
+	var incomingEdge, collateralEdge bool
+	for _, e := range edges {
+		if e.rawLink == "[[sub2/B]]" {
+			incomingEdge = true
+		}
+		if e.rawLink == "[[sub1/B]]" {
+			collateralEdge = true
+		}
+	}
+	if !incomingEdge {
+		t.Error("DB should have edge with raw_link [[sub2/B]]")
+	}
+	if !collateralEdge {
+		t.Error("DB should have edge with raw_link [[sub1/B]]")
+	}
+}
+
+// --- Test 28: collateral rewrite in multiple files ---
+func TestMove_CollateralMultipleFiles(t *testing.T) {
+	// X.md and Y.md both have [[B]] (→ sub1/B.md).
+	// Move A.md → sub2/B.md → basename "B" becomes ambiguous.
+	// Both X.md and Y.md should have [[B]] → [[sub1/B]] collateral rewrite.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "X.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Y.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "sub2/B.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	var xFound, yFound bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "X.md" && rw.OldLink == "[[B]]" {
+			xFound = true
+			if rw.NewLink != "[[sub1/B]]" {
+				t.Errorf("X.md: expected [[sub1/B]], got %s", rw.NewLink)
+			}
+		}
+		if rw.File == "Y.md" && rw.OldLink == "[[B]]" {
+			yFound = true
+			if rw.NewLink != "[[sub1/B]]" {
+				t.Errorf("Y.md: expected [[sub1/B]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !xFound {
+		t.Error("X.md [[B]] should be collateral-rewritten")
+	}
+	if !yFound {
+		t.Error("Y.md [[B]] should be collateral-rewritten")
+	}
+
+	// Verify disk.
+	xContent, _ := os.ReadFile(filepath.Join(vault, "X.md"))
+	if !strings.Contains(string(xContent), "[[sub1/B]]") {
+		t.Errorf("X.md disk should contain [[sub1/B]], got: %s", string(xContent))
+	}
+	yContent, _ := os.ReadFile(filepath.Join(vault, "Y.md"))
+	if !strings.Contains(string(yContent), "[[sub1/B]]") {
+		t.Errorf("Y.md disk should contain [[sub1/B]], got: %s", string(yContent))
+	}
+
+	// Verify DB edges.
+	xEdges := queryEdges(t, dbPath(vault), "X.md")
+	var xEdgeFound bool
+	for _, e := range xEdges {
+		if e.rawLink == "[[sub1/B]]" {
+			xEdgeFound = true
+		}
+	}
+	if !xEdgeFound {
+		t.Error("X.md DB should have edge with raw_link [[sub1/B]]")
+	}
+	yEdges := queryEdges(t, dbPath(vault), "Y.md")
+	var yEdgeFound bool
+	for _, e := range yEdges {
+		if e.rawLink == "[[sub1/B]]" {
+			yEdgeFound = true
+		}
+	}
+	if !yEdgeFound {
+		t.Error("Y.md DB should have edge with raw_link [[sub1/B]]")
+	}
+}
+
+// --- Test 29: outgoing basename disambiguation ---
+func TestMove_OutgoingBasenameDisambiguation(t *testing.T) {
+	// A.md has [[B]] (→ sub1/B.md).
+	// Move A.md → sub2/B.md → [[B]] becomes ambiguous → outgoing rewrite to [[sub1/B]].
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "sub2/B.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "sub2/B.md" && rw.OldLink == "[[B]]" {
+			found = true
+			if rw.NewLink != "[[sub1/B]]" {
+				t.Errorf("expected [[sub1/B]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Error("outgoing [[B]] should be rewritten to [[sub1/B]]")
+	}
+
+	// Verify disk.
+	content, err := os.ReadFile(filepath.Join(vault, "sub2", "B.md"))
+	if err != nil {
+		t.Fatalf("read sub2/B.md: %v", err)
+	}
+	if !strings.Contains(string(content), "[[sub1/B]]") {
+		t.Errorf("disk should contain [[sub1/B]], got: %s", string(content))
+	}
+
+	// Verify DB edge.
+	edges := queryEdges(t, dbPath(vault), "sub2/B.md")
+	var edgeFound bool
+	for _, e := range edges {
+		if e.rawLink == "[[sub1/B]]" && e.targetName == "B" {
+			edgeFound = true
+		}
+	}
+	if !edgeFound {
+		t.Error("DB should have edge with raw_link [[sub1/B]]")
+	}
+}
+
+// --- Test 30: outgoing meaning change via root priority ---
+func TestMove_OutgoingMeaningChangeRoot(t *testing.T) {
+	// sub/B.md exists (unique B). A.md has [[B]] (→ sub/B.md).
+	// Move A.md → B.md (root). Post-move: [[B]] would resolve to root B.md (self)
+	// via root priority → meaning change → outgoing rewrite to [[sub/B]].
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "B.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" && rw.OldLink == "[[B]]" {
+			found = true
+			if rw.NewLink != "[[sub/B]]" {
+				t.Errorf("expected [[sub/B]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Error("outgoing [[B]] should be rewritten to [[sub/B]]")
+	}
+
+	// Verify disk.
+	content, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	if !strings.Contains(string(content), "[[sub/B]]") {
+		t.Errorf("disk should contain [[sub/B]], got: %s", string(content))
+	}
+
+	// Verify DB edge.
+	edges := queryEdges(t, dbPath(vault), "B.md")
+	var edgeFound bool
+	for _, e := range edges {
+		if e.rawLink == "[[sub/B]]" && e.targetName == "B" {
+			edgeFound = true
+		}
+	}
+	if !edgeFound {
+		t.Error("DB should have edge with raw_link [[sub/B]]")
+	}
+}
+
+// --- Test 31: stale collateral source file → error ---
+func TestMove_StaleCollateralSource(t *testing.T) {
+	// sub1/A.md exists. B.md has [[A]] (→ sub1/A.md). C.md exists.
+	// Build, then modify B.md to make it stale.
+	// Move C.md → sub2/A.md → collateral rewrite needed for B.md → stale error.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Make B.md stale.
+	time.Sleep(1100 * time.Millisecond)
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\nmodified\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Move(vault, MoveOptions{From: "C.md", To: "sub2/A.md"})
+	if err == nil {
+		t.Fatal("expected stale error for B.md")
+	}
+	if !strings.Contains(err.Error(), "stale") {
+		t.Errorf("expected stale error, got: %v", err)
 	}
 }

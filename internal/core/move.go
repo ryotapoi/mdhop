@@ -199,7 +199,10 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		return nil, err
 	}
 
-	// Phase 2.5: vault-wide ambiguity check for the destination basename.
+	// Phase 2.5: collateral rewrite for the destination basename.
+	// When the destination basename becomes ambiguous, third-party basename links
+	// that are NOT incoming to the moved file must be rewritten to full paths.
+	var collateralRewrites []rewriteEntry
 	toBK := basenameKey(to)
 	if basenameCounts[toBK] > 1 {
 		// Root priority: if root file exists both before AND after move, basename links
@@ -207,42 +210,35 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		preRoot := hasRootInPathSet(toBK, preMovePathSet)
 		postRoot := hasRootInPathSet(toBK, pathSet)
 		if !(preRoot && postRoot) {
-			// The destination basename is ambiguous. Check if there are basename links
-			// targeting this basename from files other than the moved file.
-			// These links would become ambiguous after the move.
 			rows, err := db.Query(
-				`SELECT e.raw_link, e.link_type, sn.path
+				`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
 				 FROM edges e
 				 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-				 JOIN nodes tn ON tn.id = e.target_id
+				 JOIN nodes tn ON tn.id = e.target_id AND tn.type = 'note' AND tn.exists_flag = 1
 				 WHERE tn.name = ? AND e.link_type IN ('wikilink', 'markdown')`,
 				basename(to))
 			if err != nil {
 				return nil, err
 			}
 			for rows.Next() {
-				var rawLink, linkType, sourcePath string
-				if err := rows.Scan(&rawLink, &linkType, &sourcePath); err != nil {
+				var re rewriteEntry
+				var targetPath string
+				var targetNodeID int64
+				if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetPath, &targetNodeID); err != nil {
 					rows.Close()
 					return nil, err
 				}
-				if sourcePath == from {
+				if re.sourcePath == from {
 					continue // handled in outgoing phase
 				}
-				if isBasenameRawLink(rawLink, linkType) {
-					// Check if this edge is already being rewritten.
-					alreadyHandled := false
-					for _, re := range incomingRewrites {
-						if re.sourcePath == sourcePath && re.rawLink == rawLink {
-							alreadyHandled = true
-							break
-						}
-					}
-					if !alreadyHandled {
-						rows.Close()
-						return nil, fmt.Errorf("move would make existing links ambiguous for basename: %s", basename(to))
-					}
+				if !isBasenameRawLink(re.rawLink, re.linkType) {
+					continue // path links are safe
 				}
+				if targetNodeID == nodeID {
+					continue // incoming to moved file, handled in Phase 2
+				}
+				re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, targetPath)
+				collateralRewrites = append(collateralRewrites, re)
 			}
 			rows.Close()
 			if err := rows.Err(); err != nil {
@@ -251,10 +247,13 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 	}
 
-	// Stale check for incoming rewrite source files.
-	if len(incomingRewrites) > 0 {
+	// Stale check for incoming + collateral rewrite source files.
+	allExternalRewrites := make([]rewriteEntry, 0, len(incomingRewrites)+len(collateralRewrites))
+	allExternalRewrites = append(allExternalRewrites, incomingRewrites...)
+	allExternalRewrites = append(allExternalRewrites, collateralRewrites...)
+	if len(allExternalRewrites) > 0 {
 		sourceStaleChecked := make(map[int64]bool)
-		for _, re := range incomingRewrites {
+		for _, re := range allExternalRewrites {
 			if sourceStaleChecked[re.sourceID] {
 				continue
 			}
@@ -305,9 +304,50 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		if link.linkType != "wikilink" && link.linkType != "markdown" {
 			continue
 		}
-		// Ambiguity check on post-move maps.
-		if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
-			return nil, fmt.Errorf("ambiguous link after move: %s in %s", link.target, to)
+		// Basename link: check if resolution changes after move.
+		if link.isBasename {
+			bk := basenameKey(link.target)
+			needRewrite := false
+			var preMoveTargetPath string
+
+			// Get pre-move target path from DB.
+			err := db.QueryRow(
+				`SELECT COALESCE(tn.path, '') FROM edges e
+				 JOIN nodes tn ON tn.id = e.target_id
+				 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
+				 LIMIT 1`, nodeID, link.rawLink).Scan(&preMoveTargetPath)
+			if err != nil && err != sql.ErrNoRows {
+				return nil, err
+			}
+
+			if preMoveTargetPath != "" {
+				// Determine post-move resolution.
+				if p, ok := basenameToPath[bk]; ok {
+					// Unique resolution post-move.
+					if p != preMoveTargetPath {
+						needRewrite = true // meaning change
+					}
+				} else if p, ok := rootBasenameToPath[bk]; ok {
+					// Root priority resolution post-move.
+					if p != preMoveTargetPath {
+						needRewrite = true // meaning change
+					}
+				} else if basenameCounts[bk] > 1 {
+					// Ambiguous post-move.
+					needRewrite = true
+				}
+				// basenameCounts[bk] == 0 → phantom, no rewrite needed.
+			}
+
+			if needRewrite {
+				newRL := rewriteRawLink(link.rawLink, link.linkType, preMoveTargetPath)
+				outgoingRewrites = append(outgoingRewrites, outgoingRewrite{
+					rawLink:    link.rawLink,
+					newRawLink: newRL,
+					lineStart:  link.lineStart,
+				})
+			}
+			continue
 		}
 		// Relative link rewrite.
 		if link.isRelative {
@@ -328,16 +368,16 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	// Phase 4: disk operations.
 	result := &MoveResult{}
 
-	// 4.1: apply incoming link rewrites to other files.
-	var incomingBackups []rewriteBackup
-	var incomingMtimes map[int64]int64
-	if len(incomingRewrites) > 0 {
+	// 4.1: apply incoming + collateral link rewrites to other files.
+	var externalBackups []rewriteBackup
+	var externalMtimes map[int64]int64
+	if len(allExternalRewrites) > 0 {
 		groups := make(map[string][]rewriteEntry)
-		for _, re := range incomingRewrites {
+		for _, re := range allExternalRewrites {
 			groups[re.sourcePath] = append(groups[re.sourcePath], re)
 		}
 		var applyErr error
-		incomingMtimes, incomingBackups, applyErr = applyFileRewrites(vaultPath, groups)
+		externalMtimes, externalBackups, applyErr = applyFileRewrites(vaultPath, groups)
 		if applyErr != nil {
 			return nil, applyErr
 		}
@@ -370,7 +410,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 
 		// Write the rewritten content back to the current disk location.
 		if err := writeFilePreservePerm(movedFilePath, movedContent, movedPerm); err != nil {
-			restoreBackups(vaultPath, incomingBackups)
+			restoreBackups(vaultPath, externalBackups)
 			return nil, err
 		}
 	}
@@ -384,14 +424,14 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 			if movedFileBackup != nil {
 				_ = writeFilePreservePerm(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, movedFileBackup.perm)
 			}
-			restoreBackups(vaultPath, incomingBackups)
+			restoreBackups(vaultPath, externalBackups)
 			return nil, err
 		}
 		if err := os.Rename(filepath.Join(vaultPath, from), toFull); err != nil {
 			if movedFileBackup != nil {
 				_ = writeFilePreservePerm(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, movedFileBackup.perm)
 			}
-			restoreBackups(vaultPath, incomingBackups)
+			restoreBackups(vaultPath, externalBackups)
 			return nil, err
 		}
 	}
@@ -406,7 +446,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		if movedFileBackup != nil {
 			_ = writeFilePreservePerm(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, movedFileBackup.perm)
 		}
-		restoreBackups(vaultPath, incomingBackups)
+		restoreBackups(vaultPath, externalBackups)
 		return nil, err
 	}
 	toMtime := toInfo.ModTime().Unix()
@@ -420,7 +460,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		if movedFileBackup != nil {
 			_ = writeFilePreservePerm(filepath.Join(vaultPath, movedFileBackup.path), movedFileBackup.content, movedFileBackup.perm)
 		}
-		restoreBackups(vaultPath, incomingBackups)
+		restoreBackups(vaultPath, externalBackups)
 		return nil, err
 	}
 	committed := false
@@ -438,7 +478,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 				}
 				_ = writeFilePreservePerm(filepath.Join(vaultPath, diskPath), movedFileBackup.content, movedFileBackup.perm)
 			}
-			restoreBackups(vaultPath, incomingBackups)
+			restoreBackups(vaultPath, externalBackups)
 		}
 	}()
 
@@ -470,8 +510,8 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 	}
 
-	// 5.4: update incoming edge raw_links.
-	for _, re := range incomingRewrites {
+	// 5.4: update incoming + collateral edge raw_links.
+	for _, re := range allExternalRewrites {
 		if _, err := tx.Exec("UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
 			return nil, err
 		}
@@ -482,15 +522,15 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		})
 	}
 
-	// 5.5: update source file mtimes for rewritten files.
-	if incomingMtimes != nil {
+	// 5.5: update source file mtimes for all externally rewritten files.
+	if externalMtimes != nil {
 		mtimeUpdated := make(map[int64]bool)
-		for _, re := range incomingRewrites {
+		for _, re := range allExternalRewrites {
 			if mtimeUpdated[re.sourceID] {
 				continue
 			}
 			mtimeUpdated[re.sourceID] = true
-			mt := incomingMtimes[re.sourceID]
+			mt := externalMtimes[re.sourceID]
 			if _, err := tx.Exec("UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
 				return nil, err
 			}
