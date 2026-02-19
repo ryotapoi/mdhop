@@ -657,6 +657,62 @@ func TestRunDisambiguate_Integration(t *testing.T) {
 	}
 }
 
+// --- Version tests ---
+
+func TestVersionOutput(t *testing.T) {
+	var buf bytes.Buffer
+	printVersion(&buf)
+	out := buf.String()
+	if out != "mdhop version dev\n" {
+		t.Errorf("version output = %q, want %q", out, "mdhop version dev\n")
+	}
+}
+
+// --- Add auto-disambiguate default tests ---
+
+func TestRunAdd_AutoDisambiguateDefault(t *testing.T) {
+	// Default behavior (no flag) should auto-disambiguate: rewrite links on collision.
+	vault := setupVaultForCLI(t, "vault_add_disambiguate")
+
+	// Create B.md at root to cause basename collision with sub/B.md.
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	// Run add without --no-auto-disambiguate (default = auto-disambiguate ON).
+	err := runAdd([]string{"--vault", vault, "--file", "B.md"})
+	if err != nil {
+		t.Fatalf("add should succeed with default auto-disambiguate, got: %v", err)
+	}
+
+	// Verify A.md was rewritten (links to sub/B).
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	if !strings.Contains(string(content), "[[sub/B]]") {
+		t.Errorf("A.md should contain [[sub/B]] after auto-disambiguate, got:\n%s", content)
+	}
+}
+
+func TestRunAdd_NoAutoDisambiguate(t *testing.T) {
+	// --no-auto-disambiguate should cause error on collision.
+	vault := setupVaultForCLI(t, "vault_add_disambiguate")
+
+	// Create B.md at root to cause basename collision with sub/B.md.
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	err := runAdd([]string{"--vault", vault, "--file", "B.md", "--no-auto-disambiguate"})
+	if err == nil {
+		t.Fatal("expected error with --no-auto-disambiguate on collision")
+	}
+	if !strings.Contains(err.Error(), "adding files would make existing links ambiguous") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestRunDisambiguate_ScanIntegration(t *testing.T) {
 	root := filepath.Join("..", "..", "testdata", "vault_disambiguate")
 	vault := filepath.Join(t.TempDir(), "vault")

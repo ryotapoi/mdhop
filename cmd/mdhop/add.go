@@ -14,8 +14,8 @@ func runAdd(args []string) error {
 	format := fs.String("format", "text", "output format (json or text)")
 	var files multiString
 	fs.Var(&files, "file", "file to add (can be specified multiple times)")
-	autoDisambiguate := fs.Bool("auto-disambiguate", false,
-		"rewrite existing links when basename collision occurs")
+	noAutoDisambiguate := fs.Bool("no-auto-disambiguate", false,
+		"disable automatic link rewriting when basename collision occurs")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -27,7 +27,7 @@ func runAdd(args []string) error {
 	}
 	result, err := core.Add(*vault, core.AddOptions{
 		Files:            files,
-		AutoDisambiguate: *autoDisambiguate,
+		AutoDisambiguate: !*noAutoDisambiguate,
 	})
 	if err != nil {
 		return err

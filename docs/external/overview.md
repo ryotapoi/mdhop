@@ -161,11 +161,11 @@ exclude:
     - 対象: `[[a]]` / `[x](a.md)` など basename 解決が必要なリンク
 - `add`
   - 必須: `--file`（複数回指定可）
-  - 任意: `--vault`, `--format`
+  - 任意: `--vault`, `--format`, `--no-auto-disambiguate`
   - 補足: 既存ファイルが指定された場合はエラー
   - 補足: 追加ファイル内に曖昧リンクが含まれる場合は **エラー**
-  - `--auto-disambiguate` : 衝突が発生する場合に、既存リンクを自動でフルパス化して
-    **意味を保てる時だけ許可**する（厳密モードでは失敗しない前提）
+  - 補足: basename 衝突が発生する場合、既存リンクを自動でフルパス化する（意味を保てる場合のみ）。`--no-auto-disambiguate` で無効化
+  - 補足: 既存の basename リンクが phantom を参照しており、追加ファイルが同じ basename を複数持つ場合は auto-disambiguate ON でも **エラー**（安全に書き換え先を決定できないため）
 - `move`
   - 必須: `--from`, `--to`
   - 任意: `--vault`, `--format`

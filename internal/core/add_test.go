@@ -429,7 +429,7 @@ func TestAddEscapeVaultNonRelative(t *testing.T) {
 
 func TestAddAutoDisambiguateBasic(t *testing.T) {
 	// Pattern A: existing unique note (sub/B.md) becomes ambiguous when adding B.md.
-	// With --auto-disambiguate, A.md's links should be rewritten to sub/B.
+	// With AutoDisambiguate enabled, A.md's links should be rewritten to sub/B.
 	vault := copyVault(t, "vault_add_disambiguate")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)

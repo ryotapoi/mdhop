@@ -30,4 +30,4 @@ The rewrite target path is determined from the pre-move DB state, ensuring the l
 - move コマンドが以前エラーだったケースで成功するようになり、ユーザー体験が向上する
 - stale チェックの対象がコラテラル書き換え対象ファイルにも拡大する（安全性は維持）
 - フルパス化されたリンクは basename リンクより冗長だが、意味の正確性を優先する
-- `add --auto-disambiguate` と同様のアプローチで一貫性がある
+- `add` のデフォルト動作（auto-disambiguate）と同様のアプローチで一貫性がある

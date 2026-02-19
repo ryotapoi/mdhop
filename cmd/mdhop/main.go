@@ -4,8 +4,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 )
+
+var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -35,6 +38,9 @@ func main() {
 		err = runMove(os.Args[2:])
 	case "disambiguate":
 		err = runDisambiguate(os.Args[2:])
+	case "--version":
+		printVersion(os.Stdout)
+		return
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -50,6 +56,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func printVersion(w io.Writer) {
+	fmt.Fprintf(w, "mdhop version %s\n", version)
 }
 
 func printUsage() {
@@ -70,5 +80,6 @@ Query Commands:
   diagnose   Show basename conflicts and phantom nodes
 
 Run 'mdhop <command> --help' for command-specific help.
+Use 'mdhop --version' for version information.
 `)
 }

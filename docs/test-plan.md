@@ -94,8 +94,9 @@
 - 既存パス指定はエラー
 - 追加ファイル内に曖昧リンクが含まれる場合はエラー
 - `--format` バリデーション（無効値でエラー）
-- `--auto-disambiguate` あり: 既存リンクの書換えが行われる
-- `--auto-disambiguate` ありでも、追加ファイルに曖昧リンクが含まれる場合はエラー
+- デフォルト（auto-disambiguate ON）: 既存リンクの書換えが行われる
+- auto-disambiguate ON でも、追加ファイルに曖昧リンクが含まれる場合はエラー
+- `--no-auto-disambiguate`: 衝突時にエラー
 - ルート優先: 旧一意先がルート → auto-disambiguate スキップ
 - ルート優先: 追加ファイルにルートファイルあり → basename リンク非曖昧
 - ルート優先: phantom promotion でルートファイルを優先
