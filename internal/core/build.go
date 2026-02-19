@@ -259,8 +259,20 @@ func resolvePathTarget(db dbExecer, resolved string, link linkOccur, pathSet map
 }
 
 func formatBuildErrors(errs []string) error {
+	hasAmbiguous := false
+	for _, e := range errs {
+		if strings.HasPrefix(e, "ambiguous link:") {
+			hasAmbiguous = true
+			break
+		}
+	}
+
 	if len(errs) == 1 {
-		return fmt.Errorf("%s", errs[0])
+		s := errs[0]
+		if hasAmbiguous {
+			s += "\nhint: run 'mdhop disambiguate --scan --name <basename>' to resolve ambiguous links"
+		}
+		return fmt.Errorf("%s", s)
 	}
 	var b strings.Builder
 	for _, e := range errs {
@@ -271,6 +283,9 @@ func formatBuildErrors(errs []string) error {
 		fmt.Fprintf(&b, "too many errors (first %d shown)", maxBuildErrors)
 	} else {
 		fmt.Fprintf(&b, "%d errors total", len(errs))
+	}
+	if hasAmbiguous {
+		b.WriteString("\nhint: run 'mdhop disambiguate --scan --name <basename>' to resolve ambiguous links")
 	}
 	return fmt.Errorf("%s", b.String())
 }

@@ -169,8 +169,12 @@ func TestBuildRebuildOverwritesDB(t *testing.T) {
 
 func TestBuildFailsOnAmbiguousLink(t *testing.T) {
 	vault := copyVault(t, "vault_build_conflict")
-	if err := Build(vault); err == nil {
+	err := Build(vault)
+	if err == nil {
 		t.Fatalf("expected build error")
+	}
+	if !strings.Contains(err.Error(), "hint: run 'mdhop disambiguate") {
+		t.Errorf("expected disambiguate hint, got: %s", err.Error())
 	}
 	if _, err := os.Stat(dbPath(vault)); err == nil {
 		t.Fatalf("db should not be created on failure")
@@ -984,6 +988,9 @@ func TestBuildCollectsMultipleErrors(t *testing.T) {
 	if !strings.Contains(msg, "3 errors total") {
 		t.Errorf("missing summary line: %s", msg)
 	}
+	if !strings.Contains(msg, "hint: run 'mdhop disambiguate") {
+		t.Errorf("expected disambiguate hint, got: %s", msg)
+	}
 	// DB should not be created.
 	if _, err := os.Stat(dbPath(vault)); err == nil {
 		t.Error("DB should not exist after build failure")
@@ -1003,6 +1010,10 @@ func TestBuildSingleErrorFormatUnchanged(t *testing.T) {
 	// Single error should NOT contain "errors" summary.
 	if strings.Contains(msg, "errors") {
 		t.Errorf("single error should not have summary line, got: %s", msg)
+	}
+	// Single ambiguous error should still have hint.
+	if !strings.Contains(msg, "hint: run 'mdhop disambiguate") {
+		t.Errorf("expected disambiguate hint, got: %s", msg)
 	}
 }
 
@@ -1035,12 +1046,37 @@ func TestBuildErrorCapAtMax(t *testing.T) {
 	msg := err.Error()
 	// Should be capped at maxBuildErrors (5).
 	lines := strings.Split(strings.TrimSpace(msg), "\n")
-	// 5 error lines + 1 summary line = 6 lines.
-	if len(lines) != 6 {
-		t.Errorf("expected 6 lines (5 errors + summary), got %d:\n%s", len(lines), msg)
+	// 5 error lines + 1 summary line + 1 hint line = 7 lines.
+	if len(lines) != 7 {
+		t.Errorf("expected 7 lines (5 errors + summary + hint), got %d:\n%s", len(lines), msg)
 	}
 	if !strings.Contains(msg, "too many errors (first 5 shown)") {
 		t.Errorf("missing cap summary: %s", msg)
+	}
+	if !strings.Contains(msg, "hint: run 'mdhop disambiguate") {
+		t.Errorf("expected disambiguate hint, got: %s", msg)
+	}
+}
+
+func TestBuildVaultEscapeOnlyNoHint(t *testing.T) {
+	vault := t.TempDir()
+	// Create a single file with only a vault-escape link (no ambiguous links).
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("[up](../../X.md)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := Build(vault)
+	if err == nil {
+		t.Fatal("expected build error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "escapes vault") {
+		t.Errorf("expected vault escape error, got: %s", msg)
+	}
+	if strings.Contains(msg, "hint:") {
+		t.Errorf("vault escape only error should not have hint, got: %s", msg)
 	}
 }
 
