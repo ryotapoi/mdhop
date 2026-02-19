@@ -57,7 +57,7 @@
 - 状況: あるノートに関連するノートを辿りたい
 - 手順:
   1) `mdhop query --vault . --file Notes/Design.md`
-  2) 返ってきた Backlinks の一つに対して `mdhop query --file <that note>`
+  2) 返ってきた Backlinks の一つに対して `mdhop query --vault . --file Notes/Related.md`
 - 期待結果:
   - Backlinks 経由で関連ノートが辿れる
 
