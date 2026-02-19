@@ -55,13 +55,15 @@ func main() {
 func printUsage() {
 	fmt.Fprint(os.Stderr, `Usage: mdhop <command> [options]
 
-Commands:
-  build      Build the index from the vault
-  add        Add new files to the index
-  update     Update specified files in the index
-  delete     Remove files from the index
-  move       Move a file and update links
+Index Commands:
+  build         Build the index from the vault
+  add           Add new files to the index
+  update        Update specified files in the index
+  delete        Remove files from the index
+  move          Move a file and update links
   disambiguate  Rewrite basename links to full paths
+
+Query Commands:
   resolve    Resolve a link from a source file
   query      Query related information for a node
   stats      Show vault statistics
