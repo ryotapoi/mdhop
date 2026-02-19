@@ -524,8 +524,14 @@ func TestRunDiagnose_TextOutput(t *testing.T) {
 	if !strings.Contains(out, "sub2/A.md") {
 		t.Errorf("text output missing sub2/A.md, got:\n%s", out)
 	}
-	if !strings.Contains(out, "phantoms:") {
-		t.Errorf("text output missing phantoms:, got:\n%s", out)
+	if len(result.Phantoms) == 0 {
+		if strings.Contains(out, "phantoms:") {
+			t.Errorf("expected no phantoms section for empty list, got:\n%s", out)
+		}
+	} else {
+		if !strings.Contains(out, "phantoms:") {
+			t.Errorf("text output missing phantoms:, got:\n%s", out)
+		}
 	}
 }
 

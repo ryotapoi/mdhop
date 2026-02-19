@@ -206,7 +206,7 @@ func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) err
 
 func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) error {
 	show := fieldSet(fields, validDiagnoseFieldsCLI)
-	if show["basename_conflicts"] {
+	if show["basename_conflicts"] && len(r.BasenameConflicts) > 0 {
 		fmt.Fprintln(w, "basename_conflicts:")
 		for _, c := range r.BasenameConflicts {
 			fmt.Fprintf(w, "- name: %s\n", c.Name)
@@ -216,7 +216,7 @@ func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) err
 			}
 		}
 	}
-	if show["phantoms"] {
+	if show["phantoms"] && len(r.Phantoms) > 0 {
 		fmt.Fprintln(w, "phantoms:")
 		for _, name := range r.Phantoms {
 			fmt.Fprintf(w, "- %s\n", name)
