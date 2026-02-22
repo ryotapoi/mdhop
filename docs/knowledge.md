@@ -51,6 +51,11 @@
 - outgoing basename の DB クエリ: `COALESCE(tn.path, '')` で phantom ノードの NULL を空文字列に変換。`preMoveTargetPath == ""` のケース（phantom）は書き換え不要
 - `allExternalRewrites := append(incomingRewrites, collateralRewrites...)` はスライスエイリアシングの危険があるため、明示的に新スライスを作って append する
 
+## MoveDir（ディレクトリ move）
+
+- ディレクトリ move では basename が変わらない（パスのディレクトリ部分のみ変更）。したがって collateral rewrite（basename 曖昧化による第三者リンク書き換え）は発生しない。Phase 2.5 のコードは存在するが、`affectedBasenames` のカウントが変動しないためスキップされる
+- `rewriteOutgoingRelativeLinkBatch` は移動セット内ファイル間の相対リンクを扱う。`movedFromTo` マップのキーは `.md` 付きパスだが、wikilink の resolve 結果は `.md` なし。両方で lookup する必要がある
+
 ## update コマンド
 
 - 同時 update+delete: ファイル A が B を参照、両方更新で B がディスク削除 → A の `resolveLink` が phantom B を作成 → B は incoming edge が 0（edge は phantom B を指す）→ note B は完全削除される（phantom 変換ではない）。これは正しい挙動

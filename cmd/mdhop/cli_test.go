@@ -733,3 +733,68 @@ func TestRunDisambiguate_ScanIntegration(t *testing.T) {
 		t.Errorf("B.md should contain [[sub/A]], got:\n%s", content)
 	}
 }
+
+// --- Directory delete CLI tests ---
+
+func TestRunDelete_DirExpansion(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+
+	err := runDelete([]string{"--vault", vault, "--file", "sub/", "--rm"})
+	if err != nil {
+		t.Fatalf("delete dir: %v", err)
+	}
+
+	// sub/ files should be gone from disk.
+	if _, err := os.Stat(filepath.Join(vault, "sub", "A.md")); !os.IsNotExist(err) {
+		t.Error("sub/A.md should be gone")
+	}
+	if _, err := os.Stat(filepath.Join(vault, "sub", "B.md")); !os.IsNotExist(err) {
+		t.Error("sub/B.md should be gone")
+	}
+}
+
+func TestRunDelete_DirEmpty(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+
+	err := runDelete([]string{"--vault", vault, "--file", "nonexist/"})
+	if err == nil || !strings.Contains(err.Error(), "no files registered under directory") {
+		t.Errorf("expected 'no files registered' error, got: %v", err)
+	}
+}
+
+// --- Directory move CLI tests ---
+
+func TestRunMove_DirMode(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+
+	err := runMove([]string{"--vault", vault, "--from", "sub/", "--to", "newdir/"})
+	if err != nil {
+		t.Fatalf("move dir: %v", err)
+	}
+
+	// Files should be at new location.
+	if _, err := os.Stat(filepath.Join(vault, "newdir", "A.md")); err != nil {
+		t.Error("newdir/A.md should exist")
+	}
+	if _, err := os.Stat(filepath.Join(vault, "newdir", "B.md")); err != nil {
+		t.Error("newdir/B.md should exist")
+	}
+}
+
+func TestRunMove_DirToMdError(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+
+	err := runMove([]string{"--vault", vault, "--from", "sub/", "--to", "newdir.md"})
+	if err == nil || !strings.Contains(err.Error(), "looks like a file path") {
+		t.Errorf("expected file path error, got: %v", err)
+	}
+}
+
+func TestRunMove_FileToDirError(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+
+	err := runMove([]string{"--vault", vault, "--from", "Root.md", "--to", "newdir/"})
+	if err == nil || !strings.Contains(err.Error(), "cannot use directory destination for single file move") {
+		t.Errorf("expected directory destination error, got: %v", err)
+	}
+}

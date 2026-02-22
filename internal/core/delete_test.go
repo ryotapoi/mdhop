@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -519,5 +520,359 @@ func TestDeleteRemoveFiles_VaultEscape(t *testing.T) {
 	// File outside vault should still exist.
 	if _, err := os.Stat(evilPath); err != nil {
 		t.Error("evil.md outside vault should not be deleted")
+	}
+}
+
+// --- ListDirNotes tests ---
+
+func TestListDirNotes_Basic(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	paths, err := ListDirNotes(vault, "sub")
+	if err != nil {
+		t.Fatalf("ListDirNotes: %v", err)
+	}
+	sort.Strings(paths)
+	want := []string{"sub/A.md", "sub/B.md", "sub/inner/C.md"}
+	if len(paths) != len(want) {
+		t.Fatalf("got %v, want %v", paths, want)
+	}
+	for i := range want {
+		if paths[i] != want[i] {
+			t.Errorf("paths[%d] = %s, want %s", i, paths[i], want[i])
+		}
+	}
+}
+
+func TestListDirNotes_Nested(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	paths, err := ListDirNotes(vault, "sub/inner")
+	if err != nil {
+		t.Fatalf("ListDirNotes: %v", err)
+	}
+	if len(paths) != 1 || paths[0] != "sub/inner/C.md" {
+		t.Errorf("got %v, want [sub/inner/C.md]", paths)
+	}
+}
+
+func TestListDirNotes_NoMatch(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	paths, err := ListDirNotes(vault, "nonexist")
+	if err != nil {
+		t.Fatalf("ListDirNotes: %v", err)
+	}
+	if len(paths) != 0 {
+		t.Errorf("got %v, want empty", paths)
+	}
+}
+
+func TestListDirNotes_SpecialChars(t *testing.T) {
+	// Test that _ and % in directory names are properly escaped for LIKE.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "dir_100%"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "dir_100%", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Also create a dir that would match without escaping: "dirX100Y" matches "dir_100%"
+	if err := os.MkdirAll(filepath.Join(vault, "dirX100Y"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "dirX100Y", "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	paths, err := ListDirNotes(vault, "dir_100%")
+	if err != nil {
+		t.Fatalf("ListDirNotes: %v", err)
+	}
+	if len(paths) != 1 || paths[0] != "dir_100%/A.md" {
+		t.Errorf("got %v, want [dir_100%%/A.md]", paths)
+	}
+}
+
+// --- Directory delete integration tests ---
+
+func TestDelete_DirExpansion(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Get files under sub/ for deletion.
+	notes, err := ListDirNotes(vault, "sub")
+	if err != nil {
+		t.Fatalf("ListDirNotes: %v", err)
+	}
+
+	// Delete with --rm.
+	result, err := Delete(vault, DeleteOptions{Files: notes, RemoveFiles: true})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	// A and B are referenced by Root.md → phantomed.
+	// inner/C.md is unreferenced → deleted.
+	if len(result.Phantomed) != 2 {
+		t.Errorf("Phantomed = %v, want 2 items", result.Phantomed)
+	}
+	if len(result.Deleted) != 1 || result.Deleted[0] != "sub/inner/C.md" {
+		t.Errorf("Deleted = %v, want [sub/inner/C.md]", result.Deleted)
+	}
+
+	// Files should be gone from disk.
+	for _, n := range notes {
+		if _, err := os.Stat(filepath.Join(vault, n)); !os.IsNotExist(err) {
+			t.Errorf("%s should not exist on disk", n)
+		}
+	}
+}
+
+func TestDelete_DirEmpty(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	paths, err := ListDirNotes(vault, "nonexist")
+	if err != nil {
+		t.Fatalf("ListDirNotes: %v", err)
+	}
+	if len(paths) != 0 {
+		t.Errorf("expected empty paths for nonexistent directory")
+	}
+}
+
+func TestDelete_DirNoRm(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	notes, err := ListDirNotes(vault, "sub")
+	if err != nil {
+		t.Fatalf("ListDirNotes: %v", err)
+	}
+
+	// Remove files from disk first.
+	for _, n := range notes {
+		if err := os.Remove(filepath.Join(vault, n)); err != nil {
+			t.Fatalf("remove %s: %v", n, err)
+		}
+	}
+
+	// Delete without --rm.
+	result, err := Delete(vault, DeleteOptions{Files: notes, RemoveFiles: false})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	if len(result.Phantomed)+len(result.Deleted) != 3 {
+		t.Errorf("expected 3 total operations, got Phantomed=%v Deleted=%v", result.Phantomed, result.Deleted)
+	}
+}
+
+func TestDelete_DirRm_CleanupEmptyDirs(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	notes, err := ListDirNotes(vault, "sub")
+	if err != nil {
+		t.Fatalf("ListDirNotes: %v", err)
+	}
+
+	// Delete with --rm.
+	_, err = Delete(vault, DeleteOptions{Files: notes, RemoveFiles: true})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	// Cleanup empty dirs.
+	var allPaths []string
+	allPaths = append(allPaths, notes...)
+	if err := CleanupEmptyDirs(vault, allPaths); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+
+	// sub/inner/ should be gone (was emptied).
+	if _, err := os.Stat(filepath.Join(vault, "sub", "inner")); !os.IsNotExist(err) {
+		t.Error("sub/inner/ should be cleaned up")
+	}
+	// sub/ should be gone too (all files deleted).
+	if _, err := os.Stat(filepath.Join(vault, "sub")); !os.IsNotExist(err) {
+		t.Error("sub/ should be cleaned up")
+	}
+}
+
+// --- CleanupEmptyDirs tests ---
+
+func TestCleanupEmptyDirs_Basic(t *testing.T) {
+	vault := t.TempDir()
+	dir := filepath.Join(vault, "a", "b")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Create and remove a file to leave empty dir.
+	f := filepath.Join(dir, "X.md")
+	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(f)
+
+	if err := CleanupEmptyDirs(vault, []string{"a/b/X.md"}); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(vault, "a", "b")); !os.IsNotExist(err) {
+		t.Error("a/b should be removed")
+	}
+	if _, err := os.Stat(filepath.Join(vault, "a")); !os.IsNotExist(err) {
+		t.Error("a should be removed")
+	}
+}
+
+func TestCleanupEmptyDirs_NonEmpty(t *testing.T) {
+	vault := t.TempDir()
+	dir := filepath.Join(vault, "a")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Leave a non-.md file in the directory.
+	if err := os.WriteFile(filepath.Join(dir, "image.png"), []byte("img"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := CleanupEmptyDirs(vault, []string{"a/X.md"}); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+
+	// Directory should NOT be removed (has remaining file).
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		t.Error("a/ should NOT be removed (has image.png)")
+	}
+}
+
+func TestCleanupEmptyDirs_VaultRoot(t *testing.T) {
+	vault := t.TempDir()
+	// Create a file at vault root and remove it.
+	f := filepath.Join(vault, "X.md")
+	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(f)
+
+	// Cleanup should not try to remove vault root.
+	if err := CleanupEmptyDirs(vault, []string{"X.md"}); err != nil {
+		t.Fatalf("cleanup: %v", err)
+	}
+
+	// Vault root should still exist.
+	if _, err := os.Stat(vault); os.IsNotExist(err) {
+		t.Error("vault root should not be removed")
+	}
+}
+
+// --- HasNonMDFiles tests ---
+
+func TestHasNonMDFiles_NoNonMD(t *testing.T) {
+	vault := t.TempDir()
+	dir := filepath.Join(vault, "sub")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "A.md"), []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	found, err := HasNonMDFiles(vault, "sub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found != "" {
+		t.Errorf("expected no non-.md files, got: %s", found)
+	}
+}
+
+func TestHasNonMDFiles_WithNonMD(t *testing.T) {
+	vault := t.TempDir()
+	dir := filepath.Join(vault, "sub")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "A.md"), []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "image.png"), []byte("png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	found, err := HasNonMDFiles(vault, "sub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found == "" {
+		t.Error("expected non-.md file to be found")
+	}
+}
+
+func TestHasNonMDFiles_HiddenIgnored(t *testing.T) {
+	vault := t.TempDir()
+	dir := filepath.Join(vault, "sub")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "A.md"), []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".DS_Store"), []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Hidden directory with non-.md file inside.
+	hiddenDir := filepath.Join(dir, ".obsidian")
+	if err := os.MkdirAll(hiddenDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hiddenDir, "config.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	found, err := HasNonMDFiles(vault, "sub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found != "" {
+		t.Errorf("hidden files should be ignored, got: %s", found)
+	}
+}
+
+func TestHasNonMDFiles_Nested(t *testing.T) {
+	vault := t.TempDir()
+	inner := filepath.Join(vault, "sub", "inner")
+	if err := os.MkdirAll(inner, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(inner, "doc.pdf"), []byte("pdf"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	found, err := HasNonMDFiles(vault, "sub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found == "" {
+		t.Error("expected nested non-.md file to be found")
 	}
 }

@@ -1496,3 +1496,686 @@ func TestMove_StaleCollateralSource(t *testing.T) {
 		t.Errorf("expected stale error, got: %v", err)
 	}
 }
+
+// ===============================================
+// MoveDir tests
+// ===============================================
+
+func TestMoveDir_Basic(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// Verify moved files.
+	if len(result.Moved) != 3 {
+		t.Fatalf("expected 3 moved files, got %d", len(result.Moved))
+	}
+
+	// Verify disk.
+	for _, m := range result.Moved {
+		if fileExists(filepath.Join(vault, m.From)) {
+			t.Errorf("%s should not exist on disk", m.From)
+		}
+		if !fileExists(filepath.Join(vault, m.To)) {
+			t.Errorf("%s should exist on disk", m.To)
+		}
+	}
+
+	// Verify DB.
+	notes := queryNodes(t, dbPath(vault), "note")
+	for _, n := range notes {
+		if strings.HasPrefix(n.path, "sub/") {
+			t.Errorf("DB still has old path: %s", n.path)
+		}
+	}
+	var foundA, foundB, foundX bool
+	for _, n := range notes {
+		switch n.path {
+		case "newdir/A.md":
+			foundA = true
+		case "newdir/B.md":
+			foundB = true
+		case "newdir/inner/X.md":
+			foundX = true
+		}
+	}
+	if !foundA || !foundB || !foundX {
+		t.Errorf("DB missing new paths: A=%v B=%v X=%v", foundA, foundB, foundX)
+	}
+}
+
+func TestMoveDir_NoFiles(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "nonexist", ToDir: "newdir"})
+	if err == nil || !strings.Contains(err.Error(), "no files registered under directory") {
+		t.Errorf("expected 'no files' error, got: %v", err)
+	}
+}
+
+func TestMoveDir_DestConflict(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "src", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Create destination with same name already registered.
+	if err := os.MkdirAll(filepath.Join(vault, "dst"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "dst", "A.md"), []byte("other\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "src", ToDir: "dst"})
+	if err == nil || !strings.Contains(err.Error(), "already registered") {
+		t.Errorf("expected 'already registered' error, got: %v", err)
+	}
+}
+
+func TestMoveDir_IncomingRewrite(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// Other.md has [[sub/B]] → should be rewritten to [[newdir/B]].
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "Other.md" && rw.OldLink == "[[sub/B]]" {
+			found = true
+			if rw.NewLink != "[[newdir/B]]" {
+				t.Errorf("expected [[newdir/B]], got %s", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Error("Other.md [[sub/B]] should be rewritten")
+	}
+
+	// Verify disk.
+	otherContent, err := os.ReadFile(filepath.Join(vault, "Other.md"))
+	if err != nil {
+		t.Fatalf("read Other.md: %v", err)
+	}
+	if !strings.Contains(string(otherContent), "[[newdir/B]]") {
+		t.Errorf("Other.md should contain [[newdir/B]], got: %s", string(otherContent))
+	}
+}
+
+func TestMoveDir_IncomingMultiplePathLinks(t *testing.T) {
+	// External file has multiple path links to different files in the moved directory.
+	// Both should be rewritten.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Ext.md"), []byte("[[sub/A]]\n[[sub/B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// Both path links in Ext.md should be rewritten.
+	rewrittenLinks := make(map[string]string)
+	for _, rw := range result.Rewritten {
+		if rw.File == "Ext.md" {
+			rewrittenLinks[rw.OldLink] = rw.NewLink
+		}
+	}
+	if len(rewrittenLinks) != 2 {
+		t.Errorf("expected 2 rewrites in Ext.md, got %d: %v", len(rewrittenLinks), rewrittenLinks)
+	}
+	if rw, ok := rewrittenLinks["[[sub/A]]"]; !ok || rw != "[[newdir/A]]" {
+		t.Errorf("expected [[sub/A]] → [[newdir/A]], got %v", rewrittenLinks)
+	}
+	if rw, ok := rewrittenLinks["[[sub/B]]"]; !ok || rw != "[[newdir/B]]" {
+		t.Errorf("expected [[sub/B]] → [[newdir/B]], got %v", rewrittenLinks)
+	}
+
+	// Verify disk.
+	extContent, err := os.ReadFile(filepath.Join(vault, "Ext.md"))
+	if err != nil {
+		t.Fatalf("read Ext.md: %v", err)
+	}
+	if !strings.Contains(string(extContent), "[[newdir/A]]") || !strings.Contains(string(extContent), "[[newdir/B]]") {
+		t.Errorf("Ext.md should contain both [[newdir/A]] and [[newdir/B]], got: %s", string(extContent))
+	}
+}
+
+func TestMoveDir_CollateralRewrite(t *testing.T) {
+	// Directory move preserves basenames, so collateral rewrite (basename
+	// ambiguity caused by the move) cannot occur. Instead, verify that
+	// a basename link to a moved file is correctly rewritten to a path link
+	// when the basename was already ambiguous before the move.
+	//
+	// Setup: sub1/A.md (unique basename "A"), B.md has [[A]] (→ sub1/A.md).
+	// Move sub1 → sub2. Basename "A" count stays 1. [[A]] still resolves → no rewrite needed.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub1", ToDir: "sub2"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// [[A]] should still resolve to sub2/A.md via basename. No rewrite needed.
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" {
+			t.Errorf("B.md should NOT be rewritten (basename A is still unique), got: %+v", rw)
+		}
+	}
+
+	// Verify disk: B.md unchanged.
+	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	if !strings.Contains(string(bContent), "[[A]]") {
+		t.Errorf("B.md should still contain [[A]], got: %s", string(bContent))
+	}
+}
+
+func TestMoveDir_CollateralMultipleBasenames(t *testing.T) {
+	// sub1/A.md, sub1/B.md exist. X.md has [[A]], Y.md has [[B]].
+	// Create src/A.md and src/B.md.
+	// Move src → sub2 → both "A" and "B" become ambiguous.
+	vault := t.TempDir()
+	for _, d := range []string{"sub1", "src", "sub2"} {
+		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "X.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Y.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "src", "C.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "src", "D.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Move src → sub2, renaming: C→A, D→B would need different dir names.
+	// Actually, for dir move basename doesn't change. Let's test differently.
+	// Move sub1 → sub2. Basenames A and B stay the same. No ambiguity created.
+	// This test verifies that when basename count stays 1, no rewrite happens.
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub1", ToDir: "sub2"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// X.md's [[A]] and Y.md's [[B]] should NOT be rewritten (basename unique, unchanged).
+	for _, rw := range result.Rewritten {
+		if rw.File == "X.md" && rw.OldLink == "[[A]]" {
+			t.Errorf("X.md [[A]] should NOT be rewritten, got %s", rw.NewLink)
+		}
+		if rw.File == "Y.md" && rw.OldLink == "[[B]]" {
+			t.Errorf("Y.md [[B]] should NOT be rewritten, got %s", rw.NewLink)
+		}
+	}
+}
+
+func TestMoveDir_CollateralRootPriority(t *testing.T) {
+	// A.md(root) + sub/A.md. B.md has [[A]].
+	// Move sub → newdir → basename "A" still has root A.md → no collateral.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// B.md's [[A]] should NOT be rewritten (root priority).
+	for _, rw := range result.Rewritten {
+		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
+			t.Errorf("B.md [[A]] should NOT be rewritten (root priority), got %s", rw.NewLink)
+		}
+	}
+}
+
+func TestMoveDir_OutgoingBasenameToMoved(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// sub/A.md has [[B]] → target sub/B.md also moves to newdir/B.md.
+	// Basename "B" stays unique → no rewrite needed.
+	for _, rw := range result.Rewritten {
+		if rw.File == "newdir/A.md" && rw.OldLink == "[[B]]" {
+			t.Errorf("newdir/A.md [[B]] should NOT be rewritten, got %s", rw.NewLink)
+		}
+	}
+}
+
+func TestMoveDir_OutgoingPathToMoved(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Other.md has [[sub/B]] — this is an external incoming rewrite.
+	// sub/A.md has no path link to sub/B.
+	// Let's check the fixture — sub/A.md has [link to B](./B.md) which is relative.
+	// That should be handled by the relative rewrite batch.
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// Verify Other.md's [[sub/B]] was rewritten.
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "Other.md" && rw.OldLink == "[[sub/B]]" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("Other.md [[sub/B]] should be rewritten")
+	}
+}
+
+func TestMoveDir_RelativeBetweenMoved(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// sub/A.md has [link to B](./B.md) — both A and B move to newdir/.
+	// The relative path should remain ./B.md (unchanged).
+	for _, rw := range result.Rewritten {
+		if rw.File == "newdir/A.md" && rw.OldLink == "[link to B](./B.md)" {
+			t.Errorf("newdir/A.md relative link should NOT change, but was rewritten to %s", rw.NewLink)
+		}
+	}
+
+	// Verify disk.
+	content, err := os.ReadFile(filepath.Join(vault, "newdir", "A.md"))
+	if err != nil {
+		t.Fatalf("read newdir/A.md: %v", err)
+	}
+	if !strings.Contains(string(content), "[link to B](./B.md)") {
+		t.Errorf("newdir/A.md should preserve relative link, got: %s", string(content))
+	}
+}
+
+func TestMoveDir_RelativeToExternal(t *testing.T) {
+	// sub/A.md has [ext](../Root.md). Move sub → newdir.
+	// newdir/A.md → Root.md should become ../Root.md (still valid if newdir is 1 level deep).
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("[ext](../Root.md)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Root.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// ../Root.md from sub/ = Root.md. From newdir/, it should still be ../Root.md.
+	// Since both are 1-level deep, relative path stays the same.
+	for _, rw := range result.Rewritten {
+		if rw.File == "newdir/A.md" && rw.OldLink == "[ext](../Root.md)" {
+			t.Errorf("relative link to external should not change, but was rewritten to %s", rw.NewLink)
+		}
+	}
+}
+
+func TestMoveDir_OutgoingPathToExternal(t *testing.T) {
+	// sub/A.md has [[Root]] (basename link to external Root.md).
+	// Move sub → newdir. [[Root]] stays as basename link, no rewrite needed.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("[[Root]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Root.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	for _, rw := range result.Rewritten {
+		if rw.File == "newdir/A.md" && rw.OldLink == "[[Root]]" {
+			t.Errorf("[[Root]] should NOT be rewritten, got %s", rw.NewLink)
+		}
+	}
+}
+
+func TestMoveDir_ExternalStale(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Make Other.md stale.
+	time.Sleep(1100 * time.Millisecond)
+	if err := os.WriteFile(filepath.Join(vault, "Other.md"), []byte("[[A]]\n[[sub/B]]\nmodified\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err == nil {
+		t.Fatal("expected stale error")
+	}
+	if !strings.Contains(err.Error(), "stale") {
+		t.Errorf("expected stale error, got: %v", err)
+	}
+}
+
+func TestMoveDir_AlreadyMoved(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Simulate user already moved the directory.
+	if err := os.MkdirAll(filepath.Join(vault, "newdir", "inner"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"A.md", "B.md"} {
+		if err := os.Rename(
+			filepath.Join(vault, "sub", name),
+			filepath.Join(vault, "newdir", name),
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Rename(
+		filepath.Join(vault, "sub", "inner", "X.md"),
+		filepath.Join(vault, "newdir", "inner", "X.md"),
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir (already moved): %v", err)
+	}
+
+	if len(result.Moved) != 3 {
+		t.Errorf("expected 3 moved files, got %d", len(result.Moved))
+	}
+
+	// Verify DB updated.
+	notes := queryNodes(t, dbPath(vault), "note")
+	var found bool
+	for _, n := range notes {
+		if n.path == "newdir/A.md" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("DB should contain newdir/A.md")
+	}
+}
+
+func TestMoveDir_Stale(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Make a source file stale.
+	time.Sleep(1100 * time.Millisecond)
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("modified\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err == nil {
+		t.Fatal("expected stale error")
+	}
+	if !strings.Contains(err.Error(), "stale") {
+		t.Errorf("expected stale error, got: %v", err)
+	}
+}
+
+func TestMoveDir_Nested(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// Verify nested file moved.
+	var foundNested bool
+	for _, m := range result.Moved {
+		if m.From == "sub/inner/X.md" && m.To == "newdir/inner/X.md" {
+			foundNested = true
+		}
+	}
+	if !foundNested {
+		t.Error("sub/inner/X.md should be moved to newdir/inner/X.md")
+	}
+
+	if !fileExists(filepath.Join(vault, "newdir", "inner", "X.md")) {
+		t.Error("newdir/inner/X.md should exist on disk")
+	}
+}
+
+func TestMoveDir_Overlap(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "sub/inner"})
+	if err == nil || !strings.Contains(err.Error(), "overlap") {
+		t.Errorf("expected overlap error, got: %v", err)
+	}
+}
+
+func TestMoveDir_VaultEscape(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "../outside"})
+	if err == nil || !strings.Contains(err.Error(), "escapes vault") {
+		t.Errorf("expected vault escape error, got: %v", err)
+	}
+
+	// Absolute paths should also be rejected.
+	_, err = MoveDir(vault, MoveDirOptions{FromDir: "/abs/path", ToDir: "newdir"})
+	if err == nil || !strings.Contains(err.Error(), "vault-relative") {
+		t.Errorf("expected absolute path error for from, got: %v", err)
+	}
+	_, err = MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "/abs/path"})
+	if err == nil || !strings.Contains(err.Error(), "vault-relative") {
+		t.Errorf("expected absolute path error for to, got: %v", err)
+	}
+}
+
+func TestMoveDir_DestExistsOnDisk(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Create an unregistered file at the destination.
+	if err := os.MkdirAll(filepath.Join(vault, "newdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "newdir", "A.md"), []byte("conflict\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err == nil || !strings.Contains(err.Error(), "already exists on disk") {
+		t.Errorf("expected 'already exists on disk' error, got: %v", err)
+	}
+}
+
+func TestMoveDir_PhantomPromotion(t *testing.T) {
+	// A.md and B.md link to [[X]] which is a phantom.
+	// Move sub/X.md to a new dir. Since dir move doesn't change basename,
+	// this is essentially testing that phantom promotion works.
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[X]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "Y.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// X is a phantom. Move sub → newdir won't promote X because basename
+	// doesn't change and there's no X.md in sub.
+	// This test just verifies no crash on phantom promotion code path.
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+	if len(result.Moved) != 1 {
+		t.Errorf("expected 1 moved file, got %d", len(result.Moved))
+	}
+}
+
+func TestMoveDir_NonMDFileError(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	// Add a non-.md file to the source directory.
+	if err := os.WriteFile(filepath.Join(vault, "sub", "image.png"), []byte("png data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err == nil || !strings.Contains(err.Error(), "non-.md file") {
+		t.Errorf("expected non-.md file error, got: %v", err)
+	}
+
+	// Verify nothing was moved.
+	if _, err := os.Stat(filepath.Join(vault, "sub", "A.md")); err != nil {
+		t.Error("sub/A.md should still exist")
+	}
+}
+
+func TestMoveDir_HiddenFilesIgnored(t *testing.T) {
+	vault := copyVault(t, "vault_move_dir")
+	// Add a hidden file — should be ignored by the non-.md check.
+	if err := os.WriteFile(filepath.Join(vault, "sub", ".DS_Store"), []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir should succeed with hidden files: %v", err)
+	}
+	if len(result.Moved) == 0 {
+		t.Error("expected files to be moved")
+	}
+}

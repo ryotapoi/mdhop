@@ -139,6 +139,32 @@
 - `[[a]]` / `[x](a.md)` は一意なら維持、曖昧化/別解決なら書換え
 - `[[path/to/a]]` / `[x](path/to/a.md)` は必ず書換え
 - リンク書換え対象ファイルはDBから抽出
+- ディレクトリ move: 基本（複数ファイル一括移動、ディスク・DB・edge 検証）
+- ディレクトリ move: 空ディレクトリ → エラー
+- ディレクトリ move: 移動先に既存ファイル → エラー
+- ディレクトリ move: incoming rewrite（外部ファイルからのリンク書き換え）
+- ディレクトリ move: collateral（basename 不変のため発生しないことの確認）
+- ディレクトリ move: 複数 basename（count 不変、rewrite 不要の確認）
+- ディレクトリ move: ルート優先（移動先 basename がルートに存在 → collateral スキップ）
+- ディレクトリ move: outgoing basename（移動セット内ファイルへの basename リンク保持）
+- ディレクトリ move: outgoing path（移動セット内ファイルへのパスリンク書き換え）
+- ディレクトリ move: 移動セット内相対リンク保持
+- ディレクトリ move: 外部への相対リンク書き換え
+- ディレクトリ move: 外部へのパスリンク（変更なし）
+- ディレクトリ move: 外部ファイル stale → エラー
+- ディレクトリ move: already-moved シナリオ
+- ディレクトリ move: stale ファイル → エラー
+- ディレクトリ move: ネストディレクトリ（`sub/inner/X.md` → `newdir/inner/X.md`）
+- ディレクトリ move: overlap（`--from sub --to sub/inner`）→ エラー
+- ディレクトリ move: vault escape → エラー
+- ディレクトリ move: 移動先ファイルがディスクに存在 → エラー
+- ディレクトリ move: phantom promotion
+- ディレクトリ move: 非 .md ファイルがあればエラー
+- ディレクトリ move: 隠しファイルは非 .md チェックで無視
+- HasNonMDFiles: .md のみ → 検出なし
+- HasNonMDFiles: 非 .md あり → 検出
+- HasNonMDFiles: 隠しファイル/隠しディレクトリは無視
+- HasNonMDFiles: ネストしたサブディレクトリ内の非 .md も検出
 
 ## delete
 
@@ -150,6 +176,13 @@
 - `--rm`: ファイル不在時も成功（冪等）
 - `--rm`: 未登録ファイルはエラー、ディスク上のファイルは削除されない
 - `--rm`: 参照ありファイルはディスク削除+phantom化
+- ディレクトリ展開: `ListDirNotes` で配下ファイル一覧取得（基本、ネスト、マッチなし、特殊文字）
+- ディレクトリ delete: 配下の全ファイルが削除される（`--rm` あり/なし）
+- ディレクトリ delete: DB にファイルなし → エラー
+- ディレクトリ delete: `--rm` なし（ファイル既削除済み）でインデックスのみ更新
+- 空ディレクトリ掃除: `CleanupEmptyDirs` で空ディレクトリが再帰削除される
+- 空ディレクトリ掃除: 非 `.md` ファイルが残れば停止（ENOTEMPTY）
+- 空ディレクトリ掃除: vault root で停止
 
 ## diagnose
 

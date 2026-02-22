@@ -43,7 +43,9 @@ exclude:
   - `--file` は複数回指定できる
 - `mdhop add --file ...` : 新規追加を反映する（未登録のみ）
 - `mdhop move --from A.md --to B.md` : ファイル移動を反映する
+- `mdhop move --from dir/ --to newdir/` : ディレクトリ単位の移動を反映する
 - `mdhop delete --file ...` : ファイル削除を反映する（登録済みのみ）
+- `mdhop delete --file dir/` : ディレクトリ配下の全 `.md` ファイルを削除する
 - `mdhop disambiguate --name a` : 曖昧リンクをフルパスへ書き換える
 - `mdhop resolve --from A.md --link '[[X]]'` : リンク解決を行う
 - `mdhop query --file A.md` : 起点ノートの関連情報を返す
@@ -179,11 +181,21 @@ exclude:
     - `[[path/to/a]]` / `[x](path/to/a.md)` などパス指定は必ず書き換える
     - 移動元ファイル内の相対リンクは新位置からの相対パスに書き換える
   - 補足: 移動元・書き換え対象ファイルの mtime が DB と一致しない場合は **エラー**（stale 検出）
+  - ディレクトリモード: `--from` が末尾 `/` またはディスク上ディレクトリの場合、配下の全 `.md` ファイルを一括移動する
+    - `--to` も自動的にディレクトリとして扱う（`--to` が `.md` で終わる場合はエラー）
+    - 全ファイルの移動先を確定してからリンク書き換えを1回だけ行う（中間状態の曖昧性問題を回避）
+    - 移動セット内ファイル間のリンク（相対リンク含む）も正しく書き換える
+    - ディスク状態は全ファイルが一貫している必要がある（normal と already-moved の混在はエラー）
+    - ディレクトリ配下に非 `.md` ファイルがある場合はエラー（隠しファイル・隠しディレクトリは無視）
 - `delete`
   - 必須: `--file`（複数回指定可）
   - 任意: `--vault`, `--format`, `--rm`
   - `--rm`: ファイルをディスクから削除してからインデックスを更新する
   - 補足: 未登録ファイルが指定された場合はエラー（`--rm` でもファイルは削除されない）
+  - ディレクトリモード: `--file` に末尾 `/` またはディスク上ディレクトリを指定すると、DB に登録された配下の全 `.md` ファイルを一括削除する
+    - DB にファイルが登録されていないディレクトリはエラー
+    - `--rm` 時はディレクトリ配下に非 `.md` ファイルがある場合はエラー（隠しファイル・隠しディレクトリは無視）
+    - `--rm` 時は `.md` ファイル削除後に空になったディレクトリを再帰的に掃除する
 - `disambiguate`
   - 必須: `--name`
   - 任意: `--target`, `--file`, `--vault`, `--format`
@@ -274,7 +286,8 @@ exclude:
 - delete: `deleted`, `phantomed`
 - update: `updated`, `deleted`, `phantomed`
 - add: `added`, `promoted`, `rewritten`
-- move: `from`, `to`, `rewritten`
+- move（単体）: `from`, `to`, `rewritten`
+- move（ディレクトリ）: `moved[]`（`from`, `to` の配列）, `rewritten`
 - disambiguate: `rewritten`
 
 ## 出力形式

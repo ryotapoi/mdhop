@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
@@ -26,6 +27,39 @@ func runMove(args []string) error {
 	if *to == "" {
 		return fmt.Errorf("--to is required")
 	}
+
+	fromIsDir := isDirArg(*vault, *from)
+
+	if fromIsDir {
+		// Directory mode.
+		toIsFile := strings.HasSuffix(strings.ToLower(*to), ".md")
+		if toIsFile {
+			return fmt.Errorf("--to looks like a file path, use trailing / for directory move")
+		}
+		fromDir := core.NormalizePath(strings.TrimSuffix(*from, "/"))
+		toDir := core.NormalizePath(strings.TrimSuffix(*to, "/"))
+		result, err := core.MoveDir(*vault, core.MoveDirOptions{
+			FromDir: fromDir,
+			ToDir:   toDir,
+		})
+		if err != nil {
+			return err
+		}
+		switch *format {
+		case "json":
+			return printMoveDirJSON(os.Stdout, result)
+		default:
+			printMoveDirText(os.Stdout, result)
+			return nil
+		}
+	}
+
+	// Single file mode.
+	toIsDir := strings.HasSuffix(*to, "/")
+	if toIsDir {
+		return fmt.Errorf("cannot use directory destination for single file move")
+	}
+
 	result, err := core.Move(*vault, core.MoveOptions{
 		From: *from,
 		To:   *to,
