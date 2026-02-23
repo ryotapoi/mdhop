@@ -48,7 +48,7 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
    - ADR / knowledge.md 追記の有無も報告する
 6. 承認後、ファイルを stage してコミットする
 7. コミット後 `git status` で結果を確認する
-8. `plans/` にこの実装に対応する plan ファイルがあれば削除する
+8. `tmp/plans/` にこの実装に対応する plan ファイルがあれば削除する
 
 ## 注意
 

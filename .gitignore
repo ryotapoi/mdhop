@@ -34,5 +34,5 @@ CLAUDE.local.md
 .claude/settings.local.json
 .claude/*.local.*
 
-# Plan files (temporary, replaced by Change Notes after implementation)
-/plans/
+# Temporary files (plans, scratch notes, etc.)
+/tmp/
