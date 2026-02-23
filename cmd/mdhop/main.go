@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 )
 
 var version = "dev"
@@ -59,7 +60,13 @@ func main() {
 }
 
 func printVersion(w io.Writer) {
-	fmt.Fprintf(w, "mdhop version %s\n", version)
+	v := version
+	if v == "dev" {
+		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+			v = info.Main.Version
+		}
+	}
+	fmt.Fprintf(w, "mdhop version %s\n", v)
 }
 
 func printUsage() {
