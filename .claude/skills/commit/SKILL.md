@@ -15,7 +15,7 @@ Conventional Commits ベースでコミットを作成する。
 
 <body（任意）>
 
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 - 言語: **英語**
