@@ -28,7 +28,7 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 
 - `internal/core/` — コアロジック（build, parse, DB スキーマ, ユーティリティ）。現在の実装はすべてここにある。
 - `internal/testutil/` — テストヘルパー（`CopyDir` でテスト用 Vault を一時ディレクトリにコピーする等）。
-- `cmd/mdhop/` — CLI エントリポイント（未実装）。
+- `cmd/mdhop/` — CLI エントリポイント。サブコマンドごとにファイル分割。
 - `testdata/` — テストで使用する Vault フィクスチャ。各 `vault_*` ディレクトリが独立したテストシナリオ。
 
 ### `internal/core/` の主要ファイル
