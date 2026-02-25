@@ -193,6 +193,24 @@
 
 - notes_total / notes_exists / edges_total / tags_total / phantoms_total
 
+## repair
+
+- 正常系: 壊れたパスリンク（候補 0-1 個）が basename リンクに書き換わる
+- 正常系: subpath（`#Heading`）が保持される
+- 正常系: wikilink と markdown link の両方が書き換わる
+- dry-run: 出力は同じだがディスク変更なし
+- 壊れたリンクなし → 空結果
+- skipped: 候補 2+ 個のパスリンクは skipped に正しい候補パスが含まれる
+- basename リンクは修復対象外
+- インラインコード内のリンクは変更されない
+- `build.exclude_paths` で除外されたファイルへのパスリンクは書き換えない
+- vault-escape リンク（relative）が basename に書き換わる
+- vault-escape リンク（absolute path）が basename に書き換わる
+- vault-escape リンク + 候補 2+ → 候補数に関係なく basename 化（escape 解消優先）
+- 壊れたパスリンクと escape リンクの混在
+- 非 `.md` 拡張子の壊れたパスリンクが basename に書き換わる
+- ドット入り basename（`Note.v1`）が正しく書き換わる（拡張子誤除去なし）
+
 ## disambiguate
 
 - `--format` バリデーション（無効値でエラー）
@@ -201,6 +219,8 @@
 - `--file` 指定時は対象ファイルのみ書換え
 - `[[a]]` / `[x](a.md)` を対象
 - `[[path/to/a]]` 等のパス指定リンクは既に明確なため対象外
+- phantom を指すパスリンクも `--name` の対象に含まれる
+- `--scan` でも壊れたパスリンクが対象になる
 ### `--scan`（DB なし走査モード）
 
 - DB なしで basename リンクがフルパスに書き換わる

@@ -648,3 +648,97 @@ func TestDisambiguateScan_RespectsExclude(t *testing.T) {
 	}
 }
 
+func TestDisambiguatePhantomPathLink(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate_phantom")
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Disambiguate(vault, DisambiguateOptions{
+		Name:   "X",
+		Target: "dir1/X.md",
+	})
+	if err != nil {
+		t.Fatalf("disambiguate: %v", err)
+	}
+
+	// A.md has [[old/X]] and [text](broken/X.md) → both path links to phantom X.
+	// B.md has [[wrong/X]] → path link to phantom X.
+	// All 3 should be rewritten to dir1/X paths.
+	if len(result.Rewritten) != 3 {
+		t.Errorf("Rewritten count = %d, want 3", len(result.Rewritten))
+		for _, r := range result.Rewritten {
+			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+		}
+	}
+
+	// Verify A.md disk content.
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "[[dir1/X]]") {
+		t.Errorf("A.md should contain [[dir1/X]], got:\n%s", got)
+	}
+	if !strings.Contains(got, "[text](dir1/X.md)") {
+		t.Errorf("A.md should contain [text](dir1/X.md), got:\n%s", got)
+	}
+
+	// Verify B.md disk content.
+	contentB, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	gotB := string(contentB)
+	if !strings.Contains(gotB, "[[dir1/X]]") {
+		t.Errorf("B.md should contain [[dir1/X]], got:\n%s", gotB)
+	}
+}
+
+func TestDisambiguatePhantomPathLinkScan(t *testing.T) {
+	vault := copyVault(t, "vault_disambiguate_phantom")
+
+	// No build — scan works without DB.
+	result, err := DisambiguateScan(vault, DisambiguateOptions{
+		Name:   "X",
+		Target: "dir1/X.md",
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	// A.md has [[old/X]] and [text](broken/X.md) → broken path links.
+	// B.md has [[wrong/X]] → broken path link.
+	// All 3 should be rewritten.
+	if len(result.Rewritten) != 3 {
+		t.Errorf("Rewritten count = %d, want 3", len(result.Rewritten))
+		for _, r := range result.Rewritten {
+			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+		}
+	}
+
+	// Verify A.md disk content.
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "[[dir1/X]]") {
+		t.Errorf("A.md should contain [[dir1/X]], got:\n%s", got)
+	}
+	if !strings.Contains(got, "[text](dir1/X.md)") {
+		t.Errorf("A.md should contain [text](dir1/X.md), got:\n%s", got)
+	}
+
+	// Verify B.md disk content.
+	contentB, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	gotB := string(contentB)
+	if !strings.Contains(gotB, "[[dir1/X]]") {
+		t.Errorf("B.md should contain [[dir1/X]], got:\n%s", gotB)
+	}
+}
+

@@ -97,23 +97,51 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		fileScope[np] = true
 	}
 
-	// Get incoming edges (basename links pointing to target).
-	edgeRows, err := db.Query(
-		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id
-		 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-		 WHERE e.target_id = ? AND e.link_type IN ('wikilink', 'markdown')`, target.id)
+	// Also look up the phantom node with the same basename, so we can find
+	// broken path links (pointing to the phantom) in addition to basename links
+	// (pointing to the real note).
+	var phantomID sql.NullInt64
+	err = db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'phantom'",
+		phantomKey(nameKey)).Scan(&phantomID.Int64)
+	if err == nil {
+		phantomID.Valid = true
+	} else if err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// Get incoming edges: basename links pointing to target note,
+	// plus broken path links pointing to the phantom (if any).
+	var edgeRows *sql.Rows
+	if phantomID.Valid {
+		edgeRows, err = db.Query(
+			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.type
+			 FROM edges e
+			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
+			 JOIN nodes tn ON tn.id = e.target_id
+			 WHERE e.target_id IN (?, ?) AND e.link_type IN ('wikilink', 'markdown')`,
+			target.id, phantomID.Int64)
+	} else {
+		edgeRows, err = db.Query(
+			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.type
+			 FROM edges e
+			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
+			 JOIN nodes tn ON tn.id = e.target_id
+			 WHERE e.target_id = ? AND e.link_type IN ('wikilink', 'markdown')`, target.id)
+	}
 	if err != nil {
 		return nil, err
 	}
 	var rewrites []rewriteEntry
 	for edgeRows.Next() {
 		var re rewriteEntry
-		if err := edgeRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID); err != nil {
+		var targetType string
+		if err := edgeRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetType); err != nil {
 			edgeRows.Close()
 			return nil, err
 		}
-		// Filter: basename links only.
-		if !isBasenameRawLink(re.rawLink, re.linkType) {
+		// Filter: basename links to the note target are always candidates.
+		// Path links are only candidates if they point to a phantom.
+		if !isBasenameRawLink(re.rawLink, re.linkType) && targetType != "phantom" {
 			continue
 		}
 		// Filter: skip self-references.
@@ -310,6 +338,12 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 		}
 	}
 
+	// Build a lowercase path set for broken-link detection.
+	pathSetLower := make(map[string]bool, len(files))
+	for _, f := range files {
+		pathSetLower[strings.ToLower(f)] = true
+	}
+
 	var rewrites []rewriteEntry
 	for _, sourcePath := range scanFiles {
 		// Skip self-references (source is the target itself).
@@ -327,11 +361,20 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 			if lo.linkType != "wikilink" && lo.linkType != "markdown" {
 				continue
 			}
-			if !lo.isBasename {
-				continue
-			}
-			if basenameKey(lo.target) != nameKey {
-				continue
+			if lo.isBasename {
+				// Basename link: check if it matches the target name.
+				if basenameKey(lo.target) != nameKey {
+					continue
+				}
+			} else {
+				// Path link: only include if the link is broken AND
+				// the basename matches the target name.
+				if basenameKey(lo.target) != nameKey {
+					continue
+				}
+				if !isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
+					continue
+				}
 			}
 
 			newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, targetPath)
@@ -375,4 +418,29 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 	}
 
 	return result, nil
+}
+
+// isLinkBrokenForScan checks if a path link target does not resolve to any
+// known file in the vault. Used by DisambiguateScan to detect broken path links.
+func isLinkBrokenForScan(sourcePath string, lo linkOccur, pathSetLower map[string]bool) bool {
+	target := lo.target
+
+	var resolved string
+	if lo.isRelative {
+		resolved = NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
+	} else if strings.HasPrefix(target, "/") {
+		resolved = strings.TrimPrefix(target, "/")
+	} else {
+		resolved = target
+	}
+
+	lower := strings.ToLower(resolved)
+	if pathSetLower[lower] {
+		return false
+	}
+	// Try with .md extension.
+	if !strings.HasSuffix(lower, ".md") && pathSetLower[lower+".md"] {
+		return false
+	}
+	return true
 }

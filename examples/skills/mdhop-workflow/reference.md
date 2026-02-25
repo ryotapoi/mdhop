@@ -172,8 +172,56 @@ mdhop disambiguate --name a --scan
 - If `--name` is unique (one candidate), rewrites automatically
 - If multiple candidates exist, `--target` is required
 - `--scan` respects `build.exclude_paths`
+- Also handles broken path links pointing to phantom nodes (e.g., after `repair` leaves multi-candidate links unresolved)
 
 **Output fields:** `rewritten`
+
+## repair
+
+Fix broken path links and vault-escape links by rewriting them to basename links.
+
+```bash
+mdhop repair
+mdhop repair --dry-run --format json
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--dry-run` | No | Show what would be repaired without making changes |
+| `--format json\|text` | No | Output format |
+
+**Behavior:**
+- DB not required (file-scan based). Can be run before `build`
+- Finds broken path links (target does not exist) and vault-escape links (wikilink/markdown)
+- Vault-escape links are always basename-ified regardless of candidate count (escape resolution is top priority; use `disambiguate` afterwards if ambiguous)
+- Broken path links are rewritten to basename if the basename has 0 or 1 candidate note
+- Skips broken path links where the basename has 2+ candidates (reported in `skipped`)
+- Skips links whose target file exists on disk (e.g., excluded by `build.exclude_paths`)
+- Skips basename links (already in basename form)
+- `--dry-run` shows the result without modifying disk
+- After repair, run `mdhop build` to create or update the index
+- If build fails with ambiguous links after repair, use `disambiguate` to resolve them
+- URL links, tag links, and frontmatter links are not affected
+
+**Output fields:** `rewritten`, `skipped`
+
+### JSON Output Example
+
+```json
+{
+  "rewritten": [
+    {"file": "A.md", "old": "[[old/path/X]]", "new": "[[X]]"}
+  ],
+  "skipped": [
+    {
+      "file": "A.md",
+      "raw_link": "[[old/M]]",
+      "basename": "M",
+      "candidates": ["dir1/M.md", "dir2/M.md"]
+    }
+  ]
+}
+```
 
 ---
 

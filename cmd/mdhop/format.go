@@ -626,3 +626,56 @@ func printDisambiguateJSON(w io.Writer, r *core.DisambiguateResult) error {
 	}
 	return encodeJSON(w, out)
 }
+
+// --- Repair output ---
+
+type skippedJSON struct {
+	File       string   `json:"file"`
+	RawLink    string   `json:"raw_link"`
+	Basename   string   `json:"basename"`
+	Candidates []string `json:"candidates"`
+}
+
+type repairJSONOutput struct {
+	Rewritten []rewrittenJSON `json:"rewritten"`
+	Skipped   []skippedJSON   `json:"skipped"`
+}
+
+func printRepairText(w io.Writer, r *core.RepairResult) {
+	printRewrittenText(w, r.Rewritten)
+	if len(r.Skipped) > 0 {
+		fmt.Fprintln(w, "skipped:")
+		for _, s := range r.Skipped {
+			fmt.Fprintf(w, "- file: %s\n", s.File)
+			fmt.Fprintf(w, "  raw_link: %q\n", s.RawLink)
+			fmt.Fprintf(w, "  basename: %s\n", s.Basename)
+			fmt.Fprintln(w, "  candidates:")
+			for _, c := range s.Candidates {
+				fmt.Fprintf(w, "  - %s\n", c)
+			}
+		}
+	}
+}
+
+func printRepairJSON(w io.Writer, r *core.RepairResult) error {
+	skipped := make([]skippedJSON, len(r.Skipped))
+	for i, s := range r.Skipped {
+		skipped[i] = skippedJSON{
+			File:       s.File,
+			RawLink:    s.RawLink,
+			Basename:   s.Basename,
+			Candidates: s.Candidates,
+		}
+	}
+	out := repairJSONOutput{
+		Rewritten: toRewrittenJSON(r.Rewritten),
+		Skipped:   skipped,
+	}
+	if out.Rewritten == nil {
+		out.Rewritten = []rewrittenJSON{}
+	}
+	if out.Skipped == nil {
+		out.Skipped = []skippedJSON{}
+	}
+	return encodeJSON(w, out)
+}

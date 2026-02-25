@@ -39,6 +39,8 @@ func main() {
 		err = runMove(os.Args[2:])
 	case "disambiguate":
 		err = runDisambiguate(os.Args[2:])
+	case "repair":
+		err = runRepair(os.Args[2:])
 	case "--version":
 		printVersion(os.Stdout)
 		return
@@ -79,6 +81,7 @@ Index Commands:
   delete        Remove files from the index
   move          Move a file and update links
   disambiguate  Rewrite basename links to full paths
+  repair        Fix broken path links by rewriting to basename
 
 Query Commands:
   resolve    Resolve a link from a source file

@@ -74,6 +74,7 @@ If `mdhop add` reports rewritten links, inform the user which files were changed
 - **Ambiguous link error on add**: Auto-disambiguate handles most cases. If it fails (phantom with multiple candidates), run `mdhop disambiguate --name <basename> --target <path>` first.
 - **Ambiguous link error on build**: Run `mdhop diagnose` to identify conflicts, then `mdhop disambiguate --name <name> --target <path> --scan` for each.
 - **Non-`.md` file error on directory move/delete**: The directory contains files that are not Markdown (e.g., images, PDFs). Move or remove these files manually first, then retry. Hidden files and directories (starting with `.`) are ignored and do not cause this error.
+- **Broken path links or vault-escape links**: Run `mdhop repair --dry-run --format json` to preview, then `mdhop repair` to fix. This rewrites broken path links and vault-escape links to basename links (no DB required; can be run before `build`). Vault-escape links are always basename-ified. For broken path links with multiple candidates (reported in `skipped`), use `mdhop disambiguate --name <basename> --target <path>` to resolve individually. After repair, run `mdhop build` to create or update the index.
 
 ## Index Update Rules
 

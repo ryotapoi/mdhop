@@ -47,6 +47,7 @@ exclude:
 - `mdhop delete --file ...` : ファイル削除を反映する（登録済みのみ）
 - `mdhop delete --file dir/` : ディレクトリ配下の全 `.md` ファイルを削除する
 - `mdhop disambiguate --name a` : 曖昧リンクをフルパスへ書き換える
+- `mdhop repair` : 壊れたパスリンクと vault-escape リンクを basename リンクに書き換える
 - `mdhop resolve --from A.md --link '[[X]]'` : リンク解決を行う
 - `mdhop query --file A.md` : 起点ノートの関連情報を返す
 - `mdhop query --tag tag` : タグ起点の関連情報を返す
@@ -203,6 +204,20 @@ exclude:
   - 補足: `--file` 指定時は対象ファイルのみ書き換える
   - 補足: `--scan` を指定すると DB を使わずに全ファイルを走査して書き換える（初期救済用）
   - 補足: `--scan` は `build.exclude_paths` に従う（除外ファイルは候補にも走査対象にもならない）
+  - 補足: phantom を指す壊れたパスリンクも `--name` の対象に含める（`repair` の後の個別解決用）
+- `repair`
+  - 必須: なし
+  - 任意: `--vault`, `--format`, `--dry-run`
+  - 補足: DB 不要（ファイル走査ベース）。build 前に実行可能
+  - 補足: 壊れたパスリンク（target が存在しない wikilink/markdown）と vault-escape リンクを basename リンクに自動書き換え
+  - 補足: vault-escape リンクは候補数に関係なく常に basename 化（escape 解消が最優先。その後 ambiguous になるなら `disambiguate` で対応）
+  - 補足: 壊れたパスリンクは basename の候補が 0-1 個のみ修復。2 個以上はスキップ（`disambiguate` で個別解決する）
+  - 補足: basename リンク（`[[X]]`）は対象外（パスリンクのみ）
+  - 補足: リンク先ファイルがディスク上に存在する場合はスキップ（`build.exclude_paths` で除外されたファイルへのリンクを壊さない）
+  - 補足: `--dry-run` はディスク変更せず結果のみ返す
+  - 補足: repair 後に `build` を実行してインデックスを作成・更新する
+  - 補足: repair 後に build が曖昧リンクで失敗する場合は `disambiguate` で対応する
+  - 補足: URL リンク、tag/frontmatter リンクは対象外
 - `resolve`
   - 必須: `--from`, `--link`
   - 任意: `--vault`, `--format`, `--fields`
@@ -289,6 +304,7 @@ exclude:
 - move（単体）: `from`, `to`, `rewritten`
 - move（ディレクトリ）: `moved[]`（`from`, `to` の配列）, `rewritten`
 - disambiguate: `rewritten`
+- repair: `rewritten`, `skipped`
 
 ## 出力形式
 
