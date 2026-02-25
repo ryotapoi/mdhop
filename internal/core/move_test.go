@@ -2140,7 +2140,7 @@ func TestMoveDir_PhantomPromotion(t *testing.T) {
 	}
 }
 
-func TestMoveDir_NonMDFileError(t *testing.T) {
+func TestMoveDir_NonMDFileMovedAlong(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
 	// Add a non-.md file to the source directory.
 	if err := os.WriteFile(filepath.Join(vault, "sub", "image.png"), []byte("png data"), 0o644); err != nil {
@@ -2150,14 +2150,19 @@ func TestMoveDir_NonMDFileError(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
-	if err == nil || !strings.Contains(err.Error(), "non-.md file") {
-		t.Errorf("expected non-.md file error, got: %v", err)
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err != nil {
+		t.Fatalf("MoveDir should succeed with non-.md files: %v", err)
 	}
 
-	// Verify nothing was moved.
-	if _, err := os.Stat(filepath.Join(vault, "sub", "A.md")); err != nil {
-		t.Error("sub/A.md should still exist")
+	// Verify the non-.md file was moved.
+	if _, err := os.Stat(filepath.Join(vault, "newdir", "image.png")); err != nil {
+		t.Error("newdir/image.png should exist after move")
+	}
+
+	// Verify at least the notes were moved.
+	if len(result.Moved) == 0 {
+		t.Error("expected files to be moved")
 	}
 }
 

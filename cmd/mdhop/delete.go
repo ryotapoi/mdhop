@@ -44,22 +44,19 @@ func runDelete(args []string) error {
 		if isDirArg(*vault, f) {
 			hasDirArg = true
 			dirPrefix := core.NormalizePath(strings.TrimSuffix(f, "/"))
-			// Check for non-.md files when --rm (disk deletion).
-			if *rm {
-				if nonMD, err := core.HasNonMDFiles(*vault, dirPrefix); err != nil {
-					return err
-				} else if nonMD != "" {
-					return fmt.Errorf("directory contains non-.md file: %s (mdhop only manages .md files)", nonMD)
-				}
-			}
 			notes, err := core.ListDirNotes(*vault, dirPrefix)
 			if err != nil {
 				return err
 			}
-			if len(notes) == 0 {
+			assets, err := core.ListDirAssets(*vault, dirPrefix)
+			if err != nil {
+				return err
+			}
+			if len(notes) == 0 && len(assets) == 0 {
 				return fmt.Errorf("no files registered under directory: %s", f)
 			}
 			expanded = append(expanded, notes...)
+			expanded = append(expanded, assets...)
 		} else {
 			expanded = append(expanded, f)
 		}
@@ -70,8 +67,37 @@ func runDelete(args []string) error {
 		return err
 	}
 
-	// Clean up empty directories after --rm with directory mode.
+	// Clean up after --rm with directory mode.
 	if *rm && hasDirArg {
+		// Remove any remaining unregistered files on disk (D5: disk-based deletion).
+		for _, f := range files {
+			if !isDirArg(*vault, f) {
+				continue
+			}
+			dirPrefix := core.NormalizePath(strings.TrimSuffix(f, "/"))
+			absDir := filepath.Join(*vault, dirPrefix)
+			// Walk to delete remaining files (assets added after build, etc.).
+			_ = filepath.Walk(absDir, func(path string, info os.FileInfo, walkErr error) error {
+				if walkErr != nil {
+					return nil // best-effort
+				}
+				if info.IsDir() {
+					if strings.HasPrefix(info.Name(), ".") {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+				// Only remove non-.md files (D5: disk-based deletion for assets only).
+				if strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+					return nil
+				}
+				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+					return nil // best-effort
+				}
+				return nil
+			})
+		}
+
 		// Collect all deleted/phantomed files for directory cleanup.
 		var allPaths []string
 		allPaths = append(allPaths, result.Deleted...)

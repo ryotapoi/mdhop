@@ -25,9 +25,12 @@ type rewriteEntry struct {
 }
 
 // buildRewritePath constructs the vault-relative rewritten path for a link target.
-// Returns the target path without extension (e.g. "A.md" → "A", "sub/A.md" → "sub/A").
+// Only .md extension is removed (e.g. "A.md" → "A", "image.png" → "image.png").
 func buildRewritePath(targetPath string) string {
-	return strings.TrimSuffix(targetPath, filepath.Ext(targetPath))
+	if strings.HasSuffix(strings.ToLower(targetPath), ".md") {
+		return targetPath[:len(targetPath)-3]
+	}
+	return targetPath
 }
 
 // rewriteRawLink replaces the target in a raw link with the rewritten path.

@@ -17,6 +17,7 @@ type StatsResult struct {
 	EdgesTotal    int
 	TagsTotal     int
 	PhantomsTotal int
+	AssetsTotal   int
 }
 
 // Stats returns aggregate statistics for the indexed vault.
@@ -60,6 +61,12 @@ func Stats(vaultPath string, opts StatsOptions) (*StatsResult, error) {
 
 	if isFieldActive("phantoms_total", opts.Fields) {
 		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='phantom'`).Scan(&result.PhantomsTotal); err != nil {
+			return nil, err
+		}
+	}
+
+	if isFieldActive("assets_total", opts.Fields) {
+		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='asset'`).Scan(&result.AssetsTotal); err != nil {
 			return nil, err
 		}
 	}

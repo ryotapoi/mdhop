@@ -107,6 +107,39 @@ func noteKey(path string) string {
 	return fmt.Sprintf("note:path:%s", path)
 }
 
+func assetKey(path string) string {
+	return fmt.Sprintf("asset:path:%s", path)
+}
+
+func upsertAsset(db dbExecer, path, name string, mtime int64) (int64, error) {
+	key := assetKey(path)
+	res, err := db.Exec(
+		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime)
+		 VALUES (?, 'asset', ?, ?, 1, ?)
+		 ON CONFLICT(node_key) DO UPDATE SET
+		   name=excluded.name,
+		   path=excluded.path,
+		   exists_flag=excluded.exists_flag,
+		   mtime=excluded.mtime`,
+		key, name, path, mtime,
+	)
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	if id == 0 {
+		// ON CONFLICT updated — fetch the existing ID.
+		row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", key)
+		if err := row.Scan(&id); err != nil {
+			return 0, err
+		}
+	}
+	return id, nil
+}
+
 func phantomKey(name string) string {
 	return fmt.Sprintf("phantom:name:%s", strings.ToLower(name))
 }
@@ -244,10 +277,10 @@ func removeOrPhantomize(tx dbExecer, nodeID int64, name string) (phantomized boo
 	return false, nil
 }
 
-// cleanupOrphanedNodes removes tag and phantom nodes not referenced by any edge.
+// cleanupOrphanedNodes removes tag, phantom, and asset nodes not referenced by any edge.
 // url nodes are not affected.
 func cleanupOrphanedNodes(tx dbExecer) error {
-	_, err := tx.Exec("DELETE FROM nodes WHERE type IN ('tag','phantom') AND id NOT IN (SELECT DISTINCT target_id FROM edges)")
+	_, err := tx.Exec("DELETE FROM nodes WHERE type IN ('tag','phantom','asset') AND id NOT IN (SELECT DISTINCT target_id FROM edges)")
 	return err
 }
 
@@ -259,13 +292,13 @@ func escapeLikePattern(s string) string {
 	return s
 }
 
-// listDirNotesFromDB returns vault-relative paths of all registered notes
-// under the given directory prefix. Used by ListDirNotes and MoveDir.
-func listDirNotesFromDB(db dbExecer, dirPrefix string) ([]string, error) {
+// listDirNodesByType returns vault-relative paths of all registered nodes of
+// the given type under the given directory prefix.
+func listDirNodesByType(db dbExecer, dirPrefix, nodeType string) ([]string, error) {
 	pattern := escapeLikePattern(dirPrefix) + "/%"
 	rows, err := db.Query(
-		`SELECT path FROM nodes WHERE type='note' AND exists_flag=1 AND (path LIKE ? ESCAPE '\')`,
-		pattern,
+		`SELECT path FROM nodes WHERE type=? AND exists_flag=1 AND (path LIKE ? ESCAPE '\')`,
+		nodeType, pattern,
 	)
 	if err != nil {
 		return nil, err
@@ -298,5 +331,23 @@ func ListDirNotes(vaultPath, dirPrefix string) ([]string, error) {
 	}
 	defer db.Close()
 
-	return listDirNotesFromDB(db, dirPrefix)
+	return listDirNodesByType(db, dirPrefix, "note")
+}
+
+// ListDirAssets returns vault-relative paths of all registered assets
+// under the given directory prefix.
+// dirPrefix should not have a trailing slash (e.g., "sub", "sub/inner").
+func ListDirAssets(vaultPath, dirPrefix string) ([]string, error) {
+	dbp := dbPath(vaultPath)
+	if _, err := os.Stat(dbp); os.IsNotExist(err) {
+		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
+	}
+
+	db, err := openDBAt(dbp)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	return listDirNodesByType(db, dirPrefix, "asset")
 }

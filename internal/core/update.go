@@ -86,7 +86,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	}
 
 	// Build in-memory maps from DB (mirrors build's Pass 1).
-	pathToID, pathSet, basenameCounts, rootBasenameToPath, err := buildMapsFromDB(db)
+	rm, err := buildMapsFromDB(db)
 	if err != nil {
 		return nil, err
 	}
@@ -95,46 +95,46 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	for _, cf := range classified {
 		if !cf.existsOnDisk {
 			// Only adjust maps if the file was present in them.
-			if _, ok := pathToID[cf.path]; ok {
-				delete(pathToID, cf.path)
+			if _, ok := rm.pathToID[cf.path]; ok {
+				delete(rm.pathToID, cf.path)
 				rel := strings.ToLower(cf.path)
-				delete(pathSet, rel)
+				delete(rm.pathSet, rel)
 				noExt := strings.TrimSuffix(cf.path, filepath.Ext(cf.path))
-				delete(pathSet, strings.ToLower(noExt))
+				delete(rm.pathSet, strings.ToLower(noExt))
 				bk := basenameKey(cf.path)
-				basenameCounts[bk]--
-				if basenameCounts[bk] <= 0 {
-					delete(basenameCounts, bk)
+				rm.basenameCounts[bk]--
+				if rm.basenameCounts[bk] <= 0 {
+					delete(rm.basenameCounts, bk)
 				}
 				if isRootFile(cf.path) {
-					delete(rootBasenameToPath, bk)
+					delete(rm.rootBasenameToPath, bk)
 				}
 			}
 		} else {
 			// Ensure present in maps (normally already there for registered notes).
-			if _, ok := pathToID[cf.path]; !ok {
-				pathToID[cf.path] = cf.id
+			if _, ok := rm.pathToID[cf.path]; !ok {
+				rm.pathToID[cf.path] = cf.id
 				rel := strings.ToLower(cf.path)
-				pathSet[rel] = cf.path
+				rm.pathSet[rel] = cf.path
 				noExt := strings.TrimSuffix(cf.path, filepath.Ext(cf.path))
-				pathSet[strings.ToLower(noExt)] = cf.path
+				rm.pathSet[strings.ToLower(noExt)] = cf.path
 				bk := basenameKey(cf.path)
-				basenameCounts[bk]++
+				rm.basenameCounts[bk]++
 				if isRootFile(cf.path) {
-					rootBasenameToPath[bk] = cf.path
+					rm.rootBasenameToPath[bk] = cf.path
 				}
 			}
 		}
 	}
 
 	// Rebuild basenameToPath from adjusted basenameCounts.
-	basenameToPath := make(map[string]string)
-	for bk, count := range basenameCounts {
+	rm.basenameToPath = make(map[string]string)
+	for bk, count := range rm.basenameCounts {
 		if count == 1 {
 			// Find the path with this basename key.
-			for p := range pathToID {
+			for p := range rm.pathToID {
 				if basenameKey(p) == bk {
-					basenameToPath[bk] = p
+					rm.basenameToPath[bk] = p
 					break
 				}
 			}
@@ -168,7 +168,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
 				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, cf.path)
 			}
-			if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
+			if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
 				return nil, fmt.Errorf("ambiguous link: %s in %s", link.target, cf.path)
 			}
 		}
@@ -199,7 +199,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 
 		// Re-resolve links and create new edges.
 		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.cf.path, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
+			targetID, subpath, err := resolveLink(tx, pf.cf.path, link, rm)
 			if err != nil {
 				return nil, err
 			}
@@ -243,17 +243,26 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	return result, nil
 }
 
-// buildMapsFromDB constructs in-memory maps from existing DB note nodes,
+// buildMapsFromDB constructs in-memory resolveMaps from existing DB nodes,
 // mirroring build's Pass 1 structure.
-func buildMapsFromDB(db dbExecer) (pathToID map[string]int64, pathSet map[string]string, basenameCounts map[string]int, rootBasenameToPath map[string]string, err error) {
-	pathToID = make(map[string]int64)
-	pathSet = make(map[string]string)
-	basenameCounts = make(map[string]int)
-	rootBasenameToPath = make(map[string]string)
+func buildMapsFromDB(db dbExecer) (*resolveMaps, error) {
+	rm := &resolveMaps{
+		pathToID:                make(map[string]int64),
+		pathSet:                 make(map[string]string),
+		basenameCounts:          make(map[string]int),
+		basenameToPath:          make(map[string]string),
+		rootBasenameToPath:      make(map[string]string),
+		assetPathToID:           make(map[string]int64),
+		assetPathSet:            make(map[string]string),
+		assetBasenameCounts:     make(map[string]int),
+		assetBasenameToPath:     make(map[string]string),
+		assetRootBasenameToPath: make(map[string]string),
+	}
 
+	// Load notes.
 	rows, err := db.Query("SELECT id, path FROM nodes WHERE type='note' AND exists_flag=1")
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -261,21 +270,66 @@ func buildMapsFromDB(db dbExecer) (pathToID map[string]int64, pathSet map[string
 		var id int64
 		var path string
 		if err := rows.Scan(&id, &path); err != nil {
-			return nil, nil, nil, nil, err
+			return nil, err
 		}
-		pathToID[path] = id
+		rm.pathToID[path] = id
 
 		rel := strings.ToLower(path)
-		pathSet[rel] = path
+		rm.pathSet[rel] = path
 		noExt := strings.TrimSuffix(path, filepath.Ext(path))
-		pathSet[strings.ToLower(noExt)] = path
+		rm.pathSet[strings.ToLower(noExt)] = path
 
 		bk := basenameKey(path)
-		basenameCounts[bk]++
+		rm.basenameCounts[bk]++
 		if isRootFile(path) {
-			rootBasenameToPath[bk] = path
+			rm.rootBasenameToPath[bk] = path
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Load assets.
+	arows, err := db.Query("SELECT id, path FROM nodes WHERE type='asset' AND exists_flag=1")
+	if err != nil {
+		return nil, err
+	}
+	defer arows.Close()
+
+	for arows.Next() {
+		var id int64
+		var path string
+		if err := arows.Scan(&id, &path); err != nil {
+			return nil, err
+		}
+		rm.assetPathToID[path] = id
+		rm.assetPathSet[strings.ToLower(path)] = path
+
+		abk := assetBasenameKey(path)
+		rm.assetBasenameCounts[abk]++
+		if isRootFile(path) {
+			rm.assetRootBasenameToPath[abk] = path
+		}
+	}
+	if err := arows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Build basenameToPath for notes (unique only).
+	for p := range rm.pathToID {
+		bk := basenameKey(p)
+		if rm.basenameCounts[bk] == 1 {
+			rm.basenameToPath[bk] = p
 		}
 	}
 
-	return pathToID, pathSet, basenameCounts, rootBasenameToPath, rows.Err()
+	// Build assetBasenameToPath for assets (unique only).
+	for p := range rm.assetPathToID {
+		abk := assetBasenameKey(p)
+		if rm.assetBasenameCounts[abk] == 1 {
+			rm.assetBasenameToPath[abk] = p
+		}
+	}
+
+	return rm, nil
 }

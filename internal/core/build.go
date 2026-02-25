@@ -9,12 +9,29 @@ import (
 
 const maxBuildErrors = 5
 
+// resolveMaps holds in-memory lookup maps for link resolution.
+type resolveMaps struct {
+	// note
+	pathSet            map[string]string // lower path → actual path
+	basenameToPath     map[string]string // lower basename → path (unique only)
+	rootBasenameToPath map[string]string // lower basename → root path
+	pathToID           map[string]int64
+	basenameCounts     map[string]int
+	// asset
+	assetPathSet            map[string]string // lower path → actual path
+	assetBasenameToPath     map[string]string // lower asset basename → path (unique only)
+	assetRootBasenameToPath map[string]string // lower asset basename → root path
+	assetPathToID           map[string]int64
+	assetBasenameCounts     map[string]int
+}
+
 // Build parses the vault and creates the index DB.
 func Build(vaultPath string) error {
 	if _, err := ensureDataDir(vaultPath); err != nil {
 		return err
 	}
 
+	// Pass 0: collect .md files.
 	files, err := collectMarkdownFiles(vaultPath)
 	if err != nil {
 		return err
@@ -29,25 +46,62 @@ func Build(vaultPath string) error {
 	}
 	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
 
-	basenameCounts := countBasenames(files)
+	// Pass 0.5: collect asset files.
+	assetFiles, err := collectAssetFiles(vaultPath)
+	if err != nil {
+		return err
+	}
+	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
 
-	// Build lookup maps (no DB needed).
-	basenameToPath := make(map[string]string) // lower basename → path (only for unique basenames)
-	rootBasenameToPath := make(map[string]string) // lower basename → path (root files only)
+	// Build resolve maps for notes.
+	noteBasenameCounts := countBasenames(files)
+	noteBasenameToPath := make(map[string]string)
+	noteRootBasenameToPath := make(map[string]string)
 	for _, rel := range files {
 		bk := basenameKey(rel)
-		if basenameCounts[bk] == 1 {
-			basenameToPath[bk] = rel
+		if noteBasenameCounts[bk] == 1 {
+			noteBasenameToPath[bk] = rel
 		}
 		if isRootFile(rel) {
-			rootBasenameToPath[bk] = rel
+			noteRootBasenameToPath[bk] = rel
 		}
 	}
-	pathSet := make(map[string]string) // normalized lookup key → actual vault-relative path
+	notePathSet := make(map[string]string)
 	for _, rel := range files {
-		pathSet[strings.ToLower(rel)] = rel
+		notePathSet[strings.ToLower(rel)] = rel
 		noExt := strings.TrimSuffix(rel, filepath.Ext(rel))
-		pathSet[strings.ToLower(noExt)] = rel
+		notePathSet[strings.ToLower(noExt)] = rel
+	}
+
+	// Build resolve maps for assets.
+	assetBasenameCounts := countAssetBasenames(assetFiles)
+	assetBasenameToPath := make(map[string]string)
+	assetRootBasenameToPath := make(map[string]string)
+	for _, rel := range assetFiles {
+		abk := assetBasenameKey(rel)
+		if assetBasenameCounts[abk] == 1 {
+			assetBasenameToPath[abk] = rel
+		}
+		if isRootFile(rel) {
+			assetRootBasenameToPath[abk] = rel
+		}
+	}
+	assetPathSet := make(map[string]string)
+	for _, rel := range assetFiles {
+		assetPathSet[strings.ToLower(rel)] = rel
+	}
+
+	rm := &resolveMaps{
+		pathSet:                 notePathSet,
+		basenameToPath:          noteBasenameToPath,
+		rootBasenameToPath:      noteRootBasenameToPath,
+		pathToID:                make(map[string]int64),
+		basenameCounts:          noteBasenameCounts,
+		assetPathSet:            assetPathSet,
+		assetBasenameToPath:     assetBasenameToPath,
+		assetRootBasenameToPath: assetRootBasenameToPath,
+		assetPathToID:           make(map[string]int64),
+		assetBasenameCounts:     assetBasenameCounts,
 	}
 
 	// Read all files, parse links, stat for mtime, and validate.
@@ -80,7 +134,7 @@ func Build(vaultPath string) error {
 				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
 			} else if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
 				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
-			} else if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
+			} else if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
 				userErrors = append(userErrors, fmt.Sprintf("ambiguous link: %s in %s", link.target, rel))
 			} else {
 				continue
@@ -101,6 +155,21 @@ func Build(vaultPath string) error {
 	}
 	if len(userErrors) > 0 {
 		return formatBuildErrors(userErrors)
+	}
+
+	// Stat asset files for mtime.
+	type assetInfo struct {
+		path  string
+		mtime int64
+	}
+	assetInfos := make([]assetInfo, 0, len(assetFiles))
+	for _, rel := range assetFiles {
+		fullPath := filepath.Join(vaultPath, rel)
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			return err
+		}
+		assetInfos = append(assetInfos, assetInfo{path: rel, mtime: info.ModTime().Unix()})
 	}
 
 	// Create temp DB.
@@ -125,21 +194,30 @@ func Build(vaultPath string) error {
 	defer tx.Rollback()
 
 	// Pass 1: insert all note nodes.
-	pathToID := make(map[string]int64)
 	for _, pf := range parsed {
 		name := basename(pf.path)
 		id, err := upsertNote(tx, pf.path, name, pf.mtime)
 		if err != nil {
 			return err
 		}
-		pathToID[pf.path] = id
+		rm.pathToID[pf.path] = id
+	}
+
+	// Pass 1.5: insert all asset nodes.
+	for _, ai := range assetInfos {
+		name := filepath.Base(ai.path)
+		id, err := upsertAsset(tx, ai.path, name, ai.mtime)
+		if err != nil {
+			return err
+		}
+		rm.assetPathToID[ai.path] = id
 	}
 
 	// Pass 2: resolve links and create edges (using cached parsed data).
 	for _, pf := range parsed {
-		sourceID := pathToID[pf.path]
+		sourceID := rm.pathToID[pf.path]
 		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.path, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
+			targetID, subpath, err := resolveLink(tx, pf.path, link, rm)
 			if err != nil {
 				return err
 			}
@@ -168,10 +246,10 @@ func Build(vaultPath string) error {
 
 // resolveLink resolves a linkOccur to a target node ID and subpath.
 // Returns (0, "", nil) if the link should be skipped.
-func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[string]string, basenameToPath map[string]string, rootBasenameToPath map[string]string, pathToID map[string]int64) (int64, string, error) {
+func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps) (int64, string, error) {
 	// Self-link: [[#Heading]]
 	if link.target == "" && link.subpath != "" {
-		id := pathToID[sourcePath]
+		id := rm.pathToID[sourcePath]
 		return id, link.subpath, nil
 	}
 
@@ -192,7 +270,7 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[str
 		if escapesVault(sourcePath, target) {
 			return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
 		}
-		return resolvePathTarget(db, resolved, link, pathSet, pathToID)
+		return resolvePathTarget(db, resolved, link, rm)
 	}
 
 	// Vault-absolute path escape check (defense-in-depth).
@@ -203,28 +281,38 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[str
 	// Absolute path (/ prefix, markdown link only): /sub/B.md → sub/B.md
 	if strings.HasPrefix(target, "/") {
 		stripped := strings.TrimPrefix(target, "/")
-		return resolvePathTarget(db, stripped, link, pathSet, pathToID)
+		return resolvePathTarget(db, stripped, link, rm)
 	}
 
 	// Wikilink with vault-relative path (contains /, not relative): [[path/to/Note]]
 	if link.linkType == "wikilink" && !link.isBasename {
-		return resolvePathTarget(db, target, link, pathSet, pathToID)
+		return resolvePathTarget(db, target, link, rm)
 	}
 
-	// Markdown link with path (not ./ ../ /): treated as basename resolution (same as wikilink)
 	// Basename resolution (wikilink and markdown)
 	if link.isBasename {
 		lower := strings.ToLower(target)
-		if path, ok := basenameToPath[lower]; ok {
-			id := pathToID[path]
+		// 1. note unique
+		if path, ok := rm.basenameToPath[lower]; ok {
+			id := rm.pathToID[path]
 			return id, link.subpath, nil
 		}
-		// Fallback: root-priority resolution for ambiguous basenames.
-		if path, ok := rootBasenameToPath[lower]; ok {
-			id := pathToID[path]
+		// 2. note root-priority
+		if path, ok := rm.rootBasenameToPath[lower]; ok {
+			id := rm.pathToID[path]
 			return id, link.subpath, nil
 		}
-		// Not found → phantom
+		// 3. asset unique
+		if path, ok := rm.assetBasenameToPath[lower]; ok {
+			id := rm.assetPathToID[path]
+			return id, link.subpath, nil
+		}
+		// 4. asset root-priority
+		if path, ok := rm.assetRootBasenameToPath[lower]; ok {
+			id := rm.assetPathToID[path]
+			return id, link.subpath, nil
+		}
+		// 5. phantom fallback
 		id, err := upsertPhantom(db, target)
 		if err != nil {
 			return 0, "", err
@@ -232,25 +320,33 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, pathSet map[str
 		return id, link.subpath, nil
 	}
 
-	// Markdown link with path that is not relative and not / prefix → basename resolution
-	return resolvePathTarget(db, target, link, pathSet, pathToID)
+	// Markdown link with path that is not relative and not / prefix
+	return resolvePathTarget(db, target, link, rm)
 }
 
-// resolvePathTarget tries to find a file by path in pathSet, falling back to phantom.
-func resolvePathTarget(db dbExecer, resolved string, link linkOccur, pathSet map[string]string, pathToID map[string]int64) (int64, string, error) {
+// resolvePathTarget tries to find a file by path in pathSet, falling back to asset then phantom.
+func resolvePathTarget(db dbExecer, resolved string, link linkOccur, rm *resolveMaps) (int64, string, error) {
 	lower := strings.ToLower(resolved)
-	if actualPath, ok := pathSet[lower]; ok {
-		id := pathToID[actualPath]
+	// 1. note exact path
+	if actualPath, ok := rm.pathSet[lower]; ok {
+		id := rm.pathToID[actualPath]
 		return id, link.subpath, nil
 	}
-	// Try with .md extension
-	if actualPath, ok := pathSet[lower+".md"]; ok {
-		id := pathToID[actualPath]
+	// 2. note with .md extension
+	if actualPath, ok := rm.pathSet[lower+".md"]; ok {
+		id := rm.pathToID[actualPath]
 		return id, link.subpath, nil
 	}
-	// Not found → phantom
+	// 3. asset exact path
+	if actualPath, ok := rm.assetPathSet[lower]; ok {
+		id := rm.assetPathToID[actualPath]
+		return id, link.subpath, nil
+	}
+	// 4. phantom fallback (D10: only strip .md extension)
 	name := filepath.Base(resolved)
-	name = strings.TrimSuffix(name, filepath.Ext(name))
+	if strings.HasSuffix(strings.ToLower(name), ".md") {
+		name = name[:len(name)-3]
+	}
 	id, err := upsertPhantom(db, name)
 	if err != nil {
 		return 0, "", err
@@ -320,6 +416,47 @@ func countBasenames(files []string) map[string]int {
 		seen[basenameKey(file)]++
 	}
 	return seen
+}
+
+func countAssetBasenames(files []string) map[string]int {
+	seen := make(map[string]int)
+	for _, file := range files {
+		seen[assetBasenameKey(file)]++
+	}
+	return seen
+}
+
+// collectAssetFiles collects all non-.md files in the vault, skipping hidden
+// files/directories and the .mdhop directory.
+func collectAssetFiles(vaultPath string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		name := d.Name()
+		if d.IsDir() {
+			if name == dataDirName || strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// Skip hidden files.
+		if strings.HasPrefix(name, ".") {
+			return nil
+		}
+		// Skip .md files (those are notes).
+		if strings.HasSuffix(strings.ToLower(name), ".md") {
+			return nil
+		}
+		rel, err := filepath.Rel(vaultPath, path)
+		if err != nil {
+			return err
+		}
+		files = append(files, NormalizePath(rel))
+		return nil
+	})
+	return files, err
 }
 
 

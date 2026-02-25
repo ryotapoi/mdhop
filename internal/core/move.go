@@ -42,20 +42,34 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}
 	defer db.Close()
 
-	// Check from is registered as a note in DB.
-	fromKey := noteKey(from)
+	// Check from is registered as a note or asset in DB.
 	var nodeID int64
 	var dbMtime int64
+	var isAsset bool
+	fromKey := noteKey(from)
 	err = db.QueryRow("SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'note'", fromKey).Scan(&nodeID, &dbMtime)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("file not registered: %s", from)
-	}
-	if err != nil {
+		// Try asset.
+		fromKey = assetKey(from)
+		err = db.QueryRow("SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'asset'", fromKey).Scan(&nodeID, &dbMtime)
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("file not registered: %s", from)
+		}
+		if err != nil {
+			return nil, err
+		}
+		isAsset = true
+	} else if err != nil {
 		return nil, err
 	}
 
-	// Check to is not already registered in DB.
-	toKey := noteKey(to)
+	// Check to is not already registered in DB (note or asset).
+	var toKey string
+	if isAsset {
+		toKey = assetKey(to)
+	} else {
+		toKey = noteKey(to)
+	}
 	var existingID int64
 	err = db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", toKey).Scan(&existingID)
 	if err == nil {
@@ -106,47 +120,79 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}
 
 	// Phase 1: build maps and adjust for post-move state.
-	pathToID, pathSet, basenameCounts, rootBasenameToPath, err := buildMapsFromDB(db)
+	rm, err := buildMapsFromDB(db)
 	if err != nil {
 		return nil, err
 	}
 
 	// Save pre-move pathSet for Phase 2/2.5 root-priority checks.
-	preMovePathSet := make(map[string]string, len(pathSet))
-	for k, v := range pathSet {
-		preMovePathSet[k] = v
+	var preMovePathSet map[string]string
+	if isAsset {
+		preMovePathSet = make(map[string]string, len(rm.assetPathSet))
+		for k, v := range rm.assetPathSet {
+			preMovePathSet[k] = v
+		}
+	} else {
+		preMovePathSet = make(map[string]string, len(rm.pathSet))
+		for k, v := range rm.pathSet {
+			preMovePathSet[k] = v
+		}
 	}
 
-	// Remove from from maps.
-	delete(pathToID, from)
-	fromLower := strings.ToLower(from)
-	delete(pathSet, fromLower)
-	fromNoExt := strings.TrimSuffix(from, filepath.Ext(from))
-	delete(pathSet, strings.ToLower(fromNoExt))
-	basenameCounts[basenameKey(from)]--
-	if isRootFile(from) {
-		delete(rootBasenameToPath, basenameKey(from))
-	}
+	// Remove from and add to in maps.
+	if isAsset {
+		delete(rm.assetPathToID, from)
+		delete(rm.assetPathSet, strings.ToLower(from))
+		abk := assetBasenameKey(from)
+		rm.assetBasenameCounts[abk]--
+		if isRootFile(from) {
+			delete(rm.assetRootBasenameToPath, abk)
+		}
 
-	// Add to to maps.
-	pathToID[to] = nodeID
-	toLower := strings.ToLower(to)
-	pathSet[toLower] = to
-	toNoExt := strings.TrimSuffix(to, filepath.Ext(to))
-	pathSet[strings.ToLower(toNoExt)] = to
-	basenameCounts[basenameKey(to)]++
-	if isRootFile(to) {
-		rootBasenameToPath[basenameKey(to)] = to
-	}
+		rm.assetPathToID[to] = nodeID
+		rm.assetPathSet[strings.ToLower(to)] = to
+		abkTo := assetBasenameKey(to)
+		rm.assetBasenameCounts[abkTo]++
+		if isRootFile(to) {
+			rm.assetRootBasenameToPath[abkTo] = to
+		}
 
-	// Build basenameToPath (count == 1 only).
-	basenameToPath := make(map[string]string)
-	// We need to iterate all current notes to build this map.
-	// pathToID was already adjusted, so iterate it.
-	for p := range pathToID {
-		bk := basenameKey(p)
-		if basenameCounts[bk] == 1 {
-			basenameToPath[bk] = p
+		// Rebuild assetBasenameToPath.
+		rm.assetBasenameToPath = make(map[string]string)
+		for p := range rm.assetPathToID {
+			abk := assetBasenameKey(p)
+			if rm.assetBasenameCounts[abk] == 1 {
+				rm.assetBasenameToPath[abk] = p
+			}
+		}
+	} else {
+		delete(rm.pathToID, from)
+		fromLower := strings.ToLower(from)
+		delete(rm.pathSet, fromLower)
+		fromNoExt := strings.TrimSuffix(from, filepath.Ext(from))
+		delete(rm.pathSet, strings.ToLower(fromNoExt))
+		rm.basenameCounts[basenameKey(from)]--
+		if isRootFile(from) {
+			delete(rm.rootBasenameToPath, basenameKey(from))
+		}
+
+		rm.pathToID[to] = nodeID
+		toLower := strings.ToLower(to)
+		rm.pathSet[toLower] = to
+		toNoExt := strings.TrimSuffix(to, filepath.Ext(to))
+		rm.pathSet[strings.ToLower(toNoExt)] = to
+		rm.basenameCounts[basenameKey(to)]++
+		if isRootFile(to) {
+			rm.rootBasenameToPath[basenameKey(to)] = to
+		}
+
+		// Rebuild basenameToPath (count == 1 only).
+		rm.basenameToPath = make(map[string]string)
+		for p := range rm.pathToID {
+			bk := basenameKey(p)
+			if rm.basenameCounts[bk] == 1 {
+				rm.basenameToPath[bk] = p
+			}
 		}
 	}
 
@@ -159,6 +205,26 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		return nil, err
 	}
 	var incomingRewrites []rewriteEntry
+
+	// For basename comparison, use the appropriate key function.
+	moveBKFrom := basenameKey(from)
+	moveBKTo := basenameKey(to)
+	if isAsset {
+		moveBKFrom = assetBasenameKey(from)
+		moveBKTo = assetBasenameKey(to)
+	}
+
+	// Select the right counts/pathSet for this node type.
+	var moveBasenameCounts map[string]int
+	var movePathSet map[string]string
+	if isAsset {
+		moveBasenameCounts = rm.assetBasenameCounts
+		movePathSet = rm.assetPathSet
+	} else {
+		moveBasenameCounts = rm.basenameCounts
+		movePathSet = rm.pathSet
+	}
+
 	for incomingRows.Next() {
 		var re rewriteEntry
 		if err := incomingRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID); err != nil {
@@ -171,17 +237,14 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 		if isBasenameRawLink(re.rawLink, re.linkType) {
 			// Basename link: determine if rewrite is needed.
-			fromBK := basenameKey(from)
-			toBK := basenameKey(to)
-			if fromBK != toBK {
+			if moveBKFrom != moveBKTo {
 				// Basename changed → must rewrite.
 				re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, to)
 				incomingRewrites = append(incomingRewrites, re)
-			} else if basenameCounts[toBK] > 1 {
+			} else if moveBasenameCounts[moveBKTo] > 1 {
 				// Basename unchanged but ambiguous after move.
-				// Root priority: skip rewrite if root file exists both before AND after move.
-				preRoot := hasRootInPathSet(toBK, preMovePathSet)
-				postRoot := hasRootInPathSet(toBK, pathSet)
+				preRoot := hasRootInPathSet(moveBKTo, preMovePathSet)
+				postRoot := hasRootInPathSet(moveBKTo, movePathSet)
 				if !(preRoot && postRoot) {
 					re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, to)
 					incomingRewrites = append(incomingRewrites, re)
@@ -200,23 +263,25 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}
 
 	// Phase 2.5: collateral rewrite for the destination basename.
-	// When the destination basename becomes ambiguous, third-party basename links
-	// that are NOT incoming to the moved file must be rewritten to full paths.
 	var collateralRewrites []rewriteEntry
-	toBK := basenameKey(to)
-	if basenameCounts[toBK] > 1 {
-		// Root priority: if root file exists both before AND after move, basename links
-		// still resolve to root → no ambiguity.
-		preRoot := hasRootInPathSet(toBK, preMovePathSet)
-		postRoot := hasRootInPathSet(toBK, pathSet)
+	if moveBasenameCounts[moveBKTo] > 1 {
+		preRoot := hasRootInPathSet(moveBKTo, preMovePathSet)
+		postRoot := hasRootInPathSet(moveBKTo, movePathSet)
 		if !(preRoot && postRoot) {
+			// Query target type matching the moved node.
+			targetType := "note"
+			collateralName := basename(to)
+			if isAsset {
+				targetType = "asset"
+				collateralName = filepath.Base(to)
+			}
 			rows, err := db.Query(
 				`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
 				 FROM edges e
 				 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-				 JOIN nodes tn ON tn.id = e.target_id AND tn.type = 'note' AND tn.exists_flag = 1
+				 JOIN nodes tn ON tn.id = e.target_id AND tn.type = ? AND tn.exists_flag = 1
 				 WHERE tn.name = ? AND e.link_type IN ('wikilink', 'markdown')`,
-				basename(to))
+				targetType, collateralName)
 			if err != nil {
 				return nil, err
 			}
@@ -273,94 +338,93 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 	}
 
-	// Phase 3: outgoing link rewrite.
-	// Read the file content from its current disk location.
-	var movedFilePath string
-	if needDiskMove {
-		movedFilePath = filepath.Join(vaultPath, from)
-	} else {
-		movedFilePath = filepath.Join(vaultPath, to)
-	}
-	movedInfo, err := os.Stat(movedFilePath)
-	if err != nil {
-		return nil, err
-	}
-	movedPerm := movedInfo.Mode().Perm()
-	movedContent, err := os.ReadFile(movedFilePath)
-	if err != nil {
-		return nil, err
-	}
-	outgoingLinks := parseLinks(string(movedContent))
-
-	// Check for ambiguous outgoing links and collect relative link rewrites.
+	// Phase 3: outgoing link rewrite (only for notes; assets have no outgoing links).
 	type outgoingRewrite struct {
 		rawLink    string
 		newRawLink string
 		lineStart  int
 	}
 	var outgoingRewrites []outgoingRewrite
+	var movedContent []byte
+	var movedPerm os.FileMode
+	var movedFilePath string
 
-	for _, link := range outgoingLinks {
-		if link.linkType != "wikilink" && link.linkType != "markdown" {
-			continue
+	if !isAsset {
+		// Read the file content from its current disk location.
+		if needDiskMove {
+			movedFilePath = filepath.Join(vaultPath, from)
+		} else {
+			movedFilePath = filepath.Join(vaultPath, to)
 		}
-		// Basename link: check if resolution changes after move.
-		if link.isBasename {
-			bk := basenameKey(link.target)
-			needRewrite := false
-			var preMoveTargetPath string
+		movedInfo, err := os.Stat(movedFilePath)
+		if err != nil {
+			return nil, err
+		}
+		movedPerm = movedInfo.Mode().Perm()
+		movedContent, err = os.ReadFile(movedFilePath)
+		if err != nil {
+			return nil, err
+		}
+		outgoingLinks := parseLinks(string(movedContent))
 
-			// Get pre-move target path from DB.
-			err := db.QueryRow(
-				`SELECT COALESCE(tn.path, '') FROM edges e
-				 JOIN nodes tn ON tn.id = e.target_id
-				 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
-				 LIMIT 1`, nodeID, link.rawLink).Scan(&preMoveTargetPath)
-			if err != nil && err != sql.ErrNoRows {
-				return nil, err
+		for _, link := range outgoingLinks {
+			if link.linkType != "wikilink" && link.linkType != "markdown" {
+				continue
 			}
+			// Basename link: check if resolution changes after move.
+			if link.isBasename {
+				bk := basenameKey(link.target)
+				needRewrite := false
+				var preMoveTargetPath string
 
-			if preMoveTargetPath != "" {
-				// Determine post-move resolution.
-				if p, ok := basenameToPath[bk]; ok {
-					// Unique resolution post-move.
-					if p != preMoveTargetPath {
-						needRewrite = true // meaning change
-					}
-				} else if p, ok := rootBasenameToPath[bk]; ok {
-					// Root priority resolution post-move.
-					if p != preMoveTargetPath {
-						needRewrite = true // meaning change
-					}
-				} else if basenameCounts[bk] > 1 {
-					// Ambiguous post-move.
-					needRewrite = true
+				// Get pre-move target path from DB.
+				err := db.QueryRow(
+					`SELECT COALESCE(tn.path, '') FROM edges e
+					 JOIN nodes tn ON tn.id = e.target_id
+					 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
+					 LIMIT 1`, nodeID, link.rawLink).Scan(&preMoveTargetPath)
+				if err != nil && err != sql.ErrNoRows {
+					return nil, err
 				}
-				// basenameCounts[bk] == 0 → phantom, no rewrite needed.
-			}
 
-			if needRewrite {
-				newRL := rewriteRawLink(link.rawLink, link.linkType, preMoveTargetPath)
-				outgoingRewrites = append(outgoingRewrites, outgoingRewrite{
-					rawLink:    link.rawLink,
-					newRawLink: newRL,
-					lineStart:  link.lineStart,
-				})
+				if preMoveTargetPath != "" {
+					// Determine post-move resolution.
+					if p, ok := rm.basenameToPath[bk]; ok {
+						if p != preMoveTargetPath {
+							needRewrite = true
+						}
+					} else if p, ok := rm.rootBasenameToPath[bk]; ok {
+						if p != preMoveTargetPath {
+							needRewrite = true
+						}
+					} else if rm.basenameCounts[bk] > 1 {
+						needRewrite = true
+					}
+				}
+
+				if needRewrite {
+					newRL := rewriteRawLink(link.rawLink, link.linkType, preMoveTargetPath)
+					outgoingRewrites = append(outgoingRewrites, outgoingRewrite{
+						rawLink:    link.rawLink,
+						newRawLink: newRL,
+						lineStart:  link.lineStart,
+					})
+				}
+				continue
 			}
-			continue
-		}
-		// Relative link rewrite.
-		if link.isRelative {
-			newRL, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, from, to)
-			if err != nil {
-				return nil, err
-			}
-			if newRL != link.rawLink {
-				outgoingRewrites = append(outgoingRewrites, outgoingRewrite{
-					rawLink:    link.rawLink,
-					newRawLink: newRL,
-					lineStart:  link.lineStart,
-				})
+			// Relative link rewrite.
+			if link.isRelative {
+				newRL, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, from, to)
+				if err != nil {
+					return nil, err
+				}
+				if newRL != link.rawLink {
+					outgoingRewrites = append(outgoingRewrites, outgoingRewrite{
+						rawLink:    link.rawLink,
+						newRawLink: newRL,
+						lineStart:  link.lineStart,
+					})
+				}
 			}
 		}
 	}
@@ -483,30 +547,37 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}()
 
 	// 5.1: update node for the moved file.
-	newName := basename(to)
+	var newName string
+	if isAsset {
+		newName = filepath.Base(to)
+	} else {
+		newName = basename(to)
+	}
 	if _, err := tx.Exec(
 		"UPDATE nodes SET node_key = ?, name = ?, path = ?, mtime = ? WHERE id = ?",
 		toKey, newName, to, toMtime, nodeID); err != nil {
 		return nil, err
 	}
 
-	// 5.2: delete old outgoing edges.
-	if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", nodeID); err != nil {
-		return nil, err
-	}
+	if !isAsset {
+		// 5.2: delete old outgoing edges.
+		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", nodeID); err != nil {
+			return nil, err
+		}
 
-	// 5.3: re-parse moved file content and create new edges (using new path).
-	newLinks := parseLinks(string(movedContent))
-	for _, link := range newLinks {
-		targetID, subpath, err := resolveLink(tx, to, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
-		if err != nil {
-			return nil, err
-		}
-		if targetID == 0 {
-			continue
-		}
-		if err := insertEdge(tx, nodeID, targetID, link.linkType, link.rawLink, subpath, link.lineStart, link.lineEnd); err != nil {
-			return nil, err
+		// 5.3: re-parse moved file content and create new edges (using new path).
+		newLinks := parseLinks(string(movedContent))
+		for _, link := range newLinks {
+			targetID, subpath, err := resolveLink(tx, to, link, rm)
+			if err != nil {
+				return nil, err
+			}
+			if targetID == 0 {
+				continue
+			}
+			if err := insertEdge(tx, nodeID, targetID, link.linkType, link.rawLink, subpath, link.lineStart, link.lineEnd); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -547,11 +618,16 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}
 
 	// 5.6: phantom promotion — check if to's basename matches a phantom.
-	pk := phantomKey(basename(to))
+	var phantomName string
+	if isAsset {
+		phantomName = filepath.Base(to) // asset phantom uses filename with extension
+	} else {
+		phantomName = basename(to)
+	}
+	pk := phantomKey(phantomName)
 	var phantomID int64
 	err = tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
 	if err == nil {
-		// Reassign incoming edges from phantom to moved note.
 		if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE target_id = ?", nodeID, phantomID); err != nil {
 			return nil, err
 		}
@@ -573,6 +649,44 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	committed = true
 
 	return result, nil
+}
+
+// queryCollateralRewrites finds basename links to non-moved nodes of the given type
+// that need rewriting due to root-priority changes.
+func queryCollateralRewrites(db dbExecer, nodeType, name string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
+	rows, err := db.Query(
+		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
+		 FROM edges e
+		 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
+		 JOIN nodes tn ON tn.id = e.target_id AND tn.type = ? AND tn.exists_flag = 1
+		 WHERE tn.name = ? AND e.link_type IN ('wikilink', 'markdown')`,
+		nodeType, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []rewriteEntry
+	for rows.Next() {
+		var re rewriteEntry
+		var targetPath string
+		var targetNodeID int64
+		if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetPath, &targetNodeID); err != nil {
+			return nil, err
+		}
+		if movedNodeIDs[re.sourceID] {
+			continue
+		}
+		if !isBasenameRawLink(re.rawLink, re.linkType) {
+			continue
+		}
+		if movedNodeIDs[targetNodeID] {
+			continue // incoming to moved file, handled in Phase 2
+		}
+		re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, targetPath)
+		result = append(result, re)
+	}
+	return result, rows.Err()
 }
 
 // MoveDirOptions controls the directory move operation.
@@ -636,31 +750,32 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	}
 	defer db.Close()
 
-	// Check for non-.md files on disk.
-	if nonMD, err := HasNonMDFiles(vaultPath, fromDir); err != nil {
-		return nil, err
-	} else if nonMD != "" {
-		return nil, fmt.Errorf("directory contains non-.md file: %s (mdhop only manages .md files)", nonMD)
-	}
-
 	// Get all notes under fromDir.
-	fromPaths, err := listDirNotesFromDB(db, fromDir)
+	fromNotePaths, err := listDirNodesByType(db, fromDir, "note")
 	if err != nil {
 		return nil, err
 	}
-	if len(fromPaths) == 0 {
+
+	// Get all assets under fromDir.
+	fromAssetPaths, err := listDirNodesByType(db, fromDir, "asset")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(fromNotePaths) == 0 && len(fromAssetPaths) == 0 {
 		return nil, fmt.Errorf("no files registered under directory: %s", fromDir)
 	}
 
-	// Build move list.
+	// Build move list for notes.
 	type moveInfo struct {
 		from    string
 		to      string
 		nodeID  int64
 		dbMtime int64
+		isAsset bool
 	}
-	moves := make([]moveInfo, 0, len(fromPaths))
-	for _, from := range fromPaths {
+	moves := make([]moveInfo, 0, len(fromNotePaths)+len(fromAssetPaths))
+	for _, from := range fromNotePaths {
 		to := toDir + "/" + strings.TrimPrefix(from, fromDir+"/")
 		var nodeID, dbMtime int64
 		err := db.QueryRow(
@@ -673,16 +788,74 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		moves = append(moves, moveInfo{from: from, to: to, nodeID: nodeID, dbMtime: dbMtime})
 	}
 
+	// Build move list for assets.
+	for _, from := range fromAssetPaths {
+		to := toDir + "/" + strings.TrimPrefix(from, fromDir+"/")
+		var nodeID, dbMtime int64
+		err := db.QueryRow(
+			"SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'asset'",
+			assetKey(from),
+		).Scan(&nodeID, &dbMtime)
+		if err != nil {
+			return nil, err
+		}
+		moves = append(moves, moveInfo{from: from, to: to, nodeID: nodeID, dbMtime: dbMtime, isAsset: true})
+	}
+
 	// Check destinations not registered.
 	for _, m := range moves {
+		var toKey string
+		if m.isAsset {
+			toKey = assetKey(m.to)
+		} else {
+			toKey = noteKey(m.to)
+		}
 		var existingID int64
-		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", noteKey(m.to)).Scan(&existingID)
+		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", toKey).Scan(&existingID)
 		if err == nil {
 			return nil, fmt.Errorf("destination already registered: %s", m.to)
 		}
 		if err != sql.ErrNoRows {
 			return nil, err
 		}
+	}
+
+	// Collect non-registered disk files under fromDir for disk-only move.
+	var diskOnlyFiles []struct{ from, to string }
+	absDir := filepath.Join(vaultPath, fromDir)
+	registeredPaths := make(map[string]bool)
+	for _, m := range moves {
+		registeredPaths[m.from] = true
+	}
+	if err := filepath.WalkDir(absDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return filepath.SkipAll
+			}
+			return err
+		}
+		if d.IsDir() {
+			if strings.HasPrefix(d.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasPrefix(d.Name(), ".") {
+			return nil
+		}
+		// Only move non-.md files as disk-only (D5: disk-based move for assets only).
+		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
+			return nil
+		}
+		rel, _ := filepath.Rel(vaultPath, path)
+		relNorm := NormalizePath(rel)
+		if !registeredPaths[relNorm] {
+			to := toDir + "/" + strings.TrimPrefix(relNorm, fromDir+"/")
+			diskOnlyFiles = append(diskOnlyFiles, struct{ from, to string }{relNorm, to})
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	// Determine disk state.
@@ -727,14 +900,18 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	}
 
 	// Phase 1: build maps and adjust for post-move state.
-	pathToID, pathSet, basenameCounts, rootBasenameToPath, err := buildMapsFromDB(db)
+	rm, err := buildMapsFromDB(db)
 	if err != nil {
 		return nil, err
 	}
 
-	preMovePathSet := make(map[string]string, len(pathSet))
-	for k, v := range pathSet {
+	preMovePathSet := make(map[string]string, len(rm.pathSet))
+	for k, v := range rm.pathSet {
 		preMovePathSet[k] = v
+	}
+	preMoveAssetPathSet := make(map[string]string, len(rm.assetPathSet))
+	for k, v := range rm.assetPathSet {
+		preMoveAssetPathSet[k] = v
 	}
 
 	// Build movedFromTo and movedNodeIDs.
@@ -747,34 +924,61 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 
 	// Remove all from paths, add all to paths.
 	for _, m := range moves {
-		delete(pathToID, m.from)
-		fromLower := strings.ToLower(m.from)
-		delete(pathSet, fromLower)
-		fromNoExt := strings.TrimSuffix(m.from, filepath.Ext(m.from))
-		delete(pathSet, strings.ToLower(fromNoExt))
-		basenameCounts[basenameKey(m.from)]--
-		if isRootFile(m.from) {
-			delete(rootBasenameToPath, basenameKey(m.from))
+		if m.isAsset {
+			delete(rm.assetPathToID, m.from)
+			delete(rm.assetPathSet, strings.ToLower(m.from))
+			abk := assetBasenameKey(m.from)
+			rm.assetBasenameCounts[abk]--
+			if isRootFile(m.from) {
+				delete(rm.assetRootBasenameToPath, abk)
+			}
+		} else {
+			delete(rm.pathToID, m.from)
+			fromLower := strings.ToLower(m.from)
+			delete(rm.pathSet, fromLower)
+			fromNoExt := strings.TrimSuffix(m.from, filepath.Ext(m.from))
+			delete(rm.pathSet, strings.ToLower(fromNoExt))
+			rm.basenameCounts[basenameKey(m.from)]--
+			if isRootFile(m.from) {
+				delete(rm.rootBasenameToPath, basenameKey(m.from))
+			}
 		}
 	}
 	for _, m := range moves {
-		pathToID[m.to] = m.nodeID
-		toLower := strings.ToLower(m.to)
-		pathSet[toLower] = m.to
-		toNoExt := strings.TrimSuffix(m.to, filepath.Ext(m.to))
-		pathSet[strings.ToLower(toNoExt)] = m.to
-		basenameCounts[basenameKey(m.to)]++
-		if isRootFile(m.to) {
-			rootBasenameToPath[basenameKey(m.to)] = m.to
+		if m.isAsset {
+			rm.assetPathToID[m.to] = m.nodeID
+			rm.assetPathSet[strings.ToLower(m.to)] = m.to
+			abk := assetBasenameKey(m.to)
+			rm.assetBasenameCounts[abk]++
+			if isRootFile(m.to) {
+				rm.assetRootBasenameToPath[abk] = m.to
+			}
+		} else {
+			rm.pathToID[m.to] = m.nodeID
+			toLower := strings.ToLower(m.to)
+			rm.pathSet[toLower] = m.to
+			toNoExt := strings.TrimSuffix(m.to, filepath.Ext(m.to))
+			rm.pathSet[strings.ToLower(toNoExt)] = m.to
+			rm.basenameCounts[basenameKey(m.to)]++
+			if isRootFile(m.to) {
+				rm.rootBasenameToPath[basenameKey(m.to)] = m.to
+			}
 		}
 	}
 
-	// Build basenameToPath (count == 1 only).
-	basenameToPath := make(map[string]string)
-	for p := range pathToID {
+	// Rebuild basenameToPath (count == 1 only).
+	rm.basenameToPath = make(map[string]string)
+	for p := range rm.pathToID {
 		bk := basenameKey(p)
-		if basenameCounts[bk] == 1 {
-			basenameToPath[bk] = p
+		if rm.basenameCounts[bk] == 1 {
+			rm.basenameToPath[bk] = p
+		}
+	}
+	rm.assetBasenameToPath = make(map[string]string)
+	for p := range rm.assetPathToID {
+		abk := assetBasenameKey(p)
+		if rm.assetBasenameCounts[abk] == 1 {
+			rm.assetBasenameToPath[abk] = p
 		}
 	}
 
@@ -783,9 +987,11 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	var incomingRewrites []rewriteEntry
 	nodeIDs := make([]int64, 0, len(moves))
 	nodeIDToPath := make(map[int64]string, len(moves))
+	nodeIDIsAsset := make(map[int64]bool, len(moves))
 	for _, m := range moves {
 		nodeIDs = append(nodeIDs, m.nodeID)
 		nodeIDToPath[m.nodeID] = m.to
+		nodeIDIsAsset[m.nodeID] = m.isAsset
 	}
 
 	// Process in batches of 500 to stay under SQLite parameter limit.
@@ -831,11 +1037,25 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 			}
 
 			if isBasenameRawLink(re.rawLink, re.linkType) {
-				fromBK := basenameKey(toPath) // basename doesn't change in dir move
 				// In dir move, basename doesn't change. Check if ambiguous.
-				if basenameCounts[fromBK] > 1 {
-					preRoot := hasRootInPathSet(fromBK, preMovePathSet)
-					postRoot := hasRootInPathSet(fromBK, pathSet)
+				// Use the correct key function/counts/pathSet based on node type.
+				var fromBK string
+				var counts map[string]int
+				var prePS, postPS map[string]string
+				if nodeIDIsAsset[targetID] {
+					fromBK = assetBasenameKey(toPath)
+					counts = rm.assetBasenameCounts
+					prePS = preMoveAssetPathSet
+					postPS = rm.assetPathSet
+				} else {
+					fromBK = basenameKey(toPath)
+					counts = rm.basenameCounts
+					prePS = preMovePathSet
+					postPS = rm.pathSet
+				}
+				if counts[fromBK] > 1 {
+					preRoot := hasRootInPathSet(fromBK, prePS)
+					postRoot := hasRootInPathSet(fromBK, postPS)
 					if !(preRoot && postRoot) {
 						re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath)
 						incomingRewrites = append(incomingRewrites, re)
@@ -854,65 +1074,69 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		}
 	}
 
-	// Phase 2.5: collateral rewrite.
-	// Collect all affected basenames.
+	// Phase 2.5: collateral rewrite for notes and assets.
 	var collateralRewrites []rewriteEntry
-	affectedBasenames := make(map[string]bool)
+
+	// Note collateral: collect affected note basenames.
+	affectedNoteBasenames := make(map[string]bool)
 	for _, m := range moves {
+		if m.isAsset {
+			continue
+		}
 		bk := basenameKey(m.to)
-		if basenameCounts[bk] > 1 {
-			affectedBasenames[bk] = true
+		if rm.basenameCounts[bk] > 1 {
+			affectedNoteBasenames[bk] = true
 		}
 	}
-	for bk := range affectedBasenames {
+	for bk := range affectedNoteBasenames {
 		preRoot := hasRootInPathSet(bk, preMovePathSet)
-		postRoot := hasRootInPathSet(bk, pathSet)
+		postRoot := hasRootInPathSet(bk, rm.pathSet)
 		if preRoot && postRoot {
 			continue
 		}
-		// Query all basename links to notes with this basename.
 		var bn string
 		for _, m := range moves {
-			if basenameKey(m.to) == bk {
+			if !m.isAsset && basenameKey(m.to) == bk {
 				bn = basename(m.to)
 				break
 			}
 		}
-		rows, err := db.Query(
-			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
-			 FROM edges e
-			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-			 JOIN nodes tn ON tn.id = e.target_id AND tn.type = 'note' AND tn.exists_flag = 1
-			 WHERE tn.name = ? AND e.link_type IN ('wikilink', 'markdown')`,
-			bn)
+		crs, err := queryCollateralRewrites(db, "note", bn, movedNodeIDs)
 		if err != nil {
 			return nil, err
 		}
-		for rows.Next() {
-			var re rewriteEntry
-			var targetPath string
-			var targetNodeID int64
-			if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetPath, &targetNodeID); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			// Skip if source is in moved set.
-			if movedNodeIDs[re.sourceID] {
-				continue
-			}
-			if !isBasenameRawLink(re.rawLink, re.linkType) {
-				continue // path links are safe
-			}
-			if movedNodeIDs[targetNodeID] {
-				continue // incoming to moved file, handled in Phase 2
-			}
-			re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, targetPath)
-			collateralRewrites = append(collateralRewrites, re)
+		collateralRewrites = append(collateralRewrites, crs...)
+	}
+
+	// Asset collateral: collect affected asset basenames.
+	affectedAssetBasenames := make(map[string]bool)
+	for _, m := range moves {
+		if !m.isAsset {
+			continue
 		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
+		abk := assetBasenameKey(m.to)
+		if rm.assetBasenameCounts[abk] > 1 {
+			affectedAssetBasenames[abk] = true
+		}
+	}
+	for abk := range affectedAssetBasenames {
+		preRoot := hasRootInPathSet(abk, preMoveAssetPathSet)
+		postRoot := hasRootInPathSet(abk, rm.assetPathSet)
+		if preRoot && postRoot {
+			continue
+		}
+		var bn string
+		for _, m := range moves {
+			if m.isAsset && assetBasenameKey(m.to) == abk {
+				bn = filepath.Base(m.to)
+				break
+			}
+		}
+		crs, err := queryCollateralRewrites(db, "asset", bn, movedNodeIDs)
+		if err != nil {
 			return nil, err
 		}
+		collateralRewrites = append(collateralRewrites, crs...)
 	}
 
 	// External stale check.
@@ -953,6 +1177,9 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	}
 	movedFileRewrites := make([]movedFileRewrite, len(moves))
 	for i, m := range moves {
+		if m.isAsset {
+			continue // assets have no outgoing links to rewrite
+		}
 		var diskPath string
 		if needDiskMove {
 			diskPath = filepath.Join(vaultPath, m.from)
@@ -1002,15 +1229,15 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 
 				// Determine post-move resolution.
 				needRewrite := false
-				if p, ok := basenameToPath[bk]; ok {
+				if p, ok := rm.basenameToPath[bk]; ok {
 					if p != postMoveTargetPath {
 						needRewrite = true
 					}
-				} else if p, ok := rootBasenameToPath[bk]; ok {
+				} else if p, ok := rm.rootBasenameToPath[bk]; ok {
 					if p != postMoveTargetPath {
 						needRewrite = true
 					}
-				} else if basenameCounts[bk] > 1 {
+				} else if rm.basenameCounts[bk] > 1 {
 					needRewrite = true
 				}
 
@@ -1180,6 +1407,18 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 			}
 			completedRenames = append(completedRenames, completedRename{from: m.from, to: m.to})
 		}
+		// Move disk-only files (not registered in DB).
+		for _, df := range diskOnlyFiles {
+			toFull := filepath.Join(vaultPath, df.to)
+			toFileDir := filepath.Dir(toFull)
+			if err := os.MkdirAll(toFileDir, 0o755); err != nil {
+				return nil, err
+			}
+			if err := os.Rename(filepath.Join(vaultPath, df.from), toFull); err != nil {
+				return nil, err
+			}
+			completedRenames = append(completedRenames, completedRename{from: df.from, to: df.to})
+		}
 	}
 
 	// Collect mtimes at final locations.
@@ -1205,23 +1444,32 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 
 	// 5.1: update nodes for moved files.
 	for _, m := range moves {
-		newName := basename(m.to)
-		toKey := noteKey(m.to)
+		var newName, toKeyStr string
+		if m.isAsset {
+			newName = filepath.Base(m.to)
+			toKeyStr = assetKey(m.to)
+		} else {
+			newName = basename(m.to)
+			toKeyStr = noteKey(m.to)
+		}
 		if _, err := tx.Exec(
 			"UPDATE nodes SET node_key = ?, name = ?, path = ?, mtime = ? WHERE id = ?",
-			toKey, newName, m.to, toMtimes[m.nodeID], m.nodeID); err != nil {
+			toKeyStr, newName, m.to, toMtimes[m.nodeID], m.nodeID); err != nil {
 			return nil, err
 		}
 	}
 
-	// 5.2: delete old outgoing edges and re-parse.
+	// 5.2: delete old outgoing edges and re-parse (notes only; assets have no outgoing).
 	for i, m := range moves {
+		if m.isAsset {
+			continue
+		}
 		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", m.nodeID); err != nil {
 			return nil, err
 		}
 		newLinks := parseLinks(string(movedFileRewrites[i].content))
 		for _, link := range newLinks {
-			targetID, subpath, err := resolveLink(tx, m.to, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
+			targetID, subpath, err := resolveLink(tx, m.to, link, rm)
 			if err != nil {
 				return nil, err
 			}
@@ -1276,10 +1524,19 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	for _, m := range moves {
 		result.Moved = append(result.Moved, MovedFile{From: m.from, To: m.to})
 	}
+	for _, df := range diskOnlyFiles {
+		result.Moved = append(result.Moved, MovedFile{From: df.from, To: df.to})
+	}
 
 	// 5.5: phantom promotion.
 	for _, m := range moves {
-		pk := phantomKey(basename(m.to))
+		var phantomName string
+		if m.isAsset {
+			phantomName = filepath.Base(m.to)
+		} else {
+			phantomName = basename(m.to)
+		}
+		pk := phantomKey(phantomName)
 		var phantomID int64
 		err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
 		if err == nil {

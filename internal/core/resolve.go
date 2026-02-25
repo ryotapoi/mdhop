@@ -10,9 +10,9 @@ import (
 
 // ResolveResult is the result of resolving a link.
 type ResolveResult struct {
-	Type    string // "note", "phantom", "tag", "url"
-	Name    string // note=basename, tag="#tag", phantom=link name
-	Path    string // vault-relative path (note only, empty otherwise)
+	Type    string // "note", "phantom", "tag", "url", "asset"
+	Name    string // note=basename, tag="#tag", phantom=link name, asset=filename
+	Path    string // vault-relative path (note/asset only, empty otherwise)
 	Exists  bool   // file existence flag
 	Subpath string // "#Heading" / "#^block" (if any)
 }
@@ -144,12 +144,13 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 	return resolvePathFromDB(db, target, link)
 }
 
-// resolvePathFromDB finds a note node by path, falling back to phantom.
+// resolvePathFromDB finds a note/asset node by path, falling back to phantom.
+// Resolution order: note exact → note+.md → asset exact → phantom.
 func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, string, error) {
 	normalized := NormalizePath(resolved)
 	lower := strings.ToLower(normalized)
 
-	// Try exact path match (case-insensitive).
+	// Try note: exact path or path+.md (case-insensitive).
 	var id int64
 	err := db.QueryRow(
 		`SELECT id FROM nodes WHERE type='note' AND (LOWER(path) = ? OR LOWER(path) = ?)`,
@@ -162,9 +163,24 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 		return 0, "", err
 	}
 
+	// Try asset: exact path (case-insensitive).
+	err = db.QueryRow(
+		`SELECT id FROM nodes WHERE type='asset' AND LOWER(path) = ?`,
+		lower,
+	).Scan(&id)
+	if err == nil {
+		return id, link.subpath, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, "", err
+	}
+
 	// Not found → look for phantom.
+	// D10: only strip .md extension for phantom name; preserve other extensions.
 	name := filepath.Base(normalized)
-	name = strings.TrimSuffix(name, filepath.Ext(name))
+	if strings.HasSuffix(strings.ToLower(name), ".md") {
+		name = name[:len(name)-3]
+	}
 	pk := phantomKey(name)
 	err = db.QueryRow(`SELECT id FROM nodes WHERE node_key = ?`, pk).Scan(&id)
 	if err == nil {
@@ -177,47 +193,51 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 	return 0, "", fmt.Errorf("link not found: %s", resolved)
 }
 
-// resolveBasenameFromDB finds a note node by basename (case-insensitive).
-// When multiple notes match, applies root-priority rule: if one is at vault root, use it.
+// resolveBasenameFromDB finds a note/asset node by basename (case-insensitive).
+// Resolution order: note → asset → phantom.
+// When multiple nodes match within the same type, applies root-priority rule.
 func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, string, error) {
 	lower := strings.ToLower(target)
 
-	rows, err := db.Query(
-		`SELECT id, path FROM nodes WHERE type='note' AND LOWER(name) = ?`,
-		lower,
-	)
-	if err != nil {
-		return 0, "", err
-	}
-	defer rows.Close()
-
+	// Try note by basename.
 	type match struct {
 		id   int64
 		path string
 	}
-	var matches []match
-	for rows.Next() {
-		var m match
-		if err := rows.Scan(&m.id, &m.path); err != nil {
-			return 0, "", err
-		}
-		matches = append(matches, m)
-	}
-	if err := rows.Err(); err != nil {
+
+	noteMatches, err := queryBasenameMatches(db, "note", lower)
+	if err != nil {
 		return 0, "", err
 	}
 
-	if len(matches) == 1 {
-		return matches[0].id, link.subpath, nil
+	if len(noteMatches) == 1 {
+		return noteMatches[0].id, link.subpath, nil
 	}
-	if len(matches) > 1 {
-		// Root-priority: if one match is at vault root, resolve to it.
-		for _, m := range matches {
+	if len(noteMatches) > 1 {
+		for _, m := range noteMatches {
 			if isRootFile(m.path) {
 				return m.id, link.subpath, nil
 			}
 		}
-		return 0, "", fmt.Errorf("ambiguous link: %s resolves to %d notes", target, len(matches))
+		return 0, "", fmt.Errorf("ambiguous link: %s resolves to %d notes", target, len(noteMatches))
+	}
+
+	// Try asset by basename (name = filename with extension).
+	assetMatches, err := queryBasenameMatches(db, "asset", lower)
+	if err != nil {
+		return 0, "", err
+	}
+
+	if len(assetMatches) == 1 {
+		return assetMatches[0].id, link.subpath, nil
+	}
+	if len(assetMatches) > 1 {
+		for _, m := range assetMatches {
+			if isRootFile(m.path) {
+				return m.id, link.subpath, nil
+			}
+		}
+		return 0, "", fmt.Errorf("ambiguous link: %s resolves to %d assets", target, len(assetMatches))
 	}
 
 	// 0 matches → look for phantom.
@@ -232,6 +252,37 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 	}
 
 	return 0, "", fmt.Errorf("link not found: %s", target)
+}
+
+// queryBasenameMatches queries nodes of the given type matching a lowercase name.
+func queryBasenameMatches(db dbExecer, nodeType, lowerName string) ([]struct {
+	id   int64
+	path string
+}, error) {
+	rows, err := db.Query(
+		`SELECT id, path FROM nodes WHERE type=? AND LOWER(name) = ?`,
+		nodeType, lowerName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var matches []struct {
+		id   int64
+		path string
+	}
+	for rows.Next() {
+		var m struct {
+			id   int64
+			path string
+		}
+		if err := rows.Scan(&m.id, &m.path); err != nil {
+			return nil, err
+		}
+		matches = append(matches, m)
+	}
+	return matches, rows.Err()
 }
 
 // edgeExists checks if an edge from source to target with matching subpath exists.

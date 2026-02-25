@@ -7,7 +7,10 @@
 
 ## 対象と前提
 
-- 対象は Obsidian Vault 相当のディレクトリ配下の `**/*.md`
+- 対象は Obsidian Vault 相当のディレクトリ配下の `**/*.md`（note）と非 `.md` ファイル（asset）
+- asset: 画像・PDF 等の非 `.md` ファイル。build 時に全走査して DB に登録する
+  - 隠しファイル・隠しディレクトリ（`.` 始まり）は asset 走査の対象外
+  - `.mdhop/` ディレクトリは走査対象外
 - 主な利用者は CLI と Coding Agent
 - ローカル完結（SQLite）で動作する
 
@@ -42,10 +45,10 @@ exclude:
 - `mdhop update --file ...` : 登録済みファイルのみを更新する
   - `--file` は複数回指定できる
 - `mdhop add --file ...` : 新規追加を反映する（未登録のみ）
-- `mdhop move --from A.md --to B.md` : ファイル移動を反映する
+- `mdhop move --from A.md --to B.md` : ファイル移動を反映する（note / asset 両対応）
 - `mdhop move --from dir/ --to newdir/` : ディレクトリ単位の移動を反映する
-- `mdhop delete --file ...` : ファイル削除を反映する（登録済みのみ）
-- `mdhop delete --file dir/` : ディレクトリ配下の全 `.md` ファイルを削除する
+- `mdhop delete --file ...` : ファイル削除を反映する（note / asset 両対応、登録済みのみ）
+- `mdhop delete --file dir/` : ディレクトリ配下の全登録済みファイル（note + asset）を削除する
 - `mdhop disambiguate --name a` : 曖昧リンクをフルパスへ書き換える
 - `mdhop repair` : 壊れたパスリンクと vault-escape リンクを basename リンクに書き換える
 - `mdhop resolve --from A.md --link '[[X]]'` : リンク解決を行う
@@ -82,18 +85,18 @@ exclude:
 - `--fields <comma-separated>` : 出力フィールドを制限する
   - resolve: `type,name,path,exists,subpath`
   - query: `backlinks,tags,twohop,outgoing,head,snippet`
-  - diagnose: `basename_conflicts,phantoms`
-  - stats: `notes_total,notes_exists,edges_total,tags_total,phantoms_total`
+  - diagnose: `basename_conflicts,asset_basename_conflicts,phantoms`
+  - stats: `notes_total,notes_exists,edges_total,tags_total,phantoms_total,assets_total`
     - `edges_total` は出現回数ベースの総数
 
 ### フィールド定義
 
 #### resolve
 
-- `type`: `note|phantom|tag|url`
-- `name`: 表示名（noteはbasename、tagは`#`付き）
-- `path`: Vault相対パス（noteのみ）
-- `exists`: noteの存在フラグ
+- `type`: `note|phantom|tag|url|asset`
+- `name`: 表示名（noteはbasename、tagは`#`付き、assetはファイル名）
+- `path`: Vault相対パス（note/assetのみ）
+- `exists`: note/assetの存在フラグ
 - `subpath`: `#Heading` / `#^block`（あれば）
 
 #### query
@@ -107,8 +110,9 @@ exclude:
 
 #### diagnose
 
-- `basename_conflicts`: basename衝突の一覧
-- `phantoms`: phantom名一覧
+- `basename_conflicts`: note の basename 衝突一覧
+- `asset_basename_conflicts`: asset の basename 衝突一覧
+- `phantoms`: phantom 名一覧
 
 #### stats
 
@@ -117,6 +121,7 @@ exclude:
 - `edges_total`: edges総数（出現回数ベース）
 - `tags_total`: tag総数
 - `phantoms_total`: phantom総数
+- `assets_total`: asset総数
 
 ### query の追加オプション
 
@@ -187,15 +192,14 @@ exclude:
     - 全ファイルの移動先を確定してからリンク書き換えを1回だけ行う（中間状態の曖昧性問題を回避）
     - 移動セット内ファイル間のリンク（相対リンク含む）も正しく書き換える
     - ディスク状態は全ファイルが一貫している必要がある（normal と already-moved の混在はエラー）
-    - ディレクトリ配下に非 `.md` ファイルがある場合はエラー（隠しファイル・隠しディレクトリは無視）
+    - ディレクトリ配下の非 `.md` ファイル（asset）も一緒に移動する
 - `delete`
   - 必須: `--file`（複数回指定可）
   - 任意: `--vault`, `--format`, `--rm`
   - `--rm`: ファイルをディスクから削除してからインデックスを更新する
   - 補足: 未登録ファイルが指定された場合はエラー（`--rm` でもファイルは削除されない）
-  - ディレクトリモード: `--file` に末尾 `/` またはディスク上ディレクトリを指定すると、DB に登録された配下の全 `.md` ファイルを一括削除する
+  - ディレクトリモード: `--file` に末尾 `/` またはディスク上ディレクトリを指定すると、DB に登録された配下の全ファイル（note + asset）を一括削除する
     - DB にファイルが登録されていないディレクトリはエラー
-    - `--rm` 時はディレクトリ配下に非 `.md` ファイルがある場合はエラー（隠しファイル・隠しディレクトリは無視）
     - `--rm` 時は `.md` ファイル削除後に空になったディレクトリを再帰的に掃除する
 - `disambiguate`
   - 必須: `--name`
@@ -260,9 +264,10 @@ exclude:
 
 - resolve は `from_note` にそのリンクが実際に存在する場合のみ解決する
 - 解決結果は必ず1つになる（曖昧な場合はエラー）
-- `[[Note]]`: basename を Vault 全体から探索
+- `[[Note]]`: basename を Vault 全体から探索（note → asset → phantom の順）
   - 候補1件なら解決
   - 複数なら曖昧としてエラー（ルート優先例外あり）
+  - note と asset は別の basename キー空間（note は拡張子除去、asset は拡張子込み）
 - `[[#Heading]]` : 同一ファイル内の見出しとして解決（`from_note` を返す）
 - `[[path/to/Note]]`: Vault ルート相対で解決（拡張子省略可）
 - `[[./Note]]`, `[[../Note]]`: `from_note` のディレクトリ基準で解決
@@ -311,7 +316,7 @@ exclude:
 - `--format json | text`
 - `--fields` で出力項目を選択
 - query の `backlinks/outgoing/twohop` は **type を含めて出力**する
-  - `note` の場合は `name/path/exists` を含む
+  - `note` / `asset` の場合は `name/path/exists` を含む
   - `phantom/tag` は `name` を含む
   - `twohop` は経由対象 `via` と、その `targets` を必ず含む
 - `--include-head` はノート冒頭 N 行を返す（`head` フィールド）

@@ -158,7 +158,7 @@ func (ef *ExcludeFilter) IsViaExcluded(info NodeInfo) bool {
 				return true
 			}
 		}
-	case "note":
+	case "note", "asset":
 		for _, g := range ef.PathGlobs {
 			if globMatch(g, info.Path) {
 				return true

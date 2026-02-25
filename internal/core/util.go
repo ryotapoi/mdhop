@@ -21,6 +21,12 @@ func basenameKey(path string) string {
 	return strings.ToLower(basename(path))
 }
 
+// assetBasenameKey returns the lowercase filename with extension for asset path matching.
+// Example: "sub/image.png" → "image.png"
+func assetBasenameKey(path string) string {
+	return strings.ToLower(filepath.Base(path))
+}
+
 // isRootFile returns true if the path has no directory component (root-level file).
 func isRootFile(path string) bool {
 	return !strings.Contains(path, "/")
@@ -35,12 +41,21 @@ func hasRootInPathSet(bk string, pathSet map[string]string) bool {
 // isAmbiguousBasenameLink checks if a basename link is ambiguous.
 // Returns true if the basename has multiple files AND there is no root-level file.
 // When a root-level file exists, the basename link resolves to it (root-priority rule).
-func isAmbiguousBasenameLink(target string, basenameCounts map[string]int, pathSet map[string]string) bool {
+// Checks note basenames first, then asset basenames (separate key spaces).
+func isAmbiguousBasenameLink(target string, rm *resolveMaps) bool {
 	lower := strings.ToLower(target)
-	if basenameCounts[lower] <= 1 {
-		return false
+	// Check note namespace.
+	if rm.basenameCounts[lower] > 1 {
+		return !hasRootInPathSet(lower, rm.pathSet)
 	}
-	return !hasRootInPathSet(lower, pathSet)
+	if rm.basenameCounts[lower] == 1 {
+		return false // unique note match
+	}
+	// Check asset namespace.
+	if rm.assetBasenameCounts[lower] > 1 {
+		return !hasRootInPathSet(lower, rm.assetPathSet)
+	}
+	return false
 }
 
 // CleanupEmptyDirs removes empty directories left after file deletion.

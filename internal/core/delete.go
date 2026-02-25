@@ -37,9 +37,10 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 
 	// Phase 1: Normalize, deduplicate input paths, and collect node info for validation.
 	type nodeInfo struct {
-		id   int64
-		name string
-		path string // normalized vault-relative path
+		id      int64
+		name    string
+		path    string // normalized vault-relative path
+		isAsset bool
 	}
 	seen := make(map[string]bool)
 	var nodes []nodeInfo
@@ -49,12 +50,23 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 			continue
 		}
 		seen[np] = true
+		// Try note first, then asset.
 		key := noteKey(np)
 		var id int64
 		var name, path string
 		err := db.QueryRow("SELECT id, name, path FROM nodes WHERE node_key = ? AND type = 'note'", key).Scan(&id, &name, &path)
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("file not registered: %s", f)
+			// Fallback to asset.
+			key = assetKey(np)
+			err = db.QueryRow("SELECT id, name, path FROM nodes WHERE node_key = ? AND type = 'asset'", key).Scan(&id, &name, &path)
+			if err == sql.ErrNoRows {
+				return nil, fmt.Errorf("file not registered: %s", f)
+			}
+			if err != nil {
+				return nil, err
+			}
+			nodes = append(nodes, nodeInfo{id: id, name: name, path: np, isAsset: true})
+			continue
 		}
 		if err != nil {
 			return nil, err

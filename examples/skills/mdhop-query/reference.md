@@ -34,7 +34,7 @@ Available fields for `--fields`: `backlinks`, `tags`, `twohop`, `outgoing`, `hea
 | `head` | First N lines of the note (requires `--include-head`) |
 | `snippet` | Lines around each link occurrence (requires `--include-snippet`) |
 
-Each node in backlinks/outgoing/twohop includes a `type` field (`note`, `phantom`, or `tag`). Notes include `name`, `path`, `exists`. Phantoms and tags include `name`.
+Each node in backlinks/outgoing/twohop includes a `type` field (`note`, `phantom`, `tag`, or `asset`). Notes and assets include `name`, `path`, `exists`. Phantoms and tags include `name`.
 
 ### Content Options
 
@@ -130,9 +130,9 @@ Available fields for `--fields`: `type`, `name`, `path`, `exists`, `subpath`
 
 | Field | Description |
 |-------|-------------|
-| `type` | `note`, `phantom`, `tag`, or `url` |
-| `name` | Display name (basename for notes, `#`-prefixed for tags) |
-| `path` | Vault-relative path (notes only) |
+| `type` | `note`, `phantom`, `tag`, `asset`, or `url` |
+| `name` | Display name (basename for notes/assets, `#`-prefixed for tags) |
+| `path` | Vault-relative path (notes and assets only) |
 | `exists` | Whether the note file exists on disk |
 | `subpath` | Heading (`#Heading`) or block reference (`#^block`) if present |
 
@@ -168,7 +168,7 @@ Show vault statistics.
 
 ### Fields
 
-Available fields for `--fields`: `notes_total`, `notes_exists`, `edges_total`, `tags_total`, `phantoms_total`
+Available fields for `--fields`: `notes_total`, `notes_exists`, `edges_total`, `tags_total`, `phantoms_total`, `assets_total`
 
 | Field | Description |
 |-------|-------------|
@@ -177,6 +177,7 @@ Available fields for `--fields`: `notes_total`, `notes_exists`, `edges_total`, `
 | `edges_total` | Total link occurrences |
 | `tags_total` | Total unique tags |
 | `phantoms_total` | Total phantom (unresolved) nodes |
+| `assets_total` | Total asset (non-.md) nodes |
 
 ### Example
 
@@ -190,7 +191,8 @@ mdhop stats --format json
   "notes_exists": 148,
   "edges_total": 1200,
   "tags_total": 45,
-  "phantoms_total": 12
+  "phantoms_total": 12,
+  "assets_total": 30
 }
 ```
 
@@ -200,11 +202,12 @@ Detect issues in the vault index.
 
 ### Fields
 
-Available fields for `--fields`: `basename_conflicts`, `phantoms`
+Available fields for `--fields`: `basename_conflicts`, `asset_basename_conflicts`, `phantoms`
 
 | Field | Description |
 |-------|-------------|
-| `basename_conflicts` | Files sharing the same basename (potential ambiguity source) |
+| `basename_conflicts` | Note files sharing the same basename (potential ambiguity source) |
+| `asset_basename_conflicts` | Asset files sharing the same basename |
 | `phantoms` | Nodes referenced by links but not present on disk |
 
 ### Example

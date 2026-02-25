@@ -28,7 +28,7 @@ Build the index for the first time:
 mdhop build
 ```
 
-This scans all `*.md` files and creates `.mdhop/index.sqlite`.
+This scans all `*.md` files and non-markdown asset files (images, PDFs, etc.) and creates `.mdhop/index.sqlite`. Hidden files/directories are excluded from asset scanning.
 
 Add `.mdhop/` to your `.gitignore` — the index is machine-local and should be rebuilt per environment.
 
@@ -73,7 +73,7 @@ If `mdhop add` reports rewritten links, inform the user which files were changed
 - **Stale mtime error**: Another process (e.g., Obsidian, cloud sync) modified the file after the last index update. Run `mdhop build` to rebuild.
 - **Ambiguous link error on add**: Auto-disambiguate handles most cases. If it fails (phantom with multiple candidates), run `mdhop disambiguate --name <basename> --target <path>` first.
 - **Ambiguous link error on build**: Run `mdhop diagnose` to identify conflicts, then `mdhop disambiguate --name <name> --target <path> --scan` for each.
-- **Non-`.md` file error on directory move/delete**: The directory contains files that are not Markdown (e.g., images, PDFs). Move or remove these files manually first, then retry. Hidden files and directories (starting with `.`) are ignored and do not cause this error.
+- **Non-`.md` files in directory move/delete**: Asset files (images, PDFs, etc.) are now handled automatically — they are moved or deleted alongside `.md` files. No manual intervention needed.
 - **Broken path links or vault-escape links**: Run `mdhop repair --dry-run --format json` to preview, then `mdhop repair` to fix. This rewrites broken path links and vault-escape links to basename links (no DB required; can be run before `build`). Vault-escape links are always basename-ified. For broken path links with multiple candidates (reported in `skipped`), use `mdhop disambiguate --name <basename> --target <path>` to resolve individually. After repair, run `mdhop build` to create or update the index.
 
 ## Index Update Rules
@@ -110,7 +110,7 @@ Omit `--rm` if the file is already deleted from disk and you only need to update
 
 If other files still link to the deleted file, it becomes a phantom node.
 
-To delete all `.md` files under a directory:
+To delete all registered files (notes and assets) under a directory:
 
 ```bash
 mdhop delete --file Notes/archive/ --rm
@@ -131,7 +131,7 @@ This command:
 
 ### Directory moves
 
-To move all `.md` files under a directory at once:
+To move all files (notes and assets) under a directory at once:
 
 ```bash
 mdhop move --from OldDir/ --to NewDir/

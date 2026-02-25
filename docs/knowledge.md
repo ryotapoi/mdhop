@@ -85,3 +85,10 @@
 - JSON の `Exists` フィールドは `*bool` + `omitempty` にしないと、false が JSON から落ちる
 - JSON output で `map[string]any` を使うとリクエストされたフィールドが空でも常に出力される（struct + `omitempty` だと空配列が消える）
 - フィールドバリデーションは DB オープンの前に配置する。DB がない状態で unknown field エラーを返すため
+
+## asset 管理
+
+- note と asset の basename キー空間は完全に分離: `basenameKey` は拡張子除去、`assetBasenameKey` は拡張子込み。クロスチェック不要
+- `diskOnlyFiles`（MoveDir）や delete `--rm` のディスク Walk では `.md` ファイルをスキップする（D5: disk-based operation は非 .md のみ）
+- `findEntryByFile` の note → asset フォールバックは `sql.ErrNoRows` のみで発動。DB エラーを握りつぶさない
+- outgoing rewrite で asset maps を参照する必要はない。note 移動では asset 解決先は変わらず、asset 移動時は `isAsset=true` で outgoing rewrite 自体がスキップされる

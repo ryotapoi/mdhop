@@ -14,13 +14,14 @@ Detailed reference for all mdhop commands: index management and querying.
 
 ## build
 
-Scan all `*.md` files and create or rebuild the index from scratch.
+Scan all `*.md` files and non-markdown asset files, then create or rebuild the index from scratch.
 
 ```bash
 mdhop build
 ```
 
 - Creates `.mdhop/index.sqlite`
+- Registers `.md` files as notes and non-`.md` files as assets (hidden files/directories excluded)
 - Errors if ambiguous links exist (strict mode)
 - Respects `mdhop.yaml` `build.exclude_paths` — excluded files are not indexed; links to them become phantom nodes
 
@@ -88,9 +89,9 @@ mdhop delete --file Notes/archive/ --rm
 - Errors if the file is not registered (with `--rm`, the file is not deleted from disk either)
 - If other files still link to the deleted file, it becomes a phantom node
 - If no references remain, the node is fully removed
-- Directory mode: trailing `/` or a disk directory deletes all registered `.md` files under that directory
+- Directory mode: trailing `/` or a disk directory deletes all registered files (notes and assets) under that directory
   - Errors if no files are registered under the directory
-  - With `--rm`, errors if the directory contains non-`.md` files (hidden files/directories are ignored)
+  - With `--rm`, also removes unregistered non-`.md` files on disk (hidden files/directories are ignored)
   - With `--rm`, empty directories are cleaned up recursively after deletion
 
 **Output fields:** `deleted`, `phantomed`
@@ -111,6 +112,7 @@ mdhop move --from OldDir/ --to NewDir/
 | `--format json\|text` | No | Output format |
 
 **Behavior (single file):**
+- Works for both notes (`.md`) and assets (non-`.md` files)
 - Moves the file on disk (creates target directory if needed)
 - If `--from` is missing on disk but `--to` exists, treats as already-moved (rewrites links + updates DB only)
 - Errors if `--to` already exists on disk (no overwrite)
@@ -126,11 +128,11 @@ mdhop move --from OldDir/ --to NewDir/
 **Behavior (directory):**
 - Trailing `/` or a disk directory triggers directory mode
 - `--to` ending with `.md` in directory mode is an error
-- All registered `.md` files under the directory are moved at once
+- All registered files (notes and assets) under the directory are moved at once
+- Unregistered non-`.md` files on disk are also moved (hidden files/directories are ignored)
 - Link rewrites are computed against the final state (all files moved simultaneously)
 - Links between files within the moved set (including relative links) are correctly adjusted
 - Disk state must be consistent: all files must be either normal (not yet moved) or already-moved (cannot mix)
-- Errors if the directory contains non-`.md` files (hidden files/directories are ignored)
 - Source and destination directories must not overlap (`--from sub --to sub/inner` is an error)
 
 **Output fields (directory):** `moved[]` (array of `from`/`to`), `rewritten`
@@ -253,7 +255,7 @@ Available fields for `--fields`: `backlinks`, `tags`, `twohop`, `outgoing`, `hea
 | `head` | First N lines of the note (requires `--include-head`) |
 | `snippet` | Lines around each link occurrence (requires `--include-snippet`) |
 
-Each node in backlinks/outgoing/twohop includes a `type` field (`note`, `phantom`, or `tag`). Notes include `name`, `path`, `exists`. Phantoms and tags include `name`.
+Each node in backlinks/outgoing/twohop includes a `type` field (`note`, `phantom`, `tag`, or `asset`). Notes and assets include `name`, `path`, `exists`. Phantoms and tags include `name`.
 
 ### Content Options
 
@@ -349,9 +351,9 @@ Available fields for `--fields`: `type`, `name`, `path`, `exists`, `subpath`
 
 | Field | Description |
 |-------|-------------|
-| `type` | `note`, `phantom`, `tag`, or `url` |
-| `name` | Display name (basename for notes, `#`-prefixed for tags) |
-| `path` | Vault-relative path (notes only) |
+| `type` | `note`, `phantom`, `tag`, `asset`, or `url` |
+| `name` | Display name (basename for notes/assets, `#`-prefixed for tags) |
+| `path` | Vault-relative path (notes and assets only) |
 | `exists` | Whether the note file exists on disk |
 | `subpath` | Heading (`#Heading`) or block reference (`#^block`) if present |
 
@@ -387,7 +389,7 @@ Show vault statistics.
 
 ### Fields
 
-Available fields for `--fields`: `notes_total`, `notes_exists`, `edges_total`, `tags_total`, `phantoms_total`
+Available fields for `--fields`: `notes_total`, `notes_exists`, `edges_total`, `tags_total`, `phantoms_total`, `assets_total`
 
 | Field | Description |
 |-------|-------------|
@@ -396,6 +398,7 @@ Available fields for `--fields`: `notes_total`, `notes_exists`, `edges_total`, `
 | `edges_total` | Total link occurrences |
 | `tags_total` | Total unique tags |
 | `phantoms_total` | Total phantom (unresolved) nodes |
+| `assets_total` | Total asset (non-.md) nodes |
 
 ### Example
 
@@ -409,7 +412,8 @@ mdhop stats --format json
   "notes_exists": 148,
   "edges_total": 1200,
   "tags_total": 45,
-  "phantoms_total": 12
+  "phantoms_total": 12,
+  "assets_total": 30
 }
 ```
 
@@ -419,11 +423,12 @@ Detect issues in the vault index.
 
 ### Fields
 
-Available fields for `--fields`: `basename_conflicts`, `phantoms`
+Available fields for `--fields`: `basename_conflicts`, `asset_basename_conflicts`, `phantoms`
 
 | Field | Description |
 |-------|-------------|
-| `basename_conflicts` | Files sharing the same basename (potential ambiguity source) |
+| `basename_conflicts` | Note files sharing the same basename (potential ambiguity source) |
+| `asset_basename_conflicts` | Asset files sharing the same basename |
 | `phantoms` | Nodes referenced by links but not present on disk |
 
 ### Example

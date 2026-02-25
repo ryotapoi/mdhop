@@ -5,7 +5,7 @@
 - [ ] wikilink と markdown link の相互変換
 - [ ] 相対パス指定（`./` や `../`）で同名ファイルが vault 内に1つしかない場合、`[[basename]]` に変換する
 - [ ] 絶対パス指定（ルート以外への `path/to` 書式）で同名ファイルが vault 内に1つしかない場合、`[[basename]]` に変換する
-- [ ] 非 .md ファイルのリンク管理（画像、PDF 等を SQLite で管理し、move/delete で壊れないようにする）
+- [x] 非 .md ファイルのリンク管理（画像、PDF 等を SQLite で管理し、move/delete で壊れないようにする）
 - [ ] ミューテーション系 CLI が `*Result` を捨てている → 書き換え結果等を表示すべき
 
 ## Later

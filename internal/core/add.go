@@ -84,25 +84,25 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	}
 
 	// Build maps from DB + save oldBasenameCounts copy.
-	pathToID, pathSet, basenameCounts, rootBasenameToPath, err := buildMapsFromDB(db)
+	rm, err := buildMapsFromDB(db)
 	if err != nil {
 		return nil, err
 	}
-	oldBasenameCounts := make(map[string]int, len(basenameCounts))
-	for k, v := range basenameCounts {
+	oldBasenameCounts := make(map[string]int, len(rm.basenameCounts))
+	for k, v := range rm.basenameCounts {
 		oldBasenameCounts[k] = v
 	}
 
 	// Adjust maps for post-add state.
 	for _, f := range files {
 		rel := strings.ToLower(f.path)
-		pathSet[rel] = f.path
+		rm.pathSet[rel] = f.path
 		noExt := strings.TrimSuffix(f.path, filepath.Ext(f.path))
-		pathSet[strings.ToLower(noExt)] = f.path
+		rm.pathSet[strings.ToLower(noExt)] = f.path
 		bk := basenameKey(f.path)
-		basenameCounts[bk]++
+		rm.basenameCounts[bk]++
 		if isRootFile(f.path) {
-			rootBasenameToPath[bk] = f.path
+			rm.rootBasenameToPath[bk] = f.path
 		}
 	}
 
@@ -111,7 +111,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	oldBasenameToPath := make(map[string]string)
 	for bk, count := range oldBasenameCounts {
 		if count == 1 {
-			for p := range pathToID {
+			for p := range rm.pathToID {
 				if basenameKey(p) == bk {
 					oldBasenameToPath[bk] = p
 					break
@@ -122,7 +122,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 
 	var allRewrites []rewriteEntry
 
-	for bk, newCount := range basenameCounts {
+	for bk, newCount := range rm.basenameCounts {
 		if newCount <= 1 {
 			continue
 		}
@@ -140,7 +140,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			if isRootFile(oldTarget) {
 				continue // Root-priority: [[A]] still resolves to root A.md → no ambiguity.
 			}
-			targetID = pathToID[oldTarget]
+			targetID = rm.pathToID[oldTarget]
 			isPatternA = true
 		} else {
 			// Pattern B: phantom (oldCount == 0, adding 2+ files with same basename).
@@ -196,9 +196,9 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 
 		if isPatternA && opts.AutoDisambiguate {
 			// Compute new raw links for each edge.
-			targetPath := oldBasenameToPath[bk]
+			oldTarget := oldBasenameToPath[bk]
 			for i := range basenameEdges {
-				basenameEdges[i].newRawLink = rewriteRawLink(basenameEdges[i].rawLink, basenameEdges[i].linkType, targetPath)
+				basenameEdges[i].newRawLink = rewriteRawLink(basenameEdges[i].rawLink, basenameEdges[i].linkType, oldTarget)
 			}
 			allRewrites = append(allRewrites, basenameEdges...)
 		} else {
@@ -230,24 +230,24 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 	}
 
-	// Build basenameToPath (includes both existing and new files).
-	basenameToPath := make(map[string]string)
-	for bk, count := range basenameCounts {
+	// Rebuild basenameToPath (includes both existing and new files).
+	rm.basenameToPath = make(map[string]string)
+	for bk, count := range rm.basenameCounts {
 		if count != 1 {
 			continue
 		}
 		// Search existing notes.
-		for p := range pathToID {
+		for p := range rm.pathToID {
 			if basenameKey(p) == bk {
-				basenameToPath[bk] = p
+				rm.basenameToPath[bk] = p
 				break
 			}
 		}
 		// Search new files if not found.
-		if _, ok := basenameToPath[bk]; !ok {
+		if _, ok := rm.basenameToPath[bk]; !ok {
 			for _, f := range files {
 				if basenameKey(f.path) == bk {
-					basenameToPath[bk] = f.path
+					rm.basenameToPath[bk] = f.path
 					break
 				}
 			}
@@ -277,7 +277,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
 				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, f.path)
 			}
-			if link.isBasename && isAmbiguousBasenameLink(link.target, basenameCounts, pathSet) {
+			if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
 				return nil, fmt.Errorf("ambiguous link: %s in %s", link.target, f.path)
 			}
 		}
@@ -327,7 +327,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		pathToID[pf.file.path] = id
+		rm.pathToID[pf.file.path] = id
 		result.Added = append(result.Added, pf.file.path)
 	}
 
@@ -361,7 +361,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			return nil, err
 		}
 
-		noteID := pathToID[pf.file.path]
+		noteID := rm.pathToID[pf.file.path]
 
 		// Reassign incoming edges from phantom to note.
 		if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE target_id = ?", noteID, phantomID); err != nil {
@@ -379,9 +379,9 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 
 	// Resolve links and create edges.
 	for _, pf := range parsed {
-		sourceID := pathToID[pf.file.path]
+		sourceID := rm.pathToID[pf.file.path]
 		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.file.path, link, pathSet, basenameToPath, rootBasenameToPath, pathToID)
+			targetID, subpath, err := resolveLink(tx, pf.file.path, link, rm)
 			if err != nil {
 				return nil, err
 			}

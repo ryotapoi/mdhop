@@ -9,7 +9,7 @@ description: >
 
 # mdhop Query
 
-mdhop is a CLI tool that pre-indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite, enabling fast structured queries without grep.
+mdhop is a CLI tool that pre-indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite, enabling fast structured queries without grep. It also tracks non-markdown files (images, PDFs, etc.) as asset nodes, so asset links like `![[image.png]]` resolve correctly.
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ mdhop is a CLI tool that pre-indexes link relationships (wikilinks, markdown lin
 mdhop query --file Notes/Design.md --format json
 ```
 
-Returns backlinks, tags, two-hop connections, and outgoing links for the given note.
+Returns backlinks, tags, two-hop connections, and outgoing links for the given note. You can also query asset files (e.g., `--file image.png`).
 
 You can also query by tag, phantom, or name:
 
@@ -75,7 +75,7 @@ mdhop stats --format json
 mdhop diagnose --format json
 ```
 
-Reports basename conflicts and phantom (unresolved) nodes.
+Reports basename conflicts (for both notes and assets) and phantom (unresolved) nodes.
 
 ## Exploration Patterns
 

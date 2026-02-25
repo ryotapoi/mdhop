@@ -31,9 +31,9 @@ type QueryOptions struct {
 
 // NodeInfo describes a node in the graph.
 type NodeInfo struct {
-	Type   string // "note", "phantom", "tag"
+	Type   string // "note", "phantom", "tag", "asset"
 	Name   string
-	Path   string // note only
+	Path   string // note/asset only
 	Exists bool
 }
 
@@ -202,7 +202,19 @@ func findEntryByKey(db dbExecer, key, errMsg string) (int64, NodeInfo, error) {
 
 func findEntryByFile(db dbExecer, file string) (int64, NodeInfo, error) {
 	path := NormalizePath(file)
-	return findEntryByKey(db, noteKey(path), fmt.Sprintf("file not in index: %s", path))
+	// Try note first, then asset. Only fall back on ErrNoRows, not on real DB errors.
+	noteID, err := getNodeID(db, noteKey(path))
+	if err == nil {
+		info, err := fetchNodeInfo(db, noteID)
+		if err != nil {
+			return 0, NodeInfo{}, err
+		}
+		return noteID, info, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, NodeInfo{}, err
+	}
+	return findEntryByKey(db, assetKey(path), fmt.Sprintf("file not in index: %s", path))
 }
 
 func findEntryByTag(db dbExecer, tag string) (int64, NodeInfo, error) {
@@ -263,6 +275,48 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 			}
 		}
 		return 0, NodeInfo{}, fmt.Errorf("ambiguous name: %s matches %d notes", name, len(matches))
+	}
+
+	// Try asset by basename (case-insensitive).
+	assetRows, err := db.Query(
+		`SELECT id, type, name, COALESCE(path,''), exists_flag FROM nodes WHERE type='asset' AND LOWER(name)=?`,
+		lower,
+	)
+	if err != nil {
+		return 0, NodeInfo{}, err
+	}
+	defer assetRows.Close()
+
+	var assetMatches []struct {
+		id   int64
+		info NodeInfo
+	}
+	for assetRows.Next() {
+		var id int64
+		var typ, n, p string
+		var exists int
+		if err := assetRows.Scan(&id, &typ, &n, &p, &exists); err != nil {
+			return 0, NodeInfo{}, err
+		}
+		assetMatches = append(assetMatches, struct {
+			id   int64
+			info NodeInfo
+		}{id, NodeInfo{Type: typ, Name: n, Path: p, Exists: exists == 1}})
+	}
+	if err := assetRows.Err(); err != nil {
+		return 0, NodeInfo{}, err
+	}
+
+	if len(assetMatches) == 1 {
+		return assetMatches[0].id, assetMatches[0].info, nil
+	}
+	if len(assetMatches) > 1 {
+		for _, m := range assetMatches {
+			if isRootFile(m.info.Path) {
+				return m.id, m.info, nil
+			}
+		}
+		return 0, NodeInfo{}, fmt.Errorf("ambiguous name: %s matches %d assets", name, len(assetMatches))
 	}
 
 	// Try phantom.
@@ -326,7 +380,7 @@ func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter) (
 func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter) ([]NodeInfo, error) {
 	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.target_id
-		 WHERE e.source_id = ? AND e.target_id != ? AND n.type IN ('note','phantom')`
+		 WHERE e.source_id = ? AND e.target_id != ? AND n.type IN ('note','phantom','asset')`
 	args := []any{sourceID, sourceID}
 
 	if ef != nil {

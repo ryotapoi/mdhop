@@ -88,10 +88,10 @@ func printResolveText(w io.Writer, r *core.ResolveResult, fields []string) error
 	if show["name"] {
 		fmt.Fprintf(w, "name: %s\n", r.Name)
 	}
-	if show["path"] && r.Path != "" {
+	if show["path"] && (r.Type == "note" || r.Type == "asset") {
 		fmt.Fprintf(w, "path: %s\n", r.Path)
 	}
-	if show["exists"] {
+	if show["exists"] && (r.Type == "note" || r.Type == "asset") {
 		fmt.Fprintf(w, "exists: %v\n", r.Exists)
 	}
 	if show["subpath"] && r.Subpath != "" {
@@ -109,10 +109,10 @@ func buildResolveMap(r *core.ResolveResult, fields []string) map[string]any {
 	if show["name"] {
 		m["name"] = r.Name
 	}
-	if show["path"] && r.Path != "" {
+	if show["path"] && (r.Type == "note" || r.Type == "asset") {
 		m["path"] = r.Path
 	}
-	if show["exists"] {
+	if show["exists"] && (r.Type == "note" || r.Type == "asset") {
 		m["exists"] = r.Exists
 	}
 	if show["subpath"] && r.Subpath != "" {
@@ -129,6 +129,7 @@ var validStatsFieldsCLI = map[string]bool{
 	"edges_total":    true,
 	"tags_total":     true,
 	"phantoms_total": true,
+	"assets_total":   true,
 }
 
 func printStatsJSON(w io.Writer, r *core.StatsResult, fields []string) error {
@@ -148,6 +149,9 @@ func printStatsJSON(w io.Writer, r *core.StatsResult, fields []string) error {
 	}
 	if show["phantoms_total"] {
 		m["phantoms_total"] = r.PhantomsTotal
+	}
+	if show["assets_total"] {
+		m["assets_total"] = r.AssetsTotal
 	}
 	return encodeJSON(w, m)
 }
@@ -169,14 +173,18 @@ func printStatsText(w io.Writer, r *core.StatsResult, fields []string) error {
 	if show["phantoms_total"] {
 		fmt.Fprintf(w, "phantoms_total: %d\n", r.PhantomsTotal)
 	}
+	if show["assets_total"] {
+		fmt.Fprintf(w, "assets_total: %d\n", r.AssetsTotal)
+	}
 	return nil
 }
 
 // --- Diagnose output ---
 
 var validDiagnoseFieldsCLI = map[string]bool{
-	"basename_conflicts": true,
-	"phantoms":           true,
+	"basename_conflicts":       true,
+	"asset_basename_conflicts": true,
+	"phantoms":                 true,
 }
 
 type diagnoseJSONConflict struct {
@@ -194,6 +202,13 @@ func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) err
 		}
 		m["basename_conflicts"] = conflicts
 	}
+	if show["asset_basename_conflicts"] {
+		conflicts := make([]diagnoseJSONConflict, len(r.AssetBasenameConflicts))
+		for i, c := range r.AssetBasenameConflicts {
+			conflicts[i] = diagnoseJSONConflict{Name: c.Name, Paths: c.Paths}
+		}
+		m["asset_basename_conflicts"] = conflicts
+	}
 	if show["phantoms"] {
 		if r.Phantoms != nil {
 			m["phantoms"] = r.Phantoms
@@ -209,6 +224,16 @@ func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) err
 	if show["basename_conflicts"] && len(r.BasenameConflicts) > 0 {
 		fmt.Fprintln(w, "basename_conflicts:")
 		for _, c := range r.BasenameConflicts {
+			fmt.Fprintf(w, "- name: %s\n", c.Name)
+			fmt.Fprintln(w, "  paths:")
+			for _, p := range c.Paths {
+				fmt.Fprintf(w, "  - %s\n", p)
+			}
+		}
+	}
+	if show["asset_basename_conflicts"] && len(r.AssetBasenameConflicts) > 0 {
+		fmt.Fprintln(w, "asset_basename_conflicts:")
+		for _, c := range r.AssetBasenameConflicts {
 			fmt.Fprintf(w, "- name: %s\n", c.Name)
 			fmt.Fprintln(w, "  paths:")
 			for _, p := range c.Paths {
@@ -267,7 +292,7 @@ type jsonSnippet struct {
 
 func toJSONNodeInfo(n core.NodeInfo) jsonNodeInfo {
 	ji := jsonNodeInfo{Type: n.Type, Name: n.Name}
-	if n.Type == "note" {
+	if n.Type == "note" || n.Type == "asset" {
 		ji.Path = n.Path
 		ji.Exists = &n.Exists
 	}
@@ -387,7 +412,7 @@ func printQueryText(w io.Writer, r *core.QueryResult) error {
 func writeNodeInfoText(w io.Writer, n core.NodeInfo, firstIndent, restIndent string) {
 	fmt.Fprintf(w, "%stype: %s\n", firstIndent, n.Type)
 	fmt.Fprintf(w, "%sname: %s\n", restIndent, n.Name)
-	if n.Type == "note" {
+	if n.Type == "note" || n.Type == "asset" {
 		fmt.Fprintf(w, "%spath: %s\n", restIndent, n.Path)
 		fmt.Fprintf(w, "%sexists: %v\n", restIndent, n.Exists)
 	}
@@ -397,8 +422,8 @@ func writeNodeInfoText(w io.Writer, n core.NodeInfo, firstIndent, restIndent str
 // Format: "note: path" or "phantom: name" or "tag: name"
 func nodeInfoOneLine(n core.NodeInfo) string {
 	switch n.Type {
-	case "note":
-		return fmt.Sprintf("note: %s", n.Path)
+	case "note", "asset":
+		return fmt.Sprintf("%s: %s", n.Type, n.Path)
 	default:
 		return fmt.Sprintf("%s: %s", n.Type, n.Name)
 	}
