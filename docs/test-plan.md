@@ -211,6 +211,27 @@
 - 非 `.md` 拡張子の壊れたパスリンクが basename に書き換わる
 - ドット入り basename（`Note.v1`）が正しく書き換わる（拡張子誤除去なし）
 
+## convert
+
+- markdown → wikilink: 基本変換、subpath 保持、alias 判定
+- wikilink → markdown: 基本変換、subpath 保持、alias 展開
+- URL リンクは変換対象外
+- tag / frontmatter は変換対象外
+- code fence 内のリンクは変更されない
+- inline code 内のリンクは変更されない
+- dry-run: ディスク変更なし
+- 変換対象なし → 空結果
+- mixed: 同一ファイルに両タイプ → 対象のみ変換
+- `--file` でスコープ限定
+- 除外ファイルを `--file` に指定 → エラー
+- asset リンク（非 .md）の双方向変換
+- self-link（`[[#H]]` ↔ `[#H](#H)`）変換
+- `build.exclude_paths` に従う
+- ドット付き basename（`Note.v1`）が note として認識される
+- 相対パス（`./`, `../`）プレフィックス保持
+- ラウンドトリップ: 双方向変換で元に戻る
+- embed プレフィックス（`!`）が正しく保持される
+
 ## disambiguate
 
 - `--format` バリデーション（無効値でエラー）

@@ -51,6 +51,7 @@ exclude:
 - `mdhop delete --file dir/` : ディレクトリ配下の全登録済みファイル（note + asset）を削除する
 - `mdhop disambiguate --name a` : 曖昧リンクをフルパスへ書き換える
 - `mdhop repair` : 壊れたパスリンクと vault-escape リンクを basename リンクに書き換える
+- `mdhop convert --to wikilink|markdown` : wikilink と markdown link を相互変換する
 - `mdhop resolve --from A.md --link '[[X]]'` : リンク解決を行う
 - `mdhop query --file A.md` : 起点ノートの関連情報を返す
 - `mdhop query --tag tag` : タグ起点の関連情報を返す
@@ -222,6 +223,16 @@ exclude:
   - 補足: repair 後に `build` を実行してインデックスを作成・更新する
   - 補足: repair 後に build が曖昧リンクで失敗する場合は `disambiguate` で対応する
   - 補足: URL リンク、tag/frontmatter リンクは対象外
+- `convert`
+  - 必須: `--to`（`wikilink` or `markdown`）
+  - 任意: `--vault`, `--format`, `--dry-run`, `--file`（複数回指定可）
+  - 補足: DB 不要（ファイル走査ベース）。build 前に実行可能
+  - 補足: wikilink ↔ markdown link を相互変換する
+  - 補足: URL リンク、tag、frontmatter リンクは対象外
+  - 補足: `build.exclude_paths` に従う（除外ファイルは走査しない）
+  - 補足: `--file` 指定時は対象ファイルのみ変換する
+  - 補足: `--dry-run` はディスク変更せず結果のみ返す
+  - 補足: convert 後に `build` を実行してインデックスを作成・更新する
 - `resolve`
   - 必須: `--from`, `--link`
   - 任意: `--vault`, `--format`, `--fields`
@@ -310,6 +321,7 @@ exclude:
 - move（ディレクトリ）: `moved[]`（`from`, `to` の配列）, `rewritten`
 - disambiguate: `rewritten`
 - repair: `rewritten`, `skipped`
+- convert: `rewritten`
 
 ## 出力形式
 

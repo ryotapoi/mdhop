@@ -41,6 +41,8 @@ func main() {
 		err = runDisambiguate(os.Args[2:])
 	case "repair":
 		err = runRepair(os.Args[2:])
+	case "convert":
+		err = runConvert(os.Args[2:])
 	case "--version":
 		printVersion(os.Stdout)
 		return
@@ -82,6 +84,7 @@ Index Commands:
   move          Move a file and update links
   disambiguate  Rewrite basename links to full paths
   repair        Fix broken path links by rewriting to basename
+  convert       Convert between wikilink and markdown link formats
 
 Query Commands:
   resolve    Resolve a link from a source file
