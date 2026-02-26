@@ -47,6 +47,8 @@
 
 - 移動ファイルが着リンクの書き換え対象でもある場合（自身への参照）、着リンク収集時に除外して発リンクフェーズでまとめて処理する
 - stale チェック: `os.Rename` は mtime を保持するので、移動先の mtime と DB 上の移動元の mtime を比較する
+- 外部ファイル（incoming/collateral rewrite 対象）の stale チェックは不要。`replaceOutsideInlineCode` は文字列マッチで安全に動作し、Obsidian 等による mtime 変更で連続 move が失敗する問題を回避する
+- 既知の制限: move 中に外部ツール（Obsidian 等）が書き換え対象ファイルの**内容**を変更すると、行ズレにより置換が空振りするが DB の edge は更新される（DB とディスクの不整合）。次の `build` で回復する
 - コラテラル書き換え: Phase 2.5 の SQL で `tn.path` を取得する際、phantom ノード（path が NULL）を JOIN 条件で除外する（`tn.type = 'note' AND tn.exists_flag = 1`）
 - outgoing basename の DB クエリ: `COALESCE(tn.path, '')` で phantom ノードの NULL を空文字列に変換。`preMoveTargetPath == ""` のケース（phantom）は書き換え不要
 - `allExternalRewrites := append(incomingRewrites, collateralRewrites...)` はスライスエイリアシングの危険があるため、明示的に新スライスを作って append する

@@ -514,26 +514,32 @@ func TestMove_StaleFromError(t *testing.T) {
 	}
 }
 
-// --- Test 13: stale source file for incoming rewrite → error ---
-func TestMove_StaleSourceError(t *testing.T) {
+// --- Test 13: external rewrite succeeds even when target file has stale mtime ---
+func TestMove_ExternalRewriteWithStaleFile(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Modify C.md (which has a path link to A.md) after build.
+	// Modify C.md (which has a path link to A.md) after build to make it stale.
 	time.Sleep(1100 * time.Millisecond)
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("[link to A](./A.md)\n[[B]]\nmodified\n"), 0o644); err != nil {
 		t.Fatalf("write C.md: %v", err)
 	}
 
-	// Rename A.md to X.md — C.md needs rewriting but is stale.
+	// Rename A.md to X.md — C.md is stale but external rewrite should still succeed.
 	_, err := Move(vault, MoveOptions{From: "A.md", To: "X.md"})
-	if err == nil {
-		t.Fatal("expected stale error for C.md")
+	if err != nil {
+		t.Fatalf("expected success despite stale C.md, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "stale") {
-		t.Errorf("unexpected error: %v", err)
+
+	// Verify C.md was rewritten correctly.
+	content, err := os.ReadFile(filepath.Join(vault, "C.md"))
+	if err != nil {
+		t.Fatalf("read C.md: %v", err)
+	}
+	if !strings.Contains(string(content), "X.md") {
+		t.Error("C.md should have rewritten link to X.md")
 	}
 }
 
@@ -1457,11 +1463,12 @@ func TestMove_OutgoingMeaningChangeRoot(t *testing.T) {
 	}
 }
 
-// --- Test 31: stale collateral source file → error ---
-func TestMove_StaleCollateralSource(t *testing.T) {
+// --- Test 31: collateral rewrite succeeds despite stale source file ---
+func TestMove_CollateralRewriteWithStaleFile(t *testing.T) {
 	// sub1/A.md exists. B.md has [[A]] (→ sub1/A.md). C.md exists.
 	// Build, then modify B.md to make it stale.
-	// Move C.md → sub2/A.md → collateral rewrite needed for B.md → stale error.
+	// Move C.md → sub2/A.md → collateral rewrite needed for B.md.
+	// Should succeed despite B.md being stale.
 	vault := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(vault, "sub1"), 0o755); err != nil {
 		t.Fatal(err)
@@ -1489,11 +1496,17 @@ func TestMove_StaleCollateralSource(t *testing.T) {
 	}
 
 	_, err := Move(vault, MoveOptions{From: "C.md", To: "sub2/A.md"})
-	if err == nil {
-		t.Fatal("expected stale error for B.md")
+	if err != nil {
+		t.Fatalf("expected success despite stale B.md, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "stale") {
-		t.Errorf("expected stale error, got: %v", err)
+
+	// Verify B.md was rewritten — [[A]] should become path link to sub1/A.md.
+	content, err := os.ReadFile(filepath.Join(vault, "B.md"))
+	if err != nil {
+		t.Fatalf("read B.md: %v", err)
+	}
+	if !strings.Contains(string(content), "sub1/A") {
+		t.Errorf("B.md should have collateral rewrite to disambiguate, got: %s", string(content))
 	}
 }
 
@@ -1940,7 +1953,7 @@ func TestMoveDir_OutgoingPathToExternal(t *testing.T) {
 	}
 }
 
-func TestMoveDir_ExternalStale(t *testing.T) {
+func TestMoveDir_ExternalRewriteWithStaleFile(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
 	if err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
@@ -1952,12 +1965,19 @@ func TestMoveDir_ExternalStale(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// MoveDir should succeed despite stale Other.md.
 	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
-	if err == nil {
-		t.Fatal("expected stale error")
+	if err != nil {
+		t.Fatalf("expected success despite stale Other.md, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "stale") {
-		t.Errorf("expected stale error, got: %v", err)
+
+	// Verify Other.md was rewritten.
+	content, err := os.ReadFile(filepath.Join(vault, "Other.md"))
+	if err != nil {
+		t.Fatalf("read Other.md: %v", err)
+	}
+	if !strings.Contains(string(content), "newdir") {
+		t.Error("Other.md should have links rewritten to newdir/")
 	}
 }
 
@@ -2182,5 +2202,215 @@ func TestMoveDir_HiddenFilesIgnored(t *testing.T) {
 	}
 	if len(result.Moved) == 0 {
 		t.Error("expected files to be moved")
+	}
+}
+
+// --- Consecutive directory moves: the second move must not fail with stale ---
+// Scenario: dirA/ and dirB/ both have files. notes/Linker.md links to files
+// in both dirs via path links. After moving dirA/ into notes/, Linker.md is
+// rewritten (link targets changed). The second move (dirB/ into notes/) should
+// succeed because the first move must have updated Linker.md's mtime in the DB.
+func TestMoveDir_ConsecutiveMovesNoStale(t *testing.T) {
+	vault := t.TempDir()
+
+	// Create directories.
+	for _, d := range []string{"dirA", "dirB", "notes"} {
+		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Create files.
+	files := map[string]string{
+		"dirA/Alpha.md":   "alpha content\n",
+		"dirB/Beta.md":    "beta content\n",
+		"notes/Linker.md": "[[dirA/Alpha]]\n[[dirB/Beta]]\n",
+	}
+	for path, content := range files {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Build index.
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Wait so that file rewrites produce a different mtime (Unix second precision).
+	time.Sleep(1100 * time.Millisecond)
+
+	// First move: dirA/ → notes/
+	result1, err := MoveDir(vault, MoveDirOptions{FromDir: "dirA", ToDir: "notes/dirA"})
+	if err != nil {
+		t.Fatalf("first MoveDir: %v", err)
+	}
+
+	// Verify Linker.md was rewritten.
+	var linkerRewritten bool
+	for _, rw := range result1.Rewritten {
+		if rw.File == "notes/Linker.md" {
+			linkerRewritten = true
+		}
+	}
+	if !linkerRewritten {
+		t.Fatal("expected notes/Linker.md to have links rewritten after first move")
+	}
+
+	// Second move: dirB/ → notes/ — this must succeed.
+	// If the first move didn't update Linker.md's mtime in the DB,
+	// this will fail with "source file is stale: notes/Linker.md".
+	_, err = MoveDir(vault, MoveDirOptions{FromDir: "dirB", ToDir: "notes/dirB"})
+	if err != nil {
+		t.Fatalf("second MoveDir should succeed but got: %v", err)
+	}
+
+	// Verify final state of Linker.md on disk.
+	content, err := os.ReadFile(filepath.Join(vault, "notes", "Linker.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(content)
+	if !strings.Contains(s, "[[notes/dirA/Alpha]]") {
+		t.Errorf("Linker.md should contain [[notes/dirA/Alpha]], got: %s", s)
+	}
+	if !strings.Contains(s, "[[notes/dirB/Beta]]") {
+		t.Errorf("Linker.md should contain [[notes/dirB/Beta]], got: %s", s)
+	}
+}
+
+// Merge into existing directory: move --from dirA --to notes (notes/ already has files).
+// This matches the real-world scenario: mdhop move --from 04-Resources/ --to 03-Notes/
+// followed by mdhop move --from 05-Thoughts/ --to 03-Notes/.
+func TestMoveDir_ConsecutiveMergeNoStale(t *testing.T) {
+	vault := t.TempDir()
+
+	for _, d := range []string{"resources", "thoughts", "notes"} {
+		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files := map[string]string{
+		"resources/ResA.md": "resource A\n",
+		"thoughts/ThoB.md":  "thought B\n",
+		"notes/Hub.md":      "[[resources/ResA]]\n[[thoughts/ThoB]]\n",
+	}
+	for path, content := range files {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Ensure mtime will differ after rewrite.
+	time.Sleep(1100 * time.Millisecond)
+
+	// First: move resources/ → notes/ (merges into existing dir).
+	result1, err := MoveDir(vault, MoveDirOptions{FromDir: "resources", ToDir: "notes"})
+	if err != nil {
+		t.Fatalf("first MoveDir (resources → notes): %v", err)
+	}
+
+	// Hub.md should have [[resources/ResA]] rewritten.
+	var hubRewritten bool
+	for _, rw := range result1.Rewritten {
+		if rw.File == "notes/Hub.md" {
+			hubRewritten = true
+		}
+	}
+	if !hubRewritten {
+		t.Fatal("expected notes/Hub.md to be rewritten after first move")
+	}
+
+	// Second: move thoughts/ → notes/ (merges into same dir).
+	_, err = MoveDir(vault, MoveDirOptions{FromDir: "thoughts", ToDir: "notes"})
+	if err != nil {
+		t.Fatalf("second MoveDir (thoughts → notes) should succeed but got: %v", err)
+	}
+
+	// Verify final state.
+	content, err := os.ReadFile(filepath.Join(vault, "notes", "Hub.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(content)
+	if !strings.Contains(s, "[[notes/ResA]]") && !strings.Contains(s, "[[ResA]]") {
+		t.Errorf("Hub.md should reference ResA, got: %s", s)
+	}
+	if !strings.Contains(s, "[[notes/ThoB]]") && !strings.Contains(s, "[[ThoB]]") {
+		t.Errorf("Hub.md should reference ThoB, got: %s", s)
+	}
+}
+
+// Exact reproduction of the reported bug:
+// - Moved file (04-Resources/A.md) has outgoing links to files in 05-Thoughts/
+// - After move to 03-Notes/, the file's outgoing link is rewritten (Phase 4.2)
+// - File's mtime changes on disk
+// - Second move (05-Thoughts/ → 03-Notes/) needs to rewrite links in 03-Notes/A.md
+//   (now an external file), triggering stale check
+func TestMoveDir_ConsecutiveWithCrossLinks(t *testing.T) {
+	vault := t.TempDir()
+
+	for _, d := range []string{"resources", "thoughts", "notes"} {
+		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files := map[string]string{
+		// Resource file has outgoing link to a thought file (path link).
+		"resources/ResA.md": "# Resource A\n\nSee also: [[thoughts/ThoB]]\n",
+		"thoughts/ThoB.md":  "# Thought B\n\nRelated: [[resources/ResA]]\n",
+		"notes/Hub.md":      "[[resources/ResA]]\n[[thoughts/ThoB]]\n",
+	}
+	for path, content := range files {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Ensure mtime will differ after rewrite.
+	time.Sleep(1100 * time.Millisecond)
+
+	// First move: resources/ → notes/
+	// ResA.md has [[thoughts/ThoB]] which doesn't change (thoughts/ isn't moving).
+	// But ThoB.md has [[resources/ResA]] which becomes an incoming rewrite.
+	// Hub.md has [[resources/ResA]] which is also an incoming rewrite.
+	result1, err := MoveDir(vault, MoveDirOptions{FromDir: "resources", ToDir: "notes"})
+	if err != nil {
+		t.Fatalf("first MoveDir: %v", err)
+	}
+	_ = result1
+
+	// Second move: thoughts/ → notes/
+	// ThoB.md (being moved) has [[resources/ResA]] which was already rewritten
+	// to [[notes/ResA]] by the first move.
+	// notes/ResA.md (moved in first step) has [[thoughts/ThoB]] — incoming rewrite needed.
+	// This is the critical case: notes/ResA.md was written to disk by the first move
+	// (Phase 4.2 outgoing rewrite or Phase 4.1 if it was also an external rewrite target),
+	// so its disk mtime differs from build time. If the first move didn't update
+	// notes/ResA.md's mtime in DB, this will fail with stale error.
+	_, err = MoveDir(vault, MoveDirOptions{FromDir: "thoughts", ToDir: "notes"})
+	if err != nil {
+		t.Fatalf("second MoveDir should succeed but got: %v", err)
+	}
+
+	// Verify final state.
+	resA, err := os.ReadFile(filepath.Join(vault, "notes", "ResA.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(resA)
+	// ResA should now link to notes/ThoB (moved in second step).
+	if !strings.Contains(s, "[[notes/ThoB]]") && !strings.Contains(s, "[[ThoB]]") {
+		t.Errorf("ResA.md should reference ThoB after second move, got: %s", s)
 	}
 }

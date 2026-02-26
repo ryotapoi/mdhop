@@ -312,31 +312,9 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 	}
 
-	// Stale check for incoming + collateral rewrite source files.
 	allExternalRewrites := make([]rewriteEntry, 0, len(incomingRewrites)+len(collateralRewrites))
 	allExternalRewrites = append(allExternalRewrites, incomingRewrites...)
 	allExternalRewrites = append(allExternalRewrites, collateralRewrites...)
-	if len(allExternalRewrites) > 0 {
-		sourceStaleChecked := make(map[int64]bool)
-		for _, re := range allExternalRewrites {
-			if sourceStaleChecked[re.sourceID] {
-				continue
-			}
-			sourceStaleChecked[re.sourceID] = true
-			var srcMtime int64
-			err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", re.sourceID).Scan(&srcMtime)
-			if err != nil {
-				return nil, err
-			}
-			info, err := os.Stat(filepath.Join(vaultPath, re.sourcePath))
-			if err != nil {
-				return nil, err
-			}
-			if info.ModTime().Unix() != srcMtime {
-				return nil, fmt.Errorf("source file is stale: %s", re.sourcePath)
-			}
-		}
-	}
 
 	// Phase 3: outgoing link rewrite (only for notes; assets have no outgoing links).
 	type outgoingRewrite struct {
@@ -1139,31 +1117,9 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		collateralRewrites = append(collateralRewrites, crs...)
 	}
 
-	// External stale check.
 	allExternalRewrites := make([]rewriteEntry, 0, len(incomingRewrites)+len(collateralRewrites))
 	allExternalRewrites = append(allExternalRewrites, incomingRewrites...)
 	allExternalRewrites = append(allExternalRewrites, collateralRewrites...)
-	if len(allExternalRewrites) > 0 {
-		sourceStaleChecked := make(map[int64]bool)
-		for _, re := range allExternalRewrites {
-			if sourceStaleChecked[re.sourceID] {
-				continue
-			}
-			sourceStaleChecked[re.sourceID] = true
-			var srcMtime int64
-			err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", re.sourceID).Scan(&srcMtime)
-			if err != nil {
-				return nil, err
-			}
-			info, err := os.Stat(filepath.Join(vaultPath, re.sourcePath))
-			if err != nil {
-				return nil, err
-			}
-			if info.ModTime().Unix() != srcMtime {
-				return nil, fmt.Errorf("source file is stale: %s", re.sourcePath)
-			}
-		}
-	}
 
 	// Phase 3: outgoing link rewrite.
 	type movedFileRewrite struct {
