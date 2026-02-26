@@ -225,6 +225,93 @@ mdhop repair --dry-run --format json
 }
 ```
 
+## simplify
+
+Shorten redundant path links to basename form. Inverse of `disambiguate`.
+
+```bash
+mdhop simplify
+mdhop simplify --dry-run --format json
+mdhop simplify --file Notes/A.md
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--dry-run` | No | Show what would be simplified without making changes |
+| `--file <path>` | No | Limit to specific file (repeatable) |
+| `--format json\|text` | No | Output format |
+
+**Behavior:**
+- DB not required (file-scan based)
+- Shortens path links (relative and absolute) to basename when:
+  - The basename is unique across the vault, OR
+  - The basename has multiple candidates but one is in the vault root (root-priority rule)
+- Basename links are skipped (already short)
+- Broken links and vault-escape links are skipped (use `repair` first)
+- Asset path links are only shortened when no note has the same basename (namespace conflict detection)
+- `build.exclude_paths` is respected
+- URL links, tag links, and frontmatter links are not affected
+- After simplify, run `mdhop build` to update the index
+
+**Output fields:** `rewritten`, `skipped`
+
+### JSON Output Example
+
+```json
+{
+  "rewritten": [
+    {"file": "A.md", "old_link": "[[sub/B]]", "new_link": "[[B]]"}
+  ],
+  "skipped": [
+    {
+      "file": "A.md",
+      "raw_link": "[[dir1/M]]",
+      "basename": "M",
+      "reason": "ambiguous",
+      "candidates": ["dir1/M.md", "dir2/M.md"]
+    }
+  ]
+}
+```
+
+## convert
+
+Convert between wikilink and markdown link formats.
+
+```bash
+mdhop convert --to wikilink
+mdhop convert --to markdown
+mdhop convert --to wikilink --dry-run --format json
+mdhop convert --to markdown --file A.md
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--to <format>` | Yes | Target format: `wikilink` or `markdown` |
+| `--dry-run` | No | Show what would be converted without making changes |
+| `--file <path>` | No | Limit to specific file (repeatable) |
+| `--format json\|text` | No | Output format |
+
+**Behavior:**
+- DB not required (file-scan based). Can run before `build`
+- Converts wikilink (`[[...]]`) ↔ markdown link (`[...](...)`)
+- URL links, tags, and frontmatter links are not affected
+- `build.exclude_paths` is respected (excluded files are not scanned)
+- After convert, run `mdhop build` to create or update the index
+
+**Output fields:** `rewritten`
+
+### JSON Output Example
+
+```json
+{
+  "rewritten": [
+    {"file": "A.md", "old_link": "[[B]]", "new_link": "[B](B.md)"},
+    {"file": "A.md", "old_link": "[[C#Heading]]", "new_link": "[C](C.md#Heading)"}
+  ]
+}
+```
+
 ---
 
 # Query Commands

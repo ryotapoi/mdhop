@@ -1,26 +1,27 @@
 ---
 name: mdhop-query
 description: >
-  Query link relationships in a Markdown vault using mdhop.
-  Use this skill when you need to find related notes, follow backlinks,
-  check outgoing links, explore two-hop connections, resolve a specific link,
-  view vault statistics, or diagnose issues like basename conflicts and phantom nodes.
+  Queries link relationships in a Markdown vault using mdhop. Finds related notes via
+  backlinks, outgoing links, two-hop connections, and tags. Resolves specific links,
+  shows vault statistics, and diagnoses basename conflicts or phantom nodes.
+  Use when exploring note connections, following backlinks, checking link targets,
+  discovering related notes, or investigating vault health.
 ---
 
 # mdhop Query
 
-mdhop is a CLI tool that pre-indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite, enabling fast structured queries without grep. It also tracks non-markdown files (images, PDFs, etc.) as asset nodes, so asset links like `![[image.png]]` resolve correctly.
+mdhop indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite for fast structured queries. Also tracks assets (images, PDFs, etc.).
 
 ## Prerequisites
 
-- Go installed, mdhop available via `go install github.com/ryotapoi/mdhop/cmd/mdhop@latest`
-- Index already built with `mdhop build` (run once in the vault root)
+- `mdhop` available via `go install github.com/ryotapoi/mdhop/cmd/mdhop@latest`
+- Index built with `mdhop build` (run once in vault root)
 
 ## Basics
 
-- Run commands from the vault root directory (or use `--vault <path>`)
+- Run from vault root (or use `--vault <path>`)
 - All paths are vault-relative (e.g., `Notes/Design.md`)
-- Use `--format json` for machine-readable output (recommended for agents)
+- Use `--format json` for machine-readable output
 - Use `--fields <comma-separated>` to limit output fields
 
 ## Key Workflows
