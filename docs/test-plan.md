@@ -211,6 +211,31 @@
 - 非 `.md` 拡張子の壊れたパスリンクが basename に書き換わる
 - ドット入り basename（`Note.v1`）が正しく書き換わる（拡張子誤除去なし）
 
+## simplify
+
+- 正常系: unique note のパスリンク（wikilink/markdown）が basename リンクに短縮される
+- 正常系: unique asset のパスリンクが basename リンクに短縮される
+- skipped: ambiguous note（2+ 候補、ルート優先なし）は skipped に候補パス付きで報告
+- skipped: ambiguous asset（2+ 候補）は skipped に候補パス付きで報告
+- 相対パス: `[[../sub/B]]`, `[[./E]]` が正しく解決・短縮される
+- dry-run: 出力は同じだがディスク変更なし
+- basename リンクは対象外（既に短い形式）
+- インラインコード内のリンクは変更されない
+- subpath（`#Heading`）が保持される
+- alias（`|alias`）が保持される
+- markdown fragment（`#section`）が保持される
+- self-link（`[[#Heading]]`）はスキップ
+- ルート優先（note）: root file 指すリンクのみ simplify、非 root は変更しない
+- ルート優先（asset）: root asset がある場合の挙動
+- 壊れたパスリンク（存在しないファイル）はスキップ
+- vault-escape リンクはスキップ
+- `--file` で対象ファイルを制限
+- `build.exclude_paths` に従い除外ファイルはスキャンされない
+- markdown link の .md 拡張子有無が保持される
+- tag/frontmatter リンクは対象外
+- asset-note namespace 衝突: 同名 note 存在時に asset パスリンクは短縮しない
+- `--file` に存在しないファイルを指定 → エラー
+
 ## convert
 
 - markdown → wikilink: 基本変換、subpath 保持、alias 判定

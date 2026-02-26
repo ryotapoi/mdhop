@@ -50,6 +50,7 @@ exclude:
 - `mdhop delete --file ...` : ファイル削除を反映する（note / asset 両対応、登録済みのみ）
 - `mdhop delete --file dir/` : ディレクトリ配下の全登録済みファイル（note + asset）を削除する
 - `mdhop disambiguate --name a` : 曖昧リンクをフルパスへ書き換える
+- `mdhop simplify` : 冗長なパスリンクを basename リンクに短縮する
 - `mdhop repair` : 壊れたパスリンクと vault-escape リンクを basename リンクに書き換える
 - `mdhop convert --to wikilink|markdown` : wikilink と markdown link を相互変換する
 - `mdhop resolve --from A.md --link '[[X]]'` : リンク解決を行う
@@ -223,6 +224,19 @@ exclude:
   - 補足: repair 後に `build` を実行してインデックスを作成・更新する
   - 補足: repair 後に build が曖昧リンクで失敗する場合は `disambiguate` で対応する
   - 補足: URL リンク、tag/frontmatter リンクは対象外
+- `simplify`
+  - 必須: なし
+  - 任意: `--vault`, `--format`, `--dry-run`, `--file`
+  - 補足: DB 不要（ファイル走査ベース）
+  - 補足: パスリンク（相対・絶対）の basename がユニーク、またはルート優先で解決可能な場合に basename リンクに短縮する
+  - 補足: basename リンクは対象外（既に短い形式）
+  - 補足: 壊れたリンク・vault-escape リンクはスキップ（`repair` で対応）
+  - 補足: asset のパスリンクは、note namespace に同名 basename が存在しない場合のみ短縮する
+  - 補足: `--file` で対象ファイルを制限できる（複数回指定可）
+  - 補足: `--dry-run` はディスク変更せず結果のみ返す
+  - 補足: simplify 後に `build` を実行してインデックスを更新する
+  - 補足: `build.exclude_paths` に従う
+  - 補足: URL リンク、tag/frontmatter リンクは対象外
 - `convert`
   - 必須: `--to`（`wikilink` or `markdown`）
   - 任意: `--vault`, `--format`, `--dry-run`, `--file`（複数回指定可）
@@ -320,6 +334,7 @@ exclude:
 - move（単体）: `from`, `to`, `rewritten`
 - move（ディレクトリ）: `moved[]`（`from`, `to` の配列）, `rewritten`
 - disambiguate: `rewritten`
+- simplify: `rewritten`, `skipped`
 - repair: `rewritten`, `skipped`
 - convert: `rewritten`
 

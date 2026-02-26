@@ -39,6 +39,8 @@ func main() {
 		err = runMove(os.Args[2:])
 	case "disambiguate":
 		err = runDisambiguate(os.Args[2:])
+	case "simplify":
+		err = runSimplify(os.Args[2:])
 	case "repair":
 		err = runRepair(os.Args[2:])
 	case "convert":
@@ -83,6 +85,7 @@ Index Commands:
   delete        Remove files from the index
   move          Move a file and update links
   disambiguate  Rewrite basename links to full paths
+  simplify      Shorten path links to basename when unambiguous
   repair        Fix broken path links by rewriting to basename
   convert       Convert between wikilink and markdown link formats
 

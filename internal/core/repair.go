@@ -182,16 +182,7 @@ func isLinkEscaping(sourcePath string, lo linkOccur) bool {
 // Used to protect broken path links that point to files excluded by build.exclude_paths.
 // NOT used for vault-escape links (they point outside the vault, so os.Stat is inappropriate).
 func linkTargetExistsRaw(vaultPath, sourcePath string, lo linkOccur) bool {
-	target := lo.target
-
-	var resolved string
-	if lo.isRelative {
-		resolved = NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
-	} else if strings.HasPrefix(target, "/") {
-		resolved = strings.TrimPrefix(target, "/")
-	} else {
-		resolved = target
-	}
+	resolved := resolveToVaultRelative(sourcePath, lo)
 
 	full := filepath.Join(vaultPath, resolved)
 	if _, err := os.Stat(full); err == nil {

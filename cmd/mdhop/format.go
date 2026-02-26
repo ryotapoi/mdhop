@@ -720,3 +720,49 @@ func printRepairJSON(w io.Writer, r *core.RepairResult) error {
 	}
 	return encodeJSON(w, out)
 }
+
+// --- Simplify output ---
+
+type simplifyJSONOutput struct {
+	Rewritten []rewrittenJSON `json:"rewritten"`
+	Skipped   []skippedJSON   `json:"skipped"`
+}
+
+func printSimplifyText(w io.Writer, r *core.SimplifyResult) {
+	printRewrittenText(w, r.Rewritten)
+	if len(r.Skipped) > 0 {
+		fmt.Fprintln(w, "skipped:")
+		for _, s := range r.Skipped {
+			fmt.Fprintf(w, "- file: %s\n", s.File)
+			fmt.Fprintf(w, "  raw_link: %q\n", s.RawLink)
+			fmt.Fprintf(w, "  basename: %s\n", s.Basename)
+			fmt.Fprintln(w, "  candidates:")
+			for _, c := range s.Candidates {
+				fmt.Fprintf(w, "  - %s\n", c)
+			}
+		}
+	}
+}
+
+func printSimplifyJSON(w io.Writer, r *core.SimplifyResult) error {
+	skipped := make([]skippedJSON, len(r.Skipped))
+	for i, s := range r.Skipped {
+		skipped[i] = skippedJSON{
+			File:       s.File,
+			RawLink:    s.RawLink,
+			Basename:   s.Basename,
+			Candidates: s.Candidates,
+		}
+	}
+	out := simplifyJSONOutput{
+		Rewritten: toRewrittenJSON(r.Rewritten),
+		Skipped:   skipped,
+	}
+	if out.Rewritten == nil {
+		out.Rewritten = []rewrittenJSON{}
+	}
+	if out.Skipped == nil {
+		out.Skipped = []skippedJSON{}
+	}
+	return encodeJSON(w, out)
+}

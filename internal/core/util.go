@@ -125,6 +125,89 @@ func HasNonMDFiles(vaultPath, dirPrefix string) (string, error) {
 	return found, nil
 }
 
+// resolveToVaultRelative resolves a relative or absolute path link target
+// to a vault-relative path. For basename links, the target is returned as-is.
+func resolveToVaultRelative(sourcePath string, lo linkOccur) string {
+	target := lo.target
+	if lo.isRelative {
+		return NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
+	}
+	if strings.HasPrefix(target, "/") {
+		return strings.TrimPrefix(target, "/")
+	}
+	return target
+}
+
+// noteResolveMaps holds in-memory lookup maps for note link resolution (scan-mode).
+type noteResolveMaps struct {
+	basenameCounts     map[string]int
+	basenameToPath     map[string]string // lower basename → path (count==1 only)
+	rootBasenameToPath map[string]string // lower basename → root path
+	pathSetLower       map[string]string // lower path → actual path
+}
+
+// buildNoteResolveMaps builds note resolve maps from a list of vault-relative .md file paths.
+func buildNoteResolveMaps(files []string) noteResolveMaps {
+	counts := countBasenames(files)
+	btp := make(map[string]string)
+	rbtp := make(map[string]string)
+	for _, rel := range files {
+		bk := basenameKey(rel)
+		if counts[bk] == 1 {
+			btp[bk] = rel
+		}
+		if isRootFile(rel) {
+			rbtp[bk] = rel
+		}
+	}
+	ps := make(map[string]string)
+	for _, rel := range files {
+		ps[strings.ToLower(rel)] = rel
+		noExt := strings.TrimSuffix(rel, filepath.Ext(rel))
+		ps[strings.ToLower(noExt)] = rel
+	}
+	return noteResolveMaps{
+		basenameCounts:     counts,
+		basenameToPath:     btp,
+		rootBasenameToPath: rbtp,
+		pathSetLower:       ps,
+	}
+}
+
+// assetResolveMaps holds in-memory lookup maps for asset link resolution (scan-mode).
+type assetResolveMaps struct {
+	basenameCounts     map[string]int
+	basenameToPath     map[string]string // lower asset basename → path (count==1 only)
+	rootBasenameToPath map[string]string // lower asset basename → root path
+	pathSetLower       map[string]string // lower path → actual path
+}
+
+// buildAssetResolveMaps builds asset resolve maps from a list of vault-relative asset file paths.
+func buildAssetResolveMaps(assetFiles []string) assetResolveMaps {
+	counts := countAssetBasenames(assetFiles)
+	btp := make(map[string]string)
+	rbtp := make(map[string]string)
+	for _, rel := range assetFiles {
+		abk := assetBasenameKey(rel)
+		if counts[abk] == 1 {
+			btp[abk] = rel
+		}
+		if isRootFile(rel) {
+			rbtp[abk] = rel
+		}
+	}
+	ps := make(map[string]string)
+	for _, rel := range assetFiles {
+		ps[strings.ToLower(rel)] = rel
+	}
+	return assetResolveMaps{
+		basenameCounts:     counts,
+		basenameToPath:     btp,
+		rootBasenameToPath: rbtp,
+		pathSetLower:       ps,
+	}
+}
+
 // isFieldActive returns true if the field is requested (or if fields is empty, meaning all).
 func isFieldActive(field string, fields []string) bool {
 	if len(fields) == 0 {

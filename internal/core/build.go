@@ -53,55 +53,21 @@ func Build(vaultPath string) error {
 	}
 	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
 
-	// Build resolve maps for notes.
-	noteBasenameCounts := countBasenames(files)
-	noteBasenameToPath := make(map[string]string)
-	noteRootBasenameToPath := make(map[string]string)
-	for _, rel := range files {
-		bk := basenameKey(rel)
-		if noteBasenameCounts[bk] == 1 {
-			noteBasenameToPath[bk] = rel
-		}
-		if isRootFile(rel) {
-			noteRootBasenameToPath[bk] = rel
-		}
-	}
-	notePathSet := make(map[string]string)
-	for _, rel := range files {
-		notePathSet[strings.ToLower(rel)] = rel
-		noExt := strings.TrimSuffix(rel, filepath.Ext(rel))
-		notePathSet[strings.ToLower(noExt)] = rel
-	}
-
-	// Build resolve maps for assets.
-	assetBasenameCounts := countAssetBasenames(assetFiles)
-	assetBasenameToPath := make(map[string]string)
-	assetRootBasenameToPath := make(map[string]string)
-	for _, rel := range assetFiles {
-		abk := assetBasenameKey(rel)
-		if assetBasenameCounts[abk] == 1 {
-			assetBasenameToPath[abk] = rel
-		}
-		if isRootFile(rel) {
-			assetRootBasenameToPath[abk] = rel
-		}
-	}
-	assetPathSet := make(map[string]string)
-	for _, rel := range assetFiles {
-		assetPathSet[strings.ToLower(rel)] = rel
-	}
+	// Build resolve maps for notes and assets.
+	nm := buildNoteResolveMaps(files)
+	am := buildAssetResolveMaps(assetFiles)
 
 	rm := &resolveMaps{
-		pathSet:                 notePathSet,
-		basenameToPath:          noteBasenameToPath,
-		rootBasenameToPath:      noteRootBasenameToPath,
+		pathSet:                 nm.pathSetLower,
+		basenameToPath:          nm.basenameToPath,
+		rootBasenameToPath:      nm.rootBasenameToPath,
 		pathToID:                make(map[string]int64),
-		basenameCounts:          noteBasenameCounts,
-		assetPathSet:            assetPathSet,
-		assetBasenameToPath:     assetBasenameToPath,
-		assetRootBasenameToPath: assetRootBasenameToPath,
+		basenameCounts:          nm.basenameCounts,
+		assetPathSet:            am.pathSetLower,
+		assetBasenameToPath:     am.basenameToPath,
+		assetRootBasenameToPath: am.rootBasenameToPath,
 		assetPathToID:           make(map[string]int64),
-		assetBasenameCounts:     assetBasenameCounts,
+		assetBasenameCounts:     am.basenameCounts,
 	}
 
 	// Read all files, parse links, stat for mtime, and validate.
