@@ -1,134 +1,175 @@
 ---
 name: mdhop-query
 description: >
-  Queries link relationships in a Markdown vault using mdhop. Finds related notes via
-  backlinks, outgoing links, two-hop connections, and tags. Resolves specific links,
-  shows vault statistics, and diagnoses basename conflicts or phantom nodes.
-  Use when exploring note connections, following backlinks, checking link targets,
-  discovering related notes, or investigating vault health.
+  Navigate and explore link relationships in a Markdown vault using mdhop.
+  Finds backlinks, outgoing links, two-hop connections, tags, and related notes.
+  Resolves specific links, shows vault statistics, and diagnoses issues like
+  basename conflicts or phantom (unresolved) nodes.
+  Use this skill whenever: exploring connections between notes, following backlinks
+  or outgoing links, checking what a wikilink or markdown link resolves to,
+  discovering related notes through two-hop paths, investigating vault health,
+  getting vault statistics, or working with any Obsidian-style Markdown vault
+  that has mdhop installed. Even if the user doesn't mention "mdhop" by name,
+  use this skill when they want to understand link structure in a Markdown vault.
 ---
 
 # mdhop Query
 
-mdhop indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite for fast structured queries. Also tracks assets (images, PDFs, etc.).
+mdhop pre-indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite, so you can navigate between notes structurally instead of relying on grep. It also tracks assets (images, PDFs, etc.).
 
 ## Prerequisites
 
-- `mdhop` available via `go install github.com/ryotapoi/mdhop/cmd/mdhop@latest`
-- Index built with `mdhop build` (run once in vault root)
+- `mdhop` binary (install: `go install github.com/ryotapoi/mdhop/cmd/mdhop@latest`)
+- Index built: run `mdhop build` once in the vault root
 
-## Basics
+## Core Principles
 
-- Run from vault root (or use `--vault <path>`)
-- All paths are vault-relative (e.g., `Notes/Design.md`)
-- Use `--format json` for machine-readable output
-- Use `--fields <comma-separated>` to limit output fields
+**Always use `--format json`** — JSON is unambiguous and machine-parseable. Text format is for humans reading terminal output; as an agent, always prefer JSON.
 
-## Key Workflows
+**Always use `--fields`** — A full query can return hundreds of backlinks and two-hop entries, wasting tokens. Request only the fields you need for the current step. See the field selection guide below.
 
-### Find related notes
+**Run from vault root** (or pass `--vault <path>`). All paths are vault-relative (e.g., `Notes/Design.md`).
+
+## Recommended Workflow
+
+When investigating a vault, follow this sequence to work efficiently:
+
+1. **Get the big picture first**: `mdhop stats --format json` — understand vault scale (how many notes, edges, tags, phantoms)
+2. **Check for problems**: `mdhop diagnose --format json` — identify basename conflicts and phantom (unresolved) nodes before diving in
+3. **Explore specific notes**: `mdhop query --file X.md --fields backlinks,outgoing --format json` — start with direct connections
+4. **Go deeper if needed**: add `twohop` field or follow backlinks to related notes
+
+This top-down approach avoids wasting tokens on broad queries before understanding the vault structure.
+
+## Field Selection Guide
+
+Choose fields based on what you're trying to learn:
+
+| Goal | Fields to request |
+|------|-------------------|
+| Who links to this note? | `backlinks` |
+| What does this note link to? | `outgoing` |
+| What tags does this note have? | `tags` |
+| Find indirectly related notes | `twohop` |
+| Read note content | `backlinks,head` + `--include-head N` |
+| See link context | `backlinks,snippet` + `--include-snippet N` |
+
+Avoid requesting all fields at once unless you specifically need everything. Each extra field multiplies output size.
+
+## Commands
+
+### query — Find related notes
+
+The primary exploration command. Takes one entry point and returns its relationships.
 
 ```bash
-mdhop query --file Notes/Design.md --format json
+# By file path (most common)
+mdhop query --file Notes/Design.md --fields backlinks,tags --format json
+
+# By tag
+mdhop query --tag architecture --fields backlinks --format json
+
+# By phantom (unresolved reference)
+mdhop query --phantom MissingConcept --fields backlinks --format json
+
+# By name (auto-detects type: #-prefixed = tag, otherwise note/phantom)
+mdhop query --name Design --fields backlinks,outgoing --format json
 ```
 
-Returns backlinks, tags, two-hop connections, and outgoing links for the given note. You can also query asset files (e.g., `--file image.png`).
+Available fields: `backlinks`, `tags`, `twohop`, `outgoing`, `head`, `snippet`
 
-You can also query by tag, phantom, or name:
+#### Including note content
+
+When you need to read the actual text of related notes (not just their paths):
 
 ```bash
-mdhop query --tag architecture --format json
-mdhop query --phantom MissingConcept --format json
-mdhop query --name Design --format json
+# First N lines of each note (frontmatter excluded, leading blanks skipped)
+mdhop query --file X.md --fields backlinks,head --include-head 10 --format json
+
+# Context around each link occurrence (N lines before + after)
+mdhop query --file X.md --fields backlinks,snippet --include-snippet 3 --format json
 ```
 
-### Include note content
+#### Filtering results
 
 ```bash
-# Include first 10 lines of each note (frontmatter excluded)
-mdhop query --file Notes/Design.md --include-head 10 --format json
+# Exclude paths by glob pattern
+mdhop query --file X.md --exclude "daily/*" --exclude "templates/*" --format json
 
-# Include 3 lines before/after each link occurrence
-mdhop query --file Notes/Design.md --include-snippet 3 --format json
+# Exclude a tag from the tags list and twohop via entries
+mdhop query --file X.md --exclude-tag "#template" --format json
+
+# Cap results to avoid token bloat
+mdhop query --file X.md --max-backlinks 20 --max-twohop 10 --format json
 ```
 
-### Exclude specific paths or tags from results
+**Important**: `--exclude-tag` removes the tag node itself from results (tags list and twohop via entries). It does NOT filter out notes that carry that tag from backlinks/outgoing. To exclude notes by location, use `--exclude` with a path glob pattern.
 
-```bash
-mdhop query --file Notes/Design.md --exclude "daily/*" --exclude-tag "#template" --format json
-```
+### resolve — Check what a specific link points to
 
-### Resolve a specific link
+When you need to know exactly where a link resolves:
 
 ```bash
 mdhop resolve --from Notes/Design.md --link '[[Spec]]' --format json
 ```
 
-### Check vault statistics
+Returns one result with `type`, `name`, `path`, `exists`, and optional `subpath` (heading/block ref).
+
+### stats — Vault overview
+
+Quick vault-level numbers:
 
 ```bash
 mdhop stats --format json
 ```
 
-### Diagnose issues
+Returns: `notes_total`, `notes_exists`, `edges_total`, `tags_total`, `phantoms_total`, `assets_total`.
+
+### diagnose — Find problems
+
+Detect basename conflicts (ambiguity sources) and phantom nodes (broken references):
 
 ```bash
 mdhop diagnose --format json
 ```
 
-Reports basename conflicts (for both notes and assets) and phantom (unresolved) nodes.
+## Exploration Strategies
 
-## Exploration Patterns
+### Follow the backlink chain
 
-### Deep exploration via backlinks
+Start at a note, look at who links to it, then follow those backlinks deeper. Each hop reveals more context about how concepts are connected.
 
-1. Query the target note: `mdhop query --file X.md --fields backlinks --format json`
-2. Pick a relevant backlink from the result
-3. Query that note to continue exploring: `mdhop query --file <backlink_path> --format json`
+1. `mdhop query --file X.md --fields backlinks --format json`
+2. Pick a relevant backlink, query it: `mdhop query --file <path> --fields backlinks --format json`
+3. Repeat until you find what you need
 
-### Discover connections via two-hop
+### Discover unexpected connections via two-hop
 
-Two-hop finds notes that share a common target with your entry point, even without a direct link. The `via` field shows the shared target; `targets` are the related notes worth exploring.
+Two-hop finds notes that share a common link target with your starting note, even without a direct connection. The `via` field tells you what they share; `targets` are the related notes.
 
 ```bash
 mdhop query --file X.md --fields twohop --format json
 ```
 
+This is particularly useful when exploring a topic and wanting to find notes you didn't know were related.
+
 ### Tag-based discovery
 
-Find all notes sharing a specific tag:
+Find all notes sharing a specific tag to understand a topic cluster:
 
 ```bash
-mdhop query --tag "resource/knowledge-management" --fields backlinks --format json
+mdhop query --tag "architecture" --fields backlinks --format json
 ```
 
-## Token Efficiency
+## Error Handling
 
-For large vaults, always use `--fields` to request only the data you need. A full query can return hundreds of backlinks and two-hop entries.
-
-```bash
-# Prefer this (returns only what you need):
-mdhop query --file X.md --fields backlinks,tags --format json
-```
-
-Use `--max-backlinks` and `--max-twohop` to cap results when you only need a sample.
-
-## Why `--format json`?
-
-JSON output is structured and unambiguous, making it easier to parse programmatically. Text format is human-friendly but harder to process reliably.
-
-## Stale Index
-
-If you see a stale detection error (mtime mismatch), rebuild the index:
-
+**Stale index**: If you see an mtime mismatch error, the index is outdated. Rebuild:
 ```bash
 mdhop build
 ```
 
-## Need to Update the Index?
-
-If you also create, edit, move, or delete Markdown files, use the **mdhop-workflow** skill instead. It covers both index management and querying.
+**Need to modify files?**: This skill covers read-only queries. If you also need to create, move, or delete files, use the **mdhop-workflow** skill which handles index updates and link rewrites.
 
 ## Reference
 
-See [reference.md](reference.md) for detailed command options, field definitions, and output examples.
+For detailed flag reference, field definitions, and JSON output examples, see [reference.md](reference.md).

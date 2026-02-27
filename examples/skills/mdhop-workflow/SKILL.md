@@ -1,38 +1,156 @@
 ---
 name: mdhop-workflow
 description: >
-  Manages the mdhop index and rewrites links when creating, editing, moving, or deleting
-  Markdown files in a vault. Also converts link formats and simplifies redundant paths.
-  Use when files are created, edited, moved, renamed, or deleted, when the vault index needs
-  rebuilding, when converting between wikilinks and markdown links, or when simplifying
-  verbose path links to basename form.
+  Manages the mdhop index and rewrites links when creating, editing, moving,
+  renaming, or deleting Markdown files or assets in a vault. Also handles link
+  format conversion (wikilink ↔ markdown), simplifying verbose paths to basename,
+  repairing broken links, and resolving basename ambiguity. Use this skill
+  whenever you need to add new notes, move or rename files, delete notes,
+  update changed files, fix broken links, convert link formats, or clean up
+  redundant paths. Even if the user doesn't mention "mdhop" by name, use this
+  skill for any file operation in an Obsidian-style Markdown vault that has
+  mdhop installed — raw mv/rm/cp will break links.
 ---
 
 # mdhop Workflow
 
-mdhop indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite for fast structured queries without grep. It also tracks assets (images, PDFs, etc.).
+mdhop indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite. When files are created, moved, renamed, or deleted, mdhop handles both the disk operation and the link rewrites atomically — so other notes' links stay correct.
 
 ## Prerequisites
 
-- `mdhop` available via `go install github.com/ryotapoi/mdhop/cmd/mdhop@latest`
+- `mdhop` binary (install: `go install github.com/ryotapoi/mdhop/cmd/mdhop@latest`)
+- Index built: run `mdhop build` once in the vault root
+- Add `.mdhop/` to `.gitignore`
 
-## Basics
+## Core Principles
 
-- Run from vault root (or use `--vault <path>`)
-- All paths are vault-relative (e.g., `Notes/Design.md`)
-- Use `--format json` for machine-readable output
+**Never use raw `mv`, `rm`, or `cp` on vault files.** These break links in other notes. Always use `mdhop move`, `mdhop delete --rm`, and write-then-`mdhop add` instead. This is the most important rule — a single raw file operation can silently corrupt dozens of links.
 
-## Initial Setup
+**Always use `--format json`** for machine-readable output. Text format is for humans reading terminal output.
+
+**Finalize content before running mdhop commands.** Write or edit the file first, then run `mdhop add` or `mdhop update`. Running mdhop on partially-written files means the index won't reflect the final content.
+
+## Choosing the Right Command
+
+| What happened? | Command | Notes |
+|----------------|---------|-------|
+| Created a new .md file | `mdhop add --file <path>` | Auto-disambiguates if basename conflicts arise |
+| Edited an existing file | `mdhop update --file <path>` | If file was deleted from disk, treated as delete |
+| Deleted a file | `mdhop delete --file <path> --rm` | Omit `--rm` if already deleted from disk |
+| Deleted a directory | `mdhop delete --file <dir>/ --rm` | Trailing `/` triggers directory mode |
+| Moved or renamed a file | `mdhop move --from <old> --to <new>` | Handles disk move + link rewrites |
+| Moved a directory | `mdhop move --from <old>/ --to <new>/` | Atomic bulk move, preferred over sequential |
+| Links are broken after external changes | `mdhop repair` | Preview with `--dry-run --format json` |
+| Want shorter link paths | `mdhop simplify` | Inverse of disambiguate |
+| Convert wikilink ↔ markdown | `mdhop convert --to wikilink` or `--to markdown` | |
+| Index is stale or corrupted | `mdhop build` | Full rebuild from scratch |
+
+## Operation Workflows
+
+### Adding a new file
 
 ```bash
-mdhop build    # creates .mdhop/index.sqlite
+# 1. Write the file content
+# 2. Register it
+mdhop add --file Notes/NewNote.md --format json
 ```
 
-Add `.mdhop/` to `.gitignore`.
+If adding this file causes a basename conflict (another file shares the same name), mdhop automatically rewrites existing basename links to full paths. When this happens, **tell the user which files were rewritten** — they may want to review those changes.
+
+### Moving or renaming
+
+```bash
+# Single file
+mdhop move --from Notes/OldName.md --to Notes/NewName.md --format json
+
+# Entire directory (atomic, preferred over sequential moves)
+mdhop move --from OldDir/ --to NewDir/ --format json
+```
+
+Directory moves are atomic — all files move simultaneously and link rewrites are computed against the final state. Always prefer directory move over looping through files individually.
+
+### Deleting
+
+```bash
+# Delete from disk + remove from index
+mdhop delete --file Notes/Obsolete.md --rm --format json
+
+# Already deleted from disk, just clean up index
+mdhop delete --file Notes/Obsolete.md --format json
+```
+
+When other notes still link to the deleted file, it becomes a phantom node (a known "unresolved reference" — this is normal, not an error).
+
+### Repairing broken links
+
+When links are broken (e.g., after files were moved externally without mdhop):
+
+```bash
+# 1. Preview what would change
+mdhop repair --dry-run --format json
+
+# 2. Check the "skipped" field — multi-candidate links need manual resolution
+# 3. Apply if preview looks good
+mdhop repair
+
+# 4. Resolve any skipped ambiguous links
+mdhop disambiguate --name <basename> --target <path>
+
+# 5. Rebuild the index
+mdhop build
+```
+
+### Simplifying verbose paths
+
+Shortens `[[path/to/Note]]` to `[[Note]]` when the basename is unambiguous:
+
+```bash
+# 1. Preview
+mdhop simplify --dry-run --format json
+
+# 2. Apply
+mdhop simplify
+
+# 3. Rebuild
+mdhop build
+```
+
+### Converting link formats
+
+```bash
+# Markdown links → wikilinks
+mdhop convert --to wikilink --format json
+
+# Wikilinks → markdown links
+mdhop convert --to markdown --format json
+
+# Rebuild after conversion
+mdhop build
+```
+
+## When to Rebuild
+
+Several commands modify files without updating the index. After these, always run `mdhop build`:
+
+- `mdhop repair`
+- `mdhop simplify`
+- `mdhop convert`
+- `mdhop disambiguate --scan`
+
+The incremental commands (`add`, `update`, `delete`, `move`) update the index automatically — no rebuild needed.
+
+## Error Recovery
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Stale mtime | File changed since last index | `mdhop build` |
+| Ambiguous link (on add) | New file creates basename conflict | Usually auto-resolved. If phantom with multiple candidates: `mdhop disambiguate --name <name> --target <path>` first |
+| Ambiguous link (on build) | Multiple files share a basename and links are ambiguous | `mdhop diagnose` → `mdhop disambiguate --name <name> --target <path> --scan` for each |
+| Broken path links / vault-escape | External file moves or manual edits | `mdhop repair --dry-run --format json` → `mdhop repair` → `mdhop build` |
 
 ## Configuration (mdhop.yaml)
 
-Optional. Place in vault root:
+Optional file in vault root:
 
 ```yaml
 build:
@@ -47,131 +165,19 @@ exclude:
     - "#daily"
 ```
 
-- `build.exclude_paths`: Excluded from indexing (links to them become phantoms)
-- `exclude.paths` / `exclude.tags`: Filter query results only
+- `build.exclude_paths`: Files excluded from indexing entirely (links to them become phantoms)
+- `exclude.paths` / `exclude.tags`: Filter query results only (files are still indexed)
 
-## Agent Guidelines
+## Querying (Read-Only)
 
-### Use mdhop for file operations
-
-Always use `mdhop move` or `mdhop delete --rm` instead of raw `mv`/`rm`. Raw operations break links. mdhop handles disk operations and link rewrites atomically.
-
-### Operation order
-
-1. Write/Edit the file content first
-2. Then run the appropriate mdhop command
-3. Never run mdhop commands before the file content is finalized
-
-### After auto-disambiguate
-
-If `mdhop add` reports rewritten links, inform the user which files were changed.
-
-### Error recovery
-
-- **Stale mtime error**: Run `mdhop build` to rebuild
-- **Ambiguous link error on add**: Auto-disambiguate handles most cases. If it fails (phantom with multiple candidates), run `mdhop disambiguate --name <basename> --target <path>` first
-- **Ambiguous link error on build**: Run `mdhop diagnose` to identify conflicts, then `mdhop disambiguate --name <name> --target <path> --scan` for each
-- **Broken path links or vault-escape links**: Run `mdhop repair` to fix. Preview with `--dry-run --format json`. Multi-candidate links appear in `skipped` — resolve with `disambiguate`. After repair, run `build`
-
-## Index Update Rules
-
-### File created
+For exploring link structure without modifying files, use `mdhop query`, `mdhop resolve`, `mdhop stats`, and `mdhop diagnose`. These are covered in detail by the **mdhop-query** skill. Key commands:
 
 ```bash
-mdhop add --file Notes/NewNote.md
-mdhop add --file A.md --file B.md       # multiple files
-```
-
-Auto-disambiguate rewrites existing basename links to full paths when a basename conflict arises. Disable with `--no-auto-disambiguate`.
-
-### File edited
-
-```bash
-mdhop update --file Notes/Design.md
-```
-
-If the file has been deleted from disk, update treats it as a delete.
-
-### File deleted
-
-```bash
-mdhop delete --file Notes/OldNote.md --rm
-mdhop delete --file Notes/archive/ --rm   # directory: all registered files
-```
-
-Omit `--rm` if already deleted from disk. Linked-to files become phantoms.
-
-### File moved or renamed
-
-```bash
-mdhop move --from Notes/OldName.md --to Notes/NewName.md
-mdhop move --from OldDir/ --to NewDir/   # directory: atomic bulk move
-```
-
-Moves file on disk, rewrites links in other files, updates index. Directory moves are atomic — prefer over sequential single-file moves.
-
-### Rebuild from scratch
-
-```bash
-mdhop build
-```
-
-## Link Rewriting Commands
-
-### Disambiguate ambiguous links
-
-```bash
-mdhop disambiguate --name ambiguous-basename
-mdhop disambiguate --name a --target Notes/a.md   # when multiple candidates
-```
-
-Rewrites ambiguous basename links to full paths. mdhop uses strict mode by default — ambiguous links cause errors.
-
-### Repair broken links
-
-```bash
-mdhop repair --dry-run --format json   # preview
-mdhop repair                           # apply
-```
-
-Rewrites broken path links and vault-escape links to basename form. DB not required. After repair, run `build`.
-
-### Simplify redundant path links
-
-```bash
-mdhop simplify --dry-run --format json   # preview
-mdhop simplify                           # apply
-mdhop simplify --file Notes/A.md         # specific file only
-```
-
-Inverse of disambiguate: shortens path links (relative and absolute) to basename when the basename is unique or resolvable via root-priority. DB not required. Skips broken/vault-escape links (use `repair` first). After simplify, run `build`.
-
-### Convert link format
-
-```bash
-mdhop convert --to wikilink              # markdown → wikilink
-mdhop convert --to markdown              # wikilink → markdown
-mdhop convert --to wikilink --dry-run --format json   # preview
-mdhop convert --to markdown --file A.md  # specific file only
-```
-
-Converts between wikilink (`[[...]]`) and markdown link (`[...](...)`) formats. DB not required — can run before `build`. After convert, run `build`.
-
-## Phantom Nodes
-
-Links to non-existent files create phantoms. When you later create the file and run `mdhop add`, the phantom is promoted to a real note.
-
-Check phantoms: `mdhop diagnose --fields phantoms --format json`
-
-## Querying
-
-```bash
-mdhop query --file Notes/Design.md --format json
-mdhop resolve --from Notes/Design.md --link '[[Spec]]' --format json
-mdhop stats --format json
-mdhop diagnose --format json
+mdhop stats --format json                    # vault overview
+mdhop diagnose --format json                 # find conflicts and phantoms
+mdhop query --file X.md --fields backlinks,outgoing --format json
 ```
 
 ## Reference
 
-See [reference.md](reference.md) for detailed command options, field definitions, and output examples.
+For detailed flag reference, all output fields, and JSON examples, see [reference.md](reference.md).
