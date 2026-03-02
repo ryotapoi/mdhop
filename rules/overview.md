@@ -3,7 +3,7 @@
 このドキュメントは、ユーザー視点の挙動・互換性・制約・非目標をまとめる。
 実装詳細や内部構造は書かず、詳細はテストとコードに寄せる。
 必要最小限の説明に留める。
-詳細な内部設計は `docs/architecture/` と `docs/adr/` に置く。
+詳細な内部設計は `rules/` と `decisions/` に置く。
 
 ## 対象と前提
 
@@ -65,7 +65,7 @@ exclude:
 
 - 既定は **厳密モード**（曖昧時はエラー）
 - 互換モード（Obsidian互換）は将来追加する
-  - 詳細は `docs/external/obsidian-compat.md`
+  - 詳細は `rules/obsidian-compat.md`
 
 ### 厳密モードの曖昧リンクルール
 

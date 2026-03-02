@@ -77,10 +77,10 @@ exclude:
 
 ## Documentation
 
-- [Command specification and behavior](docs/external/overview.md)
-- [Use cases and workflows](docs/external/stories.md)
-- [Design concepts](docs/architecture/01-concept.md)
-- [Data model](docs/architecture/03-data-model.md)
+- [Command specification and behavior](rules/overview.md)
+- [Use cases and workflows](rules/stories.md)
+- [Design concepts](rules/01-concept.md)
+- [Data model](rules/03-data-model.md)
 
 ## License
 

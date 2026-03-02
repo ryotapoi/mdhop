@@ -6,5 +6,5 @@
       "Read(./secrets/**)"
     ]
   },
-  "plansDirectory": "./tmp/plans"
+  "plansDirectory": "./backlog/plans"
 }

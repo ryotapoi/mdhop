@@ -1,6 +1,6 @@
 ---
 name: adr
-description: Architecture Decision Record を docs/adr/ に作成する
+description: Architecture Decision Record を decisions/ に作成する
 ---
 
 # ADR スキル
@@ -20,9 +20,9 @@ description: Architecture Decision Record を docs/adr/ に作成する
 
 ## 作成手順
 
-1. `docs/adr/` の既存ファイルを確認し、次の連番を決定する
+1. `decisions/` の既存ファイルを確認し、次の連番を決定する
 2. 判断ごとに1つの ADR を作成する（1つの ADR に複数の判断を混ぜない）
-3. 以下のテンプレートで `docs/adr/NNNN-タイトル.md` に書く
+3. 以下のテンプレートで `decisions/NNNN-タイトル.md` に書く
 
 NNNN は0埋め4桁の連番。タイトルはケバブケースで簡潔に。
 

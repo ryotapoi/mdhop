@@ -41,14 +41,14 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ## 手順
 
 1. `/adr` を実行する（ADR スキルの判断基準に従い、不要なら作成しない）
-2. 実装中にハマった点・注意事項があれば `docs/knowledge.md` に追記する（該当なければスキップ）
+2. 実装中にハマった点・注意事項があれば `references/knowledge.md` に追記する（該当なければスキップ）
 3. `git status` と `git diff`（staged + unstaged）で変更内容を把握する
 4. `git log --oneline -5` で直近のコミットスタイルを確認する
 5. コミットメッセージ案と変更サマリを**ユーザーに提示して承認を得る**
    - ADR / knowledge.md 追記の有無も報告する
 6. 承認後、ファイルを stage してコミットする
 7. コミット後 `git status` で結果を確認する
-8. `tmp/plans/` にこの実装に対応する plan ファイルがあれば削除する
+8. `backlog/plans/` にこの実装に対応する plan ファイルがあれば削除する
 
 ## 注意
 

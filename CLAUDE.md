@@ -52,11 +52,20 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 
 ## 仕様ドキュメント
 
-詳細な仕様は `docs/` にある。新しいコマンドを実装する前に必ず参照すること:
-- `docs/external/overview.md` — ユーザー視点のコマンド仕様と挙動（主要リファレンス）
-- `docs/architecture/03-data-model.md` — DB スキーマとクエリ設計
-- `docs/test-plan.md` — コマンドごとの必要テスト一覧
-- `docs/architecture/01-concept.md` — コア思想と設計根拠
+詳細な仕様は `rules/` にある。新しいコマンドを実装する前に必ず参照すること:
+- `rules/overview.md` — ユーザー視点のコマンド仕様と挙動（主要リファレンス）
+- `rules/03-data-model.md` — DB スキーマとクエリ設計
+- `rules/test-plan.md` — コマンドごとの必要テスト一覧
+- `rules/01-concept.md` — コア思想と設計根拠
+
+## ドキュメント構成
+
+| ディレクトリ | 内容 |
+|---|---|
+| `rules/` | 仕様書・設計ドキュメント |
+| `decisions/` | ADR |
+| `references/` | 技術的知見（knowledge.md） |
+| `backlog/` | バックログ・実装計画 |
 
 ## 開発スタイル
 
@@ -85,7 +94,7 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 
 ## 実装フェーズ
 
-プラン承認後、`docs/knowledge.md` を事前確認してから実装・テストを行う。
+プラン承認後、`references/knowledge.md` を事前確認してから実装・テストを行う。
 
 ## 実装レビュー
 
@@ -93,7 +102,7 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 **各ステップは前のステップの完了を待ってから実行すること。同時実行は禁止。**
 
 0. ビルドとテストを通す。失敗したら修正してから次へ進む
-1. プランから意図的に変更した箇所がある場合、`tmp/plans/` のプランファイルを更新する（該当 Step に変更内容と理由を追記）
+1. プランから意図的に変更した箇所がある場合、`backlog/plans/` のプランファイルを更新する（該当 Step に変更内容と理由を追記）
 2. `/simplify` を実行する（DRY・code quality・efficiency の自動修正）
 3. `/self-impl-review` を実行する（最大4観点並列レビュー）
 4. `/self-impl-review-go` を実行する（Go 固有レビュー）
@@ -129,9 +138,9 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 技術的な知見・ハマりどころは以下の基準で振り分ける:
 
 - **CLAUDE.md**: 常に意識すべきルール・制約（毎回読み込まれる）
-- **docs/knowledge.md**: 特定の状況で役立つ知見（該当する実装のときに読みに行く）
+- **references/knowledge.md**: 特定の状況で役立つ知見（該当する実装のときに読みに行く）
 
-実装前やバグ調査時は `docs/knowledge.md` を確認すること。
+実装前やバグ調査時は `references/knowledge.md` を確認すること。
 
 ## コミット
 
