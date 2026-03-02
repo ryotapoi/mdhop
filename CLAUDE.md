@@ -73,7 +73,7 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 プランモードで実装計画を書き終えたら、ExitPlanMode の前にレビューループを実行する。
 **各ステップは前のステップの完了を待ってから実行すること。同時実行は禁止。**
 
-1. `/self-plan-review` を実行する（5観点並列レビュー）
+1. `/self-plan-review` を実行する（3観点並列レビュー）
 2. **新規の** 🔴 MUST / 🟡 SHOULD の指摘をプランに反映する
 3. 新規指摘があった場合 → 手順1に戻る（新規 MUST/SHOULD がゼロになるまでループ）
 4. `/codex-plan-review` を実行する（Codex セカンドオピニオン。**2回目以降は `--resume` をつけて呼ぶ**）
@@ -83,21 +83,43 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 収束判定: 前回対処済みの指摘の再表現（「もっと明示的に」「セクションに切り出せ」等）は新規とみなさない。
 判断が必要な指摘は AskUserQuestion でユーザーに確認する。
 
+## 実装フェーズ
+
+プラン承認後、`docs/knowledge.md` を事前確認してから実装・テストを行う。
+
 ## 実装レビュー
 
 実装・テストが完了したら、コミット前にレビューループを実行する。
 **各ステップは前のステップの完了を待ってから実行すること。同時実行は禁止。**
 
+0. ビルドとテストを通す。失敗したら修正してから次へ進む
 1. プランから意図的に変更した箇所がある場合、`tmp/plans/` のプランファイルを更新する（該当 Step に変更内容と理由を追記）
-2. `/self-impl-review` を実行する（5観点並列レビュー）
-3. **新規の** 🔴 MUST / 🟡 SHOULD の指摘を実装に反映する
-4. 新規指摘があった場合 → 手順2に戻る（新規 MUST/SHOULD がゼロになるまでループ）
-5. `/codex-impl-review` を実行する（Codex セカンドオピニオン。**2回目以降は `--resume` をつけて呼ぶ**）
-6. 指摘があれば反映し、手順2に戻る
-7. 指摘なし → `/commit` する
+2. `/simplify` を実行する（DRY・code quality・efficiency の自動修正）
+3. `/self-impl-review` を実行する（最大4観点並列レビュー）
+4. `/self-impl-review-go` を実行する（Go 固有レビュー）
+5. **新規の** 🔴 MUST / 🟡 SHOULD の指摘を実装に反映する
+6. 新規指摘があった場合 → 手順3に戻る（新規 MUST/SHOULD がゼロになるまでループ）
+7. `/codex-impl-review` を実行する（Codex セカンドオピニオン。**2回目以降は `--resume` をつけて呼ぶ**）
+8. 指摘があれば反映し、手順3に戻る
+9. 指摘なし → `/commit` する
 
 収束判定: 前回対処済みの指摘の再表現は新規とみなさない。
 判断が必要な指摘は AskUserQuestion でユーザーに確認する。
+
+## Codex 指摘の蓄積
+
+`/codex-plan-review` や `/codex-impl-review` で MUST / SHOULD の指摘が出たら、`tmp/codex-findings.md` に追記する。
+
+追記形式:
+```
+## <セッションで何を実装したかの1行要約>
+- [plan|impl] 🔴/🟡 <指摘内容の要約>
+  - self で防げたか: Yes/No
+  - スコープ: project / common
+  - 詳細: <具体的な指摘を1-2行で>
+```
+
+20〜30件溜まったら一括分類し、skill への反映を検討する。
 
 ## ドキュメント管理
 
@@ -114,7 +136,7 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 ## コミット
 
 コミットは `/commit` スキルを使う。Conventional Commits 形式、英語。
-`/commit` スキルが ADR → knowledge.md 追記 → コミットメッセージ承認 → コミットの全手順を含む。
+詳細は `.claude/skills/commit/SKILL.md` を参照。
 
 ## 言語
 
