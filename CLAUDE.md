@@ -77,47 +77,36 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 - 独立した作業は並列でサブエージェントを起動する
 - 1 サブエージェント = 1 タスクに絞り、焦点を明確にする
 
-## プランレビュー
+## 開発ワークフロー
 
-プランモードで実装計画を書き終えたら、ExitPlanMode の前にレビューループを実行する。
-**各ステップは前のステップの完了を待ってから実行すること。同時実行は禁止。**
+IMPORTANT: 以下のフローを必ずこの順番で実行すること。ステップを飛ばしてはならない。
 
-1. `/self-plan-review` を実行する（3観点並列レビュー）
-2. **新規の** 🔴 MUST / 🟡 SHOULD の指摘をプランに反映する
-3. 新規指摘があった場合 → 手順1に戻る（新規 MUST/SHOULD がゼロになるまでループ）
-4. `/codex-plan-review` を実行する（Codex セカンドオピニオン。**2回目以降は `--resume` をつけて呼ぶ**）
-5. 指摘があれば反映し、手順1に戻る
-6. 指摘なし → ExitPlanMode する
+### Step 1: 計画（プランモード）
 
-収束判定: 前回対処済みの指摘の再表現（「もっと明示的に」「セクションに切り出せ」等）は新規とみなさない。
-判断が必要な指摘は AskUserQuestion でユーザーに確認する。
+EnterPlanMode でプランを作成する。
 
-## 実装フェーズ
+### Step 2: プランレビュー
+
+プランの記述が完了したら、**ExitPlanMode を直接呼んではならない**。
+必ず先に `/review-plan-all` スキルを Skill ツールで実行する。
+レビュー完了後に ExitPlanMode を呼ぶ。
+
+### Step 3: 実装
 
 プラン承認後、`references/knowledge.md` を事前確認してから実装・テストを行う。
 
-## 実装レビュー
+### Step 4: 実装レビュー
 
-実装・テストが完了したら、コミット前にレビューループを実行する。
-**各ステップは前のステップの完了を待ってから実行すること。同時実行は禁止。**
+実装・テストが完了したら、**コミットしてはならない**。
+必ず先に `/review-code-all` スキルを Skill ツールで実行する。
 
-0. ビルドとテストを通す。失敗したら修正してから次へ進む
-1. プランから意図的に変更した箇所がある場合、`backlog/plans/` のプランファイルを更新する（該当 Step に変更内容と理由を追記）
-2. `/simplify` を実行する（DRY・code quality・efficiency の自動修正）
-3. `/self-impl-review` を実行する（最大4観点並列レビュー）
-4. `/self-impl-review-go` を実行する（Go 固有レビュー）
-5. **新規の** 🔴 MUST / 🟡 SHOULD の指摘を実装に反映する
-6. 新規指摘があった場合 → 手順3に戻る（新規 MUST/SHOULD がゼロになるまでループ）
-7. `/codex-impl-review` を実行する（Codex セカンドオピニオン。**2回目以降は `--resume` をつけて呼ぶ**）
-8. 指摘があれば反映し、手順3に戻る
-9. 指摘なし → `/commit` する
+### Step 5: コミット
 
-収束判定: 前回対処済みの指摘の再表現は新規とみなさない。
-判断が必要な指摘は AskUserQuestion でユーザーに確認する。
+レビュー完了後、`/commit` スキルでコミットする。
 
-## Codex 指摘の蓄積
+### Codex 指摘の蓄積
 
-`/codex-plan-review` や `/codex-impl-review` で MUST / SHOULD の指摘が出たら、`tmp/codex-findings.md` に追記する。
+`/review-plan-codex` や `/review-code-codex` で MUST / SHOULD の指摘が出たら、`tmp/codex-findings.md` に追記する。
 
 追記形式:
 ```
@@ -141,11 +130,6 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 - **references/knowledge.md**: 特定の状況で役立つ知見（該当する実装のときに読みに行く）
 
 実装前やバグ調査時は `references/knowledge.md` を確認すること。
-
-## コミット
-
-コミットは `/commit` スキルを使う。Conventional Commits 形式、英語。
-詳細は `.claude/skills/commit/SKILL.md` を参照。
 
 ## 言語
 
