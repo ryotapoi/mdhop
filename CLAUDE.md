@@ -55,15 +55,16 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 詳細な仕様は `rules/` にある。新しいコマンドを実装する前に必ず参照すること:
 - `rules/overview.md` — ユーザー視点のコマンド仕様と挙動（主要リファレンス）
 - `rules/03-data-model.md` — DB スキーマとクエリ設計
-- `rules/test-plan.md` — コマンドごとの必要テスト一覧
+- `derived/test-plan.md` — コマンドごとの必要テスト一覧
 - `rules/01-concept.md` — コア思想と設計根拠
 
 ## ドキュメント構成
 
 | ディレクトリ | 内容 |
 |---|---|
-| `rules/` | 仕様書・設計ドキュメント |
+| `rules/` | 方針・スコープ・拘束的制約 |
 | `decisions/` | ADR |
+| `derived/` | 派生ビュー（stories, test-plan 等） |
 | `references/` | 技術的知見（knowledge.md） |
 | `backlog/` | バックログ・実装計画 |
 

@@ -78,7 +78,7 @@ exclude:
 ## Documentation
 
 - [Command specification and behavior](rules/overview.md)
-- [Use cases and workflows](rules/stories.md)
+- [Use cases and workflows](derived/stories.md)
 - [Design concepts](rules/01-concept.md)
 - [Data model](rules/03-data-model.md)
 
