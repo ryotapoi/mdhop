@@ -4,7 +4,6 @@ description: mdhop 固有の設計制約に基づく実装レビュー。通常�
 argument-hint: <plan-file-path>
 allowed-tools: Read, Glob, Grep, Bash(git diff *), Bash(git log *), Bash(git status *), Task
 context: fork
-agent: no-mcp-worker
 ---
 
 # Self Implementation Review — mdhop Project
@@ -14,8 +13,7 @@ agent: no-mcp-worker
 
 **重要な制約:**
 - 使用できるツール: Read, Glob, Grep, Bash(git diff/log/status), Task **のみ**
-- **mcp__codex__codex や mcp__codex__codex-reply は絶対に呼び出さないこと**
-- レビューは Task ツール（subagent_type: Plan）で実行する。自分で直接レビューしたり、MCP ツールで外部に聞いたりしない
+- レビューは Task ツール（subagent_type: Plan）で実行する。自分で直接レビューしない
 - **結果はファイルに書き出さない。テキストとして返すだけにすること。/tmp やプロジェクト配下へのファイル作成は行わない**
 
 ## 手順
