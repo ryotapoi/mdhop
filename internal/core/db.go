@@ -83,53 +83,16 @@ func initSchema(db *sql.DB) error {
 	return nil
 }
 
-func upsertNote(db dbExecer, path, name string, mtime int64) (int64, error) {
+func upsertNode(db dbExecer, key, typ, name, path string, mtime int64) (int64, error) {
 	res, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime)
-		 VALUES (?, 'note', ?, ?, 1, ?)
+		 VALUES (?, ?, ?, ?, 1, ?)
 		 ON CONFLICT(node_key) DO UPDATE SET
 		   name=excluded.name,
 		   path=excluded.path,
 		   exists_flag=excluded.exists_flag,
 		   mtime=excluded.mtime`,
-		noteKey(path), name, path, mtime,
-	)
-	if err != nil {
-		return 0, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-	if id == 0 {
-		// ON CONFLICT updated — fetch the existing ID.
-		row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", noteKey(path))
-		if err := row.Scan(&id); err != nil {
-			return 0, err
-		}
-	}
-	return id, nil
-}
-
-func noteKey(path string) string {
-	return fmt.Sprintf("note:path:%s", path)
-}
-
-func assetKey(path string) string {
-	return fmt.Sprintf("asset:path:%s", path)
-}
-
-func upsertAsset(db dbExecer, path, name string, mtime int64) (int64, error) {
-	key := assetKey(path)
-	res, err := db.Exec(
-		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime)
-		 VALUES (?, 'asset', ?, ?, 1, ?)
-		 ON CONFLICT(node_key) DO UPDATE SET
-		   name=excluded.name,
-		   path=excluded.path,
-		   exists_flag=excluded.exists_flag,
-		   mtime=excluded.mtime`,
-		key, name, path, mtime,
+		key, typ, name, path, mtime,
 	)
 	if err != nil {
 		return 0, err
@@ -146,6 +109,22 @@ func upsertAsset(db dbExecer, path, name string, mtime int64) (int64, error) {
 		}
 	}
 	return id, nil
+}
+
+func upsertNote(db dbExecer, path, name string, mtime int64) (int64, error) {
+	return upsertNode(db, noteKey(path), "note", name, path, mtime)
+}
+
+func upsertAsset(db dbExecer, path, name string, mtime int64) (int64, error) {
+	return upsertNode(db, assetKey(path), "asset", name, path, mtime)
+}
+
+func noteKey(path string) string {
+	return fmt.Sprintf("note:path:%s", path)
+}
+
+func assetKey(path string) string {
+	return fmt.Sprintf("asset:path:%s", path)
 }
 
 func tagKey(name string) string {

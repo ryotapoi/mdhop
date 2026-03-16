@@ -15,11 +15,8 @@
   - タグの正規化ルールが変わった場合に3箇所の同時修正が必要
   - 対応: `db.go` に `tagKey(name string) string` を追加し3箇所を置換
 
-- [ ] `upsertNote` / `upsertAsset` 統合
-  - `db.go:78-104` と `db.go:114-141` が INSERT SQL・ON CONFLICT 処理・`LastInsertId` フォールバックまで実質同一
-  - 差異は `node_key` 構築関数（`noteKey` vs `assetKey`）と `type` リテラルのみ
-  - 過去に `LastInsertId` バグがあった箇所（MEMORY.md 記載）で、片方だけ修正されるリスク
-  - 対応: 共通の `upsertNode(exec, key, typ, name, path, mtime)` に統合
+- [x] `upsertNote` / `upsertAsset` 統合
+  - 完了: 共通の `upsertNode(db, key, typ, name, path, mtime)` に統合。conflict-update パスのテスト追加
 
 - [ ] `printRepairText/JSON` と `printSimplifyText/JSON` の重複解消
   - `format.go:685-698` と `format.go:731-745` の `skipped` 出力が完全同一
@@ -44,8 +41,7 @@
   - asset 経由と phantom fallback のケースが未テスト
   - 対応: path link + asset の組み合わせテスト、phantom fallback テストを `resolve_test.go` に追加
 
-- [ ] `upsertNote`(54%), `parseFrontmatter`(59%), `resolvePathTarget`(64%)
-  - `upsertNote`/`upsertAsset`: ON CONFLICT UPDATE パスで `id == 0` の場合に再クエリする分岐が未カバー
+- [ ] `parseFrontmatter`(59%), `resolvePathTarget`(64%)
   - `parseFrontmatter`: frontmatter の `tags` が scalar（コンマ区切り）形式の場合が未テスト
   - `resolvePathTarget`: build Pass 2 の中枢関数で asset 経由の path 解決と phantom fallback が薄い
   - 対応: 各関数のテストケース追加。`build_test.go`, `parse_test.go` に追加
