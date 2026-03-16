@@ -38,6 +38,14 @@ func openDBAt(path string) (*sql.DB, error) {
 	return sql.Open("sqlite", fmt.Sprintf("file:%s", path))
 }
 
+func openDBChecked(vaultPath string) (*sql.DB, error) {
+	dbp := dbPath(vaultPath)
+	if _, err := os.Stat(dbp); os.IsNotExist(err) {
+		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
+	}
+	return openDBAt(dbp)
+}
+
 func initSchema(db *sql.DB) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS nodes (
@@ -320,12 +328,7 @@ func listDirNodesByType(db dbExecer, dirPrefix, nodeType string) ([]string, erro
 // under the given directory prefix.
 // dirPrefix should not have a trailing slash (e.g., "sub", "sub/inner").
 func ListDirNotes(vaultPath, dirPrefix string) ([]string, error) {
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	db, err := openDBAt(dbp)
+	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}
@@ -338,12 +341,7 @@ func ListDirNotes(vaultPath, dirPrefix string) ([]string, error) {
 // under the given directory prefix.
 // dirPrefix should not have a trailing slash (e.g., "sub", "sub/inner").
 func ListDirAssets(vaultPath, dirPrefix string) ([]string, error) {
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	db, err := openDBAt(dbp)
+	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}

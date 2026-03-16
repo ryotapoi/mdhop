@@ -29,11 +29,11 @@ type AddResult struct {
 
 // Add inserts new files into the existing index DB.
 func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
-	// DB existence check.
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
+	db, err := openDBChecked(vaultPath)
+	if err != nil {
+		return nil, err
 	}
+	defer db.Close()
 
 	// Normalize and deduplicate input paths.
 	type addFile struct {
@@ -50,12 +50,6 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		seen[np] = true
 		files = append(files, addFile{path: np})
 	}
-
-	db, err := openDBAt(dbp)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
 	// Check that no file is already registered.
 	for _, f := range files {

@@ -3,7 +3,6 @@ package core
 import (
 	"database/sql"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -19,12 +18,7 @@ type ResolveResult struct {
 
 // Resolve resolves a link from a source file and returns the target node info.
 func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	db, err := openDBAt(dbp)
+	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}

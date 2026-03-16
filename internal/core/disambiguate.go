@@ -23,14 +23,7 @@ type DisambiguateResult struct {
 
 // Disambiguate rewrites basename links to full paths for the given basename.
 func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
-	// DB existence check.
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	// Open DB.
-	db, err := openDBAt(dbp)
+	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}

@@ -1,8 +1,6 @@
 package core
 
 import (
-	"fmt"
-	"os"
 	"sort"
 	"strings"
 )
@@ -27,12 +25,7 @@ type DiagnoseResult struct {
 
 // Diagnose returns diagnostic information for the indexed vault.
 func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	db, err := openDBAt(dbp)
+	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}

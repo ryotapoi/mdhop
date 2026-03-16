@@ -30,10 +30,11 @@ type MovedFile struct {
 // updating the index and rewriting links in a single batch.
 func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	// Phase 0: validation.
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
+	db, err := openDBChecked(vaultPath)
+	if err != nil {
+		return nil, err
 	}
+	defer db.Close()
 
 	fromDir := NormalizePath(opts.FromDir)
 	toDir := NormalizePath(opts.ToDir)
@@ -62,12 +63,6 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	if strings.HasPrefix(toDir+"/", fromDir+"/") || strings.HasPrefix(fromDir+"/", toDir+"/") {
 		return nil, fmt.Errorf("source and destination directories overlap")
 	}
-
-	db, err := openDBAt(dbp)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
 	// Get all notes under fromDir.
 	fromNotePaths, err := listDirNodesByType(db, fromDir, "note")

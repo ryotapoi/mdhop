@@ -24,12 +24,7 @@ type DeleteResult struct {
 // Files with incoming references are converted to phantom nodes.
 // Files without incoming references are completely removed.
 func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	db, err := openDBAt(dbp)
+	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}

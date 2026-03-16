@@ -1,10 +1,5 @@
 package core
 
-import (
-	"fmt"
-	"os"
-)
-
 // StatsOptions controls which fields to return.
 type StatsOptions struct {
 	Fields []string // nil/empty = all
@@ -22,12 +17,7 @@ type StatsResult struct {
 
 // Stats returns aggregate statistics for the indexed vault.
 func Stats(vaultPath string, opts StatsOptions) (*StatsResult, error) {
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	db, err := openDBAt(dbp)
+	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}

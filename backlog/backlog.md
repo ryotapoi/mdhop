@@ -6,10 +6,8 @@
   - 完了: move.go(498行), move_dir.go(763行), move_helpers.go(263行) に分割
   - 7ヘルパー抽出: rewriteOutgoingRelativeLink統合, queryCollateralRewrites, groupAndApplyExternalRewrites, applyOutgoingRewritesToContent, updateExternalEdgesAndMtimes, promotePhantom, outgoingRewrite型
 
-- [ ] DB 存在チェック集約
-  - `"index not found: run 'mdhop build' first"` が12箇所にハードコード
-  - 箇所: `resolve.go:23`, `stats.go:26`, `update.go:28`, `delete.go:28`, `add.go:35`, `query.go:68`, `disambiguate.go:28`, `diagnose.go:31`, `move.go:28`, `move_dir.go:35`, `db.go:324,342`
-  - 対応: `db.go` に `openDBChecked(vaultPath string) (*sql.DB, error)` を追加し12箇所を置換
+- [x] DB 存在チェック集約
+  - 完了: `db.go` に `openDBChecked(vaultPath string) (*sql.DB, error)` を追加し12箇所を置換
 
 - [ ] `tagKey()` 関数追加
   - `"tag:name:%s"` が `db.go:179`, `resolve.go:100`, `query.go:224` にハードコード

@@ -23,10 +23,11 @@ type MoveResult struct {
 // is skipped and only link rewrites + DB updates are performed.
 func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	// Phase 0: validation.
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
+	db, err := openDBChecked(vaultPath)
+	if err != nil {
+		return nil, err
 	}
+	defer db.Close()
 
 	from := NormalizePath(opts.From)
 	to := NormalizePath(opts.To)
@@ -34,12 +35,6 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	if from == to {
 		return nil, fmt.Errorf("source and destination are the same: %s", from)
 	}
-
-	db, err := openDBAt(dbp)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
 	// Check from is registered as a note or asset in DB.
 	var nodeID int64

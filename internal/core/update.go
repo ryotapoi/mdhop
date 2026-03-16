@@ -24,12 +24,7 @@ type UpdateResult struct {
 // Files that no longer exist on disk are treated like delete (phantom conversion
 // or complete removal depending on incoming references).
 func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
-	dbp := dbPath(vaultPath)
-	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
-	}
-
-	db, err := openDBAt(dbp)
+	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}
