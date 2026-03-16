@@ -141,59 +141,15 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 
 	// Remove from and add to in maps.
 	if isAsset {
-		delete(rm.assetPathToID, from)
-		delete(rm.assetPathSet, strings.ToLower(from))
-		abk := assetBasenameKey(from)
-		rm.assetBasenameCounts[abk]--
-		if isRootFile(from) {
-			delete(rm.assetRootBasenameToPath, abk)
-		}
-
+		rm.removeAsset(from)
 		rm.assetPathToID[to] = nodeID
-		rm.assetPathSet[strings.ToLower(to)] = to
-		abkTo := assetBasenameKey(to)
-		rm.assetBasenameCounts[abkTo]++
-		if isRootFile(to) {
-			rm.assetRootBasenameToPath[abkTo] = to
-		}
-
-		// Rebuild assetBasenameToPath.
-		rm.assetBasenameToPath = make(map[string]string)
-		for p := range rm.assetPathToID {
-			abk := assetBasenameKey(p)
-			if rm.assetBasenameCounts[abk] == 1 {
-				rm.assetBasenameToPath[abk] = p
-			}
-		}
+		rm.addAsset(to)
+		rm.rebuildAssetBasenameToPath()
 	} else {
-		delete(rm.pathToID, from)
-		fromLower := strings.ToLower(from)
-		delete(rm.pathSet, fromLower)
-		fromNoExt := strings.TrimSuffix(from, filepath.Ext(from))
-		delete(rm.pathSet, strings.ToLower(fromNoExt))
-		rm.basenameCounts[basenameKey(from)]--
-		if isRootFile(from) {
-			delete(rm.rootBasenameToPath, basenameKey(from))
-		}
-
+		rm.removeNote(from)
 		rm.pathToID[to] = nodeID
-		toLower := strings.ToLower(to)
-		rm.pathSet[toLower] = to
-		toNoExt := strings.TrimSuffix(to, filepath.Ext(to))
-		rm.pathSet[strings.ToLower(toNoExt)] = to
-		rm.basenameCounts[basenameKey(to)]++
-		if isRootFile(to) {
-			rm.rootBasenameToPath[basenameKey(to)] = to
-		}
-
-		// Rebuild basenameToPath (count == 1 only).
-		rm.basenameToPath = make(map[string]string)
-		for p := range rm.pathToID {
-			bk := basenameKey(p)
-			if rm.basenameCounts[bk] == 1 {
-				rm.basenameToPath[bk] = p
-			}
-		}
+		rm.addNote(to)
+		rm.rebuildBasenameToPath(nil)
 	}
 
 	// Phase 2: incoming link rewrite.
@@ -900,65 +856,27 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		movedNodeIDs[m.nodeID] = true
 	}
 
-	// Remove all from paths, add all to paths.
+	// Remove all from paths, then add all to paths.
 	for _, m := range moves {
 		if m.isAsset {
-			delete(rm.assetPathToID, m.from)
-			delete(rm.assetPathSet, strings.ToLower(m.from))
-			abk := assetBasenameKey(m.from)
-			rm.assetBasenameCounts[abk]--
-			if isRootFile(m.from) {
-				delete(rm.assetRootBasenameToPath, abk)
-			}
+			rm.removeAsset(m.from)
 		} else {
-			delete(rm.pathToID, m.from)
-			fromLower := strings.ToLower(m.from)
-			delete(rm.pathSet, fromLower)
-			fromNoExt := strings.TrimSuffix(m.from, filepath.Ext(m.from))
-			delete(rm.pathSet, strings.ToLower(fromNoExt))
-			rm.basenameCounts[basenameKey(m.from)]--
-			if isRootFile(m.from) {
-				delete(rm.rootBasenameToPath, basenameKey(m.from))
-			}
+			rm.removeNote(m.from)
 		}
 	}
 	for _, m := range moves {
 		if m.isAsset {
 			rm.assetPathToID[m.to] = m.nodeID
-			rm.assetPathSet[strings.ToLower(m.to)] = m.to
-			abk := assetBasenameKey(m.to)
-			rm.assetBasenameCounts[abk]++
-			if isRootFile(m.to) {
-				rm.assetRootBasenameToPath[abk] = m.to
-			}
+			rm.addAsset(m.to)
 		} else {
 			rm.pathToID[m.to] = m.nodeID
-			toLower := strings.ToLower(m.to)
-			rm.pathSet[toLower] = m.to
-			toNoExt := strings.TrimSuffix(m.to, filepath.Ext(m.to))
-			rm.pathSet[strings.ToLower(toNoExt)] = m.to
-			rm.basenameCounts[basenameKey(m.to)]++
-			if isRootFile(m.to) {
-				rm.rootBasenameToPath[basenameKey(m.to)] = m.to
-			}
+			rm.addNote(m.to)
 		}
 	}
 
 	// Rebuild basenameToPath (count == 1 only).
-	rm.basenameToPath = make(map[string]string)
-	for p := range rm.pathToID {
-		bk := basenameKey(p)
-		if rm.basenameCounts[bk] == 1 {
-			rm.basenameToPath[bk] = p
-		}
-	}
-	rm.assetBasenameToPath = make(map[string]string)
-	for p := range rm.assetPathToID {
-		abk := assetBasenameKey(p)
-		if rm.assetBasenameCounts[abk] == 1 {
-			rm.assetBasenameToPath[abk] = p
-		}
-	}
+	rm.rebuildBasenameToPath(nil)
+	rm.rebuildAssetBasenameToPath()
 
 	// Phase 2: incoming link rewrite.
 	// Batch query: all incoming edges to any moved node, from external sources.

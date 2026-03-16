@@ -96,50 +96,19 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		if !cf.existsOnDisk {
 			// Only adjust maps if the file was present in them.
 			if _, ok := rm.pathToID[cf.path]; ok {
-				delete(rm.pathToID, cf.path)
-				rel := strings.ToLower(cf.path)
-				delete(rm.pathSet, rel)
-				noExt := strings.TrimSuffix(cf.path, filepath.Ext(cf.path))
-				delete(rm.pathSet, strings.ToLower(noExt))
-				bk := basenameKey(cf.path)
-				rm.basenameCounts[bk]--
-				if rm.basenameCounts[bk] <= 0 {
-					delete(rm.basenameCounts, bk)
-				}
-				if isRootFile(cf.path) {
-					delete(rm.rootBasenameToPath, bk)
-				}
+				rm.removeNote(cf.path)
 			}
 		} else {
 			// Ensure present in maps (normally already there for registered notes).
 			if _, ok := rm.pathToID[cf.path]; !ok {
 				rm.pathToID[cf.path] = cf.id
-				rel := strings.ToLower(cf.path)
-				rm.pathSet[rel] = cf.path
-				noExt := strings.TrimSuffix(cf.path, filepath.Ext(cf.path))
-				rm.pathSet[strings.ToLower(noExt)] = cf.path
-				bk := basenameKey(cf.path)
-				rm.basenameCounts[bk]++
-				if isRootFile(cf.path) {
-					rm.rootBasenameToPath[bk] = cf.path
-				}
+				rm.addNote(cf.path)
 			}
 		}
 	}
 
 	// Rebuild basenameToPath from adjusted basenameCounts.
-	rm.basenameToPath = make(map[string]string)
-	for bk, count := range rm.basenameCounts {
-		if count == 1 {
-			// Find the path with this basename key.
-			for p := range rm.pathToID {
-				if basenameKey(p) == bk {
-					rm.basenameToPath[bk] = p
-					break
-				}
-			}
-		}
-	}
+	rm.rebuildBasenameToPath(nil)
 
 	// Pre-mutation: read and validate disk-present files.
 	type parsedFile struct {

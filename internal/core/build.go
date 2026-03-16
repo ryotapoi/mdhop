@@ -9,22 +9,6 @@ import (
 
 const maxBuildErrors = 5
 
-// resolveMaps holds in-memory lookup maps for link resolution.
-type resolveMaps struct {
-	// note
-	pathSet            map[string]string // lower path → actual path
-	basenameToPath     map[string]string // lower basename → path (unique only)
-	rootBasenameToPath map[string]string // lower basename → root path
-	pathToID           map[string]int64
-	basenameCounts     map[string]int
-	// asset
-	assetPathSet            map[string]string // lower path → actual path
-	assetBasenameToPath     map[string]string // lower asset basename → path (unique only)
-	assetRootBasenameToPath map[string]string // lower asset basename → root path
-	assetPathToID           map[string]int64
-	assetBasenameCounts     map[string]int
-}
-
 // Build parses the vault and creates the index DB.
 func Build(vaultPath string) error {
 	if _, err := ensureDataDir(vaultPath); err != nil {

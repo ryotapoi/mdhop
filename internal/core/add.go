@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // AddOptions controls which files to add to the index.
@@ -95,15 +94,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 
 	// Adjust maps for post-add state.
 	for _, f := range files {
-		rel := strings.ToLower(f.path)
-		rm.pathSet[rel] = f.path
-		noExt := strings.TrimSuffix(f.path, filepath.Ext(f.path))
-		rm.pathSet[strings.ToLower(noExt)] = f.path
-		bk := basenameKey(f.path)
-		rm.basenameCounts[bk]++
-		if isRootFile(f.path) {
-			rm.rootBasenameToPath[bk] = f.path
-		}
+		rm.addNote(f.path)
 	}
 
 	// Check if adding causes existing links to become ambiguous.
@@ -231,28 +222,11 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	}
 
 	// Rebuild basenameToPath (includes both existing and new files).
-	rm.basenameToPath = make(map[string]string)
-	for bk, count := range rm.basenameCounts {
-		if count != 1 {
-			continue
-		}
-		// Search existing notes.
-		for p := range rm.pathToID {
-			if basenameKey(p) == bk {
-				rm.basenameToPath[bk] = p
-				break
-			}
-		}
-		// Search new files if not found.
-		if _, ok := rm.basenameToPath[bk]; !ok {
-			for _, f := range files {
-				if basenameKey(f.path) == bk {
-					rm.basenameToPath[bk] = f.path
-					break
-				}
-			}
-		}
+	extraPaths := make([]string, len(files))
+	for i, f := range files {
+		extraPaths[i] = f.path
 	}
+	rm.rebuildBasenameToPath(extraPaths)
 
 	// Parse all new files and check for ambiguous links.
 	type parsedFile struct {
