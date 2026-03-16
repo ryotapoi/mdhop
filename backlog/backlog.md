@@ -2,17 +2,13 @@
 
 ## v0.5.0
 
-- [ ] `move.go` の重複統合
-  - 1,735行。`Move`(L25〜630) と `MoveDir`(L690〜1521) が共通ロジックを独立実装
-  - `rewriteOutgoingRelativeLink`(L1639) と `rewriteOutgoingRelativeLinkBatch`(L1525) は同一アルゴリズムの2重実装。差分は batch 版が `movedFromTo` マップを参照する点のみ
-  - incoming rewrite フェーズ、ロールバック処理も対称的に重複
-  - 一方のバグ修正が他方に漏れるリスクが高い。カバレッジ40%台の原因でもある
-  - 対応: rewrite 2関数を統合（`movedFromTo=nil` で単一版として動作）。共通フェーズのヘルパー抽出。必要に応じて `move_single.go` / `move_dir.go` / `move_internal.go` に分割
-  - 影響: `move.go`, `move_test.go`
+- [x] `move.go` の重複統合
+  - 完了: move.go(498行), move_dir.go(763行), move_helpers.go(263行) に分割
+  - 7ヘルパー抽出: rewriteOutgoingRelativeLink統合, queryCollateralRewrites, groupAndApplyExternalRewrites, applyOutgoingRewritesToContent, updateExternalEdgesAndMtimes, promotePhantom, outgoingRewrite型
 
 - [ ] DB 存在チェック集約
   - `"index not found: run 'mdhop build' first"` が12箇所にハードコード
-  - 箇所: `resolve.go:23`, `stats.go:26`, `update.go:28`, `delete.go:28`, `add.go:35`, `query.go:68`, `disambiguate.go:28`, `diagnose.go:31`, `move.go:28,693`, `db.go:324,342`
+  - 箇所: `resolve.go:23`, `stats.go:26`, `update.go:28`, `delete.go:28`, `add.go:35`, `query.go:68`, `disambiguate.go:28`, `diagnose.go:31`, `move.go:28`, `move_dir.go:35`, `db.go:324,342`
   - 対応: `db.go` に `openDBChecked(vaultPath string) (*sql.DB, error)` を追加し12箇所を置換
 
 - [ ] `tagKey()` 関数追加
@@ -43,7 +39,7 @@
   - `move.go:632`。MoveDir の Phase 2.5 で root-priority が変化する際に第三者ファイルの basename リンクを修正する処理
   - テストなしだとサイレントにリンクが壊れるリスク
   - 対応: MoveDir で root-priority が変わるシナリオの fixture + テストケース追加
-  - 依存: move.go 統合の後にやるとテスト対象が安定する
+  - 依存: move.go 統合完了済み。move_helpers.go にヘルパーが安定
 
 - [ ] `resolvePathFromDB` (カバレッジ 26.1%)
   - `resolve.go:149`。Resolve の根幹ロジックで note exact → note+.md → asset exact → phantom のフォールバックチェーンを担う
