@@ -23,6 +23,7 @@ go build -o bin/mdhop ./cmd/mdhop      # バイナリビルド
 - ユーザー視点のコマンド仕様: rules/overview.md
 - 開発ワークフロー: rules/workflow.md
 - 情報管理の原則（フォルダ構成・情報分類・SSoT）: rules/information-management.md
+- モジュール構成と依存方向: rules/architecture.md
 
 ## 開発ワークフロー
 

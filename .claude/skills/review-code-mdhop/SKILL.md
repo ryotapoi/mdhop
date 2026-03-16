@@ -88,6 +88,11 @@ Task ツールで `subagent_type: Plan, model: "sonnet"` を使う。
 16. **既存ループの早期 return / continue を全件チェックする**: 新しいノードタイプ（asset 等）を追加した場合、既存の for ループが `continue` で新タイプをスキップしていないか確認すること
 17. **新しい map / キャッシュを追加したら、既存の調整ループでも同様に調整する**: rootBasenameToPath のような map を追加した場合、ディスク欠損調整等の既存ループにも反映が必要
 
+### モジュール配置・構造
+18. **モジュール配置と依存方向の遵守**: 新しい import が `cmd/mdhop → internal/core` の方向に従っているか。`internal/core` が `cmd/mdhop` に依存していないか（rules/architecture.md 参照）
+19. **共通化の妥当性**: `cmd/mdhop` と `internal/core` 間で共有するコードが `internal/core` に正しく配置されているか。`cmd/mdhop` のローカルなヘルパーが本来 `internal/core` に属する概念を扱っていないか
+20. **リファクタリングと機能実装のコミット分離**: diff にリファクタリング（rename、ファイル移動、構造変更）と機能実装（新しいビジネスロジック）が混在していないか
+
 上記に該当しないが mdhop 固有の設計判断に関わる問題も自由に指摘してよい。
 
 ## 出力形式
