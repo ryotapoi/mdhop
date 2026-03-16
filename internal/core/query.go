@@ -216,7 +216,7 @@ func findEntryByTag(db dbExecer, tag string) (int64, NodeInfo, error) {
 	if !strings.HasPrefix(tag, "#") {
 		tag = "#" + tag
 	}
-	return findEntryByKey(db, fmt.Sprintf("tag:name:%s", strings.ToLower(tag)), fmt.Sprintf("tag not in index: %s", tag))
+	return findEntryByKey(db, tagKey(tag), fmt.Sprintf("tag not in index: %s", tag))
 }
 
 func findEntryByPhantom(db dbExecer, name string) (int64, NodeInfo, error) {

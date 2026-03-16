@@ -9,7 +9,7 @@
 - [x] DB 存在チェック集約
   - 完了: `db.go` に `openDBChecked(vaultPath string) (*sql.DB, error)` を追加し12箇所を置換
 
-- [ ] `tagKey()` 関数追加
+- [x] `tagKey()` 関数追加
   - `"tag:name:%s"` が `db.go:179`, `resolve.go:100`, `query.go:224` にハードコード
   - `noteKey()` / `assetKey()` / `phantomKey()` は関数化済みなのに `tagKey()` だけ欠落
   - タグの正規化ルールが変わった場合に3箇所の同時修正が必要

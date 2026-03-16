@@ -148,6 +148,10 @@ func upsertAsset(db dbExecer, path, name string, mtime int64) (int64, error) {
 	return id, nil
 }
 
+func tagKey(name string) string {
+	return fmt.Sprintf("tag:name:%s", strings.ToLower(name))
+}
+
 func phantomKey(name string) string {
 	return fmt.Sprintf("phantom:name:%s", strings.ToLower(name))
 }
@@ -184,7 +188,7 @@ func upsertPhantom(db dbExecer, name string) (int64, error) {
 }
 
 func upsertTag(db dbExecer, name string) (int64, error) {
-	key := fmt.Sprintf("tag:name:%s", strings.ToLower(name))
+	key := tagKey(name)
 	res, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag)
 		 VALUES (?, 'tag', ?, NULL, 0)

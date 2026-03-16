@@ -91,7 +91,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 
 	// Tag or frontmatter tag
 	if link.linkType == "tag" || link.linkType == "frontmatter" {
-		key := fmt.Sprintf("tag:name:%s", strings.ToLower(link.target))
+		key := tagKey(link.target)
 		id, err := getNodeID(db, key)
 		if err != nil {
 			if err == sql.ErrNoRows {
