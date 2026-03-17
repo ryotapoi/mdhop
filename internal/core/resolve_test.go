@@ -1,6 +1,7 @@
 package core
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -384,6 +385,85 @@ func TestResolveBasenameAmbiguousNoRoot(t *testing.T) {
 	if !strings.Contains(err.Error(), "ambiguous") {
 		t.Errorf("error = %q, want containing %q", err.Error(), "ambiguous")
 	}
+}
+
+func TestResolveAssetPathBased(t *testing.T) {
+	vault := copyVaultForResolve(t, "vault_build_assets")
+	// Add a markdown file that links to sub/photo.jpg via path-based markdown link.
+	if err := os.WriteFile(filepath.Join(vault, "PathLinker.md"), []byte("[photo](sub/photo.jpg)\n"), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	buildVault(t, vault)
+
+	res, err := Resolve(vault, "PathLinker.md", "[photo](sub/photo.jpg)")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Type != "asset" {
+		t.Errorf("type = %q, want %q", res.Type, "asset")
+	}
+	if res.Path != "sub/photo.jpg" {
+		t.Errorf("path = %q, want %q", res.Path, "sub/photo.jpg")
+	}
+	if res.Name != "photo.jpg" {
+		t.Errorf("name = %q, want %q", res.Name, "photo.jpg")
+	}
+	if !res.Exists {
+		t.Errorf("exists = false, want true")
+	}
+	if res.Subpath != "" {
+		t.Errorf("subpath = %q, want empty", res.Subpath)
+	}
+}
+
+func TestResolvePhantomPathBased(t *testing.T) {
+	vault := copyVaultForResolve(t, "vault_build_assets")
+	// Add two markdown files with path-based links to non-existent targets.
+	if err := os.WriteFile(filepath.Join(vault, "Trigger.md"), []byte("[gone](deep/Gone)\n"), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "MdStrip.md"), []byte("[gone](deep/Gone.md)\n"), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	buildVault(t, vault)
+
+	t.Run("without_md_suffix", func(t *testing.T) {
+		res, err := Resolve(vault, "Trigger.md", "[gone](deep/Gone)")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Type != "phantom" {
+			t.Errorf("type = %q, want %q", res.Type, "phantom")
+		}
+		if res.Name != "Gone" {
+			t.Errorf("name = %q, want %q", res.Name, "Gone")
+		}
+		if res.Path != "" {
+			t.Errorf("path = %q, want empty", res.Path)
+		}
+		if res.Exists {
+			t.Errorf("exists = true, want false")
+		}
+	})
+
+	t.Run("with_md_suffix_stripped", func(t *testing.T) {
+		res, err := Resolve(vault, "MdStrip.md", "[gone](deep/Gone.md)")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Type != "phantom" {
+			t.Errorf("type = %q, want %q", res.Type, "phantom")
+		}
+		if res.Name != "Gone" {
+			t.Errorf("name = %q, want %q", res.Name, "Gone")
+		}
+		if res.Path != "" {
+			t.Errorf("path = %q, want empty", res.Path)
+		}
+		if res.Exists {
+			t.Errorf("exists = true, want false")
+		}
+	})
 }
 
 func TestResolveErrorDBNotFound(t *testing.T) {

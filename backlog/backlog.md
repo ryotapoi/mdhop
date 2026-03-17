@@ -31,10 +31,11 @@
   - 依存: move.go 統合完了済み。move_helpers.go にヘルパーが安定
   - 完了: MoveDir Phase 2.5 テスト2件追加（preRoot=F,postRoot=F 分岐 + isBasenameRawLink フィルタ）。カバレッジ 85%→90%
 
-- [ ] `resolvePathFromDB` (カバレッジ 26.1%)
+- [x] `resolvePathFromDB` (カバレッジ 26.1% → 73.9%)
   - `resolve.go:149`。Resolve の根幹ロジックで note exact → note+.md → asset exact → phantom のフォールバックチェーンを担う
   - asset 経由と phantom fallback のケースが未テスト
   - 対応: path link + asset の組み合わせテスト、phantom fallback テストを `resolve_test.go` に追加
+  - 完了: asset exact 分岐 + phantom fallback (.md strip あり/なし) の3テストケース追加
 
 - [ ] `parseFrontmatter`(59%), `resolvePathTarget`(64%)
   - `parseFrontmatter`: frontmatter の `tags` が scalar（コンマ区切り）形式の場合が未テスト
