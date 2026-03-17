@@ -2414,3 +2414,77 @@ func TestMoveDir_ConsecutiveWithCrossLinks(t *testing.T) {
 		t.Errorf("ResA.md should reference ThoB after second move, got: %s", s)
 	}
 }
+
+// --- MoveDir: Phase 2.5 collateral coverage ---
+
+func TestMoveDir_CollateralNoRootCallsQuery(t *testing.T) {
+	// preRoot=F, postRoot=F: basename count > 1 with no root file.
+	// queryCollateralRewrites is called but returns empty (no basename links exist).
+	vault := t.TempDir()
+	for _, d := range []string{"sub1", "other"} {
+		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "other", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub1", ToDir: "sub2"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+	if len(result.Rewritten) != 0 {
+		t.Errorf("expected no rewrites, got %d: %+v", len(result.Rewritten), result.Rewritten)
+	}
+}
+
+func TestMoveDir_CollateralSkipsPathLink(t *testing.T) {
+	// queryCollateralRewrites skips non-basename links via isBasenameRawLink filter.
+	// X.md has [[other/A]] (path link) → should NOT be rewritten.
+	vault := t.TempDir()
+	for _, d := range []string{"sub1", "other"} {
+		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub1", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "other", "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "X.md"), []byte("[[other/A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub1", ToDir: "sub2"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+
+	// X.md's [[other/A]] must NOT be rewritten (path link filtered by isBasenameRawLink).
+	for _, rw := range result.Rewritten {
+		if rw.File == "X.md" {
+			t.Errorf("X.md should NOT be rewritten, got: %+v", rw)
+		}
+	}
+
+	// Verify disk: X.md unchanged.
+	xContent, err := os.ReadFile(filepath.Join(vault, "X.md"))
+	if err != nil {
+		t.Fatalf("read X.md: %v", err)
+	}
+	if !strings.Contains(string(xContent), "[[other/A]]") {
+		t.Errorf("X.md should still contain [[other/A]], got: %s", string(xContent))
+	}
+}

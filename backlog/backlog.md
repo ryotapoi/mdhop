@@ -24,11 +24,12 @@
 - [x] エラーラッピング `%w` 統一
   - 完了: 98箇所の `fmt.Errorf("%s",...)` はすべて string 埋め込みで `%w` 置換対象なし。`fmt.Errorf("%s", s)` アンチパターン3箇所（build.go×2, query.go×1）を `errors.New()` に修正
 
-- [ ] `queryCollateralRewrites` (カバレッジ 0%)
+- [x] `queryCollateralRewrites` (カバレッジ 0%)
   - `move.go:632`。MoveDir の Phase 2.5 で root-priority が変化する際に第三者ファイルの basename リンクを修正する処理
   - テストなしだとサイレントにリンクが壊れるリスク
   - 対応: MoveDir で root-priority が変わるシナリオの fixture + テストケース追加
   - 依存: move.go 統合完了済み。move_helpers.go にヘルパーが安定
+  - 完了: MoveDir Phase 2.5 テスト2件追加（preRoot=F,postRoot=F 分岐 + isBasenameRawLink フィルタ）。カバレッジ 85%→90%
 
 - [ ] `resolvePathFromDB` (カバレッジ 26.1%)
   - `resolve.go:149`。Resolve の根幹ロジックで note exact → note+.md → asset exact → phantom のフォールバックチェーンを担う
