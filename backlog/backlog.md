@@ -18,10 +18,8 @@
 - [x] `upsertNote` / `upsertAsset` 統合
   - 完了: 共通の `upsertNode(db, key, typ, name, path, mtime)` に統合。conflict-update パスのテスト追加
 
-- [ ] `printRepairText/JSON` と `printSimplifyText/JSON` の重複解消
-  - `format.go:685-698` と `format.go:731-745` の `skipped` 出力が完全同一
-  - JSON 版（`format.go:701-722` と `format.go:747-768`）も同様
-  - 対応: `printSkippedText(w, skipped)` と共通 JSON 型への切り出し
+- [x] `printRepairText/JSON` と `printSimplifyText/JSON` の重複解消
+  - 完了: `printSkippedText`, `toSkippedJSON`, `rewriteResultJSONOutput`, `printRewriteResultJSON` を抽出し repair/simplify の4関数を委譲に簡素化
 
 - [ ] エラーラッピング `%w` 統一
   - `%w` は `config.go:49` の1箇所のみ、残り98箇所の `fmt.Errorf` はすべて `%s`
