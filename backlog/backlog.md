@@ -21,12 +21,8 @@
 - [x] `printRepairText/JSON` と `printSimplifyText/JSON` の重複解消
   - 完了: `printSkippedText`, `toSkippedJSON`, `rewriteResultJSONOutput`, `printRewriteResultJSON` を抽出し repair/simplify の4関数を委譲に簡素化
 
-- [ ] エラーラッピング `%w` 統一
-  - `%w` は `config.go:49` の1箇所のみ、残り98箇所の `fmt.Errorf` はすべて `%s`
-  - 現状は `errors.Is(err, flag.ErrHelp)` しか使っておらず実害なし
-  - 将来 `errors.Is` / `errors.As` での分岐が必要になった際に制約になる
-  - `build.go:337,352` の `fmt.Errorf("%s", s)` は `errors.New(s)` が意図に近いアンチパターン
-  - 対応: `%s` → `%w` 一括置換。テストのエラー文字列アサーションも要確認
+- [x] エラーラッピング `%w` 統一
+  - 完了: 98箇所の `fmt.Errorf("%s",...)` はすべて string 埋め込みで `%w` 置換対象なし。`fmt.Errorf("%s", s)` アンチパターン3箇所（build.go×2, query.go×1）を `errors.New()` に修正
 
 - [ ] `queryCollateralRewrites` (カバレッジ 0%)
   - `move.go:632`。MoveDir の Phase 2.5 で root-priority が変化する際に第三者ファイルの basename リンクを修正する処理

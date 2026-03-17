@@ -3,6 +3,7 @@ package core
 import (
 	"bufio"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -184,7 +185,7 @@ func findEntryByKey(db dbExecer, key, errMsg string) (int64, NodeInfo, error) {
 	id, err := getNodeID(db, key)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, NodeInfo{}, fmt.Errorf("%s", errMsg)
+			return 0, NodeInfo{}, errors.New(errMsg)
 		}
 		return 0, NodeInfo{}, err
 	}

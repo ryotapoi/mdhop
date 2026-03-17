@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -318,7 +319,7 @@ func formatBuildErrors(errs []string) error {
 		if hasAmbiguous {
 			s += "\nhint: run 'mdhop disambiguate --scan --name <basename>' to resolve ambiguous links"
 		}
-		return fmt.Errorf("%s", s)
+		return errors.New(s)
 	}
 	var b strings.Builder
 	for _, e := range errs {
@@ -333,7 +334,7 @@ func formatBuildErrors(errs []string) error {
 	if hasAmbiguous {
 		b.WriteString("\nhint: run 'mdhop disambiguate --scan --name <basename>' to resolve ambiguous links")
 	}
-	return fmt.Errorf("%s", b.String())
+	return errors.New(b.String())
 }
 
 func collectMarkdownFiles(vaultPath string) ([]string, error) {
