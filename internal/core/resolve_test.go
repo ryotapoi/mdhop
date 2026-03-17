@@ -478,3 +478,32 @@ func TestResolveErrorDBNotFound(t *testing.T) {
 		t.Errorf("error = %q, want containing %q", err.Error(), "index not found")
 	}
 }
+
+func TestResolvePhantomAssetExtension(t *testing.T) {
+	vault := copyVaultForResolve(t, "vault_build_assets")
+	// Add a markdown file that links to a non-existent asset (png).
+	if err := os.WriteFile(filepath.Join(vault, "AssetMissLinker.md"), []byte("[missing](nonexistent/file.png)\n"), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	buildVault(t, vault)
+
+	res, err := Resolve(vault, "AssetMissLinker.md", "[missing](nonexistent/file.png)")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Type != "phantom" {
+		t.Errorf("type = %q, want %q", res.Type, "phantom")
+	}
+	if res.Name != "file.png" {
+		t.Errorf("name = %q, want %q", res.Name, "file.png")
+	}
+	if res.Path != "" {
+		t.Errorf("path = %q, want empty", res.Path)
+	}
+	if res.Exists {
+		t.Errorf("exists = true, want false")
+	}
+	if res.Subpath != "" {
+		t.Errorf("subpath = %q, want empty", res.Subpath)
+	}
+}

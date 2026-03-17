@@ -261,6 +261,85 @@ func TestParseFrontmatterNestedTags(t *testing.T) {
 	}
 }
 
+func TestParseFrontmatterScalarTags(t *testing.T) {
+	content := "---\ntags: foo, bar\n---\n"
+	links := parseLinks(content)
+	fmTags := filterByType(links, "frontmatter")
+	if len(fmTags) != 2 {
+		t.Fatalf("expected 2 frontmatter tags, got %d: %+v", len(fmTags), fmTags)
+	}
+	if fmTags[0].target != "#foo" {
+		t.Errorf("tag[0] = %q, want #foo", fmTags[0].target)
+	}
+	if fmTags[1].target != "#bar" {
+		t.Errorf("tag[1] = %q, want #bar", fmTags[1].target)
+	}
+	// "---" is line 1, "tags: foo, bar" is line 2
+	if fmTags[0].lineStart != 2 {
+		t.Errorf("foo lineStart = %d, want 2", fmTags[0].lineStart)
+	}
+	if fmTags[1].lineStart != 2 {
+		t.Errorf("bar lineStart = %d, want 2", fmTags[1].lineStart)
+	}
+}
+
+func TestParseFrontmatterScalarSingleTag(t *testing.T) {
+	content := "---\ntags: solo\n---\n"
+	links := parseLinks(content)
+	fmTags := filterByType(links, "frontmatter")
+	if len(fmTags) != 1 {
+		t.Fatalf("expected 1 frontmatter tag, got %d: %+v", len(fmTags), fmTags)
+	}
+	if fmTags[0].target != "#solo" {
+		t.Errorf("tag[0] = %q, want #solo", fmTags[0].target)
+	}
+}
+
+func TestParseFrontmatterScalarNestedTags(t *testing.T) {
+	content := "---\ntags: a/b/c\n---\n"
+	links := parseLinks(content)
+	fmTags := filterByType(links, "frontmatter")
+	if len(fmTags) != 3 {
+		t.Fatalf("expected 3 frontmatter tags from nested expansion, got %d: %+v", len(fmTags), fmTags)
+	}
+	expected := []string{"#a", "#a/b", "#a/b/c"}
+	for i, tag := range fmTags {
+		if tag.target != expected[i] {
+			t.Errorf("tag[%d] = %q, want %q", i, tag.target, expected[i])
+		}
+	}
+}
+
+func TestParseFrontmatterScalarHashPrefix(t *testing.T) {
+	content := "---\ntags: \"#alpha, beta\"\n---\n"
+	links := parseLinks(content)
+	fmTags := filterByType(links, "frontmatter")
+	if len(fmTags) != 2 {
+		t.Fatalf("expected 2 frontmatter tags, got %d: %+v", len(fmTags), fmTags)
+	}
+	if fmTags[0].target != "#alpha" {
+		t.Errorf("tag[0] = %q, want #alpha", fmTags[0].target)
+	}
+	if fmTags[1].target != "#beta" {
+		t.Errorf("tag[1] = %q, want #beta", fmTags[1].target)
+	}
+}
+
+func TestParseFrontmatterScalarEmptySegment(t *testing.T) {
+	content := "---\ntags: \"foo,, bar\"\n---\n"
+	links := parseLinks(content)
+	fmTags := filterByType(links, "frontmatter")
+	if len(fmTags) != 2 {
+		t.Fatalf("expected 2 frontmatter tags (empty segment skipped), got %d: %+v", len(fmTags), fmTags)
+	}
+	if fmTags[0].target != "#foo" {
+		t.Errorf("tag[0] = %q, want #foo", fmTags[0].target)
+	}
+	if fmTags[1].target != "#bar" {
+		t.Errorf("tag[1] = %q, want #bar", fmTags[1].target)
+	}
+}
+
 func TestParseURLIgnored(t *testing.T) {
 	links := parseLinks("[link](https://example.com)\n")
 	if len(links) != 0 {

@@ -37,10 +37,10 @@
   - 対応: path link + asset の組み合わせテスト、phantom fallback テストを `resolve_test.go` に追加
   - 完了: asset exact 分岐 + phantom fallback (.md strip あり/なし) の3テストケース追加
 
-- [ ] `parseFrontmatter`(59%), `resolvePathTarget`(64%)
+- [x] `parseFrontmatter`(59%→88%), `resolvePathTarget`(64%→76%)
   - `parseFrontmatter`: frontmatter の `tags` が scalar（コンマ区切り）形式の場合が未テスト
   - `resolvePathTarget`: build Pass 2 の中枢関数で asset 経由の path 解決と phantom fallback が薄い
-  - 対応: 各関数のテストケース追加。`build_test.go`, `parse_test.go` に追加
+  - 完了: ScalarNode テスト5件（parse_test.go）+ asset phantom fallback テスト1件（resolve_test.go）追加
 
 ## v0.6.0
 
