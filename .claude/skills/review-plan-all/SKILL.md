@@ -8,6 +8,7 @@ argument-hint: [plan-file-path]
 
 プランレビューの全ステップを順次実行し、指摘の反映ループを回す。
 **各ステップは前のステップの完了を待ってから実行すること。同時実行は禁止。**
+**明示的に「ユーザーに確認」と記載されたステップ以外は、ユーザー確認なしで次のステップへ自動的に進む。**
 
 ユーザーが codex スキップを指示している場合、手順5-6をスキップする。
 
@@ -33,6 +34,15 @@ argument-hint: [plan-file-path]
 ### 5. `/review-plan-codex` を Skill tool で実行する
 
 初回はそのまま、2回目以降は `--resume` をつけて呼ぶ。
+
+Codex の出力に 🔴 MUST / 🟡 SHOULD / 🔵 NIT の指摘がある場合（LGTM でない場合）、指摘をメインリポジトリの `tmp/codex-findings.md` に追記する。パスは `"$(dirname "$(git rev-parse --git-common-dir)")/tmp/codex-findings.md"` で解決する（worktree でもメインリポに書く）。ファイルやディレクトリが存在しない場合は作成する。
+
+```markdown
+## YYYY-MM-DD plan: <変更の概要（1行）>
+
+- 🔴/🟡/🔵 指摘内容の要約（1行）
+- ...
+```
 
 ### 6. 新規指摘があれば反映し、手順1に戻る
 
