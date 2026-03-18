@@ -36,7 +36,7 @@ func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
 	}
 
 	// Parse the link string to get linkOccur.
-	links := parseLinks(link)
+	links := parseLinks(link).Links
 	if len(links) == 0 {
 		return nil, fmt.Errorf("could not parse link: %s", link)
 	}

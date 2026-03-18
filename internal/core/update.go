@@ -119,7 +119,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		links := parseLinks(string(content))
+		links := parseLinks(string(content)).Links
 
 		// Check for ambiguous links and vault escape (same logic as build's inline validation).
 		for _, link := range links {

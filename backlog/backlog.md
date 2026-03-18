@@ -39,7 +39,7 @@ meta:
 
 ### タスク（作業順）
 
-1. [ ] `parseLinks` の返り値を `parseResult` struct に変更
+1. [x] `parseLinks` の返り値を `parseResult` struct に変更
    - リファクタリング（機能変更なし）。全呼び出し箇所（13+）を `.Links` アクセスに変更
 2. [ ] `parseFrontmatter` の全キー対応
    - `FrontmatterEntry{Key, Value, Line}` 追加。第一階層スカラー + リスト（要素展開）。ネストマップはスキップ

@@ -4,8 +4,12 @@ import (
 	"testing"
 )
 
+func parseLinksSlice(content string) []linkOccur {
+	return parseLinks(content).Links
+}
+
 func TestParseWikiLinkBasic(t *testing.T) {
-	links := parseLinks("# A\n\n[[B]]\n")
+	links := parseLinksSlice("# A\n\n[[B]]\n")
 	var found bool
 	for _, l := range links {
 		if l.linkType == "wikilink" && l.target == "B" && l.isBasename {
@@ -24,7 +28,7 @@ func TestParseWikiLinkBasic(t *testing.T) {
 }
 
 func TestParseWikiLinkWithAlias(t *testing.T) {
-	links := parseLinks("[[B|alias]]\n")
+	links := parseLinksSlice("[[B|alias]]\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -38,7 +42,7 @@ func TestParseWikiLinkWithAlias(t *testing.T) {
 }
 
 func TestParseWikiLinkWithSubpath(t *testing.T) {
-	links := parseLinks("[[B#heading]]\n")
+	links := parseLinksSlice("[[B#heading]]\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -55,7 +59,7 @@ func TestParseWikiLinkWithSubpath(t *testing.T) {
 }
 
 func TestParseWikiLinkSelfHeading(t *testing.T) {
-	links := parseLinks("[[#Heading]]\n")
+	links := parseLinksSlice("[[#Heading]]\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -73,7 +77,7 @@ func TestParseWikiLinkSelfHeading(t *testing.T) {
 
 func TestParseWikiLinkLineNumber(t *testing.T) {
 	content := "line1\n[[A]]\nline3\n[[B]]\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	wikilinks := filterByType(links, "wikilink")
 	if len(wikilinks) != 2 {
 		t.Fatalf("expected 2 wikilinks, got %d", len(wikilinks))
@@ -87,7 +91,7 @@ func TestParseWikiLinkLineNumber(t *testing.T) {
 }
 
 func TestParseMarkdownLink(t *testing.T) {
-	links := parseLinks("[link](sub/C.md)\n")
+	links := parseLinksSlice("[link](sub/C.md)\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -104,7 +108,7 @@ func TestParseMarkdownLink(t *testing.T) {
 }
 
 func TestParseMarkdownLinkRelative(t *testing.T) {
-	links := parseLinks("[up](../Root.md)\n")
+	links := parseLinksSlice("[up](../Root.md)\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -118,7 +122,7 @@ func TestParseMarkdownLinkRelative(t *testing.T) {
 }
 
 func TestParseMarkdownLinkSubpath(t *testing.T) {
-	links := parseLinks("[link](note.md#section)\n")
+	links := parseLinksSlice("[link](note.md#section)\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -132,7 +136,7 @@ func TestParseMarkdownLinkSubpath(t *testing.T) {
 }
 
 func TestParseTagBasic(t *testing.T) {
-	links := parseLinks("Hello #tag world\n")
+	links := parseLinksSlice("Hello #tag world\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -146,7 +150,7 @@ func TestParseTagBasic(t *testing.T) {
 }
 
 func TestParseTagAtLineStart(t *testing.T) {
-	links := parseLinks("#tag at start\n")
+	links := parseLinksSlice("#tag at start\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -157,7 +161,7 @@ func TestParseTagAtLineStart(t *testing.T) {
 }
 
 func TestParseTagNestedExpansion(t *testing.T) {
-	links := parseLinks("#a/b/c\n")
+	links := parseLinksSlice("#a/b/c\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 3 {
 		t.Fatalf("expected 3 tags from nested expansion, got %d: %+v", len(tags), tags)
@@ -172,7 +176,7 @@ func TestParseTagNestedExpansion(t *testing.T) {
 
 func TestParseTagCodeFenceExcluded(t *testing.T) {
 	content := "```\n#not-a-tag\n```\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	tags := filterByType(links, "tag")
 	if len(tags) != 0 {
 		t.Errorf("expected no tags in code fence, got %d: %+v", len(tags), tags)
@@ -181,7 +185,7 @@ func TestParseTagCodeFenceExcluded(t *testing.T) {
 
 func TestParseTagInlineCodeExcluded(t *testing.T) {
 	content := "`#not-a-tag`\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	tags := filterByType(links, "tag")
 	if len(tags) != 0 {
 		t.Errorf("expected no tags in inline code, got %d: %+v", len(tags), tags)
@@ -190,7 +194,7 @@ func TestParseTagInlineCodeExcluded(t *testing.T) {
 
 func TestParseTagHeadingNotTag(t *testing.T) {
 	content := "# Heading\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	tags := filterByType(links, "tag")
 	if len(tags) != 0 {
 		t.Errorf("heading should not be a tag, got %d: %+v", len(tags), tags)
@@ -199,7 +203,7 @@ func TestParseTagHeadingNotTag(t *testing.T) {
 
 func TestParseTagInWikiLinkNotTag(t *testing.T) {
 	content := "[[#Heading]]\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	tags := filterByType(links, "tag")
 	if len(tags) != 0 {
 		t.Errorf("#Heading in wikilink should not be a tag, got %d: %+v", len(tags), tags)
@@ -208,7 +212,7 @@ func TestParseTagInWikiLinkNotTag(t *testing.T) {
 
 func TestParseTagInMarkdownLinkNotTag(t *testing.T) {
 	content := "[link](#heading)\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	tags := filterByType(links, "tag")
 	if len(tags) != 0 {
 		t.Errorf("#heading in markdown link should not be a tag, got %d: %+v", len(tags), tags)
@@ -217,7 +221,7 @@ func TestParseTagInMarkdownLinkNotTag(t *testing.T) {
 
 func TestParseFrontmatterTags(t *testing.T) {
 	content := "---\ntags:\n  - foo\n  - bar\n---\n# Content\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	fmTags := filterByType(links, "frontmatter")
 	if len(fmTags) != 2 {
 		t.Fatalf("expected 2 frontmatter tags, got %d: %+v", len(fmTags), fmTags)
@@ -232,7 +236,7 @@ func TestParseFrontmatterTags(t *testing.T) {
 
 func TestParseFrontmatterTagLineNumbers(t *testing.T) {
 	content := "---\ntags:\n  - foo\n  - bar\n---\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	fmTags := filterByType(links, "frontmatter")
 	if len(fmTags) != 2 {
 		t.Fatalf("expected 2 frontmatter tags, got %d: %+v", len(fmTags), fmTags)
@@ -248,7 +252,7 @@ func TestParseFrontmatterTagLineNumbers(t *testing.T) {
 
 func TestParseFrontmatterNestedTags(t *testing.T) {
 	content := "---\ntags:\n  - a/b/c\n---\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	fmTags := filterByType(links, "frontmatter")
 	if len(fmTags) != 3 {
 		t.Fatalf("expected 3 frontmatter tags from nested expansion, got %d: %+v", len(fmTags), fmTags)
@@ -263,7 +267,7 @@ func TestParseFrontmatterNestedTags(t *testing.T) {
 
 func TestParseFrontmatterScalarTags(t *testing.T) {
 	content := "---\ntags: foo, bar\n---\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	fmTags := filterByType(links, "frontmatter")
 	if len(fmTags) != 2 {
 		t.Fatalf("expected 2 frontmatter tags, got %d: %+v", len(fmTags), fmTags)
@@ -285,7 +289,7 @@ func TestParseFrontmatterScalarTags(t *testing.T) {
 
 func TestParseFrontmatterScalarSingleTag(t *testing.T) {
 	content := "---\ntags: solo\n---\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	fmTags := filterByType(links, "frontmatter")
 	if len(fmTags) != 1 {
 		t.Fatalf("expected 1 frontmatter tag, got %d: %+v", len(fmTags), fmTags)
@@ -297,7 +301,7 @@ func TestParseFrontmatterScalarSingleTag(t *testing.T) {
 
 func TestParseFrontmatterScalarNestedTags(t *testing.T) {
 	content := "---\ntags: a/b/c\n---\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	fmTags := filterByType(links, "frontmatter")
 	if len(fmTags) != 3 {
 		t.Fatalf("expected 3 frontmatter tags from nested expansion, got %d: %+v", len(fmTags), fmTags)
@@ -312,7 +316,7 @@ func TestParseFrontmatterScalarNestedTags(t *testing.T) {
 
 func TestParseFrontmatterScalarHashPrefix(t *testing.T) {
 	content := "---\ntags: \"#alpha, beta\"\n---\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	fmTags := filterByType(links, "frontmatter")
 	if len(fmTags) != 2 {
 		t.Fatalf("expected 2 frontmatter tags, got %d: %+v", len(fmTags), fmTags)
@@ -327,7 +331,7 @@ func TestParseFrontmatterScalarHashPrefix(t *testing.T) {
 
 func TestParseFrontmatterScalarEmptySegment(t *testing.T) {
 	content := "---\ntags: \"foo,, bar\"\n---\n"
-	links := parseLinks(content)
+	links := parseLinksSlice(content)
 	fmTags := filterByType(links, "frontmatter")
 	if len(fmTags) != 2 {
 		t.Fatalf("expected 2 frontmatter tags (empty segment skipped), got %d: %+v", len(fmTags), fmTags)
@@ -341,14 +345,14 @@ func TestParseFrontmatterScalarEmptySegment(t *testing.T) {
 }
 
 func TestParseURLIgnored(t *testing.T) {
-	links := parseLinks("[link](https://example.com)\n")
+	links := parseLinksSlice("[link](https://example.com)\n")
 	if len(links) != 0 {
 		t.Errorf("URL should be ignored, got %d: %+v", len(links), links)
 	}
 }
 
 func TestParseWikiLinkWithMdExtension(t *testing.T) {
-	links := parseLinks("[[Note.md]]\n")
+	links := parseLinksSlice("[[Note.md]]\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -358,7 +362,7 @@ func TestParseWikiLinkWithMdExtension(t *testing.T) {
 }
 
 func TestParseWikiLinkVaultRelative(t *testing.T) {
-	links := parseLinks("[[path/to/Note]]\n")
+	links := parseLinksSlice("[[path/to/Note]]\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -375,7 +379,7 @@ func TestParseWikiLinkVaultRelative(t *testing.T) {
 }
 
 func TestParseMarkdownLinkSlashPrefix(t *testing.T) {
-	links := parseLinks("[link](/sub/B.md)\n")
+	links := parseLinksSlice("[link](/sub/B.md)\n")
 	if len(links) != 1 {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
@@ -392,7 +396,7 @@ func TestParseMarkdownLinkSlashPrefix(t *testing.T) {
 }
 
 func TestParseTagUnicodeJapanese(t *testing.T) {
-	links := parseLinks("text #あいうえお end\n")
+	links := parseLinksSlice("text #あいうえお end\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -403,7 +407,7 @@ func TestParseTagUnicodeJapanese(t *testing.T) {
 }
 
 func TestParseTagHyphenated(t *testing.T) {
-	links := parseLinks("text #my-tag end\n")
+	links := parseLinksSlice("text #my-tag end\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -414,7 +418,7 @@ func TestParseTagHyphenated(t *testing.T) {
 }
 
 func TestParseTagUnicodeNested(t *testing.T) {
-	links := parseLinks("#日本語/サブタグ\n")
+	links := parseLinksSlice("#日本語/サブタグ\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 2 {
 		t.Fatalf("expected 2 tags, got %d: %+v", len(tags), tags)
@@ -428,7 +432,7 @@ func TestParseTagUnicodeNested(t *testing.T) {
 }
 
 func TestParseTagMixedUnicodeASCII(t *testing.T) {
-	links := parseLinks("#project-日本語\n")
+	links := parseLinksSlice("#project-日本語\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -439,7 +443,7 @@ func TestParseTagMixedUnicodeASCII(t *testing.T) {
 }
 
 func TestParseTagDigitFirst(t *testing.T) {
-	links := parseLinks("#123\n")
+	links := parseLinksSlice("#123\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 0 {
 		t.Errorf("digit-first should not be a tag, got %d: %+v", len(tags), tags)
@@ -447,7 +451,7 @@ func TestParseTagDigitFirst(t *testing.T) {
 }
 
 func TestParseTagDigitNotFirst(t *testing.T) {
-	links := parseLinks("#tag123\n")
+	links := parseLinksSlice("#tag123\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -459,7 +463,7 @@ func TestParseTagDigitNotFirst(t *testing.T) {
 
 func TestParseTagUnicodePunctTermination(t *testing.T) {
 	// U+2014 (EM DASH) is in General Punctuation range → terminates tag
-	links := parseLinks("#tag\u2014rest\n")
+	links := parseLinksSlice("#tag\u2014rest\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -471,7 +475,7 @@ func TestParseTagUnicodePunctTermination(t *testing.T) {
 
 func TestParseTagMultiLevelHeadingNotTag(t *testing.T) {
 	for _, line := range []string{"## Heading", "### Heading", "##heading"} {
-		links := parseLinks(line + "\n")
+		links := parseLinksSlice(line + "\n")
 		tags := filterByType(links, "tag")
 		if len(tags) != 0 {
 			t.Errorf("line %q: expected 0 tags, got %d: %+v", line, len(tags), tags)
@@ -480,7 +484,7 @@ func TestParseTagMultiLevelHeadingNotTag(t *testing.T) {
 }
 
 func TestParseTagMultipleUnicode(t *testing.T) {
-	links := parseLinks("#alpha #ベータ #gamma-delta\n")
+	links := parseLinksSlice("#alpha #ベータ #gamma-delta\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 3 {
 		t.Fatalf("expected 3 tags, got %d: %+v", len(tags), tags)
@@ -494,7 +498,7 @@ func TestParseTagMultipleUnicode(t *testing.T) {
 }
 
 func TestParseTagTrailingSlash(t *testing.T) {
-	links := parseLinks("#tag/\n")
+	links := parseLinksSlice("#tag/\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -506,7 +510,7 @@ func TestParseTagTrailingSlash(t *testing.T) {
 
 func TestParseTagTrailingPeriod(t *testing.T) {
 	// Period is in the blacklist → terminates tag
-	links := parseLinks("#tag.\n")
+	links := parseLinksSlice("#tag.\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -517,7 +521,7 @@ func TestParseTagTrailingPeriod(t *testing.T) {
 }
 
 func TestParseTagSlashFirst(t *testing.T) {
-	links := parseLinks("#/tag\n")
+	links := parseLinksSlice("#/tag\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 0 {
 		t.Errorf("slash-first should not be a tag, got %d: %+v", len(tags), tags)
@@ -525,7 +529,7 @@ func TestParseTagSlashFirst(t *testing.T) {
 }
 
 func TestParseTagHyphenFirst(t *testing.T) {
-	links := parseLinks("#-tag\n")
+	links := parseLinksSlice("#-tag\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag, got %d: %+v", len(tags), tags)
@@ -537,7 +541,7 @@ func TestParseTagHyphenFirst(t *testing.T) {
 
 func TestParseTagURLFragment(t *testing.T) {
 	// '#' preceded by '/' (not space) → not a tag boundary
-	links := parseLinks("https://example.com/#tag\n")
+	links := parseLinksSlice("https://example.com/#tag\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 0 {
 		t.Errorf("URL fragment should not be a tag, got %d: %+v", len(tags), tags)
@@ -546,7 +550,7 @@ func TestParseTagURLFragment(t *testing.T) {
 
 func TestParseTagNBSP(t *testing.T) {
 	// U+00A0 (NBSP) is unicode.IsSpace → acts as tag boundary
-	links := parseLinks("text\u00A0#tag end\n")
+	links := parseLinksSlice("text\u00A0#tag end\n")
 	tags := filterByType(links, "tag")
 	if len(tags) != 1 {
 		t.Fatalf("expected 1 tag after NBSP, got %d: %+v", len(tags), tags)

@@ -449,7 +449,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 			perm:    info.Mode().Perm(),
 		}
 
-		links := parseLinks(string(content))
+		links := parseLinks(string(content)).Links
 		for _, link := range links {
 			if link.linkType != "wikilink" && link.linkType != "markdown" {
 				continue
@@ -690,7 +690,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", m.nodeID); err != nil {
 			return nil, err
 		}
-		newLinks := parseLinks(string(movedFileRewrites[i].content))
+		newLinks := parseLinks(string(movedFileRewrites[i].content)).Links
 		for _, link := range newLinks {
 			targetID, subpath, err := resolveLink(tx, m.to, link, rm)
 			if err != nil {

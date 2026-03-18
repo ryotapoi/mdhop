@@ -92,9 +92,9 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 
 		var links []linkOccur
 		if opts.ToFormat == "wikilink" {
-			links = parseLinksForConvert(string(content))
+			links = parseLinksForConvert(string(content)).Links
 		} else {
-			links = parseLinks(string(content))
+			links = parseLinks(string(content)).Links
 		}
 
 		for _, lo := range links {
@@ -284,8 +284,8 @@ func isNoteTarget(target string, noteNameSet map[string]bool) bool {
 // parseLinksForConvert extends parseLinks with markdown self-link support.
 // Markdown self-links [text](#heading) are not captured by parseMarkdownLinks
 // (which requires target != ""), so we add an extra pass.
-func parseLinksForConvert(content string) []linkOccur {
-	out := parseLinks(content)
+func parseLinksForConvert(content string) parseResult {
+	pr := parseLinks(content)
 
 	// Additional pass: collect markdown self-links.
 	lines := strings.Split(content, "\n")
@@ -306,9 +306,9 @@ func parseLinksForConvert(content string) []linkOccur {
 			continue
 		}
 		clean := stripInlineCode(lines[i])
-		out = append(out, parseMarkdownSelfLinks(clean, lineNum)...)
+		pr.Links = append(pr.Links, parseMarkdownSelfLinks(clean, lineNum)...)
 	}
-	return out
+	return pr
 }
 
 // parseMarkdownSelfLinks extracts markdown self-links [text](#fragment) from a line.

@@ -233,7 +233,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		links := parseLinks(string(content))
+		links := parseLinks(string(content)).Links
 
 		for _, link := range links {
 			if link.linkType != "wikilink" && link.linkType != "markdown" {

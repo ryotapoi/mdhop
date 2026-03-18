@@ -87,7 +87,7 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		links := parseLinks(string(content))
+		links := parseLinks(string(content)).Links
 
 		for _, lo := range links {
 			if lo.linkType != "wikilink" && lo.linkType != "markdown" {

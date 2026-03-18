@@ -74,7 +74,7 @@ func Build(vaultPath string) error {
 		if err != nil {
 			return err
 		}
-		links := parseLinks(string(content))
+		links := parseLinks(string(content)).Links
 
 		// Validate links: collect user errors (ambiguous, vault-escape) up to maxBuildErrors.
 		for _, link := range links {

@@ -259,7 +259,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		outgoingLinks := parseLinks(string(movedContent))
+		outgoingLinks := parseLinks(string(movedContent)).Links
 
 		for _, link := range outgoingLinks {
 			if link.linkType != "wikilink" && link.linkType != "markdown" {
@@ -437,7 +437,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 
 		// 5.3: re-parse moved file content and create new edges (using new path).
-		newLinks := parseLinks(string(movedContent))
+		newLinks := parseLinks(string(movedContent)).Links
 		for _, link := range newLinks {
 			targetID, subpath, err := resolveLink(tx, to, link, rm)
 			if err != nil {

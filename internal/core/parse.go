@@ -18,8 +18,12 @@ type linkOccur struct {
 	lineEnd    int
 }
 
+type parseResult struct {
+	Links []linkOccur
+}
+
 // parseLinks parses all links (wikilinks, markdown links, tags, frontmatter tags) from content.
-func parseLinks(content string) []linkOccur {
+func parseLinks(content string) parseResult {
 	var out []linkOccur
 	lines := strings.Split(content, "\n")
 
@@ -51,7 +55,7 @@ func parseLinks(content string) []linkOccur {
 		tagLine := stripWikiLinks(stripMarkdownLinks(clean))
 		out = append(out, parseTags(tagLine, lineNum)...)
 	}
-	return out
+	return parseResult{Links: out}
 }
 
 func stripInlineCode(line string) string {
