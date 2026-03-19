@@ -279,6 +279,190 @@ func TestValidateGlobPatterns(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_MetaTypesSimple(t *testing.T) {
+	dir := t.TempDir()
+	content := "meta:\n  types:\n    date: date\n    priority: number\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Meta.Types["date"].Name != MetaTypeDate {
+		t.Errorf("date type = %q, want %q", cfg.Meta.Types["date"].Name, MetaTypeDate)
+	}
+	if cfg.Meta.Types["priority"].Name != MetaTypeNumber {
+		t.Errorf("priority type = %q, want %q", cfg.Meta.Types["priority"].Name, MetaTypeNumber)
+	}
+}
+
+func TestLoadConfig_MetaTypesEmpty(t *testing.T) {
+	dir := t.TempDir()
+	// No meta section at all
+	content := "exclude:\n  paths:\n    - \"daily/*\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Meta.Types != nil {
+		t.Errorf("expected nil Types, got %v", cfg.Meta.Types)
+	}
+}
+
+func TestLoadConfig_MetaTypesOrdered(t *testing.T) {
+	dir := t.TempDir()
+	content := "meta:\n  types:\n    severity:\n      ordered: [low, middle, high, critical]\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	info := cfg.Meta.Types["severity"]
+	if info.Name != MetaTypeOrdered {
+		t.Errorf("Name = %q, want %q", info.Name, MetaTypeOrdered)
+	}
+	want := []string{"low", "middle", "high", "critical"}
+	if len(info.OrderedValues) != len(want) {
+		t.Fatalf("OrderedValues len = %d, want %d", len(info.OrderedValues), len(want))
+	}
+	for i, v := range want {
+		if info.OrderedValues[i] != v {
+			t.Errorf("OrderedValues[%d] = %q, want %q", i, info.OrderedValues[i], v)
+		}
+	}
+}
+
+func TestLoadConfig_MetaTypesUnknown(t *testing.T) {
+	dir := t.TempDir()
+	content := "meta:\n  types:\n    foo: unknown_type\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadConfig(dir)
+	if err == nil {
+		t.Fatal("expected error for unknown type")
+	}
+}
+
+func TestLoadConfig_MetaTypesOrderedEmpty(t *testing.T) {
+	dir := t.TempDir()
+	content := "meta:\n  types:\n    severity:\n      ordered: []\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadConfig(dir)
+	if err == nil {
+		t.Fatal("expected error for empty ordered list")
+	}
+}
+
+func TestLoadConfig_MetaTypesOrderedDuplicate(t *testing.T) {
+	dir := t.TempDir()
+	content := "meta:\n  types:\n    severity:\n      ordered: [low, high, low]\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadConfig(dir)
+	if err == nil {
+		t.Fatal("expected error for duplicate ordered values")
+	}
+}
+
+func TestLoadConfig_MetaTypesOrderedExtraKeys(t *testing.T) {
+	dir := t.TempDir()
+	content := "meta:\n  types:\n    severity:\n      ordered: [low, high]\n      extra: [a]\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadConfig(dir)
+	if err == nil {
+		t.Fatal("expected error for extra keys alongside ordered")
+	}
+}
+
+func TestLoadConfig_MetaTypesMixed(t *testing.T) {
+	dir := t.TempDir()
+	content := `meta:
+  types:
+    created: date
+    priority: number
+    version: semver
+    title: string
+    severity:
+      ordered: [low, middle, high, critical]
+`
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tests := []struct {
+		key  string
+		want MetaTypeName
+	}{
+		{"created", MetaTypeDate},
+		{"priority", MetaTypeNumber},
+		{"version", MetaTypeSemver},
+		{"title", MetaTypeString},
+		{"severity", MetaTypeOrdered},
+	}
+	for _, tt := range tests {
+		info, ok := cfg.Meta.Types[tt.key]
+		if !ok {
+			t.Errorf("key %q not found", tt.key)
+			continue
+		}
+		if info.Name != tt.want {
+			t.Errorf("key %q: Name = %q, want %q", tt.key, info.Name, tt.want)
+		}
+	}
+	if len(cfg.Meta.Types["severity"].OrderedValues) != 4 {
+		t.Errorf("severity OrderedValues len = %d, want 4", len(cfg.Meta.Types["severity"].OrderedValues))
+	}
+}
+
+func TestLookupMetaType(t *testing.T) {
+	mc := MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"date":     {Name: MetaTypeDate},
+			"priority": {Name: MetaTypeNumber},
+		},
+	}
+	// Existing key
+	info, ok := mc.LookupType("date")
+	if !ok {
+		t.Error("expected ok=true for existing key")
+	}
+	if info.Name != MetaTypeDate {
+		t.Errorf("Name = %q, want %q", info.Name, MetaTypeDate)
+	}
+	// Missing key
+	info, ok = mc.LookupType("missing")
+	if ok {
+		t.Error("expected ok=false for missing key")
+	}
+	if info.Name != MetaTypeString {
+		t.Errorf("Name = %q, want %q for missing key", info.Name, MetaTypeString)
+	}
+	// nil Types map
+	var empty MetaConfig
+	info, ok = empty.LookupType("anything")
+	if ok {
+		t.Error("expected ok=false for nil Types")
+	}
+	if info.Name != MetaTypeString {
+		t.Errorf("Name = %q, want %q for nil Types", info.Name, MetaTypeString)
+	}
+}
+
 func TestFilterBuildExcludes(t *testing.T) {
 	files := []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}
 	tests := []struct {

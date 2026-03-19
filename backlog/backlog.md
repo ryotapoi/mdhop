@@ -44,7 +44,7 @@ meta:
 2. [x] `parseFrontmatter` の全キー対応
    - `FrontmatterEntry{Key, Value, Line}` 追加。第一階層スカラー + リスト（要素展開）。ネストマップはスキップ
    - `parseResult` に `Meta` フィールド追加
-3. [ ] 型システム + 設定読み込み
+3. [x] 型システム + 設定読み込み
    - `mdhop.yaml` の `meta.types` セクションの読み込み（config.go）
    - 型ごとの sort_value 正規化ロジック（string, number, date, semver, ordered）
    - 正規化失敗時の string フォールバック + 警告

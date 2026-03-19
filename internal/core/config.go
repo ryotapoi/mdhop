@@ -9,10 +9,69 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// MetaTypeName represents a supported frontmatter value type.
+type MetaTypeName string
+
+const (
+	MetaTypeString  MetaTypeName = "string"
+	MetaTypeNumber  MetaTypeName = "number"
+	MetaTypeDate    MetaTypeName = "date"
+	MetaTypeSemver  MetaTypeName = "semver"
+	MetaTypeOrdered MetaTypeName = "ordered"
+)
+
+// MetaTypeInfo holds the type declaration for a single frontmatter key.
+type MetaTypeInfo struct {
+	Name          MetaTypeName
+	OrderedValues []string // only for MetaTypeOrdered
+}
+
+// UnmarshalYAML handles heterogeneous meta type values:
+// scalar (e.g. "date") or mapping (e.g. {ordered: [low, high]}).
+func (m *MetaTypeInfo) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		m.Name = MetaTypeName(value.Value)
+		return nil
+	case yaml.MappingNode:
+		var raw map[string][]string
+		if err := value.Decode(&raw); err != nil {
+			return fmt.Errorf("meta type: %w", err)
+		}
+		if vals, ok := raw["ordered"]; ok {
+			if len(raw) != 1 {
+				return fmt.Errorf("meta type: unexpected extra keys alongside 'ordered'")
+			}
+			m.Name = MetaTypeOrdered
+			m.OrderedValues = vals
+			return nil
+		}
+		return fmt.Errorf("meta type: unknown mapping keys (expected 'ordered')")
+	default:
+		return fmt.Errorf("meta type: unsupported YAML node kind %d", value.Kind)
+	}
+}
+
+// MetaConfig holds frontmatter metadata type declarations.
+type MetaConfig struct {
+	Types map[string]MetaTypeInfo `yaml:"types"`
+}
+
+// LookupType returns the MetaTypeInfo for a given frontmatter key.
+// If the key is not configured, returns MetaTypeInfo{Name: MetaTypeString} and false.
+func (mc MetaConfig) LookupType(key string) (MetaTypeInfo, bool) {
+	info, ok := mc.Types[key]
+	if !ok {
+		return MetaTypeInfo{Name: MetaTypeString}, false
+	}
+	return info, true
+}
+
 // Config represents the mdhop.yaml configuration file.
 type Config struct {
 	Build   BuildConfig   `yaml:"build"`
 	Exclude ExcludeConfig `yaml:"exclude"`
+	Meta    MetaConfig    `yaml:"meta"`
 }
 
 // BuildConfig holds build-time settings.
@@ -48,7 +107,41 @@ func LoadConfig(vaultPath string) (Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("mdhop.yaml: %w", err)
 	}
+	if err := validateMetaConfig(cfg.Meta); err != nil {
+		return Config{}, fmt.Errorf("mdhop.yaml: %w", err)
+	}
 	return cfg, nil
+}
+
+// validMetaTypeNames is the set of recognized meta type names.
+var validMetaTypeNames = map[MetaTypeName]bool{
+	MetaTypeString:  true,
+	MetaTypeNumber:  true,
+	MetaTypeDate:    true,
+	MetaTypeSemver:  true,
+	MetaTypeOrdered: true,
+}
+
+// validateMetaConfig checks meta type declarations for errors.
+func validateMetaConfig(mc MetaConfig) error {
+	for key, info := range mc.Types {
+		if !validMetaTypeNames[info.Name] {
+			return fmt.Errorf("meta.types.%s: unknown type %q", key, info.Name)
+		}
+		if info.Name == MetaTypeOrdered {
+			if len(info.OrderedValues) == 0 {
+				return fmt.Errorf("meta.types.%s: ordered type requires non-empty value list", key)
+			}
+			seen := make(map[string]bool, len(info.OrderedValues))
+			for _, v := range info.OrderedValues {
+				if seen[v] {
+					return fmt.Errorf("meta.types.%s: duplicate ordered value %q", key, v)
+				}
+				seen[v] = true
+			}
+		}
+	}
+	return nil
 }
 
 // validateGlobPatterns checks that none of the patterns use unsupported character classes.
