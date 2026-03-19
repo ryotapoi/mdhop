@@ -18,8 +18,15 @@ type linkOccur struct {
 	lineEnd    int
 }
 
+type FrontmatterEntry struct {
+	Key   string
+	Value string
+	Line  int
+}
+
 type parseResult struct {
 	Links []linkOccur
+	Meta  []FrontmatterEntry
 }
 
 // parseLinks parses all links (wikilinks, markdown links, tags, frontmatter tags) from content.
@@ -28,9 +35,12 @@ func parseLinks(content string) parseResult {
 	lines := strings.Split(content, "\n")
 
 	// Parse frontmatter first.
+	var result parseResult
 	fmEnd := frontmatterEnd(lines)
 	if fmEnd > 0 {
-		out = append(out, parseFrontmatter(lines[:fmEnd+1])...)
+		links, meta := parseFrontmatter(lines[:fmEnd+1])
+		out = append(out, links...)
+		result.Meta = meta
 	}
 
 	inFence := false
@@ -55,7 +65,8 @@ func parseLinks(content string) parseResult {
 		tagLine := stripWikiLinks(stripMarkdownLinks(clean))
 		out = append(out, parseTags(tagLine, lineNum)...)
 	}
-	return parseResult{Links: out}
+	result.Links = out
+	return result
 }
 
 func stripInlineCode(line string) string {
@@ -308,25 +319,25 @@ func frontmatterEnd(lines []string) int {
 	return -1
 }
 
-// parseFrontmatter extracts tags from YAML frontmatter.
+// parseFrontmatter extracts tags and metadata from YAML frontmatter.
 // lines should include the opening and closing "---".
-func parseFrontmatter(lines []string) []linkOccur {
+func parseFrontmatter(lines []string) ([]linkOccur, []FrontmatterEntry) {
 	if len(lines) < 3 {
-		return nil
+		return nil, nil
 	}
 	// Extract YAML content between --- markers.
 	yamlContent := strings.Join(lines[1:len(lines)-1], "\n")
 
 	var doc yaml.Node
 	if err := yaml.Unmarshal([]byte(yamlContent), &doc); err != nil {
-		return nil
+		return nil, nil
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
-		return nil
+		return nil, nil
 	}
 	mapping := doc.Content[0]
 	if mapping.Kind != yaml.MappingNode {
-		return nil
+		return nil, nil
 	}
 
 	// frontmatter offset: line 1 in the file is the "---", yaml line 1 = file line 2.
@@ -337,69 +348,98 @@ func parseFrontmatter(lines []string) []linkOccur {
 	offset := 1 // lines[0] is "---"
 
 	var out []linkOccur
+	var meta []FrontmatterEntry
 	for i := 0; i < len(mapping.Content)-1; i += 2 {
 		key := mapping.Content[i]
 		val := mapping.Content[i+1]
-		if key.Value != "tags" {
+		if key.Value == "tags" {
+			out, meta = parseFrontmatterTags(val, offset, out, meta)
 			continue
 		}
-		switch val.Kind {
-		case yaml.SequenceNode:
-			for _, item := range val.Content {
-				if item.Kind == yaml.ScalarNode && item.Value != "" {
-					fileLine := item.Line + offset
-					tagName := item.Value
-					if !strings.HasPrefix(tagName, "#") {
-						tagName = "#" + tagName
-					}
-					// Expand nested tags.
-					parts := strings.Split(strings.TrimPrefix(tagName, "#"), "/")
-					for j := range parts {
-						prefix := "#" + strings.Join(parts[:j+1], "/")
-						out = append(out, linkOccur{
-							target:     prefix,
-							isBasename: false,
-							isRelative: false,
-							linkType:   "frontmatter",
-							rawLink:    prefix,
-							subpath:    "",
-							lineStart:  fileLine,
-							lineEnd:    fileLine,
-						})
-					}
-				}
+		meta = collectMeta(key.Value, val, offset, meta)
+	}
+	return out, meta
+}
+
+// parseFrontmatterTags handles the "tags" key, producing both linkOccur (with nested expansion)
+// and FrontmatterEntry (normalized: # prefix removed, no nested expansion).
+func parseFrontmatterTags(val *yaml.Node, offset int, out []linkOccur, meta []FrontmatterEntry) ([]linkOccur, []FrontmatterEntry) {
+	if val.Tag == "!!null" {
+		return out, meta
+	}
+	switch val.Kind {
+	case yaml.SequenceNode:
+		for _, item := range val.Content {
+			if item.Kind != yaml.ScalarNode || item.Value == "" || item.Tag == "!!null" {
+				continue
 			}
-		case yaml.ScalarNode:
-			// tags: single-value (comma-separated or single tag)
-			if val.Value != "" {
-				fileLine := val.Line + offset
-				for _, tag := range strings.Split(val.Value, ",") {
-					tag = strings.TrimSpace(tag)
-					if tag == "" {
-						continue
-					}
-					if !strings.HasPrefix(tag, "#") {
-						tag = "#" + tag
-					}
-					parts := strings.Split(strings.TrimPrefix(tag, "#"), "/")
-					for j := range parts {
-						prefix := "#" + strings.Join(parts[:j+1], "/")
-						out = append(out, linkOccur{
-							target:     prefix,
-							isBasename: false,
-							isRelative: false,
-							linkType:   "frontmatter",
-							rawLink:    prefix,
-							subpath:    "",
-							lineStart:  fileLine,
-							lineEnd:    fileLine,
-						})
-					}
+			fileLine := item.Line + offset
+			normalized := strings.TrimPrefix(item.Value, "#")
+			meta = append(meta, FrontmatterEntry{Key: "tags", Value: normalized, Line: fileLine})
+			out = expandFrontmatterTag(normalized, fileLine, out)
+		}
+	case yaml.ScalarNode:
+		if val.Value != "" && val.Tag != "!!null" {
+			fileLine := val.Line + offset
+			for _, tag := range strings.Split(val.Value, ",") {
+				tag = strings.TrimSpace(tag)
+				if tag == "" {
+					continue
 				}
+				normalized := strings.TrimPrefix(tag, "#")
+				if normalized == "" {
+					continue
+				}
+				meta = append(meta, FrontmatterEntry{Key: "tags", Value: normalized, Line: fileLine})
+				out = expandFrontmatterTag(normalized, fileLine, out)
 			}
 		}
 	}
+	return out, meta
+}
+
+// expandFrontmatterTag expands a normalized tag name (without #) into nested linkOccur entries.
+func expandFrontmatterTag(normalized string, fileLine int, out []linkOccur) []linkOccur {
+	parts := strings.Split(normalized, "/")
+	for j := range parts {
+		prefix := "#" + strings.Join(parts[:j+1], "/")
+		out = append(out, linkOccur{
+			target:    prefix,
+			linkType:  "frontmatter",
+			rawLink:   prefix,
+			lineStart: fileLine,
+			lineEnd:   fileLine,
+		})
+	}
 	return out
+}
+
+// collectMeta appends FrontmatterEntry items for non-tags keys.
+func collectMeta(key string, val *yaml.Node, offset int, meta []FrontmatterEntry) []FrontmatterEntry {
+	if val.Tag == "!!null" {
+		return meta
+	}
+	switch val.Kind {
+	case yaml.ScalarNode:
+		if val.Value != "" && val.Tag != "!!null" {
+			meta = append(meta, FrontmatterEntry{
+				Key:   key,
+				Value: val.Value,
+				Line:  val.Line + offset,
+			})
+		}
+	case yaml.SequenceNode:
+		for _, item := range val.Content {
+			if item.Kind == yaml.ScalarNode && item.Value != "" && item.Tag != "!!null" {
+				meta = append(meta, FrontmatterEntry{
+					Key:   key,
+					Value: item.Value,
+					Line:  item.Line + offset,
+				})
+			}
+		}
+	}
+	return meta
 }
 
 func splitAlias(input string) string {

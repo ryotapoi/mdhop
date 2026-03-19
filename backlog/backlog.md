@@ -41,7 +41,7 @@ meta:
 
 1. [x] `parseLinks` の返り値を `parseResult` struct に変更
    - リファクタリング（機能変更なし）。全呼び出し箇所（13+）を `.Links` アクセスに変更
-2. [ ] `parseFrontmatter` の全キー対応
+2. [x] `parseFrontmatter` の全キー対応
    - `FrontmatterEntry{Key, Value, Line}` 追加。第一階層スカラー + リスト（要素展開）。ネストマップはスキップ
    - `parseResult` に `Meta` フィールド追加
 3. [ ] 型システム + 設定読み込み

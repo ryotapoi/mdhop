@@ -560,6 +560,170 @@ func TestParseTagNBSP(t *testing.T) {
 	}
 }
 
+func parseMeta(content string) []FrontmatterEntry {
+	return parseLinks(content).Meta
+}
+
+func TestParseFrontmatterMetaScalar(t *testing.T) {
+	content := "---\ntitle: Hello\ndate: 2024-01-15\n---\n"
+	meta := parseMeta(content)
+	if len(meta) != 2 {
+		t.Fatalf("expected 2 meta entries, got %d: %+v", len(meta), meta)
+	}
+	if meta[0].Key != "title" || meta[0].Value != "Hello" {
+		t.Errorf("meta[0] = %+v, want {Key:title, Value:Hello}", meta[0])
+	}
+	if meta[0].Line != 2 {
+		t.Errorf("meta[0].Line = %d, want 2", meta[0].Line)
+	}
+	if meta[1].Key != "date" || meta[1].Value != "2024-01-15" {
+		t.Errorf("meta[1] = %+v, want {Key:date, Value:2024-01-15}", meta[1])
+	}
+	if meta[1].Line != 3 {
+		t.Errorf("meta[1].Line = %d, want 3", meta[1].Line)
+	}
+}
+
+func TestParseFrontmatterMetaNoFrontmatter(t *testing.T) {
+	content := "# No frontmatter\nsome content\n"
+	meta := parseMeta(content)
+	if meta != nil {
+		t.Errorf("expected nil meta, got %+v", meta)
+	}
+}
+
+func TestParseFrontmatterMetaSequenceMixed(t *testing.T) {
+	content := "---\nmixed:\n  - simple\n  - {k: v}\n  - another\n---\n"
+	meta := parseMeta(content)
+	if len(meta) != 2 {
+		t.Fatalf("expected 2 meta entries (mapping in sequence skipped), got %d: %+v", len(meta), meta)
+	}
+	if meta[0].Value != "simple" {
+		t.Errorf("meta[0].Value = %q, want simple", meta[0].Value)
+	}
+	if meta[1].Value != "another" {
+		t.Errorf("meta[1].Value = %q, want another", meta[1].Value)
+	}
+}
+
+func TestParseFrontmatterMetaSkipEmpty(t *testing.T) {
+	content := "---\nempty:\ntitle: Test\n---\n"
+	meta := parseMeta(content)
+	if len(meta) != 1 {
+		t.Fatalf("expected 1 meta entry (empty skipped), got %d: %+v", len(meta), meta)
+	}
+	if meta[0].Key != "title" || meta[0].Value != "Test" {
+		t.Errorf("meta[0] = %+v, want {Key:title, Value:Test}", meta[0])
+	}
+}
+
+func TestParseFrontmatterMetaSkipMapping(t *testing.T) {
+	content := "---\ntitle: Test\nnested:\n  k: v\nstatus: draft\n---\n"
+	meta := parseMeta(content)
+	if len(meta) != 2 {
+		t.Fatalf("expected 2 meta entries (mapping skipped), got %d: %+v", len(meta), meta)
+	}
+	if meta[0].Key != "title" || meta[0].Value != "Test" {
+		t.Errorf("meta[0] = %+v, want {Key:title, Value:Test}", meta[0])
+	}
+	if meta[1].Key != "status" || meta[1].Value != "draft" {
+		t.Errorf("meta[1] = %+v, want {Key:status, Value:draft}", meta[1])
+	}
+}
+
+func TestParseFrontmatterMetaTagsScalar(t *testing.T) {
+	content := "---\ntags: foo, bar\n---\n"
+	// Links should still work.
+	links := parseLinksSlice(content)
+	fmTags := filterByType(links, "frontmatter")
+	if len(fmTags) != 2 {
+		t.Fatalf("expected 2 frontmatter linkOccur, got %d: %+v", len(fmTags), fmTags)
+	}
+	// Meta: comma-split, # removed.
+	meta := parseMeta(content)
+	if len(meta) != 2 {
+		t.Fatalf("expected 2 meta entries, got %d: %+v", len(meta), meta)
+	}
+	if meta[0].Value != "foo" {
+		t.Errorf("meta[0].Value = %q, want foo", meta[0].Value)
+	}
+	if meta[1].Value != "bar" {
+		t.Errorf("meta[1].Value = %q, want bar", meta[1].Value)
+	}
+}
+
+func TestParseFrontmatterMetaTagsCoexist(t *testing.T) {
+	content := "---\ntags:\n  - project\n  - status/active\n---\n"
+	// Links: nested expansion → #project, #status, #status/active = 3 linkOccur
+	links := parseLinksSlice(content)
+	fmTags := filterByType(links, "frontmatter")
+	if len(fmTags) != 3 {
+		t.Fatalf("expected 3 frontmatter linkOccur (with expansion), got %d: %+v", len(fmTags), fmTags)
+	}
+	// Meta: no expansion → 2 entries
+	meta := parseMeta(content)
+	if len(meta) != 2 {
+		t.Fatalf("expected 2 meta entries, got %d: %+v", len(meta), meta)
+	}
+	if meta[0].Key != "tags" || meta[0].Value != "project" {
+		t.Errorf("meta[0] = %+v, want {Key:tags, Value:project}", meta[0])
+	}
+	if meta[1].Key != "tags" || meta[1].Value != "status/active" {
+		t.Errorf("meta[1] = %+v, want {Key:tags, Value:status/active}", meta[1])
+	}
+}
+
+func TestParseFrontmatterMetaSequence(t *testing.T) {
+	content := "---\naliases:\n  - foo\n  - bar\n---\n"
+	meta := parseMeta(content)
+	if len(meta) != 2 {
+		t.Fatalf("expected 2 meta entries, got %d: %+v", len(meta), meta)
+	}
+	if meta[0].Key != "aliases" || meta[0].Value != "foo" {
+		t.Errorf("meta[0] = %+v, want {Key:aliases, Value:foo}", meta[0])
+	}
+	if meta[0].Line != 3 {
+		t.Errorf("meta[0].Line = %d, want 3", meta[0].Line)
+	}
+	if meta[1].Key != "aliases" || meta[1].Value != "bar" {
+		t.Errorf("meta[1] = %+v, want {Key:aliases, Value:bar}", meta[1])
+	}
+	if meta[1].Line != 4 {
+		t.Errorf("meta[1].Line = %d, want 4", meta[1].Line)
+	}
+}
+
+func TestParseFrontmatterMetaNullValues(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{"null keyword", "---\ntitle: null\nstatus: draft\n---\n", 1},
+		{"tilde null", "---\ntitle: ~\nstatus: draft\n---\n", 1},
+		{"tags null", "---\ntags: null\nstatus: draft\n---\n", 1},
+		{"tags tilde", "---\ntags: ~\nstatus: draft\n---\n", 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meta := parseMeta(tt.content)
+			if len(meta) != tt.want {
+				t.Errorf("expected %d meta entries, got %d: %+v", tt.want, len(meta), meta)
+			}
+			if len(meta) > 0 && meta[0].Key != "status" {
+				t.Errorf("meta[0].Key = %q, want status", meta[0].Key)
+			}
+			// Ensure no #null tag is generated
+			links := parseLinksSlice(tt.content)
+			for _, l := range links {
+				if l.target == "#null" || l.target == "#~" {
+					t.Errorf("unexpected tag link: %+v", l)
+				}
+			}
+		})
+	}
+}
+
 func filterByType(links []linkOccur, linkType string) []linkOccur {
 	var out []linkOccur
 	for _, l := range links {
