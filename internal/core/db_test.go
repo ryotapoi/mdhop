@@ -137,3 +137,156 @@ func TestUpsertAsset_ConflictUpdate(t *testing.T) {
 		t.Fatalf("expected mtime 300, got %d", mtime)
 	}
 }
+
+func TestInsertMeta(t *testing.T) {
+	db := newTestDB(t)
+
+	nodeID, err := upsertNote(db, "docs/hello.md", "hello", 100)
+	if err != nil {
+		t.Fatalf("upsertNote: %v", err)
+	}
+
+	// Insert two rows with the same key (list values).
+	if err := insertMeta(db, nodeID, "tags", "go", "go", "string"); err != nil {
+		t.Fatalf("insertMeta 1: %v", err)
+	}
+	if err := insertMeta(db, nodeID, "tags", "cli", "cli", "string"); err != nil {
+		t.Fatalf("insertMeta 2: %v", err)
+	}
+
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM meta WHERE node_id = ?", nodeID).Scan(&count); err != nil {
+		t.Fatalf("count query: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 meta rows, got %d", count)
+	}
+}
+
+func TestDeleteMetaByNode(t *testing.T) {
+	db := newTestDB(t)
+
+	node1, err := upsertNote(db, "a.md", "a", 100)
+	if err != nil {
+		t.Fatalf("upsertNote 1: %v", err)
+	}
+	node2, err := upsertNote(db, "b.md", "b", 100)
+	if err != nil {
+		t.Fatalf("upsertNote 2: %v", err)
+	}
+
+	if err := insertMeta(db, node1, "key1", "v1", "v1", "string"); err != nil {
+		t.Fatal(err)
+	}
+	if err := insertMeta(db, node1, "key2", "v2", "v2", "string"); err != nil {
+		t.Fatal(err)
+	}
+	if err := insertMeta(db, node2, "key1", "v1", "v1", "string"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := deleteMetaByNode(db, node1); err != nil {
+		t.Fatalf("deleteMetaByNode: %v", err)
+	}
+
+	var count1, count2 int
+	if err := db.QueryRow("SELECT COUNT(*) FROM meta WHERE node_id = ?", node1).Scan(&count1); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow("SELECT COUNT(*) FROM meta WHERE node_id = ?", node2).Scan(&count2); err != nil {
+		t.Fatal(err)
+	}
+	if count1 != 0 {
+		t.Fatalf("expected 0 meta rows for node1, got %d", count1)
+	}
+	if count2 != 1 {
+		t.Fatalf("expected 1 meta row for node2, got %d", count2)
+	}
+}
+
+func TestQueryMetaByNode(t *testing.T) {
+	db := newTestDB(t)
+
+	nodeID, err := upsertNote(db, "docs/hello.md", "hello", 100)
+	if err != nil {
+		t.Fatalf("upsertNote: %v", err)
+	}
+
+	// Insert various meta rows.
+	if err := insertMeta(db, nodeID, "date", "2024-01-15", "2024-01-15", "date"); err != nil {
+		t.Fatal(err)
+	}
+	if err := insertMeta(db, nodeID, "tags", "cli", "cli", "string"); err != nil {
+		t.Fatal(err)
+	}
+	if err := insertMeta(db, nodeID, "tags", "go", "go", "string"); err != nil {
+		t.Fatal(err)
+	}
+	if err := insertMeta(db, nodeID, "weight", "42", "0000000042", "number"); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := queryMetaByNode(db, nodeID)
+	if err != nil {
+		t.Fatalf("queryMetaByNode: %v", err)
+	}
+
+	// Expect ORDER BY key, value: date, tags/cli, tags/go, weight.
+	if len(rows) != 4 {
+		t.Fatalf("expected 4 rows, got %d", len(rows))
+	}
+
+	expected := []MetaRow{
+		{Key: "date", Value: "2024-01-15", SortValue: "2024-01-15", ValueType: "date"},
+		{Key: "tags", Value: "cli", SortValue: "cli", ValueType: "string"},
+		{Key: "tags", Value: "go", SortValue: "go", ValueType: "string"},
+		{Key: "weight", Value: "42", SortValue: "0000000042", ValueType: "number"},
+	}
+	for i, exp := range expected {
+		got := rows[i]
+		if got != exp {
+			t.Errorf("row %d: expected %+v, got %+v", i, exp, got)
+		}
+	}
+
+	// Empty result for node with no meta.
+	node2, err := upsertNote(db, "empty.md", "empty", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows2, err := queryMetaByNode(db, node2)
+	if err != nil {
+		t.Fatalf("queryMetaByNode empty: %v", err)
+	}
+	if len(rows2) != 0 {
+		t.Fatalf("expected 0 rows for empty node, got %d", len(rows2))
+	}
+
+	// COALESCE: NULL sort_value and value_type become empty strings.
+	if _, err := db.Exec(
+		"INSERT INTO meta (node_id, key, value, sort_value, value_type) VALUES (?, ?, ?, NULL, NULL)",
+		nodeID, "nulltest", "val",
+	); err != nil {
+		t.Fatal(err)
+	}
+	rows3, err := queryMetaByNode(db, nodeID)
+	if err != nil {
+		t.Fatalf("queryMetaByNode after null insert: %v", err)
+	}
+	// Find the nulltest row.
+	var found bool
+	for _, r := range rows3 {
+		if r.Key == "nulltest" {
+			found = true
+			if r.SortValue != "" {
+				t.Errorf("expected empty SortValue for NULL, got %q", r.SortValue)
+			}
+			if r.ValueType != "" {
+				t.Errorf("expected empty ValueType for NULL, got %q", r.ValueType)
+			}
+		}
+	}
+	if !found {
+		t.Error("nulltest row not found in query results")
+	}
+}

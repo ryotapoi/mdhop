@@ -74,6 +74,17 @@ func initSchema(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_edges_source_target ON edges(source_id, target_id);`,
+		`CREATE TABLE IF NOT EXISTS meta (
+			id         INTEGER PRIMARY KEY,
+			node_id    INTEGER NOT NULL,
+			key        TEXT NOT NULL,
+			value      TEXT NOT NULL,
+			sort_value TEXT,
+			value_type TEXT,
+			FOREIGN KEY(node_id) REFERENCES nodes(id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_meta_node_id ON meta(node_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_meta_key_sort_value ON meta(key, sort_value);`,
 	}
 	for _, stmt := range stmts {
 		if _, err := db.Exec(stmt); err != nil {
@@ -195,6 +206,49 @@ func upsertTag(db dbExecer, name string) (int64, error) {
 		return 0, err
 	}
 	return id, nil
+}
+
+// MetaRow represents a row in the meta table (frontmatter key-value pair).
+type MetaRow struct {
+	Key       string
+	Value     string
+	SortValue string
+	ValueType string
+}
+
+func insertMeta(db dbExecer, nodeID int64, key, value, sortValue, valueType string) error {
+	_, err := db.Exec(
+		`INSERT INTO meta (node_id, key, value, sort_value, value_type)
+		 VALUES (?, ?, ?, ?, ?)`,
+		nodeID, key, value, sortValue, valueType,
+	)
+	return err
+}
+
+func deleteMetaByNode(db dbExecer, nodeID int64) error {
+	_, err := db.Exec("DELETE FROM meta WHERE node_id = ?", nodeID)
+	return err
+}
+
+func queryMetaByNode(db dbExecer, nodeID int64) ([]MetaRow, error) {
+	rows, err := db.Query(
+		`SELECT key, value, COALESCE(sort_value,''), COALESCE(value_type,'') FROM meta WHERE node_id = ? ORDER BY key, value`,
+		nodeID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []MetaRow
+	for rows.Next() {
+		var r MetaRow
+		if err := rows.Scan(&r.Key, &r.Value, &r.SortValue, &r.ValueType); err != nil {
+			return nil, err
+		}
+		result = append(result, r)
+	}
+	return result, rows.Err()
 }
 
 func insertEdge(db dbExecer, sourceID, targetID int64, linkType, rawLink, subpath string, lineStart, lineEnd int) error {

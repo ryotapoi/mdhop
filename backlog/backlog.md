@@ -48,7 +48,7 @@ meta:
    - `mdhop.yaml` の `meta.types` セクションの読み込み（config.go）
    - 型ごとの sort_value 正規化ロジック（string, number, date, semver, ordered）
    - 正規化失敗時の string フォールバック + 警告
-4. [ ] `meta` テーブル + DB ヘルパー
+4. [x] `meta` テーブル + DB ヘルパー
    - `CREATE TABLE meta (id, node_id, key, value, sort_value, value_type)` + インデックス
    - `insertMeta`, `deleteMetaByNode`, `queryMetaByNode` ヘルパー
 5. [ ] Build で meta 格納
