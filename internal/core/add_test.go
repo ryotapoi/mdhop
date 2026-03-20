@@ -1135,6 +1135,116 @@ func TestAddPhantomPromotionRootPriority(t *testing.T) {
 	}
 }
 
+// --- Meta add tests ---
+
+func TestAddMetaInsert(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Add a file with frontmatter.
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("---\ntitle: Hello\nauthor: Alice\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(vault, AddOptions{Files: []string{"B.md"}}); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	meta := queryMetaForPath(t, dbPath(vault), "B.md")
+	if len(meta) != 2 {
+		t.Fatalf("expected 2 meta rows, got %d: %+v", len(meta), meta)
+	}
+	// ORDER BY key, value → author first, then title.
+	if meta[0].Key != "author" || meta[0].Value != "Alice" {
+		t.Errorf("meta[0] = %+v, want author=Alice", meta[0])
+	}
+	if meta[1].Key != "title" || meta[1].Value != "Hello" {
+		t.Errorf("meta[1] = %+v, want title=Hello", meta[1])
+	}
+}
+
+func TestAddMetaNoFrontmatter(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("no frontmatter\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(vault, AddOptions{Files: []string{"B.md"}}); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	if c := countMeta(t, dbPath(vault)); c != 0 {
+		t.Errorf("expected 0 meta rows, got %d", c)
+	}
+}
+
+func TestAddMetaWarnings(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"),
+		[]byte("meta:\n  types:\n    date: date\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("---\ndate: not-a-date\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Add(vault, AddOptions{Files: []string{"B.md"}})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if len(result.Warnings) != 1 {
+		t.Errorf("expected 1 warning, got %d: %v", len(result.Warnings), result.Warnings)
+	}
+}
+
+func TestAddInvalidConfig(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	beforeNotes := countNotes(t, dbPath(vault))
+
+	// Write invalid config after build.
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  types:\n    date: invalid_type\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Add(vault, AddOptions{Files: []string{"B.md"}})
+	if err == nil {
+		t.Fatal("expected error for invalid config")
+	}
+	if !strings.Contains(err.Error(), "unknown type") {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	afterNotes := countNotes(t, dbPath(vault))
+	if beforeNotes != afterNotes {
+		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
+	}
+}
+
 func TestAddAutoDisambiguateSubdirTarget(t *testing.T) {
 	// Old unique target sub/B.md. Add B.md at root → Pattern A, old target NOT root.
 	// Auto-disambiguate rewrites [[B]] → [[sub/B]].

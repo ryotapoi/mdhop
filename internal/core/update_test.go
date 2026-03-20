@@ -679,6 +679,205 @@ func TestUpdateIncomingEdgesPreserved(t *testing.T) {
 	}
 }
 
+// --- Meta update tests ---
+
+func TestUpdateMetaReinsert(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: Old\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if len(meta) != 1 || meta[0].Value != "Old" {
+		t.Fatalf("expected title=Old, got %+v", meta)
+	}
+
+	// Change frontmatter.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: New\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Update(vault, UpdateOptions{Files: []string{"A.md"}}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	meta = queryMetaForPath(t, dbPath(vault), "A.md")
+	if len(meta) != 1 || meta[0].Value != "New" {
+		t.Errorf("expected title=New after update, got %+v", meta)
+	}
+}
+
+func TestUpdateMetaRemoveFrontmatter(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: Hello\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if c := countMeta(t, dbPath(vault)); c != 1 {
+		t.Fatalf("expected 1 meta row before update, got %d", c)
+	}
+
+	// Remove frontmatter.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content only\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Update(vault, UpdateOptions{Files: []string{"A.md"}}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if c := countMeta(t, dbPath(vault)); c != 0 {
+		t.Errorf("expected 0 meta rows after removing frontmatter, got %d", c)
+	}
+}
+
+func TestUpdateMetaAddFrontmatter(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content only\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if c := countMeta(t, dbPath(vault)); c != 0 {
+		t.Fatalf("expected 0 meta rows before update, got %d", c)
+	}
+
+	// Add frontmatter.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: Hello\nauthor: Me\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Update(vault, UpdateOptions{Files: []string{"A.md"}}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if len(meta) != 2 {
+		t.Errorf("expected 2 meta rows after adding frontmatter, got %d", len(meta))
+	}
+}
+
+func TestUpdateDeletedFileMetaCleanup(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: Hi\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if c := countMeta(t, dbPath(vault)); c != 1 {
+		t.Fatalf("expected 1 meta row before update, got %d", c)
+	}
+
+	os.Remove(filepath.Join(vault, "A.md"))
+	if _, err := Update(vault, UpdateOptions{Files: []string{"A.md"}}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if c := countMeta(t, dbPath(vault)); c != 0 {
+		t.Errorf("expected 0 meta rows after file deletion via update, got %d", c)
+	}
+}
+
+func TestUpdateMetaWarnings(t *testing.T) {
+	vault := t.TempDir()
+	// Create mdhop.yaml with date type for "date" key.
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"),
+		[]byte("meta:\n  types:\n    date: date\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ndate: 2024-01-01\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Update with invalid date value.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ndate: not-a-date\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Update(vault, UpdateOptions{Files: []string{"A.md"}})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if len(result.Warnings) != 1 {
+		t.Errorf("expected 1 warning, got %d: %v", len(result.Warnings), result.Warnings)
+	}
+}
+
+func TestUpdateMetaRoundTrip(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: V1\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if len(meta) != 1 || meta[0].Value != "V1" {
+		t.Fatalf("step 1: expected title=V1, got %+v", meta)
+	}
+
+	// Update #1: change to V2.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: V2\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Update(vault, UpdateOptions{Files: []string{"A.md"}}); err != nil {
+		t.Fatalf("update 1: %v", err)
+	}
+	meta = queryMetaForPath(t, dbPath(vault), "A.md")
+	if len(meta) != 1 || meta[0].Value != "V2" {
+		t.Errorf("step 2: expected title=V2, got %+v", meta)
+	}
+
+	// Update #2: change to V3 and add a key.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: V3\nauthor: Alice\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Update(vault, UpdateOptions{Files: []string{"A.md"}}); err != nil {
+		t.Fatalf("update 2: %v", err)
+	}
+	meta = queryMetaForPath(t, dbPath(vault), "A.md")
+	if len(meta) != 2 {
+		t.Errorf("step 3: expected 2 meta rows, got %d: %+v", len(meta), meta)
+	}
+}
+
+func TestUpdateInvalidConfig(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	beforeMeta := countMeta(t, dbPath(vault))
+
+	// Write invalid config.
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  types:\n    date: invalid_type\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Update(vault, UpdateOptions{Files: []string{"A.md"}})
+	if err == nil {
+		t.Fatal("expected error for invalid config")
+	}
+	if !strings.Contains(err.Error(), "unknown type") {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	afterMeta := countMeta(t, dbPath(vault))
+	if beforeMeta != afterMeta {
+		t.Errorf("meta count changed: %d → %d", beforeMeta, afterMeta)
+	}
+}
+
 func TestUpdateRootDeletedResolvesToSubdir(t *testing.T) {
 	// A.md(root) + sub/A.md. B.md has [[A]].
 	// Delete A.md from disk, then update A.md + B.md.

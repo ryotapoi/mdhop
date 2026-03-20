@@ -859,6 +859,105 @@ func TestHasNonMDFiles_HiddenIgnored(t *testing.T) {
 	}
 }
 
+// --- Meta delete tests ---
+
+func TestDeleteMetaCleanup(t *testing.T) {
+	vault := t.TempDir()
+	// A.md has frontmatter, B.md has no references to A.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: Hello\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if len(meta) != 1 {
+		t.Fatalf("expected 1 meta row before delete, got %d", len(meta))
+	}
+
+	os.Remove(filepath.Join(vault, "A.md"))
+	if _, err := Delete(vault, DeleteOptions{Files: []string{"A.md"}}); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	if c := countMeta(t, dbPath(vault)); c != 0 {
+		t.Errorf("expected 0 meta rows after delete, got %d", c)
+	}
+}
+
+func TestDeletePhantomizedMetaCleanup(t *testing.T) {
+	vault := t.TempDir()
+	// A.md links to B, B has frontmatter.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("---\ntitle: BTitle\npriority: 42\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "B.md")
+	if len(meta) != 2 {
+		t.Fatalf("expected 2 meta rows for B.md, got %d", len(meta))
+	}
+
+	os.Remove(filepath.Join(vault, "B.md"))
+	result, err := Delete(vault, DeleteOptions{Files: []string{"B.md"}})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(result.Phantomed) != 1 {
+		t.Errorf("expected B.md to be phantomized")
+	}
+
+	// All meta for B should be deleted (phantom has no frontmatter).
+	if c := countMeta(t, dbPath(vault)); c != 0 {
+		t.Errorf("expected 0 meta rows after phantom conversion, got %d", c)
+	}
+}
+
+func TestDeletePhantomizedExistingPhantom(t *testing.T) {
+	vault := t.TempDir()
+	// A.md links to B, B has frontmatter.
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("---\ntitle: BTitle\n---\ncontent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Manually insert a phantom "B" to test the edge reassignment path.
+	db := openTestDB(t, dbPath(vault))
+	pk := "phantom:name:b"
+	_, err := db.Exec(
+		"INSERT INTO nodes (node_key, type, name, path, exists_flag) VALUES (?, 'phantom', 'B', NULL, 0)", pk)
+	if err != nil {
+		db.Close()
+		t.Fatalf("insert phantom: %v", err)
+	}
+	db.Close()
+
+	os.Remove(filepath.Join(vault, "B.md"))
+	result, err := Delete(vault, DeleteOptions{Files: []string{"B.md"}})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(result.Phantomed) != 1 {
+		t.Errorf("expected B.md to be phantomized")
+	}
+
+	if c := countMeta(t, dbPath(vault)); c != 0 {
+		t.Errorf("expected 0 meta rows after delete with existing phantom, got %d", c)
+	}
+}
+
 func TestHasNonMDFiles_Nested(t *testing.T) {
 	vault := t.TempDir()
 	inner := filepath.Join(vault, "sub", "inner")

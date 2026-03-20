@@ -53,7 +53,7 @@ meta:
    - `insertMeta`, `deleteMetaByNode`, `queryMetaByNode` ヘルパー
 5. [x] Build で meta 格納
    - `parsedFile` struct に meta 追加、型設定に従って sort_value を生成、挿入
-6. [ ] Update / Add / Delete で meta 対応
+6. [x] Update / Add / Delete で meta 対応
    - Update: deleteMetaByNode → 再挿入。Delete: removeOrPhantomize で meta 削除
 7. [ ] `--where` クエリ（core 層）
    - `WhereClause` パーサー（`=`, `!=`, `~`, `>`, `<`, `>=`, `<=`, EXISTS）

@@ -27,6 +27,7 @@ func runUpdate(args []string) error {
 	if err != nil {
 		return err
 	}
+	printWarnings(result.Warnings)
 	switch *format {
 	case "json":
 		return printUpdateJSON(os.Stdout, result)

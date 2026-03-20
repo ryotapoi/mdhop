@@ -216,6 +216,26 @@ type MetaRow struct {
 	ValueType string
 }
 
+// insertMetaEntries inserts all frontmatter entries for a node, applying type
+// normalization from metaCfg. Returns warnings for values that fail normalization.
+func insertMetaEntries(db dbExecer, nodeID int64, path string, entries []FrontmatterEntry, metaCfg MetaConfig) ([]string, error) {
+	if len(entries) == 0 {
+		return nil, nil
+	}
+	var warnings []string
+	for _, entry := range entries {
+		typeInfo, _ := metaCfg.LookupType(entry.Key)
+		sortValue, warning := NormalizeSortValue(entry.Value, typeInfo)
+		if warning != "" {
+			warnings = append(warnings, fmt.Sprintf("%s:%d: %s (key=%s)", path, entry.Line, warning, entry.Key))
+		}
+		if err := insertMeta(db, nodeID, entry.Key, entry.Value, sortValue, string(typeInfo.Name)); err != nil {
+			return nil, err
+		}
+	}
+	return warnings, nil
+}
+
 func insertMeta(db dbExecer, nodeID int64, key, value, sortValue, valueType string) error {
 	_, err := db.Exec(
 		`INSERT INTO meta (node_id, key, value, sort_value, value_type)
@@ -285,6 +305,10 @@ func removeOrPhantomize(tx dbExecer, nodeID int64, name string) (phantomized boo
 		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", nodeID); err != nil {
 			return false, err
 		}
+		// Delete meta entries (phantoms have no frontmatter).
+		if err := deleteMetaByNode(tx, nodeID); err != nil {
+			return false, err
+		}
 
 		// Check if a phantom with the same name already exists.
 		pk := phantomKey(name)
@@ -314,6 +338,9 @@ func removeOrPhantomize(tx dbExecer, nodeID int64, name string) (phantomized boo
 
 	// Complete deletion: no incoming references.
 	if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ? OR target_id = ?", nodeID, nodeID); err != nil {
+		return false, err
+	}
+	if err := deleteMetaByNode(tx, nodeID); err != nil {
 		return false, err
 	}
 	if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", nodeID); err != nil {

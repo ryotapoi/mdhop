@@ -25,6 +25,7 @@ type AddResult struct {
 	Added     []string        // files added as new notes
 	Promoted  []string        // phantom nodes promoted to notes
 	Rewritten []RewrittenLink // links rewritten by auto-disambiguate
+	Warnings  []string        // meta normalization warnings
 }
 
 // Add inserts new files into the existing index DB.
@@ -34,6 +35,11 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		return nil, err
 	}
 	defer db.Close()
+
+	cfg, err := LoadConfig(vaultPath)
+	if err != nil {
+		return nil, err
+	}
 
 	// Normalize and deduplicate input paths.
 	type addFile struct {
@@ -226,6 +232,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	type parsedFile struct {
 		file  addFile
 		links []linkOccur
+		meta  []FrontmatterEntry
 	}
 	var parsed []parsedFile
 	for _, f := range files {
@@ -233,7 +240,8 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		links := parseLinks(string(content)).Links
+		pr := parseLinks(string(content))
+		links := pr.Links
 
 		for _, link := range links {
 			if link.linkType != "wikilink" && link.linkType != "markdown" {
@@ -250,7 +258,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			}
 		}
 
-		parsed = append(parsed, parsedFile{file: f, links: links})
+		parsed = append(parsed, parsedFile{file: f, links: links, meta: pr.Meta})
 	}
 
 	// Apply disk rewrites before transaction (so DB rollback is safe).
@@ -360,6 +368,13 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 				return nil, err
 			}
 		}
+
+		// Insert meta entries.
+		ws, err := insertMetaEntries(tx, rm.pathToID[pf.file.path], pf.file.path, pf.meta, cfg.Meta)
+		if err != nil {
+			return nil, err
+		}
+		result.Warnings = append(result.Warnings, ws...)
 	}
 
 	// Update DB for rewritten edges.

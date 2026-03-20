@@ -18,6 +18,7 @@ type UpdateResult struct {
 	Updated   []string // files whose content was re-parsed
 	Deleted   []string // files completely removed (disk-absent, no references)
 	Phantomed []string // files converted to phantom (disk-absent, has references)
+	Warnings  []string // meta normalization warnings
 }
 
 // Update re-parses the specified files and updates the existing index DB in-place.
@@ -105,10 +106,17 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	// Rebuild basenameToPath from adjusted basenameCounts.
 	rm.rebuildBasenameToPath(nil)
 
+	// Load config for meta normalization.
+	cfg, err := LoadConfig(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+
 	// Pre-mutation: read and validate disk-present files.
 	type parsedFile struct {
 		cf    classifiedFile
 		links []linkOccur
+		meta  []FrontmatterEntry
 	}
 	var toUpdate []parsedFile
 	for _, cf := range classified {
@@ -119,7 +127,8 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		links := parseLinks(string(content)).Links
+		pr := parseLinks(string(content))
+		links := pr.Links
 
 		// Check for ambiguous links and vault escape (same logic as build's inline validation).
 		for _, link := range links {
@@ -137,7 +146,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 			}
 		}
 
-		toUpdate = append(toUpdate, parsedFile{cf: cf, links: links})
+		toUpdate = append(toUpdate, parsedFile{cf: cf, links: links, meta: pr.Meta})
 	}
 
 	// Begin transaction.
@@ -153,6 +162,11 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	for _, pf := range toUpdate {
 		// Delete all outgoing edges.
 		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", pf.cf.id); err != nil {
+			return nil, err
+		}
+
+		// Delete existing meta entries.
+		if err := deleteMetaByNode(tx, pf.cf.id); err != nil {
 			return nil, err
 		}
 
@@ -174,6 +188,13 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 				return nil, err
 			}
 		}
+
+		// Insert meta entries.
+		ws, err := insertMetaEntries(tx, pf.cf.id, pf.cf.path, pf.meta, cfg.Meta)
+		if err != nil {
+			return nil, err
+		}
+		result.Warnings = append(result.Warnings, ws...)
 
 		result.Updated = append(result.Updated, pf.cf.path)
 	}

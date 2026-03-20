@@ -32,6 +32,7 @@ func runAdd(args []string) error {
 	if err != nil {
 		return err
 	}
+	printWarnings(result.Warnings)
 	switch *format {
 	case "json":
 		return printAddJSON(os.Stdout, result)

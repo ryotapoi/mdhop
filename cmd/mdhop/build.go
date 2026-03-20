@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"os"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
@@ -18,8 +16,6 @@ func runBuild(args []string) error {
 	if err != nil {
 		return err
 	}
-	for _, w := range result.Warnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
-	}
+	printWarnings(result.Warnings)
 	return nil
 }

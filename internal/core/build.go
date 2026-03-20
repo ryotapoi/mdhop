@@ -191,20 +191,12 @@ func Build(vaultPath string) (*BuildResult, error) {
 	// Pass 3: insert frontmatter metadata.
 	var metaWarnings []string
 	for _, pf := range parsed {
-		if len(pf.meta) == 0 {
-			continue
-		}
 		nodeID := rm.pathToID[pf.path]
-		for _, entry := range pf.meta {
-			typeInfo, _ := cfg.Meta.LookupType(entry.Key) // unconfigured keys default to string
-			sortValue, warning := NormalizeSortValue(entry.Value, typeInfo)
-			if warning != "" {
-				metaWarnings = append(metaWarnings, fmt.Sprintf("%s:%d: %s (key=%s)", pf.path, entry.Line, warning, entry.Key))
-			}
-			if err := insertMeta(tx, nodeID, entry.Key, entry.Value, sortValue, string(typeInfo.Name)); err != nil {
-				return nil, err
-			}
+		ws, err := insertMetaEntries(tx, nodeID, pf.path, pf.meta, cfg.Meta)
+		if err != nil {
+			return nil, err
 		}
+		metaWarnings = append(metaWarnings, ws...)
 	}
 
 	if err := tx.Commit(); err != nil {

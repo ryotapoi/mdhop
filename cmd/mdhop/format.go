@@ -4,10 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
+
+// printWarnings writes meta normalization warnings to stderr.
+func printWarnings(warnings []string) {
+	for _, w := range warnings {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+	}
+}
 
 // parseFields splits a comma-separated field string into a slice.
 // Returns nil for empty input.
