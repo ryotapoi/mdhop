@@ -55,7 +55,7 @@ meta:
    - `parsedFile` struct に meta 追加、型設定に従って sort_value を生成、挿入
 6. [x] Update / Add / Delete で meta 対応
    - Update: deleteMetaByNode → 再挿入。Delete: removeOrPhantomize で meta 削除
-7. [ ] `--where` クエリ（core 層）
+7. [x] `--where` クエリ（core 層）
    - `WhereClause` パーサー（`=`, `!=`, `~`, `>`, `<`, `>=`, `<=`, EXISTS）
    - `QueryOptions.Where`、SQL 生成（sort_value 列で比較）、各 query 関数に meta フィルタ統合
 8. [ ] CLI `--where` + meta 出力

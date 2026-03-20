@@ -28,6 +28,7 @@ type QueryOptions struct {
 	MaxTwoHop       int            // default 100
 	MaxViaPerTarget int            // default 10
 	Exclude         *ExcludeFilter // nil = no exclusion
+	Where           *WhereClause   // nil = no filtering
 }
 
 // NodeInfo describes a node in the graph.
@@ -89,9 +90,10 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	result := &QueryResult{Entry: info}
 
 	ef := opts.Exclude
+	wc := opts.Where
 
 	if isFieldActive("backlinks", opts.Fields) {
-		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef)
+		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef, wc)
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +102,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 
 	if isFieldActive("outgoing", opts.Fields) {
 		if info.Type == "note" {
-			og, err := queryOutgoing(db, nodeID, ef)
+			og, err := queryOutgoing(db, nodeID, ef, wc)
 			if err != nil {
 				return nil, err
 			}
@@ -119,7 +121,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive("twohop", opts.Fields) {
-		th, err := queryTwoHop(db, nodeID, info.Type, opts.MaxTwoHop, opts.MaxViaPerTarget, ef)
+		th, err := queryTwoHop(db, nodeID, info.Type, opts.MaxTwoHop, opts.MaxViaPerTarget, ef, wc)
 		if err != nil {
 			return nil, err
 		}
@@ -340,7 +342,7 @@ func fetchNodeInfo(db dbExecer, nodeID int64) (NodeInfo, error) {
 	}, nil
 }
 
-func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter) ([]NodeInfo, error) {
+func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, wc *WhereClause) ([]NodeInfo, error) {
 	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.source_id
 		 WHERE e.target_id = ?`
@@ -350,6 +352,12 @@ func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter) (
 		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
 		q += pathSQL
 		args = append(args, pathArgs...)
+	}
+
+	if wc != nil {
+		metaSQL, metaArgs := wc.MetaFilterSQL("n.id")
+		q += metaSQL
+		args = append(args, metaArgs...)
 	}
 
 	q += ` ORDER BY n.path, n.name LIMIT ?`
@@ -373,7 +381,7 @@ func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter) (
 	return result, rows.Err()
 }
 
-func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter) ([]NodeInfo, error) {
+func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClause) ([]NodeInfo, error) {
 	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.target_id
 		 WHERE e.source_id = ? AND e.target_id != ? AND n.type IN ('note','phantom','asset')`
@@ -383,6 +391,12 @@ func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter) ([]NodeInfo, 
 		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
 		q += pathSQL
 		args = append(args, pathArgs...)
+	}
+
+	if wc != nil {
+		metaSQL, metaArgs := wc.MetaFilterSQL("n.id")
+		q += metaSQL
+		args = append(args, metaArgs...)
 	}
 
 	q += ` ORDER BY n.path, n.name`
@@ -509,7 +523,7 @@ func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
 	return result, nil
 }
 
-func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxViaPerTarget int, ef *ExcludeFilter) ([]TwoHopEntry, error) {
+func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxViaPerTarget int, ef *ExcludeFilter, wc *WhereClause) ([]TwoHopEntry, error) {
 	var seedQuery string
 	var seedIsOutbound bool
 
@@ -547,6 +561,12 @@ func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxVia
 		return nil, err
 	}
 
+	var wcSQL string
+	var wcArgs []any
+	if wc != nil {
+		wcSQL, wcArgs = wc.MetaFilterSQL("n.id")
+	}
+
 	var entries []TwoHopEntry
 	for _, viaID := range seedIDs {
 		if len(entries) >= maxTwoHop {
@@ -580,6 +600,11 @@ func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxVia
 			pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
 			targetQuery += pathSQL
 			targetArgs = append(targetArgs, pathArgs...)
+		}
+
+		if wcSQL != "" {
+			targetQuery += wcSQL
+			targetArgs = append(targetArgs, wcArgs...)
 		}
 
 		targetQuery += ` ORDER BY n.path, n.name LIMIT ?`

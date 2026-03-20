@@ -1352,29 +1352,29 @@ func TestBuildMeta_NormalizationWarnings(t *testing.T) {
 			if m.SortValue != "not-a-date" {
 				t.Errorf("date sort_value = %q, want %q", m.SortValue, "not-a-date")
 			}
-			if m.ValueType != "date" {
-				t.Errorf("date value_type = %q, want %q", m.ValueType, "date")
+			if m.ValueType != "string" {
+				t.Errorf("date value_type = %q, want %q", m.ValueType, "string")
 			}
 		case "priority":
 			if m.SortValue != "abc" {
 				t.Errorf("priority sort_value = %q, want %q", m.SortValue, "abc")
 			}
-			if m.ValueType != "number" {
-				t.Errorf("priority value_type = %q, want %q", m.ValueType, "number")
+			if m.ValueType != "string" {
+				t.Errorf("priority value_type = %q, want %q", m.ValueType, "string")
 			}
 		case "version":
 			if m.SortValue != "not-semver" {
 				t.Errorf("version sort_value = %q, want %q", m.SortValue, "not-semver")
 			}
-			if m.ValueType != "semver" {
-				t.Errorf("version value_type = %q, want %q", m.ValueType, "semver")
+			if m.ValueType != "string" {
+				t.Errorf("version value_type = %q, want %q", m.ValueType, "string")
 			}
 		case "severity":
 			if m.SortValue != "unknown" {
 				t.Errorf("severity sort_value = %q, want %q", m.SortValue, "unknown")
 			}
-			if m.ValueType != "ordered" {
-				t.Errorf("severity value_type = %q, want %q", m.ValueType, "ordered")
+			if m.ValueType != "string" {
+				t.Errorf("severity value_type = %q, want %q", m.ValueType, "string")
 			}
 		}
 	}

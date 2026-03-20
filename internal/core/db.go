@@ -226,10 +226,12 @@ func insertMetaEntries(db dbExecer, nodeID int64, path string, entries []Frontma
 	for _, entry := range entries {
 		typeInfo, _ := metaCfg.LookupType(entry.Key)
 		sortValue, warning := NormalizeSortValue(entry.Value, typeInfo)
+		storedType := string(typeInfo.Name)
 		if warning != "" {
 			warnings = append(warnings, fmt.Sprintf("%s:%d: %s (key=%s)", path, entry.Line, warning, entry.Key))
+			storedType = string(MetaTypeString)
 		}
-		if err := insertMeta(db, nodeID, entry.Key, entry.Value, sortValue, string(typeInfo.Name)); err != nil {
+		if err := insertMeta(db, nodeID, entry.Key, entry.Value, sortValue, storedType); err != nil {
 			return nil, err
 		}
 	}
