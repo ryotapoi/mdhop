@@ -33,6 +33,8 @@ go test ./...
 
 ### 3. `/simplify` を Skill tool で実行する
 
+結果を簡潔に報告したら、ユーザー確認を待たずに次の手順へ自動的に進む。
+
 ### 4. `/review-code` を Skill tool で実行する
 
 引数（`$ARGUMENTS`）があればそのまま渡す。
