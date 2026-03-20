@@ -46,7 +46,7 @@ func assetNodeExists(t *testing.T, dbp, path string) bool {
 
 func TestBuildAssets_CreatesAssetNodes(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -60,7 +60,7 @@ func TestBuildAssets_CreatesAssetNodes(t *testing.T) {
 
 func TestBuildAssets_OrphanAssetRegistered(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -71,7 +71,7 @@ func TestBuildAssets_OrphanAssetRegistered(t *testing.T) {
 
 func TestBuildAssets_AssetNameIsFilename(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -88,7 +88,7 @@ func TestBuildAssets_AssetNameIsFilename(t *testing.T) {
 
 func TestBuildAssets_LinksResolveToAsset(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -115,7 +115,7 @@ func TestBuildAssets_LinksResolveToAsset(t *testing.T) {
 
 func TestBuildAssets_AmbiguousAssetLink(t *testing.T) {
 	vault := copyVault(t, "vault_asset_ambiguous")
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil {
 		t.Fatal("expected build error for ambiguous asset link")
 	}
@@ -131,7 +131,7 @@ func TestBuildAssets_HiddenFilesExcluded(t *testing.T) {
 	os.MkdirAll(filepath.Join(vault, ".git", "objects"), 0o755)
 	os.WriteFile(filepath.Join(vault, ".git", "objects", "abc"), []byte("obj"), 0o644)
 
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -146,11 +146,11 @@ func TestBuildAssets_HiddenFilesExcluded(t *testing.T) {
 
 func TestBuildAssets_MdhopDirExcluded(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("first build: %v", err)
 	}
 	// Rebuild should not register .mdhop/index.sqlite as asset.
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	if assetNodeExists(t, dbPath(vault), ".mdhop/index.sqlite") {
@@ -162,7 +162,7 @@ func TestBuildAssets_MdhopDirExcluded(t *testing.T) {
 
 func TestStatsAssetsTotal(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -179,7 +179,7 @@ func TestStatsAssetsTotal(t *testing.T) {
 
 func TestResolveAsset(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -201,7 +201,7 @@ func TestResolveAsset(t *testing.T) {
 
 func TestResolveAssetMarkdownLink(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -221,7 +221,7 @@ func TestResolveAssetMarkdownLink(t *testing.T) {
 
 func TestQueryAssetBacklinks(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -244,7 +244,7 @@ func TestQueryAssetBacklinks(t *testing.T) {
 
 func TestQueryNoteOutgoingIncludesAsset(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -269,7 +269,7 @@ func TestQueryNoteOutgoingIncludesAsset(t *testing.T) {
 
 func TestQueryAssetByName(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -286,7 +286,7 @@ func TestQueryAssetByName(t *testing.T) {
 
 func TestQueryAssetHeadSkipped(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -306,7 +306,7 @@ func TestQueryAssetHeadSkipped(t *testing.T) {
 
 func TestDeleteAsset(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -326,7 +326,7 @@ func TestDeleteAsset(t *testing.T) {
 
 func TestDeleteAssetPhantomized(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -353,7 +353,7 @@ func TestDeleteAssetPhantomized(t *testing.T) {
 
 func TestDeleteAssetWithRm(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -374,7 +374,7 @@ func TestDeleteAssetWithRm(t *testing.T) {
 
 func TestDeleteDirWithAssets(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -414,7 +414,7 @@ func TestDeleteDirWithAssets(t *testing.T) {
 
 func TestMoveAsset_BasenameUnchanged_NoRewrite(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -443,7 +443,7 @@ func TestMoveAsset_BasenameUnchanged_NoRewrite(t *testing.T) {
 
 func TestMoveAsset_BasenameChanged_Rewrite(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -480,7 +480,7 @@ func TestMoveAsset_BasenameChanged_Rewrite(t *testing.T) {
 
 func TestMoveAsset_MarkdownLink_BasenameChanged(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -505,7 +505,7 @@ func TestMoveAsset_MarkdownLink_BasenameChanged(t *testing.T) {
 
 func TestMoveDirWithAssets(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -554,7 +554,7 @@ func TestDiagnoseAssetBasenameConflicts(t *testing.T) {
 	vault := copyVault(t, "vault_asset_ambiguous")
 	// Remove the link so build succeeds.
 	os.WriteFile(filepath.Join(vault, "A.md"), []byte("no links\n"), 0o644)
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -605,7 +605,7 @@ func TestPhantomPreservesNonMdExtension(t *testing.T) {
 	vault := copyVault(t, "vault_build_basic")
 	// Add a note that links to a non-existent asset.
 	os.WriteFile(filepath.Join(vault, "Linker.md"), []byte("![[missing.png]]\n"), 0o644)
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -638,7 +638,7 @@ func TestExcludeFilterAssetVia(t *testing.T) {
 
 func TestAddAssetLinkResolvesToAsset(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -672,7 +672,7 @@ func TestAddAssetLinkResolvesToAsset(t *testing.T) {
 
 func TestAddNewAssetOnDiskResolvedAsPhantom(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -704,7 +704,7 @@ func TestAddNewAssetOnDiskResolvedAsPhantom(t *testing.T) {
 
 func TestUpdateRemovesOrphanAsset(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -737,7 +737,7 @@ func TestQueryAssetTwoHop(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
 	// Add C.md that also links to image.png, enabling twohop via A.md.
 	os.WriteFile(filepath.Join(vault, "C.md"), []byte("![[image.png]]\n"), 0o644)
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -769,7 +769,7 @@ func TestQueryAssetTwoHop(t *testing.T) {
 
 func TestQueryAssetSnippet(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -794,7 +794,7 @@ func TestQueryAssetExcludeIntegration(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
 	// Add C.md that links to image.png.
 	os.WriteFile(filepath.Join(vault, "C.md"), []byte("![[image.png]]\n"), 0o644)
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 

@@ -10,7 +10,7 @@ import (
 
 func TestDisambiguateBasic(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -51,7 +51,7 @@ func TestDisambiguateBasic(t *testing.T) {
 
 func TestDisambiguatePathLinkNotRewritten(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -95,7 +95,7 @@ func TestDisambiguateMultipleCandidatesNoTarget(t *testing.T) {
 		t.Fatalf("write A.md: %v", err)
 	}
 	// Build with path links only → succeeds despite basename collision.
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -110,7 +110,7 @@ func TestDisambiguateMultipleCandidatesNoTarget(t *testing.T) {
 
 func TestDisambiguateWithTarget(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -129,7 +129,7 @@ func TestDisambiguateWithTarget(t *testing.T) {
 
 func TestDisambiguateTargetNotFound(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestDisambiguateTargetNotFound(t *testing.T) {
 
 func TestDisambiguateNameNotFound(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -162,7 +162,7 @@ func TestDisambiguateNameNotFound(t *testing.T) {
 
 func TestDisambiguateFileScope(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate_file_scope")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -196,7 +196,7 @@ func TestDisambiguateFileScope(t *testing.T) {
 
 func TestDisambiguateFileNotRegistered(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -226,7 +226,7 @@ func TestDisambiguateNoDB(t *testing.T) {
 
 func TestDisambiguateStaleSource(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -257,7 +257,7 @@ func TestDisambiguateStaleSource(t *testing.T) {
 
 func TestDisambiguateNoRewritesNeeded(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -274,7 +274,7 @@ func TestDisambiguateNoRewritesNeeded(t *testing.T) {
 
 func TestDisambiguateDBUpdated(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -350,7 +350,7 @@ func TestDisambiguateInlineCodeIgnored(t *testing.T) {
 		t.Fatalf("write B.md: %v", err)
 	}
 
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -377,7 +377,7 @@ func TestDisambiguateInlineCodeIgnored(t *testing.T) {
 
 func TestDisambiguateCaseInsensitive(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -650,7 +650,7 @@ func TestDisambiguateScan_RespectsExclude(t *testing.T) {
 
 func TestDisambiguatePhantomPathLink(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 

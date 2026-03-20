@@ -10,31 +10,36 @@ import (
 
 const maxBuildErrors = 5
 
+// BuildResult contains the result of a Build operation.
+type BuildResult struct {
+	Warnings []string
+}
+
 // Build parses the vault and creates the index DB.
-func Build(vaultPath string) error {
+func Build(vaultPath string) (*BuildResult, error) {
 	if _, err := ensureDataDir(vaultPath); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Pass 0: collect .md files.
 	files, err := collectMarkdownFiles(vaultPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cfg, err := LoadConfig(vaultPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
-		return err
+		return nil, err
 	}
 	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
 
 	// Pass 0.5: collect asset files.
 	assetFiles, err := collectAssetFiles(vaultPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
 
@@ -61,6 +66,7 @@ func Build(vaultPath string) error {
 		path  string
 		mtime int64
 		links []linkOccur
+		meta  []FrontmatterEntry
 	}
 	parsed := make([]parsedFile, 0, len(files))
 	var userErrors []string
@@ -68,16 +74,16 @@ func Build(vaultPath string) error {
 		fullPath := filepath.Join(vaultPath, rel)
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		info, err := os.Stat(fullPath)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		links := parseLinks(string(content)).Links
+		pr := parseLinks(string(content))
 
 		// Validate links: collect user errors (ambiguous, vault-escape) up to maxBuildErrors.
-		for _, link := range links {
+		for _, link := range pr.Links {
 			if link.linkType != "wikilink" && link.linkType != "markdown" {
 				continue
 			}
@@ -101,11 +107,12 @@ func Build(vaultPath string) error {
 		parsed = append(parsed, parsedFile{
 			path:  rel,
 			mtime: info.ModTime().Unix(),
-			links: links,
+			links: pr.Links,
+			meta:  pr.Meta,
 		})
 	}
 	if len(userErrors) > 0 {
-		return formatBuildErrors(userErrors)
+		return nil, formatBuildErrors(userErrors)
 	}
 
 	// Stat asset files for mtime.
@@ -118,7 +125,7 @@ func Build(vaultPath string) error {
 		fullPath := filepath.Join(vaultPath, rel)
 		info, err := os.Stat(fullPath)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		assetInfos = append(assetInfos, assetInfo{path: rel, mtime: info.ModTime().Unix()})
 	}
@@ -130,17 +137,17 @@ func Build(vaultPath string) error {
 
 	db, err := openDBAt(tmpPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer db.Close()
 
 	if err := initSchema(db); err != nil {
-		return err
+		return nil, err
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 
@@ -149,7 +156,7 @@ func Build(vaultPath string) error {
 		name := basename(pf.path)
 		id, err := upsertNote(tx, pf.path, name, pf.mtime)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		rm.pathToID[pf.path] = id
 	}
@@ -159,7 +166,7 @@ func Build(vaultPath string) error {
 		name := filepath.Base(ai.path)
 		id, err := upsertAsset(tx, ai.path, name, ai.mtime)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		rm.assetPathToID[ai.path] = id
 	}
@@ -170,29 +177,48 @@ func Build(vaultPath string) error {
 		for _, link := range pf.links {
 			targetID, subpath, err := resolveLink(tx, pf.path, link, rm)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if targetID == 0 {
 				continue
 			}
 			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, subpath, link.lineStart, link.lineEnd); err != nil {
-				return err
+				return nil, err
+			}
+		}
+	}
+
+	// Pass 3: insert frontmatter metadata.
+	var metaWarnings []string
+	for _, pf := range parsed {
+		if len(pf.meta) == 0 {
+			continue
+		}
+		nodeID := rm.pathToID[pf.path]
+		for _, entry := range pf.meta {
+			typeInfo, _ := cfg.Meta.LookupType(entry.Key) // unconfigured keys default to string
+			sortValue, warning := NormalizeSortValue(entry.Value, typeInfo)
+			if warning != "" {
+				metaWarnings = append(metaWarnings, fmt.Sprintf("%s:%d: %s (key=%s)", pf.path, entry.Line, warning, entry.Key))
+			}
+			if err := insertMeta(tx, nodeID, entry.Key, entry.Value, sortValue, string(typeInfo.Name)); err != nil {
+				return nil, err
 			}
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := db.Close(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := os.Rename(tmpPath, dbPath(vaultPath)); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &BuildResult{Warnings: metaWarnings}, nil
 }
 
 // resolveLink resolves a linkOccur to a target node ID and subpath.

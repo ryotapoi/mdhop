@@ -9,7 +9,7 @@ import (
 
 func TestUpdateUnregisteredFile(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	beforeNotes := countNotes(t, dbPath(vault))
@@ -32,7 +32,7 @@ func TestUpdateUnregisteredFile(t *testing.T) {
 
 func TestUpdateContentChange(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestUpdateContentChange(t *testing.T) {
 
 func TestUpdateDeletedFileWithRefs(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -117,7 +117,7 @@ func TestUpdateDeletedFileWithRefs(t *testing.T) {
 
 func TestUpdateDeletedFileNoRefs(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -161,7 +161,7 @@ func TestUpdateAmbiguousLinkRootPriority(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "D.md"), []byte("# D root\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -203,7 +203,7 @@ func TestUpdateAmbiguousLinkNoRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub2", "D.md"), []byte("# D2\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	beforeEdges := countEdges(t, dbPath(vault))
@@ -225,7 +225,7 @@ func TestUpdateAmbiguousLinkNoRoot(t *testing.T) {
 
 func TestUpdateOrphanCleanup(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -271,7 +271,7 @@ func TestUpdateOrphanCleanup(t *testing.T) {
 
 func TestUpdateMtime(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -302,7 +302,7 @@ func TestUpdateMtime(t *testing.T) {
 
 func TestUpdateMultipleFiles(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -346,7 +346,7 @@ func TestUpdateMultipleFiles(t *testing.T) {
 
 func TestUpdateNewPhantom(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -385,7 +385,7 @@ func TestUpdateNewPhantom(t *testing.T) {
 
 func TestUpdateNewTag(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -420,7 +420,7 @@ func TestUpdateNoIndex(t *testing.T) {
 
 func TestUpdateVaultEscape(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	beforeEdges := countEdges(t, dbPath(vault))
@@ -443,7 +443,7 @@ func TestUpdateVaultEscape(t *testing.T) {
 
 func TestUpdateEscapeVaultNonRelative(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -461,7 +461,7 @@ func TestUpdateEscapeVaultNonRelative(t *testing.T) {
 
 func TestUpdateDeletedFileExistingPhantom(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -519,7 +519,7 @@ func TestUpdateDeletedFileExistingPhantom(t *testing.T) {
 
 func TestUpdateDeletedWithSimultaneousRef(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -561,7 +561,7 @@ func TestUpdateDeletedWithSimultaneousRef(t *testing.T) {
 
 func TestUpdatePartialErrorNoChanges(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	beforeNotes := countNotes(t, dbPath(vault))
@@ -596,7 +596,7 @@ func TestUpdateBasenameCountTransition(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[sub/A]]\n#shared\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -642,7 +642,7 @@ func TestUpdateBasenameCountTransition(t *testing.T) {
 
 func TestUpdateIncomingEdgesPreserved(t *testing.T) {
 	vault := copyVault(t, "vault_update")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -697,7 +697,7 @@ func TestUpdateRootDeletedResolvesToSubdir(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 

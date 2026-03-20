@@ -18,7 +18,7 @@ func TestDeleteNoDB(t *testing.T) {
 
 func TestDeleteUnregisteredFile(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	beforeNotes := countNotes(t, dbPath(vault))
@@ -42,7 +42,7 @@ func TestDeleteUnregisteredFile(t *testing.T) {
 
 func TestDeleteUnreferencedFile(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -74,7 +74,7 @@ func TestDeleteUnreferencedFile(t *testing.T) {
 
 func TestDeleteReferencedFileBecomesPhantom(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -141,7 +141,7 @@ func TestDeleteReferencedFileBecomesPhantom(t *testing.T) {
 
 func TestDeleteOrphanTagCleanup(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -187,7 +187,7 @@ func TestDeleteOrphanTagCleanup(t *testing.T) {
 
 func TestDeleteMultipleFiles(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -223,7 +223,7 @@ func TestDeleteMultipleFiles(t *testing.T) {
 
 func TestDeletePartialErrorNoChanges(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	beforeNotes := countNotes(t, dbPath(vault))
@@ -248,7 +248,7 @@ func TestDeletePartialErrorNoChanges(t *testing.T) {
 func TestDeleteReferencedFileBecomesNewPhantom(t *testing.T) {
 	// Tests the in-place conversion path (no existing phantom with same name).
 	vault := copyVault(t, "vault_build_full")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -257,7 +257,7 @@ func TestDeleteReferencedFileBecomesNewPhantom(t *testing.T) {
 	if err := os.WriteFile(missingPath, []byte("# Missing\n\nNow I exist.\n"), 0o644); err != nil {
 		t.Fatalf("write Missing.md: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 
@@ -315,7 +315,7 @@ func TestDeleteExistingPhantomEdgeReassignment(t *testing.T) {
 	// Tests the edge reassignment path where a phantom with the same name
 	// already exists when deleting a note.
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -382,7 +382,7 @@ func TestDeleteExistingPhantomEdgeReassignment(t *testing.T) {
 
 func TestDeleteFileStillExistsOnDisk(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	beforeNotes := countNotes(t, dbPath(vault))
@@ -407,7 +407,7 @@ func TestDeleteFileStillExistsOnDisk(t *testing.T) {
 
 func TestDeleteDuplicateFileArgs(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -427,7 +427,7 @@ func TestDeleteDuplicateFileArgs(t *testing.T) {
 
 func TestDeleteRemoveFiles(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -448,7 +448,7 @@ func TestDeleteRemoveFiles(t *testing.T) {
 
 func TestDeleteRemoveFiles_AlreadyRemoved(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -466,7 +466,7 @@ func TestDeleteRemoveFiles_AlreadyRemoved(t *testing.T) {
 
 func TestDeleteRemoveFiles_Phantomize(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -487,7 +487,7 @@ func TestDeleteRemoveFiles_Phantomize(t *testing.T) {
 
 func TestDeleteRemoveFiles_VaultEscape(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -527,7 +527,7 @@ func TestDeleteRemoveFiles_VaultEscape(t *testing.T) {
 
 func TestListDirNotes_Basic(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -549,7 +549,7 @@ func TestListDirNotes_Basic(t *testing.T) {
 
 func TestListDirNotes_Nested(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -564,7 +564,7 @@ func TestListDirNotes_Nested(t *testing.T) {
 
 func TestListDirNotes_NoMatch(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -593,7 +593,7 @@ func TestListDirNotes_SpecialChars(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "dirX100Y", "B.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -610,7 +610,7 @@ func TestListDirNotes_SpecialChars(t *testing.T) {
 
 func TestDelete_DirExpansion(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -645,7 +645,7 @@ func TestDelete_DirExpansion(t *testing.T) {
 
 func TestDelete_DirEmpty(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -660,7 +660,7 @@ func TestDelete_DirEmpty(t *testing.T) {
 
 func TestDelete_DirNoRm(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -689,7 +689,7 @@ func TestDelete_DirNoRm(t *testing.T) {
 
 func TestDelete_DirRm_CleanupEmptyDirs(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 

@@ -9,7 +9,7 @@ import (
 
 func TestAddNewFile(t *testing.T) {
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -75,7 +75,7 @@ func TestAddNewFile(t *testing.T) {
 func TestAddMultipleFiles(t *testing.T) {
 	vault := copyVault(t, "vault_add")
 	// Build with only A.md and B.md.
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -116,7 +116,7 @@ func TestAddMultipleFiles(t *testing.T) {
 
 func TestAddExistingFile(t *testing.T) {
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	beforeNotes := countNotes(t, dbPath(vault))
@@ -140,7 +140,7 @@ func TestAddExistingFile(t *testing.T) {
 
 func TestAddFileNotOnDisk(t *testing.T) {
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -160,7 +160,7 @@ func TestAddNoDB(t *testing.T) {
 
 func TestAddPhantomPromotion(t *testing.T) {
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -243,7 +243,7 @@ func TestAddPhantomPromotion(t *testing.T) {
 func TestAddAmbiguousLinkInNewFileRootPriority(t *testing.T) {
 	// X.md at root + sub/X.md → root priority resolves [[X]] to root.
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -279,7 +279,7 @@ func TestAddAmbiguousLinkInNewFileRootPriority(t *testing.T) {
 func TestAddAmbiguousLinkInNewFileNoRoot(t *testing.T) {
 	// sub1/X.md + sub2/X.md (no root) → [[X]] is ambiguous → error.
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -317,7 +317,7 @@ func TestAddAmbiguousLinkInNewFileNoRoot(t *testing.T) {
 func TestAddCausesExistingAmbiguityRootPriority(t *testing.T) {
 	// B.md is at root. Adding sub/B.md → Pattern A, but old target is root → skip.
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -349,7 +349,7 @@ func TestAddCausesExistingAmbiguityNoRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("# B\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -365,7 +365,7 @@ func TestAddCausesExistingAmbiguityNoRoot(t *testing.T) {
 
 func TestAddPartialErrorNoChanges(t *testing.T) {
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -394,7 +394,7 @@ func TestAddPartialErrorNoChanges(t *testing.T) {
 
 func TestAddVaultEscape(t *testing.T) {
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -411,7 +411,7 @@ func TestAddVaultEscape(t *testing.T) {
 
 func TestAddEscapeVaultNonRelative(t *testing.T) {
 	vault := copyVault(t, "vault_add")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -431,7 +431,7 @@ func TestAddAutoDisambiguateBasic(t *testing.T) {
 	// Pattern A: existing unique note (sub/B.md) becomes ambiguous when adding B.md.
 	// With AutoDisambiguate enabled, A.md's links should be rewritten to sub/B.
 	vault := copyVault(t, "vault_add_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -489,7 +489,7 @@ func TestAddAutoDisambiguateRootTarget(t *testing.T) {
 	// Old target B.md is at root → Pattern A skip (root priority).
 	// No rewrites needed — [[B]] still resolves to root B.md.
 	vault := copyVault(t, "vault_add_disambiguate_root")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -537,7 +537,7 @@ func TestAddAutoDisambiguateRootTarget(t *testing.T) {
 func TestAddAutoDisambiguatePatternBRootPriority(t *testing.T) {
 	// Pattern B: phantom + 2 new files. NonExistent.md at root → root priority → success.
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -566,7 +566,7 @@ func TestAddAutoDisambiguatePatternBRootPriority(t *testing.T) {
 func TestAddAutoDisambiguatePatternBNoRoot(t *testing.T) {
 	// Pattern B: phantom + 2 new files, both in subdirs (no root) → error.
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -595,7 +595,7 @@ func TestAddAutoDisambiguatePatternBNoRoot(t *testing.T) {
 func TestAddAutoDisambiguateNewFileWithRootPriority(t *testing.T) {
 	// New file C.md has [[B]]. B.md at root + sub/B.md → root priority → success.
 	vault := copyVault(t, "vault_add_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -621,7 +621,7 @@ func TestAddAutoDisambiguateNewFileWithRootPriority(t *testing.T) {
 func TestAddAutoDisambiguateNewFileAmbiguousNoRoot(t *testing.T) {
 	// New file has [[B]], sub/B.md exists, add sub2/B.md (no root B) → ambiguous → error.
 	vault := copyVault(t, "vault_add_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -647,7 +647,7 @@ func TestAddAutoDisambiguateNewFileAmbiguousNoRoot(t *testing.T) {
 func TestAddAutoDisambiguateDBUpdated(t *testing.T) {
 	// Verify DB edges have updated raw_link and source mtime is updated.
 	vault := copyVault(t, "vault_add_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -698,7 +698,7 @@ func TestAddAutoDisambiguateCodeFenceIgnored(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -737,7 +737,7 @@ func TestAddAutoDisambiguateInlineCodeIgnored(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -772,7 +772,7 @@ func TestAddAutoDisambiguateEmbed(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -802,7 +802,7 @@ func TestAddAutoDisambiguateEmbed(t *testing.T) {
 func TestAddAutoDisambiguateStaleMtimeErrors(t *testing.T) {
 	// If source file mtime doesn't match DB, error should occur with no changes.
 	vault := copyVault(t, "vault_add_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -852,7 +852,7 @@ func TestAddAutoDisambiguateExtensionPreserved(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -890,7 +890,7 @@ func TestAddAutoDisambiguateExtensionPreserved(t *testing.T) {
 func TestAddAutoDisambiguateRebuildConsistent(t *testing.T) {
 	// After auto-disambiguate, a full rebuild should produce the same DB state.
 	vault := copyVault(t, "vault_add_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -911,7 +911,7 @@ func TestAddAutoDisambiguateRebuildConsistent(t *testing.T) {
 	addNotes := countNotes(t, dbPath(vault))
 
 	// Rebuild.
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 
@@ -964,7 +964,7 @@ func TestAddAutoDisambiguateRestoreBackups(t *testing.T) {
 
 func TestAddOrphanCleanup(t *testing.T) {
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1014,7 +1014,7 @@ func TestAddSelfLinkNotBlockedByAmbiguity(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "Note.md"), []byte("# Note\n\n[[#Heading]]\n[self](#other)\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1036,7 +1036,7 @@ func TestAddSelfLinkNotBlockedByAmbiguity(t *testing.T) {
 func TestAddDuplicateBasenameNewFilesRootPriority(t *testing.T) {
 	// Adding NonExistent.md (root) + sub/NonExistent.md → root priority → success.
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1062,7 +1062,7 @@ func TestAddDuplicateBasenameNewFilesRootPriority(t *testing.T) {
 func TestAddDuplicateBasenameNewFilesNoRoot(t *testing.T) {
 	// Adding sub1/NonExistent.md + sub2/NonExistent.md (no root) → error.
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1089,7 +1089,7 @@ func TestAddPhantomPromotionRootPriority(t *testing.T) {
 	// Phantom [[NonExistent]] exists. Add sub/NonExistent.md and NonExistent.md (root).
 	// Root file should be promoted (not the sub one).
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1139,7 +1139,7 @@ func TestAddAutoDisambiguateSubdirTarget(t *testing.T) {
 	// Old unique target sub/B.md. Add B.md at root → Pattern A, old target NOT root.
 	// Auto-disambiguate rewrites [[B]] → [[sub/B]].
 	vault := copyVault(t, "vault_add_disambiguate")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1171,7 +1171,7 @@ func TestAddAutoDisambiguateSubdirTarget(t *testing.T) {
 	}
 
 	// Rebuild should succeed.
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("rebuild after auto-disambiguate: %v", err)
 	}
 }

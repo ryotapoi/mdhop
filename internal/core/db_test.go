@@ -25,7 +25,7 @@ func TestOpenDBChecked_OK(t *testing.T) {
 	if err := testutil.CopyDir("../../testdata/vault_build_basic", tmp); err != nil {
 		t.Fatalf("CopyDir failed: %v", err)
 	}
-	if err := Build(tmp); err != nil {
+	if _, err := Build(tmp); err != nil {
 		t.Fatalf("Build failed: %v", err)
 	}
 

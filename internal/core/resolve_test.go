@@ -21,7 +21,7 @@ func copyVaultForResolve(t *testing.T, name string) string {
 
 func buildVault(t *testing.T, vaultPath string) {
 	t.Helper()
-	if err := Build(vaultPath); err != nil {
+	if _, err := Build(vaultPath); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 }

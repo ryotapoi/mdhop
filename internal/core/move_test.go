@@ -11,7 +11,7 @@ import (
 // --- Test 1: from not registered in DB → error ---
 func TestMove_NotRegistered(t *testing.T) {
 	vault := copyVault(t, "vault_move_error")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	_, err := Move(vault, MoveOptions{From: "Z.md", To: "W.md"})
@@ -26,7 +26,7 @@ func TestMove_NotRegistered(t *testing.T) {
 // --- Test 2: to already registered in DB → error ---
 func TestMove_TargetExists(t *testing.T) {
 	vault := copyVault(t, "vault_move_error")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	_, err := Move(vault, MoveOptions{From: "A.md", To: "B.md"})
@@ -41,7 +41,7 @@ func TestMove_TargetExists(t *testing.T) {
 // --- Test 3: to exists on disk (from also on disk) → error ---
 func TestMove_TargetExistsOnDisk(t *testing.T) {
 	vault := copyVault(t, "vault_move_error")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	// Create an unregistered file at the destination.
@@ -72,7 +72,7 @@ func TestMove_AmbiguousAfterMove(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
@@ -99,7 +99,7 @@ func TestMove_AmbiguousAfterMoveNoRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub", "C.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
@@ -149,7 +149,7 @@ func TestMove_AmbiguousAfterMoveNoRoot(t *testing.T) {
 // --- Test 5: basename unchanged + unique → links preserved (no rewrite) ---
 func TestMove_BasenameUnchanged(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -206,7 +206,7 @@ func TestMove_BasenameUnchanged(t *testing.T) {
 // --- Test 6: path links are always rewritten ---
 func TestMove_PathLinkAlwaysRewritten(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -262,7 +262,7 @@ func TestMove_PathLinkAlwaysRewritten(t *testing.T) {
 // --- Test 7: basename changes → basename links rewritten ---
 func TestMove_BasenameChanged(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -319,7 +319,7 @@ func TestMove_BasenameChanged(t *testing.T) {
 // --- Test 8: outgoing relative links rewritten ---
 func TestMove_OutgoingRelativeRewritten(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -371,7 +371,7 @@ func TestMove_OutgoingRelativeRewritten(t *testing.T) {
 // --- Test 9: phantom promotion ---
 func TestMove_PhantomPromotion(t *testing.T) {
 	vault := copyVault(t, "vault_move_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -437,7 +437,7 @@ func TestMove_PhantomPromotionAndOrphanCleanup(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	dbp := dbPath(vault)
@@ -477,7 +477,7 @@ func TestMove_PhantomPromotionAndOrphanCleanup(t *testing.T) {
 // --- Test 11: mkdir auto-creation ---
 func TestMove_MkdirAuto(t *testing.T) {
 	vault := copyVault(t, "vault_move_error")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -495,7 +495,7 @@ func TestMove_MkdirAuto(t *testing.T) {
 // --- Test 12: stale from file → error ---
 func TestMove_StaleFromError(t *testing.T) {
 	vault := copyVault(t, "vault_move_error")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -517,7 +517,7 @@ func TestMove_StaleFromError(t *testing.T) {
 // --- Test 13: external rewrite succeeds even when target file has stale mtime ---
 func TestMove_ExternalRewriteWithStaleFile(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -553,7 +553,7 @@ func TestMove_SelfReference(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -588,7 +588,7 @@ func TestMove_AmbiguousThirdPartyRootPriority(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -619,7 +619,7 @@ func TestMove_AmbiguousThirdPartyNoRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -668,7 +668,7 @@ func TestMove_AmbiguousThirdPartyNoRoot(t *testing.T) {
 // --- Test 16: both from and to absent on disk ---
 func TestMove_BothAbsentOnDisk(t *testing.T) {
 	vault := copyVault(t, "vault_move_error")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -690,7 +690,7 @@ func TestMove_BothAbsentOnDisk(t *testing.T) {
 // --- Test 17: same path → error ---
 func TestMove_SamePath(t *testing.T) {
 	vault := copyVault(t, "vault_move_error")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -722,7 +722,7 @@ func TestMove_MultipleIncomingRewrites(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -778,7 +778,7 @@ func TestMove_MultipleIncomingRewrites(t *testing.T) {
 // --- Test 19: already-moved stale file → error ---
 func TestMove_AlreadyMovedStale(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -808,7 +808,7 @@ func TestMove_AlreadyMovedStale(t *testing.T) {
 // --- Test 20: already moved on disk (from absent, to present) ---
 func TestMove_AlreadyMoved(t *testing.T) {
 	vault := copyVault(t, "vault_move_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -874,7 +874,7 @@ func TestMovePreservesPermission(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -903,7 +903,7 @@ func TestMove_RenameToRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -945,7 +945,7 @@ func TestMove_RootFileMovedOut(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
@@ -991,7 +991,7 @@ func TestMove_RootFileMovedOutThirdParty(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1056,7 +1056,7 @@ func TestMove_RootFileSurvives(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "D.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
@@ -1087,7 +1087,7 @@ func TestMove_MeaningChangeNewRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1150,7 +1150,7 @@ func TestMove_Phase2RootSkipsRewrite(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
@@ -1192,7 +1192,7 @@ func TestMove_CollateralAndIncomingSameFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "X.md"), []byte("[[A]]\n[[B]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1279,7 +1279,7 @@ func TestMove_CollateralMultipleFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "Y.md"), []byte("[[B]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1360,7 +1360,7 @@ func TestMove_OutgoingBasenameDisambiguation(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub1", "B.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1419,7 +1419,7 @@ func TestMove_OutgoingMeaningChangeRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1485,7 +1485,7 @@ func TestMove_CollateralRewriteWithStaleFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1516,7 +1516,7 @@ func TestMove_CollateralRewriteWithStaleFile(t *testing.T) {
 
 func TestMoveDir_Basic(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1565,7 +1565,7 @@ func TestMoveDir_Basic(t *testing.T) {
 
 func TestMoveDir_NoFiles(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1590,7 +1590,7 @@ func TestMoveDir_DestConflict(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "dst", "A.md"), []byte("other\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1602,7 +1602,7 @@ func TestMoveDir_DestConflict(t *testing.T) {
 
 func TestMoveDir_IncomingRewrite(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1651,7 +1651,7 @@ func TestMoveDir_IncomingMultiplePathLinks(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "Ext.md"), []byte("[[sub/A]]\n[[sub/B]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1705,7 +1705,7 @@ func TestMoveDir_CollateralRewrite(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1759,7 +1759,7 @@ func TestMoveDir_CollateralMultipleBasenames(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "src", "D.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1799,7 +1799,7 @@ func TestMoveDir_CollateralRootPriority(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1818,7 +1818,7 @@ func TestMoveDir_CollateralRootPriority(t *testing.T) {
 
 func TestMoveDir_OutgoingBasenameToMoved(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1838,7 +1838,7 @@ func TestMoveDir_OutgoingBasenameToMoved(t *testing.T) {
 
 func TestMoveDir_OutgoingPathToMoved(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1866,7 +1866,7 @@ func TestMoveDir_OutgoingPathToMoved(t *testing.T) {
 
 func TestMoveDir_RelativeBetweenMoved(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1906,7 +1906,7 @@ func TestMoveDir_RelativeToExternal(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "Root.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1937,7 +1937,7 @@ func TestMoveDir_OutgoingPathToExternal(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "Root.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1955,7 +1955,7 @@ func TestMoveDir_OutgoingPathToExternal(t *testing.T) {
 
 func TestMoveDir_ExternalRewriteWithStaleFile(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -1983,7 +1983,7 @@ func TestMoveDir_ExternalRewriteWithStaleFile(t *testing.T) {
 
 func TestMoveDir_AlreadyMoved(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2030,7 +2030,7 @@ func TestMoveDir_AlreadyMoved(t *testing.T) {
 
 func TestMoveDir_Stale(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2051,7 +2051,7 @@ func TestMoveDir_Stale(t *testing.T) {
 
 func TestMoveDir_Nested(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2078,7 +2078,7 @@ func TestMoveDir_Nested(t *testing.T) {
 
 func TestMoveDir_Overlap(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2090,7 +2090,7 @@ func TestMoveDir_Overlap(t *testing.T) {
 
 func TestMoveDir_VaultEscape(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2112,7 +2112,7 @@ func TestMoveDir_VaultEscape(t *testing.T) {
 
 func TestMoveDir_DestExistsOnDisk(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2144,7 +2144,7 @@ func TestMoveDir_PhantomPromotion(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub", "Y.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2166,7 +2166,7 @@ func TestMoveDir_NonMDFileMovedAlong(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub", "image.png"), []byte("png data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2192,7 +2192,7 @@ func TestMoveDir_HiddenFilesIgnored(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub", ".DS_Store"), []byte("data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2233,7 +2233,7 @@ func TestMoveDir_ConsecutiveMovesNoStale(t *testing.T) {
 	}
 
 	// Build index.
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2302,7 +2302,7 @@ func TestMoveDir_ConsecutiveMergeNoStale(t *testing.T) {
 		}
 	}
 
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2373,7 +2373,7 @@ func TestMoveDir_ConsecutiveWithCrossLinks(t *testing.T) {
 		}
 	}
 
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2432,7 +2432,7 @@ func TestMoveDir_CollateralNoRootCallsQuery(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "other", "A.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -2463,7 +2463,7 @@ func TestMoveDir_CollateralSkipsPathLink(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "X.md"), []byte("[[other/A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 

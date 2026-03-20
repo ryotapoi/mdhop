@@ -125,7 +125,7 @@ func countEdges(t *testing.T, dbp string) int {
 
 func TestBuildCreatesDB(t *testing.T) {
 	vault := copyVault(t, "vault_build_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	if _, err := os.Stat(dbPath(vault)); err != nil {
@@ -135,7 +135,7 @@ func TestBuildCreatesDB(t *testing.T) {
 
 func TestBuildEmptyVaultCreatesDB(t *testing.T) {
 	vault := copyVault(t, "vault_build_empty")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	if _, err := os.Stat(dbPath(vault)); err != nil {
@@ -148,7 +148,7 @@ func TestBuildEmptyVaultCreatesDB(t *testing.T) {
 
 func TestBuildRebuildOverwritesDB(t *testing.T) {
 	vault := copyVault(t, "vault_build_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	before := countNotes(t, dbPath(vault))
@@ -158,7 +158,7 @@ func TestBuildRebuildOverwritesDB(t *testing.T) {
 	if err := os.WriteFile(newPath, []byte("# C\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
 	after := countNotes(t, dbPath(vault))
@@ -169,7 +169,7 @@ func TestBuildRebuildOverwritesDB(t *testing.T) {
 
 func TestBuildFailsOnAmbiguousLink(t *testing.T) {
 	vault := copyVault(t, "vault_build_conflict")
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil {
 		t.Fatalf("expected build error")
 	}
@@ -186,7 +186,7 @@ func TestBuildFailsOnAmbiguousLink(t *testing.T) {
 
 func TestBuildFailureKeepsExistingDB(t *testing.T) {
 	vault := copyVault(t, "vault_build_existing_db")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	before := countNotes(t, dbPath(vault))
@@ -204,7 +204,7 @@ func TestBuildFailureKeepsExistingDB(t *testing.T) {
 		t.Fatalf("write link: %v", err)
 	}
 
-	if err := Build(vault); err == nil {
+	if _, err := Build(vault); err == nil {
 		t.Fatalf("expected build error")
 	}
 	// Ensure existing DB is still readable and unchanged.
@@ -220,14 +220,14 @@ func TestBuildFailureKeepsExistingDB(t *testing.T) {
 
 func TestBuildCaseInsensitiveBasename(t *testing.T) {
 	vault := copyVault(t, "vault_build_case_insensitive")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build should succeed with case-insensitive match: %v", err)
 	}
 }
 
 func TestBuildCaseAmbiguous(t *testing.T) {
 	vault := copyVault(t, "vault_build_case_ambiguous")
-	if err := Build(vault); err == nil {
+	if _, err := Build(vault); err == nil {
 		t.Fatalf("expected ambiguous error for case-insensitive basename collision")
 	}
 }
@@ -238,14 +238,14 @@ func TestBuildCaseCollisionWithPathLink(t *testing.T) {
 	if err := os.WriteFile(refPath, []byte("# Ref\n\n[[sub1/Note]]\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build should succeed with path-based link: %v", err)
 	}
 }
 
 func TestBuildMtime(t *testing.T) {
 	vault := copyVault(t, "vault_build_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	db := openTestDB(t, dbPath(vault))
@@ -279,7 +279,7 @@ func TestBuildFailsOnVaultEscapeLink(t *testing.T) {
 	if err := os.WriteFile(path, []byte("# Escape\n\n[up](../Outside.md)\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	if err := Build(vault); err == nil {
+	if _, err := Build(vault); err == nil {
 		t.Fatalf("expected build error for vault escape link")
 	}
 	if _, err := os.Stat(dbPath(vault)); err == nil {
@@ -297,7 +297,7 @@ func TestBuildEscapeVaultNonRelative(t *testing.T) {
 		[]byte("[link](sub/../../Outside.md)\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil || !strings.Contains(err.Error(), "escapes vault") {
 		t.Fatalf("expected vault escape error, got: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestBuildEscapeVaultAbsolutePrefix(t *testing.T) {
 		[]byte("[link](/sub/../../Outside.md)\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil || !strings.Contains(err.Error(), "escapes vault") {
 		t.Fatalf("expected vault escape error, got: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestBuildNonEscapingDotDot(t *testing.T) {
 		[]byte("[link](sub/../A.md)\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("expected success for non-escaping dotdot path, got: %v", err)
 	}
 }
@@ -332,7 +332,7 @@ func TestBuildNonEscapingDotDot(t *testing.T) {
 
 func TestBuildEdgesWikilink(t *testing.T) {
 	vault := copyVault(t, "vault_build_edges")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "A.md")
@@ -395,7 +395,7 @@ func TestBuildEdgesWikilink(t *testing.T) {
 
 func TestBuildEdgesBacklink(t *testing.T) {
 	vault := copyVault(t, "vault_build_edges")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "sub/B.md")
@@ -412,7 +412,7 @@ func TestBuildEdgesBacklink(t *testing.T) {
 
 func TestBuildEdgesRelativePath(t *testing.T) {
 	vault := copyVault(t, "vault_build_relative")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "dir/Source.md")
@@ -435,7 +435,7 @@ func TestBuildEdgesRelativePath(t *testing.T) {
 
 func TestBuildPhantomNodes(t *testing.T) {
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -470,7 +470,7 @@ func TestBuildPhantomNodes(t *testing.T) {
 
 func TestBuildPhantomEdges(t *testing.T) {
 	vault := copyVault(t, "vault_build_phantom")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "A.md")
@@ -496,7 +496,7 @@ func TestBuildPhantomEdges(t *testing.T) {
 
 func TestBuildBasicEdgeCount(t *testing.T) {
 	vault := copyVault(t, "vault_build_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	// A.md has [[B]], B.md has no links.
@@ -514,7 +514,7 @@ func TestBuildBasicEdgeCount(t *testing.T) {
 
 func TestBuildTagsInline(t *testing.T) {
 	vault := copyVault(t, "vault_build_tags")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	tags := queryNodes(t, dbPath(vault), "tag")
@@ -535,7 +535,7 @@ func TestBuildTagsInline(t *testing.T) {
 
 func TestBuildTagsFrontmatter(t *testing.T) {
 	vault := copyVault(t, "vault_build_tags")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "A.md")
@@ -562,7 +562,7 @@ func TestBuildTagsFrontmatter(t *testing.T) {
 
 func TestBuildTagsFrontmatterNestedExpansion(t *testing.T) {
 	vault := copyVault(t, "vault_build_tags")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	tags := queryNodes(t, dbPath(vault), "tag")
@@ -584,7 +584,7 @@ func TestBuildTagsFrontmatterNestedExpansion(t *testing.T) {
 
 func TestBuildTagsInlineEdge(t *testing.T) {
 	vault := copyVault(t, "vault_build_tags")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "A.md")
@@ -601,7 +601,7 @@ func TestBuildTagsInlineEdge(t *testing.T) {
 
 func TestBuildTagsCodeFenceExcluded(t *testing.T) {
 	vault := copyVault(t, "vault_build_tag_codefence")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	tags := queryNodes(t, dbPath(vault), "tag")
@@ -618,7 +618,7 @@ func TestBuildTagsCodeFenceExcluded(t *testing.T) {
 
 func TestBuildTagsSharedAcrossFiles(t *testing.T) {
 	vault := copyVault(t, "vault_build_tags")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	// Both A.md and B.md have #simple
@@ -648,7 +648,7 @@ func TestBuildTagsSharedAcrossFiles(t *testing.T) {
 
 func TestBuildTagsUnicode(t *testing.T) {
 	vault := copyVault(t, "vault_build_tags_unicode")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	tags := queryNodes(t, dbPath(vault), "tag")
@@ -712,7 +712,7 @@ func TestBuildTagsUnicode(t *testing.T) {
 
 func TestBuildFullVault(t *testing.T) {
 	vault := copyVault(t, "vault_build_full")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
@@ -816,7 +816,7 @@ func TestBuildRootPriority(t *testing.T) {
 	// A.md at root + sub/A.md → basename "A" collides.
 	// B.md has [[A]] → root priority resolves to root A.md → build succeeds.
 	vault := copyVault(t, "vault_build_root_priority")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("expected build success (root priority), got: %v", err)
 	}
 
@@ -862,7 +862,7 @@ func TestBuildRootPriorityNoRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err == nil {
+	if _, err := Build(vault); err == nil {
 		t.Fatal("expected build error for ambiguous link (no root)")
 	}
 }
@@ -872,7 +872,7 @@ func TestBuildRootPriorityRoundTrip(t *testing.T) {
 	vault := copyVault(t, "vault_build_root_priority")
 
 	// Initial build: A.md(root) + sub/A.md + B.md has [[A]].
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("first build: %v", err)
 	}
 
@@ -891,7 +891,7 @@ func TestBuildRootPriorityRoundTrip(t *testing.T) {
 	}
 
 	// Rebuild should still succeed (root-priority resolves [[A]] to root A.md).
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("rebuild after add: %v", err)
 	}
 }
@@ -906,7 +906,7 @@ func TestBuildExcludesMdhopDir(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(mdhopDir, "test.md"), []byte("# Hidden\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	notes := queryNodes(t, dbPath(vault), "note")
@@ -919,7 +919,7 @@ func TestBuildExcludesMdhopDir(t *testing.T) {
 
 func TestBuildEdgeLineEnd(t *testing.T) {
 	vault := copyVault(t, "vault_build_edges")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "A.md")
@@ -938,21 +938,23 @@ func TestBuildIdempotent(t *testing.T) {
 	vault := copyVault(t, "vault_build_full")
 
 	// Build twice.
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("first build: %v", err)
 	}
 	firstNotes := countNotes(t, dbPath(vault))
 	firstEdges := countEdges(t, dbPath(vault))
 	firstPhantoms := len(queryNodes(t, dbPath(vault), "phantom"))
 	firstTags := len(queryNodes(t, dbPath(vault), "tag"))
+	firstMeta := countMeta(t, dbPath(vault))
 
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("second build: %v", err)
 	}
 	secondNotes := countNotes(t, dbPath(vault))
 	secondEdges := countEdges(t, dbPath(vault))
 	secondPhantoms := len(queryNodes(t, dbPath(vault), "phantom"))
 	secondTags := len(queryNodes(t, dbPath(vault), "tag"))
+	secondMeta := countMeta(t, dbPath(vault))
 
 	if firstNotes != secondNotes {
 		t.Errorf("notes changed: %d → %d", firstNotes, secondNotes)
@@ -966,11 +968,14 @@ func TestBuildIdempotent(t *testing.T) {
 	if firstTags != secondTags {
 		t.Errorf("tags changed: %d → %d", firstTags, secondTags)
 	}
+	if firstMeta != secondMeta {
+		t.Errorf("meta changed: %d → %d", firstMeta, secondMeta)
+	}
 }
 
 func TestBuildCollectsMultipleErrors(t *testing.T) {
 	vault := copyVault(t, "vault_build_multi_error")
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil {
 		t.Fatal("expected build error")
 	}
@@ -999,7 +1004,7 @@ func TestBuildCollectsMultipleErrors(t *testing.T) {
 
 func TestBuildSingleErrorFormatUnchanged(t *testing.T) {
 	vault := copyVault(t, "vault_build_conflict")
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil {
 		t.Fatal("expected build error")
 	}
@@ -1039,7 +1044,7 @@ func TestBuildErrorCapAtMax(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil {
 		t.Fatal("expected build error")
 	}
@@ -1067,7 +1072,7 @@ func TestBuildVaultEscapeOnlyNoHint(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("[up](../../X.md)\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil {
 		t.Fatal("expected build error")
 	}
@@ -1084,7 +1089,7 @@ func TestBuildVaultEscapeOnlyNoHint(t *testing.T) {
 
 func TestBuildExclude_FiltersFiles(t *testing.T) {
 	vault := copyVault(t, "vault_build_exclude")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	notes := queryNodes(t, dbPath(vault), "note")
@@ -1101,7 +1106,7 @@ func TestBuildExclude_FiltersFiles(t *testing.T) {
 
 func TestBuildExclude_PhantomForPathLink(t *testing.T) {
 	vault := copyVault(t, "vault_build_exclude")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	// A.md has [link](daily/D.md) → daily/D.md is excluded → should be phantom
@@ -1122,7 +1127,7 @@ func TestBuildExclude_PhantomForPathLink(t *testing.T) {
 
 func TestBuildExclude_PhantomForBasenameLink(t *testing.T) {
 	vault := copyVault(t, "vault_build_exclude")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	// A.md has [[D]] → daily/D.md is excluded → D has no other match → phantom
@@ -1144,7 +1149,7 @@ func TestBuildExclude_PhantomForBasenameLink(t *testing.T) {
 func TestBuildExclude_RemovesAmbiguity(t *testing.T) {
 	vault := copyVault(t, "vault_build_exclude_ambiguity")
 	// E.md at root + sub/E.md → normally ambiguous. But sub/* is excluded → E is unique.
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build should succeed (exclude resolves ambiguity): %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "X.md")
@@ -1164,7 +1169,7 @@ func TestBuildExclude_RemovesAmbiguity(t *testing.T) {
 
 func TestBuildExclude_TagsNotIndexed(t *testing.T) {
 	vault := copyVault(t, "vault_build_exclude")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	tags := queryNodes(t, dbPath(vault), "tag")
@@ -1185,7 +1190,7 @@ func TestBuildExclude_TagsNotIndexed(t *testing.T) {
 func TestBuildExclude_NoConfig(t *testing.T) {
 	// vault_build_basic has no mdhop.yaml → Build should work normally.
 	vault := copyVault(t, "vault_build_basic")
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build without config should succeed: %v", err)
 	}
 }
@@ -1196,7 +1201,7 @@ func TestBuildExclude_EmptyPatterns(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths: []\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Build(vault); err != nil {
+	if _, err := Build(vault); err != nil {
 		t.Fatalf("build with empty patterns: %v", err)
 	}
 	// All 4 files should be indexed.
@@ -1211,11 +1216,218 @@ func TestBuildExclude_InvalidPattern(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - \"[abc]/*\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	err := Build(vault)
+	_, err := Build(vault)
 	if err == nil {
 		t.Fatal("expected error for bracket pattern")
 	}
 	if !strings.Contains(err.Error(), "unsupported glob pattern") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- Meta test helpers ---
+
+func queryMetaForPath(t *testing.T, dbp, path string) []MetaRow {
+	t.Helper()
+	db := openTestDB(t, dbp)
+	defer db.Close()
+	var nodeID int64
+	err := db.QueryRow("SELECT id FROM nodes WHERE path = ?", path).Scan(&nodeID)
+	if err != nil {
+		t.Fatalf("query node id for %s: %v", path, err)
+	}
+	rows, err := queryMetaByNode(db, nodeID)
+	if err != nil {
+		t.Fatalf("query meta for %s: %v", path, err)
+	}
+	return rows
+}
+
+func countMeta(t *testing.T, dbp string) int {
+	t.Helper()
+	db := openTestDB(t, dbp)
+	defer db.Close()
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM meta").Scan(&count); err != nil {
+		t.Fatalf("count meta: %v", err)
+	}
+	return count
+}
+
+// --- Meta tests ---
+
+func TestBuildMeta_ConfiguredTypes(t *testing.T) {
+	vault := copyVault(t, "vault_build_meta")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	// A.md has 5 entries: date, priority, severity, title, version (sorted by key, value)
+	if len(meta) != 5 {
+		t.Fatalf("expected 5 meta rows for A.md, got %d: %+v", len(meta), meta)
+	}
+
+	// Check individual entries (queryMetaByNode returns ORDER BY key, value)
+	expected := []MetaRow{
+		{Key: "date", Value: "2024-03-15", SortValue: "2024-03-15", ValueType: "date"},
+		{Key: "priority", Value: "42", SortValue: "100000000000000000042.00000000", ValueType: "number"},
+		{Key: "severity", Value: "high", SortValue: "00002", ValueType: "ordered"},
+		{Key: "title", Value: "My Note", SortValue: "My Note", ValueType: "string"},
+		{Key: "version", Value: "1.2.3", SortValue: "00001.00002.00003", ValueType: "semver"},
+	}
+	for i, exp := range expected {
+		if meta[i] != exp {
+			t.Errorf("meta[%d] = %+v, want %+v", i, meta[i], exp)
+		}
+	}
+}
+
+func TestBuildMeta_UnconfiguredKey(t *testing.T) {
+	vault := copyVault(t, "vault_build_meta")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	// title is not in mdhop.yaml → defaults to string type
+	var found bool
+	for _, m := range meta {
+		if m.Key == "title" {
+			found = true
+			if m.ValueType != "string" {
+				t.Errorf("unconfigured key title: value_type = %q, want string", m.ValueType)
+			}
+			if m.SortValue != "My Note" {
+				t.Errorf("unconfigured key title: sort_value = %q, want %q", m.SortValue, "My Note")
+			}
+		}
+	}
+	if !found {
+		t.Error("meta entry for title not found")
+	}
+}
+
+func TestBuildMeta_ListValues(t *testing.T) {
+	vault := copyVault(t, "vault_build_meta")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "B.md")
+
+	// B.md has: tags (go, cli), aliases (foo, bar), author (Alice) → 5 entries
+	if len(meta) != 5 {
+		t.Fatalf("expected 5 meta rows for B.md, got %d: %+v", len(meta), meta)
+	}
+
+	// Check individual values (sorted by key, value)
+	expected := []MetaRow{
+		{Key: "aliases", Value: "bar", SortValue: "bar", ValueType: "string"},
+		{Key: "aliases", Value: "foo", SortValue: "foo", ValueType: "string"},
+		{Key: "author", Value: "Alice", SortValue: "Alice", ValueType: "string"},
+		{Key: "tags", Value: "cli", SortValue: "cli", ValueType: "string"},
+		{Key: "tags", Value: "go", SortValue: "go", ValueType: "string"},
+	}
+	for i, exp := range expected {
+		if meta[i] != exp {
+			t.Errorf("meta[%d] = %+v, want %+v", i, meta[i], exp)
+		}
+	}
+}
+
+func TestBuildMeta_NormalizationWarnings(t *testing.T) {
+	vault := copyVault(t, "vault_build_meta")
+	result, err := Build(vault)
+	if err != nil {
+		t.Fatalf("build should succeed with invalid meta values: %v", err)
+	}
+	// C.md has 4 invalid values → 4 warnings
+	if len(result.Warnings) != 4 {
+		t.Errorf("expected 4 warnings, got %d: %v", len(result.Warnings), result.Warnings)
+	}
+
+	// sort_value should be the original value (string fallback)
+	meta := queryMetaForPath(t, dbPath(vault), "C.md")
+	for _, m := range meta {
+		switch m.Key {
+		case "date":
+			if m.SortValue != "not-a-date" {
+				t.Errorf("date sort_value = %q, want %q", m.SortValue, "not-a-date")
+			}
+			if m.ValueType != "date" {
+				t.Errorf("date value_type = %q, want %q", m.ValueType, "date")
+			}
+		case "priority":
+			if m.SortValue != "abc" {
+				t.Errorf("priority sort_value = %q, want %q", m.SortValue, "abc")
+			}
+			if m.ValueType != "number" {
+				t.Errorf("priority value_type = %q, want %q", m.ValueType, "number")
+			}
+		case "version":
+			if m.SortValue != "not-semver" {
+				t.Errorf("version sort_value = %q, want %q", m.SortValue, "not-semver")
+			}
+			if m.ValueType != "semver" {
+				t.Errorf("version value_type = %q, want %q", m.ValueType, "semver")
+			}
+		case "severity":
+			if m.SortValue != "unknown" {
+				t.Errorf("severity sort_value = %q, want %q", m.SortValue, "unknown")
+			}
+			if m.ValueType != "ordered" {
+				t.Errorf("severity value_type = %q, want %q", m.ValueType, "ordered")
+			}
+		}
+	}
+}
+
+func TestBuildMeta_NoFrontmatter(t *testing.T) {
+	vault := copyVault(t, "vault_build_meta")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "D.md")
+	if len(meta) != 0 {
+		t.Errorf("expected 0 meta rows for D.md, got %d: %+v", len(meta), meta)
+	}
+}
+
+func TestBuildMeta_NoConfig(t *testing.T) {
+	// Use vault_build_meta but remove mdhop.yaml → all keys should default to string
+	vault := copyVault(t, "vault_build_meta")
+	if err := os.Remove(filepath.Join(vault, "mdhop.yaml")); err != nil {
+		t.Fatalf("remove config: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	// A.md has frontmatter → meta rows should exist with string type
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if len(meta) == 0 {
+		t.Fatal("expected meta rows for A.md without config")
+	}
+	for _, m := range meta {
+		if m.ValueType != "string" {
+			t.Errorf("key %q: value_type = %q, want %q (no config → default string)", m.Key, m.ValueType, "string")
+		}
+		if m.SortValue != m.Value {
+			t.Errorf("key %q: sort_value = %q, want %q (string type → passthrough)", m.Key, m.SortValue, m.Value)
+		}
+	}
+}
+
+func TestBuildMeta_Idempotent(t *testing.T) {
+	vault := copyVault(t, "vault_build_meta")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("first build: %v", err)
+	}
+	firstCount := countMeta(t, dbPath(vault))
+
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("second build: %v", err)
+	}
+	secondCount := countMeta(t, dbPath(vault))
+
+	if firstCount != secondCount {
+		t.Errorf("meta count changed: %d → %d", firstCount, secondCount)
 	}
 }

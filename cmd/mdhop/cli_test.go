@@ -86,7 +86,7 @@ func setupVaultForCLI(t *testing.T, name string) string {
 	if err := testutil.CopyDir(root, dst); err != nil {
 		t.Fatalf("copy vault: %v", err)
 	}
-	if err := core.Build(dst); err != nil {
+	if _, err := core.Build(dst); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	return dst

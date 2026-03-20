@@ -1,0 +1,10 @@
+meta:
+  types:
+    date:
+      date
+    priority:
+      number
+    version:
+      semver
+    severity:
+      ordered: [low, medium, high, critical]

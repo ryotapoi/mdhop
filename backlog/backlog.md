@@ -51,7 +51,7 @@ meta:
 4. [x] `meta` テーブル + DB ヘルパー
    - `CREATE TABLE meta (id, node_id, key, value, sort_value, value_type)` + インデックス
    - `insertMeta`, `deleteMetaByNode`, `queryMetaByNode` ヘルパー
-5. [ ] Build で meta 格納
+5. [x] Build で meta 格納
    - `parsedFile` struct に meta 追加、型設定に従って sort_value を生成、挿入
 6. [ ] Update / Add / Delete で meta 対応
    - Update: deleteMetaByNode → 再挿入。Delete: removeOrPhantomize で meta 削除
