@@ -91,6 +91,14 @@ func TestValidateFields(t *testing.T) {
 	}
 }
 
+func TestValidateFields_QueryMeta(t *testing.T) {
+	// "meta" should be accepted as a valid query field
+	err := validateFields([]string{"meta"}, validQueryFieldsCLI, "query")
+	if err != nil {
+		t.Errorf("meta should be valid, got: %v", err)
+	}
+}
+
 func TestPrintResolveText_Note(t *testing.T) {
 	r := &core.ResolveResult{
 		Type: "note", Name: "Design", Path: "Notes/Design.md",
@@ -359,6 +367,74 @@ func TestPrintQueryText_PhantomEntry(t *testing.T) {
 	}
 }
 
+func TestPrintQueryJSON_MetaGrouping(t *testing.T) {
+	r := &core.QueryResult{
+		Entry: core.NodeInfo{Type: "note", Name: "B", Path: "B.md", Exists: true},
+		Meta: []core.MetaRow{
+			{Key: "aliases", Value: "beta"},
+			{Key: "aliases", Value: "bravo"},
+			{Key: "priority", Value: "2"},
+			{Key: "status", Value: "active"},
+		},
+	}
+	var buf bytes.Buffer
+	printQueryJSON(&buf, r)
+
+	var m map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	meta, ok := m["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("meta should be object, got %T: %v", m["meta"], m["meta"])
+	}
+	// aliases should be ["beta", "bravo"]
+	aliases, ok := meta["aliases"].([]any)
+	if !ok || len(aliases) != 2 {
+		t.Errorf("aliases = %v, want [beta, bravo]", meta["aliases"])
+	}
+	// priority should be ["2"]
+	priority, ok := meta["priority"].([]any)
+	if !ok || len(priority) != 1 || priority[0] != "2" {
+		t.Errorf("priority = %v, want [2]", meta["priority"])
+	}
+}
+
+func TestPrintQueryJSON_MetaNil(t *testing.T) {
+	r := &core.QueryResult{
+		Entry: core.NodeInfo{Type: "note", Name: "A", Path: "A.md", Exists: true},
+		Meta:  nil,
+	}
+	var buf bytes.Buffer
+	printQueryJSON(&buf, r)
+
+	var m map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m["meta"]; ok {
+		t.Error("meta should be omitted when nil")
+	}
+}
+
+func TestPrintQueryJSON_MetaEmpty(t *testing.T) {
+	r := &core.QueryResult{
+		Entry: core.NodeInfo{Type: "note", Name: "A", Path: "A.md", Exists: true},
+		Meta:  []core.MetaRow{},
+	}
+	var buf bytes.Buffer
+	printQueryJSON(&buf, r)
+
+	var m map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	// Empty meta should be omitted (omitempty)
+	if _, ok := m["meta"]; ok {
+		t.Error("meta should be omitted when empty")
+	}
+}
+
 func TestPrintQueryJSON_NilSections(t *testing.T) {
 	r := &core.QueryResult{
 		Entry: core.NodeInfo{Type: "note", Name: "A", Path: "A.md", Exists: true},
@@ -375,6 +451,54 @@ func TestPrintQueryJSON_NilSections(t *testing.T) {
 	}
 	if _, ok := m["tags"]; ok {
 		t.Error("nil tags should be omitted from JSON")
+	}
+}
+
+// --- Query meta text output tests ---
+
+func TestPrintQueryText_MetaPresent(t *testing.T) {
+	r := &core.QueryResult{
+		Entry: core.NodeInfo{Type: "note", Name: "A", Path: "A.md", Exists: true},
+		Meta: []core.MetaRow{
+			{Key: "priority", Value: "1"},
+			{Key: "status", Value: "active"},
+		},
+	}
+	var buf bytes.Buffer
+	printQueryText(&buf, r)
+	got := buf.String()
+
+	if !strings.Contains(got, "meta:\n- priority: 1\n- status: active\n") {
+		t.Errorf("expected meta section, got:\n%s", got)
+	}
+}
+
+func TestPrintQueryText_MetaNil(t *testing.T) {
+	r := &core.QueryResult{
+		Entry: core.NodeInfo{Type: "note", Name: "A", Path: "A.md", Exists: true},
+		Meta:  nil,
+	}
+	var buf bytes.Buffer
+	printQueryText(&buf, r)
+	got := buf.String()
+
+	if strings.Contains(got, "meta:") {
+		t.Errorf("meta should be omitted when nil, got:\n%s", got)
+	}
+}
+
+func TestPrintQueryText_MetaEmpty(t *testing.T) {
+	r := &core.QueryResult{
+		Entry: core.NodeInfo{Type: "note", Name: "A", Path: "A.md", Exists: true},
+		Meta:  []core.MetaRow{},
+	}
+	var buf bytes.Buffer
+	printQueryText(&buf, r)
+	got := buf.String()
+
+	// Empty meta (requested but 0 entries) — omit section like other empty slices
+	if strings.Contains(got, "meta:") {
+		t.Errorf("meta should be omitted when empty, got:\n%s", got)
 	}
 }
 

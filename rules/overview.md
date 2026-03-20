@@ -86,7 +86,7 @@ exclude:
 - `--format json|text` : 出力形式を指定する（default: text）
 - `--fields <comma-separated>` : 出力フィールドを制限する
   - resolve: `type,name,path,exists,subpath`
-  - query: `backlinks,tags,twohop,outgoing,head,snippet`
+  - query: `backlinks,tags,twohop,outgoing,head,snippet,meta`
   - diagnose: `basename_conflicts,asset_basename_conflicts,phantoms`
   - stats: `notes_total,notes_exists,edges_total,tags_total,phantoms_total,assets_total`
     - `edges_total` は出現回数ベースの総数
@@ -109,6 +109,7 @@ exclude:
 - `tags`: 起点ノートが持つタグ一覧
 - `head`: ノート先頭N行（`--include-head`）
 - `snippet`: リンク周辺の前後N行（`--include-snippet`）
+- `meta`: エントリノードの frontmatter メタデータ（opt-in: `--fields` で明示指定時のみ）
 
 #### diagnose
 
@@ -139,6 +140,12 @@ exclude:
 - `--exclude <glob>` : 指定パターンに一致するパスを結果から除外する（複数回指定可）
 - `--exclude-tag <tag>` : 指定タグを結果から除外する（複数回指定可、`#` 付き推奨）
 - `--no-exclude` : `mdhop.yaml` の除外設定を無視する
+- `--where <expr>` : frontmatter メタデータによるフィルタ（複数回指定可、AND 結合）
+  - 演算子: `=`, `!=`, `~`（LIKE）, `>`, `<`, `>=`, `<=`, EXISTS（演算子なし）
+  - 例: `--where "status=active"`, `--where "priority>1"`, `--where "status"`, `--where "status!=done"`
+  - フィルタ対象: backlinks, outgoing, twohop の結果ノード（エントリノード自体はフィルタされない）
+  - phantom/tag/asset は meta テーブルにエントリを持たないため、`--where` 指定時に常にフィルタアウトされる
+  - `mdhop.yaml` の `meta.types` で型宣言されたキーは比較演算子で型安全な比較が可能
 
 ### 除外フィルタの仕様
 
@@ -254,7 +261,7 @@ exclude:
   - 必須: `--file` または `--tag` または `--phantom` または `--name`
   - 任意: `--vault`, `--format`, `--fields`, `--include-head`, `--include-snippet`,
     `--max-backlinks`, `--max-twohop`, `--max-via-per-target`,
-    `--exclude`, `--exclude-tag`, `--no-exclude`
+    `--exclude`, `--exclude-tag`, `--no-exclude`, `--where`
 - `diagnose`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`

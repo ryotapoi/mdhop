@@ -265,19 +265,21 @@ var validQueryFieldsCLI = map[string]bool{
 	"outgoing":  true,
 	"head":      true,
 	"snippet":   true,
+	"meta":      true,
 }
 
 // --- Query output ---
 
 // queryJSONOutput is the JSON-serializable form of QueryResult.
 type queryJSONOutput struct {
-	Entry     *jsonNodeInfo    `json:"entry"`
-	Backlinks []jsonNodeInfo   `json:"backlinks,omitempty"`
-	Outgoing  []jsonNodeInfo   `json:"outgoing,omitempty"`
-	Tags      []string         `json:"tags,omitempty"`
-	TwoHop    []jsonTwoHop     `json:"twohop,omitempty"`
-	Head      []string         `json:"head,omitempty"`
-	Snippets  []jsonSnippet    `json:"snippet,omitempty"`
+	Entry     *jsonNodeInfo       `json:"entry"`
+	Backlinks []jsonNodeInfo      `json:"backlinks,omitempty"`
+	Outgoing  []jsonNodeInfo      `json:"outgoing,omitempty"`
+	Tags      []string            `json:"tags,omitempty"`
+	TwoHop    []jsonTwoHop        `json:"twohop,omitempty"`
+	Head      []string            `json:"head,omitempty"`
+	Snippets  []jsonSnippet       `json:"snippet,omitempty"`
+	Meta      map[string][]string `json:"meta,omitempty"`
 }
 
 type jsonNodeInfo struct {
@@ -353,6 +355,14 @@ func printQueryJSON(w io.Writer, r *core.QueryResult) error {
 		}
 	}
 
+	if r.Meta != nil {
+		m := make(map[string][]string)
+		for _, mr := range r.Meta {
+			m[mr.Key] = append(m[mr.Key], mr.Value)
+		}
+		out.Meta = m
+	}
+
 	return encodeJSON(w, out)
 }
 
@@ -409,6 +419,13 @@ func printQueryText(w io.Writer, r *core.QueryResult) error {
 			for _, line := range s.Lines {
 				fmt.Fprintf(w, "  - %q\n", line)
 			}
+		}
+	}
+
+	if r.Meta != nil && len(r.Meta) > 0 {
+		fmt.Fprintln(w, "meta:")
+		for _, m := range r.Meta {
+			fmt.Fprintf(w, "- %s: %s\n", m.Key, m.Value)
 		}
 	}
 

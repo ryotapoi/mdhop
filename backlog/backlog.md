@@ -58,7 +58,7 @@ meta:
 7. [x] `--where` クエリ（core 層）
    - `WhereClause` パーサー（`=`, `!=`, `~`, `>`, `<`, `>=`, `<=`, EXISTS）
    - `QueryOptions.Where`、SQL 生成（sort_value 列で比較）、各 query 関数に meta フィルタ統合
-8. [ ] CLI `--where` + meta 出力
+8. [x] CLI `--where` + meta 出力
    - `--where` フラグ（multiString）、`--fields meta` 対応（JSON/text）
 9. [ ] `init-meta` コマンド
    - `--preset`: ビルトイン推奨型定義を `mdhop.yaml` に書き出し

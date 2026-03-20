@@ -798,3 +798,115 @@ func TestRunMove_FileToDirError(t *testing.T) {
 		t.Errorf("expected directory destination error, got: %v", err)
 	}
 }
+
+// --- Query --where CLI tests ---
+
+func TestRunQuery_WhereFiltersBacklinks(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_where")
+
+	// A.md has backlinks from B(active), C(done), D(no meta), E(active).
+	// --where status=active should filter to B and E only.
+	err := runQuery([]string{
+		"--vault", vault, "--file", "A.md",
+		"--fields", "backlinks", "--format", "json",
+		"--where", "status=active",
+	})
+	if err != nil {
+		t.Fatalf("query with --where: %v", err)
+	}
+}
+
+func TestRunQuery_WhereInvalidExpr(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_where")
+
+	err := runQuery([]string{
+		"--vault", vault, "--file", "A.md",
+		"--where", "=value",
+	})
+	if err == nil || !strings.Contains(err.Error(), "empty key") {
+		t.Errorf("expected empty key error, got: %v", err)
+	}
+}
+
+func TestRunQuery_WhereWithNoExclude(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_where")
+
+	// --where + --no-exclude should work (config loaded for meta, exclude disabled)
+	err := runQuery([]string{
+		"--vault", vault, "--file", "A.md",
+		"--fields", "backlinks", "--format", "json",
+		"--where", "status=active", "--no-exclude",
+	})
+	if err != nil {
+		t.Fatalf("query with --where --no-exclude: %v", err)
+	}
+}
+
+func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_where")
+
+	// Capture stdout to verify JSON output
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runQuery([]string{
+		"--vault", vault, "--file", "A.md",
+		"--fields", "backlinks,meta",
+		"--format", "json",
+		"--where", "status=active",
+	})
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+
+	var output bytes.Buffer
+	output.ReadFrom(r)
+
+	var m map[string]any
+	if err := json.Unmarshal(output.Bytes(), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, output.String())
+	}
+
+	// Backlinks should be filtered to status=active notes: B and E
+	backlinks, ok := m["backlinks"].([]any)
+	if !ok {
+		t.Fatalf("expected backlinks array, got: %v", m["backlinks"])
+	}
+	names := make(map[string]bool)
+	for _, bl := range backlinks {
+		blMap := bl.(map[string]any)
+		names[blMap["name"].(string)] = true
+	}
+	if !names["B"] {
+		t.Error("expected B in filtered backlinks")
+	}
+	if !names["E"] {
+		t.Error("expected E in filtered backlinks")
+	}
+	if names["C"] {
+		t.Error("C (status=done) should be filtered out")
+	}
+	if names["D"] {
+		t.Error("D (no meta) should be filtered out")
+	}
+	if len(backlinks) != 2 {
+		t.Errorf("expected 2 backlinks, got %d: %v", len(backlinks), names)
+	}
+
+	// Meta should be present for entry node A
+	meta, ok := m["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected meta object, got: %v", m["meta"])
+	}
+	if _, ok := meta["priority"]; !ok {
+		t.Error("expected priority in meta")
+	}
+	if _, ok := meta["status"]; !ok {
+		t.Error("expected status in meta")
+	}
+}

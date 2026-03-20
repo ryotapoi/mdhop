@@ -62,6 +62,7 @@ type QueryResult struct {
 	Tags      []string       // nil = not requested
 	Head      []string       // nil = not requested
 	Snippets  []SnippetEntry // nil = not requested
+	Meta      []MetaRow      // nil = not requested
 }
 
 // Query returns related information for the given entry node.
@@ -144,6 +145,17 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 			return nil, err
 		}
 		result.Snippets = snippets
+	}
+
+	if isFieldActive("meta", opts.Fields) && len(opts.Fields) > 0 {
+		meta, err := queryMetaByNode(db, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		if meta == nil {
+			meta = []MetaRow{}
+		}
+		result.Meta = meta
 	}
 
 	return result, nil

@@ -833,6 +833,106 @@ func TestFilterLeafTags(t *testing.T) {
 	}
 }
 
+// --- Meta tests ---
+
+func setupMetaVault(t *testing.T) string {
+	t.Helper()
+	vault := copyVaultForQuery(t, "vault_query_where")
+	buildForQuery(t, vault)
+	return vault
+}
+
+func TestQueryMetaRequested(t *testing.T) {
+	vault := setupMetaVault(t)
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Fields: []string{"meta"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Meta == nil {
+		t.Fatal("Meta should be non-nil when requested")
+	}
+	// A.md has priority:1, status:active, aliases:[alpha]
+	got := make(map[string][]string)
+	for _, m := range res.Meta {
+		got[m.Key] = append(got[m.Key], m.Value)
+	}
+	if v, ok := got["priority"]; !ok || len(v) != 1 || v[0] != "1" {
+		t.Errorf("priority = %v, want [1]", v)
+	}
+	if v, ok := got["status"]; !ok || len(v) != 1 || v[0] != "active" {
+		t.Errorf("status = %v, want [active]", v)
+	}
+	if v, ok := got["aliases"]; !ok || len(v) != 1 || v[0] != "alpha" {
+		t.Errorf("aliases = %v, want [alpha]", v)
+	}
+}
+
+func TestQueryMetaNotRequestedNil(t *testing.T) {
+	vault := setupMetaVault(t)
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Fields: []string{"backlinks"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Meta != nil {
+		t.Errorf("Meta should be nil when not requested, got %v", res.Meta)
+	}
+}
+
+func TestQueryMetaDefaultFieldsNil(t *testing.T) {
+	// Fields=nil (all standard) should NOT include meta (opt-in only)
+	vault := setupMetaVault(t)
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Meta != nil {
+		t.Errorf("Meta should be nil with default fields, got %v", res.Meta)
+	}
+}
+
+func TestQueryMetaEmptyForNoFrontmatter(t *testing.T) {
+	vault := setupMetaVault(t)
+	// D.md has no frontmatter
+	res, err := Query(vault, EntrySpec{File: "D.md"}, QueryOptions{Fields: []string{"meta"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Meta == nil {
+		t.Fatal("Meta should be non-nil (empty slice) when requested but no meta exists")
+	}
+	if len(res.Meta) != 0 {
+		t.Errorf("Meta should be empty for D.md, got %v", res.Meta)
+	}
+}
+
+func TestQueryMetaPhantomEntry(t *testing.T) {
+	vault := setupFullVault(t)
+	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Fields: []string{"meta"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Meta == nil {
+		t.Fatal("Meta should be non-nil (empty slice) for phantom entry")
+	}
+	if len(res.Meta) != 0 {
+		t.Errorf("Meta should be empty for phantom, got %v", res.Meta)
+	}
+}
+
+func TestQueryMetaTagEntry(t *testing.T) {
+	vault := setupFullVault(t)
+	res, err := Query(vault, EntrySpec{Tag: "overview"}, QueryOptions{Fields: []string{"meta"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Meta == nil {
+		t.Fatal("Meta should be non-nil (empty slice) for tag entry")
+	}
+	if len(res.Meta) != 0 {
+		t.Errorf("Meta should be empty for tag, got %v", res.Meta)
+	}
+}
+
 // --- helpers ---
 
 func nodeNames(nodes []NodeInfo) []string {

@@ -23,8 +23,10 @@ func runQuery(args []string) error {
 	maxViaPerTarget := fs.Int("max-via-per-target", 10, "max via entries per twohop target")
 	var excludePaths multiString
 	var excludeTags multiString
+	var whereExprs multiString
 	fs.Var(&excludePaths, "exclude", "exclude paths matching glob (repeatable)")
 	fs.Var(&excludeTags, "exclude-tag", "exclude tag (repeatable)")
+	fs.Var(&whereExprs, "where", "frontmatter filter (repeatable)")
 	noExclude := fs.Bool("no-exclude", false, "disable config file exclusions")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -39,15 +41,24 @@ func runQuery(args []string) error {
 		return err
 	}
 
-	var cfgExclude core.ExcludeConfig
-	if !*noExclude {
-		cfg, err := core.LoadConfig(*vault)
+	var cfg core.Config
+	if !*noExclude || len(whereExprs) > 0 {
+		var err error
+		cfg, err = core.LoadConfig(*vault)
 		if err != nil {
 			return err
 		}
+	}
+	var cfgExclude core.ExcludeConfig
+	if !*noExclude {
 		cfgExclude = cfg.Exclude
 	}
 	ef, err := core.NewExcludeFilter(cfgExclude, excludePaths, excludeTags)
+	if err != nil {
+		return err
+	}
+
+	wc, err := core.ParseWhere(whereExprs, cfg.Meta)
 	if err != nil {
 		return err
 	}
@@ -67,6 +78,7 @@ func runQuery(args []string) error {
 		MaxTwoHop:       *maxTwoHop,
 		MaxViaPerTarget: *maxViaPerTarget,
 		Exclude:         ef,
+		Where:           wc,
 	}
 
 	result, err := core.Query(*vault, entry, opts)
