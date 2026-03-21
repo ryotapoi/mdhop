@@ -92,7 +92,8 @@ func Build(vaultPath string) (*BuildResult, error) {
 			} else if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
 				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
 			} else if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
-				userErrors = append(userErrors, fmt.Sprintf("ambiguous link: %s in %s", link.target, rel))
+				candidates := ambiguousCandidates(link.target, rm)
+				userErrors = append(userErrors, fmt.Sprintf("ambiguous link: %s in %s (candidates: %s)", link.target, rel, strings.Join(candidates, ", ")))
 			} else {
 				continue
 			}

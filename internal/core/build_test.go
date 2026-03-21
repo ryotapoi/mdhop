@@ -862,8 +862,13 @@ func TestBuildRootPriorityNoRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Build(vault); err == nil {
+	_, err := Build(vault)
+	if err == nil {
 		t.Fatal("expected build error for ambiguous link (no root)")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "(candidates: sub1/A.md, sub2/A.md)") {
+		t.Errorf("expected candidates in error, got: %s", msg)
 	}
 }
 
@@ -984,8 +989,14 @@ func TestBuildCollectsMultipleErrors(t *testing.T) {
 	if !strings.Contains(msg, "ambiguous link: A") {
 		t.Errorf("missing ambiguous A error: %s", msg)
 	}
+	if !strings.Contains(msg, "(candidates: sub1/A.md, sub2/A.md)") {
+		t.Errorf("missing candidates for A: %s", msg)
+	}
 	if !strings.Contains(msg, "ambiguous link: B") {
 		t.Errorf("missing ambiguous B error: %s", msg)
+	}
+	if !strings.Contains(msg, "(candidates: sub1/B.md, sub2/B.md)") {
+		t.Errorf("missing candidates for B: %s", msg)
 	}
 	if !strings.Contains(msg, "escapes vault") {
 		t.Errorf("missing vault escape error: %s", msg)

@@ -1,6 +1,8 @@
 package core
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIsRootFile(t *testing.T) {
 	tests := []struct {
@@ -86,6 +88,62 @@ func TestIsAmbiguousBasenameLink(t *testing.T) {
 			got := isAmbiguousBasenameLink(tt.target, tt.rm)
 			if got != tt.want {
 				t.Errorf("isAmbiguousBasenameLink(%q) = %v, want %v", tt.target, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAmbiguousCandidates(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+		rm     *resolveMaps
+		want   []string
+	}{
+		{
+			name:   "note namespace: 2 candidates sorted",
+			target: "A",
+			rm: &resolveMaps{
+				basenameCounts:      map[string]int{"a": 2},
+				pathSet:             map[string]string{"sub2/a.md": "sub2/A.md", "sub2/a": "sub2/A.md", "sub1/a.md": "sub1/A.md", "sub1/a": "sub1/A.md"},
+				assetBasenameCounts: map[string]int{},
+				assetPathSet:        map[string]string{},
+			},
+			want: []string{"sub1/A.md", "sub2/A.md"},
+		},
+		{
+			name:   "note namespace: 3 candidates sorted",
+			target: "B",
+			rm: &resolveMaps{
+				basenameCounts:      map[string]int{"b": 3},
+				pathSet:             map[string]string{"z/b.md": "z/B.md", "z/b": "z/B.md", "a/b.md": "a/B.md", "a/b": "a/B.md", "m/b.md": "m/B.md", "m/b": "m/B.md"},
+				assetBasenameCounts: map[string]int{},
+				assetPathSet:        map[string]string{},
+			},
+			want: []string{"a/B.md", "m/B.md", "z/B.md"},
+		},
+		{
+			name:   "asset namespace: 2 candidates sorted",
+			target: "image.png",
+			rm: &resolveMaps{
+				basenameCounts:      map[string]int{},
+				pathSet:             map[string]string{},
+				assetBasenameCounts: map[string]int{"image.png": 2},
+				assetPathSet:        map[string]string{"sub2/image.png": "sub2/image.png", "sub1/image.png": "sub1/image.png"},
+			},
+			want: []string{"sub1/image.png", "sub2/image.png"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ambiguousCandidates(tt.target, tt.rm)
+			if len(got) != len(tt.want) {
+				t.Fatalf("ambiguousCandidates(%q) = %v, want %v", tt.target, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("ambiguousCandidates(%q)[%d] = %q, want %q", tt.target, i, got[i], tt.want[i])
+				}
 			}
 		})
 	}

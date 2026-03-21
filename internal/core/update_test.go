@@ -216,6 +216,9 @@ func TestUpdateAmbiguousLinkNoRoot(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "ambiguous") {
 		t.Errorf("expected ambiguous link error, got: %v", err)
 	}
+	if err != nil && !strings.Contains(err.Error(), "(candidates: sub1/D.md, sub2/D.md)") {
+		t.Errorf("expected candidates in error, got: %v", err)
+	}
 
 	afterEdges := countEdges(t, dbPath(vault))
 	if beforeEdges != afterEdges {

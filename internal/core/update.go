@@ -142,7 +142,8 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, cf.path)
 			}
 			if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
-				return nil, fmt.Errorf("ambiguous link: %s in %s", link.target, cf.path)
+				candidates := ambiguousCandidates(link.target, rm)
+				return nil, fmt.Errorf("ambiguous link: %s in %s (candidates: %s)", link.target, cf.path, strings.Join(candidates, ", "))
 			}
 		}
 

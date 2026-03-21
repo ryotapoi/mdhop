@@ -73,7 +73,7 @@ meta:
     - 現状の `--where` は query の結果フィルタでしかなく、「status=active のノート全部」ができない
     - 既存の `WhereClause` / `MetaFilterSQL` を流用
     - 要設計: `--sort`, `--limit`, `--offset`, `--path` フィルタ、出力フィールド
-12. [ ] build エラーメッセージ改善
+12. [x] build エラーメッセージ改善
     - ambiguous link エラー時に conflict しているファイルのパス一覧を表示
 13. [ ] スキル更新（search 反映）
     - `examples/skills/mdhop/` に search コマンドを追加

@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -56,6 +57,31 @@ func isAmbiguousBasenameLink(target string, rm *resolveMaps) bool {
 		return !hasRootInPathSet(lower, rm.assetPathSet)
 	}
 	return false
+}
+
+// ambiguousCandidates returns sorted candidate paths for an ambiguous basename link.
+// Must only be called when isAmbiguousBasenameLink returns true.
+// Same collection pattern as simplify.go:collectNoteBasenameFiles but for resolveMaps.
+func ambiguousCandidates(target string, rm *resolveMaps) []string {
+	lower := strings.ToLower(target)
+	var paths []string
+	if rm.basenameCounts[lower] > 1 {
+		// Note namespace.
+		for lp, actual := range rm.pathSet {
+			if basenameKey(actual) == lower && strings.HasSuffix(lp, ".md") {
+				paths = append(paths, actual)
+			}
+		}
+	} else {
+		// Asset namespace.
+		for _, actual := range rm.assetPathSet {
+			if assetBasenameKey(actual) == lower {
+				paths = append(paths, actual)
+			}
+		}
+	}
+	sort.Strings(paths)
+	return paths
 }
 
 // CleanupEmptyDirs removes empty directories left after file deletion.

@@ -312,6 +312,9 @@ func TestAddAmbiguousLinkInNewFileNoRoot(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "ambiguous link") {
 		t.Errorf("expected ambiguous link error, got: %v", err)
 	}
+	if err != nil && !strings.Contains(err.Error(), "(candidates: sub1/X.md, sub2/X.md)") {
+		t.Errorf("expected candidates in error, got: %v", err)
+	}
 }
 
 func TestAddCausesExistingAmbiguityRootPriority(t *testing.T) {

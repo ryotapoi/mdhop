@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // AddOptions controls which files to add to the index.
@@ -254,7 +255,8 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, f.path)
 			}
 			if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
-				return nil, fmt.Errorf("ambiguous link: %s in %s", link.target, f.path)
+				candidates := ambiguousCandidates(link.target, rm)
+				return nil, fmt.Errorf("ambiguous link: %s in %s (candidates: %s)", link.target, f.path, strings.Join(candidates, ", "))
 			}
 		}
 

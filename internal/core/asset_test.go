@@ -122,6 +122,9 @@ func TestBuildAssets_AmbiguousAssetLink(t *testing.T) {
 	if !strings.Contains(err.Error(), "ambiguous") {
 		t.Fatalf("expected ambiguous error, got: %v", err)
 	}
+	if !strings.Contains(err.Error(), "(candidates: other/image.png, sub/image.png)") {
+		t.Errorf("expected asset candidates in error, got: %v", err)
+	}
 }
 
 func TestBuildAssets_HiddenFilesExcluded(t *testing.T) {
