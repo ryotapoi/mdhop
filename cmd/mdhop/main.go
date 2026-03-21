@@ -45,6 +45,8 @@ func main() {
 		err = runRepair(os.Args[2:])
 	case "convert":
 		err = runConvert(os.Args[2:])
+	case "search":
+		err = runSearch(os.Args[2:])
 	case "init-meta":
 		err = runInitMeta(os.Args[2:])
 	case "--version":
@@ -94,6 +96,7 @@ Index Commands:
 Query Commands:
   resolve    Resolve a link from a source file
   query      Query related information for a node
+  search     Search notes by metadata and path conditions
   stats      Show vault statistics
   diagnose   Show basename conflicts and phantom nodes
 

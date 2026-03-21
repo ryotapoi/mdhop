@@ -95,7 +95,18 @@
 - phantom 一覧（未解決リンク）
 - 除外数、パース失敗一覧
 
-### 2.7 型スキャフォールディング（init-meta）
+### 2.7 ノート検索（search）
+
+- 起点不要の全ノード検索。vault 全体から条件に合致する note を返す
+- `--where` でメタデータフィルタ（query と同じ構文・演算子）
+- `--path` でパス glob 包含フィルタ、`--exclude` でパス glob 除外フィルタ
+- `--sort` で meta キーによるソート（昇順/降順）。NULL は常に末尾
+- `--limit` / `--offset` でページング。total フィールドに適用前の総件数を返す
+- `--fields meta` で frontmatter メタデータを追加出力（opt-in）
+- `--include-head N` でノート先頭N行を追加出力
+- コマンド詳細は overview.md 参照
+
+### 2.8 型スキャフォールディング（init-meta）
 
 - frontmatter メタデータの型定義（`mdhop.yaml` の `meta.types`）を自動生成
 - プリセット出力 + Vault スキャンによる型推定

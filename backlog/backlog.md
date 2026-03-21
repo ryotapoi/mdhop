@@ -68,7 +68,7 @@ meta:
    - `--preset --scan` 併用: scan 優先（データドリブン > curated）
 10. [x] ドキュメント更新
     - rules/overview.md, 03-data-model.md, 02-requirements.md
-11. [ ] `search` コマンド（起点不要の全ノード検索）
+11. [x] `search` コマンド（起点不要の全ノード検索）
     - `--where` で vault 全体からメタデータ条件でノートを検索
     - 現状の `--where` は query の結果フィルタでしかなく、「status=active のノート全部」ができない
     - 既存の `WhereClause` / `MetaFilterSQL` を流用

@@ -158,8 +158,9 @@ meta:
 
 ### 除外フィルタの仕様
 
-- 適用範囲: query のみ（stats/diagnose は対象外）
-- 除外対象: backlinks, outgoing, tags, twohop（via と targets 両方）, snippet
+- 適用範囲: query, search（stats/diagnose は対象外）
+- 除外対象（query）: backlinks, outgoing, tags, twohop（via と targets 両方）, snippet
+- 除外対象（search）: 検索結果のノード自体
 - エントリノード自体は除外されない（`--file daily/D.md --exclude "daily/*"` は正常動作）
 - `mdhop.yaml` の `exclude` と CLI の `--exclude`/`--exclude-tag` はマージして適用する
 - パス除外の glob パターン:
@@ -271,6 +272,18 @@ meta:
   - 任意: `--vault`, `--format`, `--fields`, `--include-head`, `--include-snippet`,
     `--max-backlinks`, `--max-twohop`, `--max-via-per-target`,
     `--exclude`, `--exclude-tag`, `--no-exclude`, `--where`
+- `search`
+  - 必須: なし
+  - 任意: `--vault`, `--format`, `--fields`, `--where`, `--path`, `--exclude`, `--no-exclude`,
+    `--sort`, `--include-head`, `--limit`, `--offset`
+  - 補足: 起点不要の全ノード検索。`type='note' AND exists_flag=1` のノードのみ対象
+  - 補足: `--where` でメタデータ条件フィルタ（query の `--where` と同じ構文）
+  - 補足: `--path` でパス glob 包含フィルタ（repeatable, OR 結合）
+  - 補足: `--sort key` で昇順、`--sort -key` で降順。未指定時は path 順
+  - 補足: `--limit` / `--offset` でページング。total フィールドに limit/offset 適用前の総件数を返す
+  - 補足: `--fields meta` で frontmatter メタデータを追加出力（opt-in）
+  - 補足: `--include-head N` でノート先頭N行を追加出力
+  - 補足: `--exclude`, `--no-exclude` は query と同じ挙動（config の除外 + CLI 除外）
 - `diagnose`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`
