@@ -60,6 +60,7 @@ exclude:
 - `mdhop query --name name` : note/phantom/tag を意識せず関連情報を返す
 - `mdhop diagnose` : basename 衝突、phantom 一覧を検出する
 - `mdhop stats` : ノート数・リンク数などの統計情報を返す
+- `mdhop init-meta` : frontmatter 型定義の scaffold を生成する
 
 ### モード
 
@@ -268,6 +269,19 @@ exclude:
 - `stats`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`
+- `init-meta`
+  - 必須: `--preset` または `--scan`（少なくとも一方）
+  - 任意: `--vault`, `--write`, `--no-comment`
+  - 補足: DB 不要（ファイル走査ベース）。build 前に実行可能
+  - 補足: `--preset` は推奨型定義（date×10, number×4, semver×1）を出力する
+  - 補足: `--scan` は vault の全 .md ファイルの frontmatter を走査し、各キーの型を推定する
+    - 型推定: 値の 80% 以上が date/number/semver にマッチすれば推定。それ以外は string
+    - カーディナリティが 10 以下の string キーは ordered 型候補としてコメントで提示する
+    - `tags`, `aliases` キーは型推定対象から除外される（well-known な特殊キー）
+  - 補足: `--preset --scan` 併用時は scan 結果を優先する（データドリブン > curated）
+  - 補足: デフォルトは stdout に YAML を出力。`--write` で `mdhop.yaml` に直接書き込む
+  - 補足: `--write` 時、既存の `build`/`exclude` セクションは保持。既存の `meta.types` キーは上書きしない
+  - 補足: `--no-comment` はコメント（推定根拠、ordered 候補、preset 表示）を省略する
 
 ## update の削除挙動
 

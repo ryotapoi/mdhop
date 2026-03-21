@@ -45,6 +45,8 @@ func main() {
 		err = runRepair(os.Args[2:])
 	case "convert":
 		err = runConvert(os.Args[2:])
+	case "init-meta":
+		err = runInitMeta(os.Args[2:])
 	case "--version":
 		printVersion(os.Stdout)
 		return
@@ -94,6 +96,9 @@ Query Commands:
   query      Query related information for a node
   stats      Show vault statistics
   diagnose   Show basename conflicts and phantom nodes
+
+Setup Commands:
+  init-meta  Generate meta type definitions from preset and/or vault scan
 
 Run 'mdhop <command> --help' for command-specific help.
 Use 'mdhop --version' for version information.
