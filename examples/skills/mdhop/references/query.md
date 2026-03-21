@@ -1,6 +1,6 @@
 # mdhop Query Reference
 
-Detailed reference for read-only mdhop commands: `query`, `resolve`, `stats`, `diagnose`.
+Detailed reference for read-only commands: `query`, `resolve`, `stats`, `diagnose`.
 
 ## Common Options
 
@@ -23,7 +23,7 @@ Query link relationships for a given entry point.
 
 ### Fields
 
-Available fields for `--fields`: `backlinks`, `tags`, `twohop`, `outgoing`, `head`, `snippet`
+Available fields for `--fields`: `backlinks`, `tags`, `twohop`, `outgoing`, `head`, `snippet`, `meta`
 
 | Field | Description |
 |-------|-------------|
@@ -33,6 +33,7 @@ Available fields for `--fields`: `backlinks`, `tags`, `twohop`, `outgoing`, `hea
 | `outgoing` | Outgoing links from the entry note |
 | `head` | First N lines of the note (requires `--include-head`) |
 | `snippet` | Lines around each link occurrence (requires `--include-snippet`) |
+| `meta` | Frontmatter metadata of the entry note (opt-in: only included when explicitly listed in `--fields`) |
 
 Each node in backlinks/outgoing/twohop includes a `type` field (`note`, `phantom`, `tag`, or `asset`). Notes and assets include `name`, `path`, `exists`. Phantoms and tags include `name`.
 
@@ -50,6 +51,34 @@ Each node in backlinks/outgoing/twohop includes a `type` field (`note`, `phantom
 | `--max-backlinks <N>` | 100 | Maximum backlinks returned |
 | `--max-twohop <N>` | 100 | Maximum two-hop entries returned |
 | `--max-via-per-target <N>` | 10 | Maximum via nodes per two-hop target |
+
+### Metadata Filter (--where)
+
+| Flag | Description |
+|------|-------------|
+| `--where <expr>` | Filter result nodes by frontmatter metadata (repeatable) |
+
+Operators:
+
+| Operator | Syntax | Description |
+|----------|--------|-------------|
+| `=` | `key=value` | Exact match |
+| `!=` | `key!=value` | Not equal |
+| `~` | `key~pattern` | LIKE pattern (`%` and `_` wildcards) |
+| `>` | `key>value` | Greater than |
+| `<` | `key<value` | Less than |
+| `>=` | `key>=value` | Greater than or equal |
+| `<=` | `key<=value` | Less than or equal |
+| EXISTS | `key` | Key exists (any value) |
+
+**Logic:**
+- Multiple `--where` with the same key: OR (match any)
+- Multiple `--where` with different keys: AND (match all)
+- Filters apply to: backlinks, outgoing, twohop targets
+- Entry node is never filtered
+- Phantom, tag, and asset nodes are always excluded (no metadata)
+
+**Type-safe comparisons:** When keys are declared in `mdhop.yaml`'s `meta.types` (e.g., `date`, `number`, `semver`), comparison operators (>, <, >=, <=) use normalized sort values. Without type declarations, comparisons are lexicographic.
 
 ### Exclude Options
 
@@ -86,6 +115,12 @@ mdhop query --tag architecture --format json
 
 # With exclusions
 mdhop query --file Notes/Design.md --exclude "daily/*" --exclude-tag "#template" --format json
+
+# With metadata filter
+mdhop query --file Notes/Design.md --where "status=active" --fields backlinks,meta --format json
+
+# Date range filter
+mdhop query --tag project --where "created>=2024-01-01" --where "created<=2024-03-31" --fields backlinks --format json
 ```
 
 ### JSON Output Example
@@ -109,7 +144,12 @@ mdhop query --file Notes/Design.md --exclude "daily/*" --exclude-tag "#template"
   "outgoing": [
     {"type": "note", "name": "Spec", "path": "Notes/Spec.md", "exists": true},
     {"type": "phantom", "name": "FutureIdea"}
-  ]
+  ],
+  "meta": {
+    "status": ["active"],
+    "priority": ["2"],
+    "date": ["2024-01-15"]
+  }
 }
 ```
 

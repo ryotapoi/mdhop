@@ -1,16 +1,13 @@
 # mdhop Command Reference
 
-Detailed reference for all mdhop commands: index management and querying.
+Detailed reference for file operation commands: `build`, `add`, `update`, `delete`, `move`, `disambiguate`, `repair`, `simplify`, `convert`, `init-meta`.
 
 ## Common Options
 
 - `--vault <path>`: Vault root directory (default: current directory)
 - `--format json|text`: Output format (default: text)
-- `--fields <comma-separated>`: Limit output fields (available for query, resolve, stats, diagnose)
 
 ---
-
-# Index Commands
 
 ## build
 
@@ -22,6 +19,7 @@ mdhop build
 
 - Creates `.mdhop/index.sqlite`
 - Registers `.md` files as notes and non-`.md` files as assets (hidden files/directories excluded)
+- Stores frontmatter metadata in the `meta` table (type-aware normalization if `meta.types` is configured)
 - Errors if ambiguous links exist (strict mode)
 - Respects `mdhop.yaml` `build.exclude_paths` — excluded files are not indexed; links to them become phantom nodes
 
@@ -174,7 +172,7 @@ mdhop disambiguate --name a --scan
 - If `--name` is unique (one candidate), rewrites automatically
 - If multiple candidates exist, `--target` is required
 - `--scan` respects `build.exclude_paths`
-- Also handles broken path links pointing to phantom nodes (e.g., after `repair` leaves multi-candidate links unresolved)
+- Also handles broken path links pointing to phantom nodes
 
 **Output fields:** `rewritten`
 
@@ -194,15 +192,13 @@ mdhop repair --dry-run --format json
 
 **Behavior:**
 - DB not required (file-scan based). Can be run before `build`
-- Finds broken path links (target does not exist) and vault-escape links (wikilink/markdown)
-- Vault-escape links are always basename-ified regardless of candidate count (escape resolution is top priority; use `disambiguate` afterwards if ambiguous)
+- Finds broken path links (target does not exist) and vault-escape links
+- Vault-escape links are always basename-ified regardless of candidate count
 - Broken path links are rewritten to basename if the basename has 0 or 1 candidate note
 - Skips broken path links where the basename has 2+ candidates (reported in `skipped`)
-- Skips links whose target file exists on disk (e.g., excluded by `build.exclude_paths`)
+- Skips links whose target file exists on disk
 - Skips basename links (already in basename form)
-- `--dry-run` shows the result without modifying disk
 - After repair, run `mdhop build` to create or update the index
-- If build fails with ambiguous links after repair, use `disambiguate` to resolve them
 - URL links, tag links, and frontmatter links are not affected
 
 **Output fields:** `rewritten`, `skipped`
@@ -243,14 +239,13 @@ mdhop simplify --file Notes/A.md
 
 **Behavior:**
 - DB not required (file-scan based)
-- Shortens path links (relative and absolute) to basename when:
+- Shortens path links to basename when:
   - The basename is unique across the vault, OR
   - The basename has multiple candidates but one is in the vault root (root-priority rule)
 - Basename links are skipped (already short)
 - Broken links and vault-escape links are skipped (use `repair` first)
-- Asset path links are only shortened when no note has the same basename (namespace conflict detection)
+- Asset path links are only shortened when no note has the same basename
 - `build.exclude_paths` is respected
-- URL links, tag links, and frontmatter links are not affected
 - After simplify, run `mdhop build` to update the index
 
 **Output fields:** `rewritten`, `skipped`
@@ -296,7 +291,7 @@ mdhop convert --to markdown --file A.md
 - DB not required (file-scan based). Can run before `build`
 - Converts wikilink (`[[...]]`) ↔ markdown link (`[...](...)`)
 - URL links, tags, and frontmatter links are not affected
-- `build.exclude_paths` is respected (excluded files are not scanned)
+- `build.exclude_paths` is respected
 - After convert, run `mdhop build` to create or update the index
 
 **Output fields:** `rewritten`
@@ -312,229 +307,52 @@ mdhop convert --to markdown --file A.md
 }
 ```
 
----
+## init-meta
 
-# Query Commands
-
-## query
-
-Query link relationships for a given entry point.
-
-### Entry Point (one required)
-
-| Flag | Description |
-|------|-------------|
-| `--file <path>` | Note entry point (vault-relative path) |
-| `--tag <name>` | Tag entry point (`#` prefix optional) |
-| `--phantom <name>` | Phantom (unresolved) node entry point |
-| `--name <name>` | Auto-detect type: `#tag` → tag, otherwise note/phantom. Errors if ambiguous (root-priority exception applies) |
-
-### Fields
-
-Available fields for `--fields`: `backlinks`, `tags`, `twohop`, `outgoing`, `head`, `snippet`
-
-| Field | Description |
-|-------|-------------|
-| `backlinks` | Notes that link to the entry point |
-| `tags` | Tags the entry note has |
-| `twohop` | Related notes via shared targets (A→X and B→X). Returns `via` node and its `targets` |
-| `outgoing` | Outgoing links from the entry note |
-| `head` | First N lines of the note (requires `--include-head`) |
-| `snippet` | Lines around each link occurrence (requires `--include-snippet`) |
-
-Each node in backlinks/outgoing/twohop includes a `type` field (`note`, `phantom`, `tag`, or `asset`). Notes and assets include `name`, `path`, `exists`. Phantoms and tags include `name`.
-
-### Content Options
-
-| Flag | Description |
-|------|-------------|
-| `--include-head <N>` | Include first N lines of each note (frontmatter excluded, leading blank lines skipped) |
-| `--include-snippet <N>` | Include N lines before and after each link (2N+1 lines total) |
-
-### Limit Options
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--max-backlinks <N>` | 100 | Maximum backlinks returned |
-| `--max-twohop <N>` | 100 | Maximum two-hop entries returned |
-| `--max-via-per-target <N>` | 10 | Maximum via nodes per two-hop target |
-
-### Exclude Options
-
-| Flag | Description |
-|------|-------------|
-| `--exclude <glob>` | Exclude paths matching the glob pattern (repeatable) |
-| `--exclude-tag <tag>` | Exclude a specific tag (repeatable, `#` prefix recommended) |
-| `--no-exclude` | Ignore exclusions defined in `mdhop.yaml` |
-
-CLI `--exclude`/`--exclude-tag` flags are merged with `mdhop.yaml` `exclude` settings.
-
-#### Exclude Behavior
-
-- Applies to: backlinks, outgoing, tags, twohop (both via and targets), snippet
-- Entry node itself is never excluded
-- Path glob: `*` matches any character including `/`. `?` matches a single character. Case-sensitive. `[...]` character classes are not supported (causes error)
-- Tag exclude: exact match, case-insensitive
-- Twohop: if a via node matches an excluded tag/path, the entire via entry is removed
-
-### Examples
+Generate frontmatter type declarations for `mdhop.yaml`.
 
 ```bash
-# Full query with JSON output
-mdhop query --file Notes/Design.md --format json
-
-# Only backlinks and tags
-mdhop query --file Notes/Design.md --fields backlinks,tags --format json
-
-# With content
-mdhop query --file Notes/Design.md --include-head 10 --include-snippet 3 --format json
-
-# Tag query
-mdhop query --tag architecture --format json
-
-# With exclusions
-mdhop query --file Notes/Design.md --exclude "daily/*" --exclude-tag "#template" --format json
+mdhop init-meta --preset
+mdhop init-meta --scan
+mdhop init-meta --preset --scan --write
 ```
 
-### JSON Output Example
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--vault <path>` | No | Vault root directory (default: current directory) |
+| `--preset` | One of two | Include recommended type definitions |
+| `--scan` | One of two | Scan vault frontmatter and infer types |
+| `--write` | No | Write directly to `mdhop.yaml` (default: stdout) |
+| `--no-comment` | No | Omit inference comments from output |
 
-```json
-{
-  "backlinks": [
-    {"type": "note", "name": "Spec", "path": "Notes/Spec.md", "exists": true}
-  ],
-  "tags": [
-    {"type": "tag", "name": "#architecture"}
-  ],
-  "twohop": [
-    {
-      "via": {"type": "note", "name": "Spec", "path": "Notes/Spec.md", "exists": true},
-      "targets": [
-        {"type": "note", "name": "Plan", "path": "Notes/Plan.md", "exists": true}
-      ]
-    }
-  ],
-  "outgoing": [
-    {"type": "note", "name": "Spec", "path": "Notes/Spec.md", "exists": true},
-    {"type": "phantom", "name": "FutureIdea"}
-  ]
-}
-```
+At least one of `--preset` or `--scan` is required.
 
-## resolve
+**Preset types (15 entries):**
+- date (10): `date`, `created`, `modified`, `updated`, `lastmod`, `due`, `deadline`, `scheduled`, `start`, `done`
+- number (4): `priority`, `weight`, `order`, `rating`
+- semver (1): `version`
 
-Resolve a specific link from a given source file.
+**Scan behavior:**
+- Parses all `.md` files' frontmatter (DB not required, can run before `build`)
+- Infers type when 80%+ of values match a pattern (date, number, semver)
+- String keys with 10 or fewer unique values are suggested as `ordered` type candidates (in comments)
+- Skips `tags` and `aliases` keys (well-known special keys)
+- Comments include sample values and unique value counts for review
 
-### Required Flags
+**`--preset --scan` combined:** Scan results override preset defaults (data-driven takes priority).
 
-| Flag | Description |
-|------|-------------|
-| `--from <path>` | Source file (vault-relative) |
-| `--link <link>` | Link to resolve (e.g., `[[Spec]]`, `[text](spec.md)`) |
+**`--write` behavior:**
+- Atomically writes to `mdhop.yaml` (temp file + rename)
+- Preserves existing `build` and `exclude` sections
+- Does NOT overwrite existing `meta.types` keys (only adds new ones)
+- Reports added/skipped counts to stderr
 
-### Fields
+### Output Example (stdout)
 
-Available fields for `--fields`: `type`, `name`, `path`, `exists`, `subpath`
-
-| Field | Description |
-|-------|-------------|
-| `type` | `note`, `phantom`, `tag`, `asset`, or `url` |
-| `name` | Display name (basename for notes/assets, `#`-prefixed for tags) |
-| `path` | Vault-relative path (notes and assets only) |
-| `exists` | Whether the note file exists on disk |
-| `subpath` | Heading (`#Heading`) or block reference (`#^block`) if present |
-
-### Resolution Rules
-
-- The link must actually exist in the source file
-- Resolution always returns exactly one result (ambiguous = error)
-- `[[Note]]`: basename search across vault. Multiple matches → error (root-priority exception: if one match is in vault root, it wins)
-- `[[#Heading]]`: resolves to the source file itself
-- `[[path/to/Note]]`: vault-root-relative
-- `[[./Note]]`, `[[../Note]]`: relative to source file
-- Markdown links: `/`-prefixed → vault-root-relative; `./`/`../`-prefixed → relative to source; contains `/` → path resolution; no `/` → basename resolution
-- Paths that escape outside the vault are errors in strict mode
-
-### Example
-
-```bash
-mdhop resolve --from Notes/Design.md --link '[[Spec]]' --format json
-```
-
-```json
-{
-  "type": "note",
-  "name": "Spec",
-  "path": "Notes/Spec.md",
-  "exists": true
-}
-```
-
-## stats
-
-Show vault statistics.
-
-### Fields
-
-Available fields for `--fields`: `notes_total`, `notes_exists`, `edges_total`, `tags_total`, `phantoms_total`, `assets_total`
-
-| Field | Description |
-|-------|-------------|
-| `notes_total` | Total number of note nodes |
-| `notes_exists` | Notes that exist on disk |
-| `edges_total` | Total link occurrences |
-| `tags_total` | Total unique tags |
-| `phantoms_total` | Total phantom (unresolved) nodes |
-| `assets_total` | Total asset (non-.md) nodes |
-
-### Example
-
-```bash
-mdhop stats --format json
-```
-
-```json
-{
-  "notes_total": 150,
-  "notes_exists": 148,
-  "edges_total": 1200,
-  "tags_total": 45,
-  "phantoms_total": 12,
-  "assets_total": 30
-}
-```
-
-## diagnose
-
-Detect issues in the vault index.
-
-### Fields
-
-Available fields for `--fields`: `basename_conflicts`, `asset_basename_conflicts`, `phantoms`
-
-| Field | Description |
-|-------|-------------|
-| `basename_conflicts` | Note files sharing the same basename (potential ambiguity source) |
-| `asset_basename_conflicts` | Asset files sharing the same basename |
-| `phantoms` | Nodes referenced by links but not present on disk |
-
-### Example
-
-```bash
-mdhop diagnose --format json
-```
-
-```json
-{
-  "basename_conflicts": [
-    {
-      "name": "README",
-      "paths": ["README.md", "docs/README.md"]
-    }
-  ],
-  "phantoms": [
-    {"name": "FutureIdea"},
-    {"name": "MissingRef"}
-  ]
-}
+```yaml
+meta:
+  types:
+    date: date
+    priority: number        # inferred: number (3/3 values)
+    status: string          # inferred: string (2 values, e.g. "active", "done")
 ```
