@@ -66,7 +66,7 @@ meta:
    - `--write`: `mdhop.yaml` に直接書き込み（既存設定とマージ、既存キーは保持）
    - `--no-comment`: コメント省略（Agent 向け）
    - `--preset --scan` 併用: scan 優先（データドリブン > curated）
-10. [ ] ドキュメント更新
+10. [x] ドキュメント更新
     - rules/overview.md, 03-data-model.md, 02-requirements.md
 
 ## Later

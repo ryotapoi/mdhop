@@ -8,7 +8,7 @@
 
 - インデックス形式: SQLite（ローカル）
 - DBには Markdown の本文TEXTを保存しない
-  - `--include-content` / `--include-context` は、クエリ時にファイルから読み出して返す
+  - `--include-head` / `--include-snippet` は、クエリ時にファイルから読み出して返す
 - DBは “最小の正規化されたグラフ” を持ち、クエリで整形して返す
 
 ### 1.1 初版スキーマ（ドラフト）
@@ -46,6 +46,50 @@ CREATE INDEX idx_edges_source ON edges(source_id);
 CREATE INDEX idx_edges_target ON edges(target_id);
 CREATE INDEX idx_edges_source_target ON edges(source_id, target_id);
 ```
+
+### 1.2 meta テーブル（v0.6.0）
+
+frontmatter メタデータを格納するテーブル。YAML リストは値ごとに 1 行展開する。
+
+```sql
+CREATE TABLE meta (
+  id         INTEGER PRIMARY KEY,
+  node_id    INTEGER NOT NULL,
+  key        TEXT NOT NULL,
+  value      TEXT NOT NULL,
+  sort_value TEXT,
+  value_type TEXT,
+  FOREIGN KEY(node_id) REFERENCES nodes(id)
+);
+
+CREATE INDEX idx_meta_node_id ON meta(node_id);
+CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
+```
+
+カラム設計:
+- `value`: frontmatter の生値（表示・LIKE 検索用）
+- `sort_value`: 型ごとに正規化された比較用文字列（→ 1.3 参照）
+- `value_type`: 型名（string/date/number/semver/ordered）。比較演算子の型ガードに使用
+
+インデックス設計:
+- `idx_meta_node_id`: ノード単位の削除・取得用
+- `idx_meta_key_sort_value`: `--where` フィルタ用
+
+### 1.3 sort_value 正規化
+
+目的: 文字列辞書順で型安全な大小比較を実現する。
+
+5 型の正規化ルール:
+
+| 型 | 正規化 |
+|---|---|
+| string | そのまま |
+| date | ISO 8601 文字列にパース（複数のレイアウトを許容） |
+| number | sign prefix + 零埋め整数部 20 桁 + 小数部 8 桁。正=`1` prefix、負=`0` prefix + 9 の補数 |
+| semver | `v` 除去 + 各セグメント 5 桁零埋め（例: `1.2.3` → `00001.00002.00003`） |
+| ordered | `mdhop.yaml` の定義順インデックスを 5 桁零埋め（例: 3 番目 → `00003`） |
+
+正規化失敗時: 元の値をそのまま sort_value に使う（string フォールバック）。インデックス更新系コマンド（build/add/update）で警告を出力する。
 
 ---
 
@@ -140,6 +184,30 @@ phantom クエリ用 seed:
 - 上限で切る（max_*）
 - via の degree が大きすぎるものを除外できる（via_max_degree）
 
+### 4.4 メタデータフィルタ（--where）
+
+SQL 生成パターン:
+- 同一キーの条件 = OR（1 つの `SELECT m.node_id FROM meta m WHERE m.key = ? AND ...` にまとめる）
+- 異なるキーの条件 = AND（各キーの subquery を `INTERSECT` で結合）
+- フィルタ適用: backlinks/outgoing/twohop の結果ノードに `AND n.id IN (...)` を付加
+
+演算子と対象カラム:
+- `=`: `sort_value` で完全一致
+- `~`（LIKE）: `value` で部分一致
+- `>`, `<`, `>=`, `<=`: `sort_value` で比較 + `value_type` ガード（型宣言済みキーのみ意味のある比較が可能）
+- `!=`: `NOT IN` subquery
+- EXISTS（演算子なし）: `key` 存在チェック
+
+演算子・構文の詳細は overview.md 参照。
+
+注意: phantom/tag/asset ノードは meta テーブルにエントリを持たないため、`--where` 指定時に常にフィルタアウトされる。
+
+### 4.5 メタデータ取得
+
+`--fields meta` で起点ノードの全 frontmatter メタデータを返す（opt-in。挙動は overview.md 参照）。
+
+SQL パターン: `SELECT key, value, sort_value, value_type FROM meta WHERE node_id = ? ORDER BY key, value`
+
 ---
 
 ## 5. “Shortest path” と曖昧性制御（DB視点）
@@ -192,3 +260,4 @@ phantom クエリ用 seed:
 - 相対パスのより高度な扱い（`./` / `../`）
 - 書き換え系（mutate）を “安全装置つき” で拡張
 - alias / 表示テキストで検索できる `find` 系の追加
+- メタデータの拡張（集計クエリ、メタデータベースのソート）

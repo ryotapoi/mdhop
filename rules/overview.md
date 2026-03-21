@@ -37,6 +37,14 @@ exclude:
   tags:
     - "#daily"
     - "#template"
+
+meta:
+  types:
+    date: date           # スカラー形式
+    priority: number     # スカラー形式
+    version: semver      # スカラー形式
+    status:              # ordered 形式
+      ordered: [backlog, todo, doing, done]
 ```
 
 ## コマンドと挙動（厳密モード前提）

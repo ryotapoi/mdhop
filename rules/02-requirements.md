@@ -18,6 +18,8 @@
   - markdown link（相対/絶対/URL任意）
   - tag（本文 + frontmatter tags）
   - frontmatter 内リンク（設定で指定したキーのみ）
+  - frontmatter メタデータ（scalar 値と scalar 配列要素を meta テーブルに格納。null・マッピングはスキップ。型宣言に基づき sort_value を正規化）
+- 型設定: `mdhop.yaml` の `meta.types` で frontmatter キーの型を宣言（5 型: string, number, date, semver, ordered）。形式は overview.md 参照
 - 誤検出対策（最低限）:
   - コードフェンス/インラインコード内のタグ抽出を抑止
   - 見出し `# Heading` を tag として扱わない
@@ -31,6 +33,7 @@
 - ディスクから消えたファイルを指定した場合は delete と同じ扱い:
   - 参照あり → phantom 変換（outgoing edges 削除、ノードを phantom に変換）
   - 参照なし → ノード完全削除
+- meta テーブルも差分更新対象（update: 全削除→再挿入、add: 挿入、delete: 削除）
 
 ### 2.3 リンク解決（resolve）
 
@@ -70,12 +73,18 @@
   - 上限 (`max_backlinks`, `max_twohop`, `max_via_per_target`) で切る
   - ハブ via を避けるオプション（via_max_degree）
 
+- メタデータフィルタ（`--where`）:
+  - frontmatter の値によるノードフィルタリング
+  - 同キー条件 = OR、異キー条件 = AND
+  - 比較演算子は型宣言済みキーで型安全な比較（sort_value ベース）
+  - 演算子・構文は overview.md 参照
+
 ### 2.5 省コンテキスト出力
 
-- `--format json | prompt`
+- `--format json|text`
 - `--fields`: 出力フィールド選択（未知指定はエラー）
-- `--include-content`: ノート冒頭 N 行を返す
-- `--include-context`: リンク周辺 N 行を返す
+- `--include-head`: ノート冒頭 N 行を返す
+- `--include-snippet`: リンク周辺 N 行を返す
   - DBには本文TEXTを保存しない（位置情報のみ）
   - query 時にファイルから切り出す
   - stale（mtime不一致）なら、そのファイルのみ自動update するか、contextを省略する（実装方針で選択）
@@ -85,6 +94,13 @@
 - basename 衝突一覧
 - phantom 一覧（未解決リンク）
 - 除外数、パース失敗一覧
+
+### 2.7 型スキャフォールディング（init-meta）
+
+- frontmatter メタデータの型定義（`mdhop.yaml` の `meta.types`）を自動生成
+- プリセット出力 + Vault スキャンによる型推定
+- DB 不要（ファイル走査ベース）。build 前に実行可能
+- コマンド詳細は overview.md 参照
 
 ---
 
