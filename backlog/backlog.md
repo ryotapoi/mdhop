@@ -15,7 +15,7 @@
 - tags 二重管理: 共存（edges + meta）。グラフ探索とフィルタで目的が異なる
 - parseLinks 返り値: `parseResult` struct に変更。一貫性重視
 - ネスト YAML: 第一階層のみ。Agent ユースケースではフラットな値が主
-- --where 構文: `key=value`, `key!=value`, `key~value`(LIKE), `key>value`, `key<value`, `key>=value`, `key<=value`, `key`(EXISTS)。同キー=OR, 異キー=AND
+- --where 構文: `key=value`, `key!=value`, `key~value`(LIKE), `key>value`, `key<value`, `key>=value`, `key<=value`, `key`(EXISTS)。同キー=OR, 異キー=AND。1つの `--where` 内で `&&` 区切りにより同一キーでも AND が可能（日付範囲等）
 
 ### 設定例
 
@@ -75,8 +75,17 @@ meta:
     - 要設計: `--sort`, `--limit`, `--offset`, `--path` フィルタ、出力フィールド
 12. [x] build エラーメッセージ改善
     - ambiguous link エラー時に conflict しているファイルのパス一覧を表示
-13. [ ] スキル更新（search 反映）
+13. [x] スキル更新（search 反映）
     - `examples/skills/mdhop/` に search コマンドを追加
+14. [ ] `--where` 同一キー AND 対応（`&&` 構文）
+    - 現状: 同一キーの複数 `--where` は OR → 日付範囲（`created>=X AND created<=Y`）が不可能
+    - 解決: 1つの `--where` 内で `&&` 区切りによる AND を導入
+    - `--where "created>=2025-02-01 && created<=2025-02-28"` → AND
+    - `--where "status=none" --where "status>c"` → OR（従来互換）
+    - 3つ以上の `&&` 結合もサポート
+    - 影響範囲: `ParseWhere` / `buildKeyGroupSQL` / ドキュメント / スキル
+15. [ ] スキル更新（`&&` 反映）
+    - `examples/skills/mdhop/` の `--where` 説明に `&&` 構文を追加
 
 ## Later
 
