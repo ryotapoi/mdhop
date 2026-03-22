@@ -1,20 +1,21 @@
 ---
 name: mdhop
 description: >
-  Navigate, query, and manage Markdown vaults with mdhop. Explores link
-  relationships (backlinks, outgoing, two-hop, tags), filters notes by
-  frontmatter metadata (--where), resolves links, shows vault statistics,
-  diagnoses issues, and manages file operations (add, move, delete, rename)
-  with automatic link rewrites. Also handles link format conversion, broken
-  link repair, and frontmatter metadata type setup (init-meta).
+  Navigate, query, search, and manage Markdown vaults with mdhop. Explores link
+  relationships (backlinks, outgoing, two-hop, tags), searches notes by
+  frontmatter metadata (search --where), filters query results by metadata
+  (query --where), resolves links, shows vault statistics, diagnoses issues,
+  and manages file operations (add, move, delete, rename) with automatic link
+  rewrites. Also handles link format conversion, broken link repair, and
+  frontmatter metadata type setup (init-meta).
   Use this skill whenever: exploring connections between notes, querying
-  backlinks or outgoing links, filtering notes by frontmatter fields (status,
-  priority, dates), checking what a link resolves to, getting vault statistics,
-  investigating vault health, adding/moving/deleting/renaming files, fixing
-  broken links, converting link formats, or setting up metadata types. Even if
-  the user doesn't mention "mdhop" by name, use this skill for any navigation
-  or file operation in an Obsidian-style Markdown vault that has mdhop installed
-  — raw mv/rm/cp will break links.
+  backlinks or outgoing links, searching/listing notes by frontmatter fields
+  (status, priority, dates, due dates), checking what a link resolves to,
+  getting vault statistics, investigating vault health, adding/moving/deleting/
+  renaming files, fixing broken links, converting link formats, or setting up
+  metadata types. Even if the user doesn't mention "mdhop" by name, use this
+  skill for any navigation, search, or file operation in an Obsidian-style
+  Markdown vault that has mdhop installed — raw mv/rm/cp will break links.
 ---
 
 # mdhop
@@ -45,9 +46,10 @@ When investigating a vault, follow this sequence to work efficiently:
 
 1. **Get the big picture first**: `mdhop stats --format json` — understand vault scale
 2. **Check for problems**: `mdhop diagnose --format json` — identify conflicts and phantoms
-3. **Explore specific notes**: `mdhop query --file X.md --fields backlinks,outgoing --format json`
-4. **Go deeper if needed**: add `twohop` field or follow backlinks to related notes
-5. **Filter by metadata**: add `--where` to narrow results by frontmatter fields
+3. **Find notes by criteria**: `mdhop search --where "status=active" --format json` — no entry point needed
+4. **Explore specific notes**: `mdhop query --file X.md --fields backlinks,outgoing --format json`
+5. **Go deeper if needed**: add `twohop` field or follow backlinks to related notes
+6. **Filter by metadata**: add `--where` to narrow query results by frontmatter fields
 
 ## Field Selection Guide
 
@@ -125,7 +127,9 @@ mdhop query --file X.md --where "status=active" --where "priority>1" --format js
 
 Operators: `=`, `!=`, `~` (LIKE pattern with `%`/`_`), `>`, `<`, `>=`, `<=`, and EXISTS (key name only).
 
-Multiple `--where` with the same key: OR. Different keys: AND.
+Multiple `--where` with the same key: OR. Different keys: AND. Within a single `--where`, ` && ` separator joins conditions with AND (even for the same key): `--where "created>=2025-01-01 && created<=2025-03-31"`.
+
+Values must not be quoted — write `--where "created>=2025-02-01"`, not `--where "created>='2025-02-01'"`. Embedded quotes cause silent zero-match.
 
 Type-safe comparisons (>, <, >=, <=) work when keys are declared in `mdhop.yaml`'s `meta.types` — dates, numbers, and semver compare correctly instead of lexicographically. Without type declarations, all comparisons are string-based.
 
@@ -170,12 +174,43 @@ mdhop diagnose --format json
 
 Returns: `basename_conflicts`, `asset_basename_conflicts`, `phantoms`.
 
+### search — Find notes by metadata, path, and content
+
+Entry-point-free vault-wide search. Unlike `query` (which starts from a specific note/tag and returns relationships), `search` finds notes across the entire vault by metadata conditions.
+
+```bash
+# All notes with status=active
+mdhop search --where "status=active" --format json
+
+# Active notes sorted by priority (descending), top 10
+mdhop search --where "status=active" --sort "-priority" --limit 10 --format json
+
+# Notes in a specific directory with upcoming due dates
+mdhop search --path "projects/*" --where "due>=2024-01-01" --sort "due" --format json
+
+# Paginated results with content preview
+mdhop search --where "status=draft" --limit 20 --offset 40 --include-head 5 --format json
+
+# All notes in a path (no metadata filter needed)
+mdhop search --path "daily/*" --format json
+
+# Include metadata in output
+mdhop search --where "priority>1" --fields meta --format json
+```
+
+Key flags: `--where` (filter), `--sort key`/`--sort -key` (asc/desc), `--limit`, `--offset`, `--path` (glob inclusion), `--exclude`, `--include-head N`, `--fields meta`.
+
+The `total` field in output shows the count before limit/offset — useful for pagination.
+
+For detailed flag reference and JSON output examples: [references/query.md](references/query.md)
+
 ## File Operation Commands
 
 ### Choosing the Right Command
 
 | What happened? | Command | Notes |
 |----------------|---------|-------|
+| Find notes by metadata/path | `mdhop search --where <expr>` | No entry point needed; supports sort, limit, offset |
 | Created a new .md file | `mdhop add --file <path>` | Auto-disambiguates if basename conflicts arise |
 | Edited an existing file | `mdhop update --file <path>` | If file was deleted from disk, treated as delete |
 | Deleted a file | `mdhop delete --file <path> --rm` | Omit `--rm` if already deleted from disk |
@@ -289,7 +324,17 @@ Finds notes sharing a common link target — useful for discovering unexpected c
 mdhop query --tag "architecture" --fields backlinks --format json
 ```
 
-### Metadata-driven filtering
+### Metadata-driven search
+
+```bash
+# Find all active, high-priority notes across the vault
+mdhop search --where "status=active" --where "priority>1" --sort "-priority" --format json
+
+# Find notes with upcoming deadlines, sorted by date (same-key AND via && syntax)
+mdhop search --where "due>=2024-01-01 && due<=2024-03-31" --sort "due" --format json
+```
+
+### Metadata filtering on relationships
 
 ```bash
 # Active, high-priority notes related to a topic
@@ -311,5 +356,5 @@ mdhop query --file Spec.md --where "due" --fields backlinks,meta --format json
 ## Reference
 
 For detailed flag reference, all output fields, and JSON output examples:
-- Query commands (query, resolve, stats, diagnose, --where): [references/query.md](references/query.md)
+- Query commands (query, search, resolve, stats, diagnose, --where): [references/query.md](references/query.md)
 - File operation commands (add, update, delete, move, repair, simplify, convert, disambiguate, init-meta): [references/commands.md](references/commands.md)

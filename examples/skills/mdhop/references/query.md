@@ -1,6 +1,6 @@
 # mdhop Query Reference
 
-Detailed reference for read-only commands: `query`, `resolve`, `stats`, `diagnose`.
+Detailed reference for read-only commands: `query`, `search`, `resolve`, `stats`, `diagnose`.
 
 ## Common Options
 
@@ -74,9 +74,12 @@ Operators:
 **Logic:**
 - Multiple `--where` with the same key: OR (match any)
 - Multiple `--where` with different keys: AND (match all)
+- Within a single `--where`, ` && ` separator: AND (even for the same key). Example: `--where "created>=2025-01-01 && created<=2025-03-31"`
 - Filters apply to: backlinks, outgoing, twohop targets
 - Entry node is never filtered
 - Phantom, tag, and asset nodes are always excluded (no metadata)
+
+**Values must not be quoted** — write `created>=2025-02-01`, not `created>='2025-02-01'`. Embedded quotes cause silent zero-match.
 
 **Type-safe comparisons:** When keys are declared in `mdhop.yaml`'s `meta.types` (e.g., `date`, `number`, `semver`), comparison operators (>, <, >=, <=) use normalized sort values. Without type declarations, comparisons are lexicographic.
 
@@ -119,8 +122,8 @@ mdhop query --file Notes/Design.md --exclude "daily/*" --exclude-tag "#template"
 # With metadata filter
 mdhop query --file Notes/Design.md --where "status=active" --fields backlinks,meta --format json
 
-# Date range filter
-mdhop query --tag project --where "created>=2024-01-01" --where "created<=2024-03-31" --fields backlinks --format json
+# Date range filter (same-key AND via && syntax)
+mdhop query --tag project --where "created>=2024-01-01 && created<=2024-03-31" --fields backlinks --format json
 ```
 
 ### JSON Output Example
@@ -152,6 +155,91 @@ mdhop query --tag project --where "created>=2024-01-01" --where "created<=2024-0
   }
 }
 ```
+
+## search
+
+Entry-point-free vault-wide note search. Returns notes matching metadata conditions, path filters, and supports sorting and pagination.
+
+**Key difference from `query`**: `query` starts from a specific entry (note, tag, phantom) and returns relationships. `search` finds notes across the entire vault without an entry point.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--where <expr>` | string (repeatable) | — | Frontmatter filter (same syntax as query `--where`) |
+| `--sort <key>` | string | — | Sort by meta key: `key` (ascending) or `-key` (descending). Default: path order |
+| `--limit <N>` | int | 0 | Maximum results (0 = unlimited) |
+| `--offset <N>` | int | 0 | Skip first N results |
+| `--path <glob>` | string (repeatable) | — | Include only paths matching glob (OR-joined) |
+| `--exclude <glob>` | string (repeatable) | — | Exclude paths matching glob |
+| `--no-exclude` | bool | false | Disable config file exclusions |
+| `--include-head <N>` | int | 0 | Include first N lines of each note |
+| `--fields <list>` | string | — | Available: `meta` (opt-in) |
+| `--format json\|text` | string | text | Output format |
+
+### Sorting
+
+- No `--sort`: results ordered by path (ascending)
+- `--sort priority`: ascending by meta key `priority`
+- `--sort -priority`: descending by meta key `priority`
+- Uses normalized `sort_value` column — type-safe when key is declared in `mdhop.yaml`
+- Notes without the sort key appear last (nulls last)
+
+### Path Filter
+
+- `--path "sub/*"`: include only matching paths (OR-joined if multiple)
+- Uses SQLite GLOB: `*` matches any character including `/`, `?` matches single character
+- Case-sensitive
+- Empty (no `--path`) = all paths included
+
+### Scope
+
+- Only returns existing notes (`type=note`, `exists=true`)
+- Never returns phantoms, tags, or assets
+
+### Examples
+
+```bash
+# All active notes
+mdhop search --where "status=active" --format json
+
+# Sorted by due date, top 10
+mdhop search --where "due" --sort "due" --limit 10 --format json
+
+# Notes in daily/ directory
+mdhop search --path "daily/*" --format json
+
+# Paginated with metadata and content preview
+mdhop search --where "status=draft" --fields meta --include-head 5 --limit 20 --offset 0 --format json
+
+# Combine metadata filters: active AND high priority
+mdhop search --where "status=active" --where "priority>1" --sort "-priority" --format json
+```
+
+### JSON Output Example
+
+```json
+{
+  "total": 42,
+  "items": [
+    {
+      "type": "note",
+      "name": "ProjectAlpha",
+      "path": "projects/ProjectAlpha.md",
+      "exists": true,
+      "meta": {
+        "status": ["active"],
+        "priority": ["3"]
+      },
+      "head": ["# Project Alpha", "High-priority project for Q1."]
+    }
+  ]
+}
+```
+
+- `total`: count of all matching notes before `--limit`/`--offset` (for pagination)
+- `meta`: only present when `--fields meta` is specified
+- `head`: only present when `--include-head N` is specified
 
 ## resolve
 
