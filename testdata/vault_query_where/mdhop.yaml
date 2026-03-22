@@ -2,3 +2,4 @@ meta:
   types:
     priority: number
     status: string
+    created: date

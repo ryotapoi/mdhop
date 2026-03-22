@@ -149,9 +149,15 @@ meta:
 - `--exclude <glob>` : 指定パターンに一致するパスを結果から除外する（複数回指定可）
 - `--exclude-tag <tag>` : 指定タグを結果から除外する（複数回指定可、`#` 付き推奨）
 - `--no-exclude` : `mdhop.yaml` の除外設定を無視する
-- `--where <expr>` : frontmatter メタデータによるフィルタ（複数回指定可、AND 結合）
+- `--where <expr>` : frontmatter メタデータによるフィルタ（複数回指定可）
   - 演算子: `=`, `!=`, `~`（LIKE）, `>`, `<`, `>=`, `<=`, EXISTS（演算子なし）
   - 例: `--where "status=active"`, `--where "priority>1"`, `--where "status"`, `--where "status!=done"`
+  - 結合ルール:
+    - 複数 `--where` で同一キー → OR（いずれかの条件にマッチ）
+    - 複数 `--where` で異なるキー → AND（全キーの条件にマッチ）
+    - 1 つの `--where` 内で ` && ` 区切り → AND（同一キーでも AND。日付範囲等に使用）
+    - 例: `--where "created>=2025-02-01 && created<=2025-02-28"` → created が 2 月の範囲内
+    - ` && ` は前後スペース必須（スペースなしの `&&` は区切りとみなされない）
   - フィルタ対象: backlinks, outgoing, twohop の結果ノード（エントリノード自体はフィルタされない）
   - phantom/tag/asset は meta テーブルにエントリを持たないため、`--where` 指定時に常にフィルタアウトされる
   - `mdhop.yaml` の `meta.types` で型宣言されたキーは比較演算子で型安全な比較が可能

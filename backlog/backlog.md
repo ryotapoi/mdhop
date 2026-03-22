@@ -77,14 +77,14 @@ meta:
     - ambiguous link エラー時に conflict しているファイルのパス一覧を表示
 13. [x] スキル更新（search 反映）
     - `examples/skills/mdhop/` に search コマンドを追加
-14. [ ] `--where` 同一キー AND 対応（`&&` 構文）
+14. [x] `--where` 同一キー AND 対応（`&&` 構文）
     - 現状: 同一キーの複数 `--where` は OR → 日付範囲（`created>=X AND created<=Y`）が不可能
     - 解決: 1つの `--where` 内で `&&` 区切りによる AND を導入
     - `--where "created>=2025-02-01 && created<=2025-02-28"` → AND
     - `--where "status=none" --where "status>c"` → OR（従来互換）
     - 3つ以上の `&&` 結合もサポート
-    - 影響範囲: `ParseWhere` / `buildKeyGroupSQL` / ドキュメント / スキル
-15. [ ] スキル更新（`&&` 反映）
+    - 影響範囲: `ParseWhere` / `MetaFilterSQL` / ドキュメント / スキル
+15. [x] スキル更新（`&&` 反映）
     - `examples/skills/mdhop/` の `--where` 説明に `&&` 構文を追加
 
 ## Later

@@ -188,6 +188,7 @@ phantom クエリ用 seed:
 
 SQL 生成パターン:
 - 同一キーの条件 = OR（1 つの `SELECT m.node_id FROM meta m WHERE m.key = ? AND ...` にまとめる）
+  - 例外: `&&` 構文（1 つの `--where` 内で ` && ` 区切り）で指定された条件は同一キーでも AND。各条件を個別サブクエリにして `INTERSECT` で結合する
 - 異なるキーの条件 = AND（各キーの subquery を `INTERSECT` で結合）
 - フィルタ適用: backlinks/outgoing/twohop の結果ノードに `AND n.id IN (...)` を付加
 

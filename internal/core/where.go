@@ -29,7 +29,8 @@ type WhereCond struct {
 
 // WhereClause holds parsed where conditions.
 type WhereClause struct {
-	Conditions []WhereCond
+	Conditions []WhereCond   // from non-&& --where flags (same-key = OR)
+	AndGroups  [][]WhereCond // from && --where flags (each group = all AND)
 }
 
 // operatorTable lists operators in priority order (longest first).
@@ -48,20 +49,45 @@ var operatorTable = []struct {
 
 // ParseWhere parses a list of where expressions into a WhereClause.
 // Empty input returns (nil, nil).
+// Expressions containing " && " are split into AND groups where all
+// conditions must be satisfied (even for the same key).
 func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 	if len(exprs) == 0 {
 		return nil, nil
 	}
 
 	var conds []WhereCond
+	var andGroups [][]WhereCond
 	for _, expr := range exprs {
-		c, err := parseOneWhere(expr, metaCfg)
-		if err != nil {
-			return nil, err
+		parts := strings.Split(expr, " && ")
+		if len(parts) == 1 {
+			// Single condition — append to Conditions (same-key = OR).
+			c, err := parseOneWhere(expr, metaCfg)
+			if err != nil {
+				return nil, err
+			}
+			conds = append(conds, c)
+		} else {
+			// Multiple conditions joined by && — all AND.
+			var group []WhereCond
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if p == "" {
+					return nil, fmt.Errorf("where: empty condition in && expression %q", expr)
+				}
+				c, err := parseOneWhere(p, metaCfg)
+				if err != nil {
+					return nil, err
+				}
+				group = append(group, c)
+			}
+			andGroups = append(andGroups, group)
 		}
-		conds = append(conds, c)
 	}
-	return &WhereClause{Conditions: conds}, nil
+	if len(conds) == 0 && len(andGroups) == 0 {
+		return nil, nil
+	}
+	return &WhereClause{Conditions: conds, AndGroups: andGroups}, nil
 }
 
 func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
@@ -106,34 +132,44 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 // alias is the node ID column (e.g. "n.id").
 // Returns ("", nil) for nil receiver or empty conditions.
 func (wc *WhereClause) MetaFilterSQL(alias string) (string, []any) {
-	if wc == nil || len(wc.Conditions) == 0 {
+	if wc == nil || (len(wc.Conditions) == 0 && len(wc.AndGroups) == 0) {
 		return "", nil
-	}
-
-	// Group conditions by key (preserving order of first occurrence).
-	type keyGroup struct {
-		key   string
-		conds []WhereCond
-	}
-	orderMap := make(map[string]int)
-	var groups []keyGroup
-	for _, c := range wc.Conditions {
-		idx, ok := orderMap[c.Key]
-		if !ok {
-			idx = len(groups)
-			orderMap[c.Key] = idx
-			groups = append(groups, keyGroup{key: c.Key})
-		}
-		groups[idx].conds = append(groups[idx].conds, c)
 	}
 
 	var subqueries []string
 	var allArgs []any
 
-	for _, g := range groups {
-		sq, args := buildKeyGroupSQL(g.key, g.conds)
-		subqueries = append(subqueries, sq)
-		allArgs = append(allArgs, args...)
+	// Process single conditions (same-key = OR, cross-key = INTERSECT).
+	if len(wc.Conditions) > 0 {
+		type keyGroup struct {
+			key   string
+			conds []WhereCond
+		}
+		orderMap := make(map[string]int)
+		var groups []keyGroup
+		for _, c := range wc.Conditions {
+			idx, ok := orderMap[c.Key]
+			if !ok {
+				idx = len(groups)
+				orderMap[c.Key] = idx
+				groups = append(groups, keyGroup{key: c.Key})
+			}
+			groups[idx].conds = append(groups[idx].conds, c)
+		}
+		for _, g := range groups {
+			sq, args := buildKeyGroupSQL(g.key, g.conds)
+			subqueries = append(subqueries, sq)
+			allArgs = append(allArgs, args...)
+		}
+	}
+
+	// Process AND groups: each condition → own subquery, INTERSECT within group.
+	for _, group := range wc.AndGroups {
+		for _, c := range group {
+			sq, args := buildKeyGroupSQL(c.Key, []WhereCond{c})
+			subqueries = append(subqueries, sq)
+			allArgs = append(allArgs, args...)
+		}
 	}
 
 	if len(subqueries) == 1 {

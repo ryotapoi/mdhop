@@ -159,6 +159,167 @@ func TestParseWhere_UndeclaredKeyComparison(t *testing.T) {
 	}
 }
 
+// --- ParseWhere && tests ---
+
+func TestParseWhere_And_TwoConds(t *testing.T) {
+	metaCfg := MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"created": {Name: MetaTypeDate},
+		},
+	}
+	wc, err := ParseWhere([]string{"created>=2025-02-01 && created<=2025-02-28"}, metaCfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(wc.Conditions) != 0 {
+		t.Errorf("Conditions = %d, want 0", len(wc.Conditions))
+	}
+	if len(wc.AndGroups) != 1 {
+		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
+	}
+	g := wc.AndGroups[0]
+	if len(g) != 2 {
+		t.Fatalf("group len = %d, want 2", len(g))
+	}
+	if g[0].Key != "created" || g[0].Op != WhereOpGte {
+		t.Errorf("g[0] = {%q, %d}, want {created, Gte}", g[0].Key, g[0].Op)
+	}
+	if g[1].Key != "created" || g[1].Op != WhereOpLte {
+		t.Errorf("g[1] = {%q, %d}, want {created, Lte}", g[1].Key, g[1].Op)
+	}
+}
+
+func TestParseWhere_And_ThreeConds(t *testing.T) {
+	metaCfg := MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"a": {Name: MetaTypeNumber},
+		},
+	}
+	wc, err := ParseWhere([]string{"a>1 && a<5 && b=x"}, metaCfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(wc.Conditions) != 0 {
+		t.Errorf("Conditions = %d, want 0", len(wc.Conditions))
+	}
+	if len(wc.AndGroups) != 1 {
+		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
+	}
+	g := wc.AndGroups[0]
+	if len(g) != 3 {
+		t.Fatalf("group len = %d, want 3", len(g))
+	}
+	if g[0].Key != "a" || g[0].Op != WhereOpGt {
+		t.Errorf("g[0] = {%q, %d}, want {a, Gt}", g[0].Key, g[0].Op)
+	}
+	if g[1].Key != "a" || g[1].Op != WhereOpLt {
+		t.Errorf("g[1] = {%q, %d}, want {a, Lt}", g[1].Key, g[1].Op)
+	}
+	if g[2].Key != "b" || g[2].Op != WhereOpEq || g[2].Value != "x" {
+		t.Errorf("g[2] = {%q, %d, %q}, want {b, Eq, x}", g[2].Key, g[2].Op, g[2].Value)
+	}
+}
+
+func TestParseWhere_And_Mixed(t *testing.T) {
+	metaCfg := MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"created": {Name: MetaTypeDate},
+		},
+	}
+	wc, err := ParseWhere([]string{"status=active", "created>=2025-02-01 && created<=2025-02-28"}, metaCfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(wc.Conditions) != 1 {
+		t.Errorf("Conditions = %d, want 1", len(wc.Conditions))
+	}
+	if wc.Conditions[0].Key != "status" || wc.Conditions[0].Op != WhereOpEq {
+		t.Errorf("Conditions[0] = {%q, %d}, want {status, Eq}", wc.Conditions[0].Key, wc.Conditions[0].Op)
+	}
+	if len(wc.AndGroups) != 1 {
+		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
+	}
+	if len(wc.AndGroups[0]) != 2 {
+		t.Fatalf("group len = %d, want 2", len(wc.AndGroups[0]))
+	}
+}
+
+func TestParseWhere_And_EmptyPart(t *testing.T) {
+	_, err := ParseWhere([]string{"status=active && "}, MetaConfig{})
+	if err == nil {
+		t.Fatal("expected error for trailing empty part")
+	}
+}
+
+func TestParseWhere_And_LeadingEmptyPart(t *testing.T) {
+	_, err := ParseWhere([]string{" && status=active"}, MetaConfig{})
+	if err == nil {
+		t.Fatal("expected error for leading empty part")
+	}
+}
+
+func TestParseWhere_And_OnlySeparator(t *testing.T) {
+	_, err := ParseWhere([]string{" && "}, MetaConfig{})
+	if err == nil {
+		t.Fatal("expected error for only-separator input")
+	}
+}
+
+func TestParseWhere_And_Exists(t *testing.T) {
+	wc, err := ParseWhere([]string{"priority && status"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(wc.AndGroups) != 1 {
+		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
+	}
+	g := wc.AndGroups[0]
+	if len(g) != 2 {
+		t.Fatalf("group len = %d, want 2", len(g))
+	}
+	if g[0].Key != "priority" || g[0].Op != WhereOpExists {
+		t.Errorf("g[0] = {%q, %d}, want {priority, Exists}", g[0].Key, g[0].Op)
+	}
+	if g[1].Key != "status" || g[1].Op != WhereOpExists {
+		t.Errorf("g[1] = {%q, %d}, want {status, Exists}", g[1].Key, g[1].Op)
+	}
+}
+
+func TestParseWhere_And_ExistsAndValue(t *testing.T) {
+	wc, err := ParseWhere([]string{"priority && status=active"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(wc.AndGroups) != 1 {
+		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
+	}
+	g := wc.AndGroups[0]
+	if len(g) != 2 {
+		t.Fatalf("group len = %d, want 2", len(g))
+	}
+	if g[0].Op != WhereOpExists {
+		t.Errorf("g[0].Op = %d, want Exists", g[0].Op)
+	}
+	if g[1].Key != "status" || g[1].Op != WhereOpEq || g[1].Value != "active" {
+		t.Errorf("g[1] = {%q, %d, %q}, want {status, Eq, active}", g[1].Key, g[1].Op, g[1].Value)
+	}
+}
+
+func TestParseWhere_And_NoSpaceNotSplit(t *testing.T) {
+	metaCfg := MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"created": {Name: MetaTypeDate},
+		},
+	}
+	// "&&" without surrounding spaces should NOT be treated as a separator.
+	// "created>=X&&created<=Y" is parsed as a single expression:
+	// key=created, op=>=, value=X&&created<=Y → date normalization error.
+	_, err := ParseWhere([]string{"created>=X&&created<=Y"}, metaCfg)
+	if err == nil {
+		t.Fatal("expected normalization error for non-date value")
+	}
+}
+
 // --- MetaFilterSQL tests ---
 
 func TestWhereClause_Nil(t *testing.T) {
@@ -277,6 +438,128 @@ func TestWhereClause_Gt(t *testing.T) {
 	}
 	if len(args) != 3 { // key + value + type
 		t.Errorf("args = %v, want 3 elements", args)
+	}
+}
+
+// --- AndGroup MetaFilterSQL tests ---
+
+func TestWhereClause_AndGroup_SameKey(t *testing.T) {
+	wc := &WhereClause{AndGroups: [][]WhereCond{
+		{
+			{Key: "created", Op: WhereOpGte, Value: "2025-02-01", valueType: "date"},
+			{Key: "created", Op: WhereOpLte, Value: "2025-02-28", valueType: "date"},
+		},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if sql == "" {
+		t.Fatal("expected non-empty SQL for AndGroup-only clause")
+	}
+	if !strings.Contains(sql, "INTERSECT") {
+		t.Errorf("same-key AND group should use INTERSECT: %q", sql)
+	}
+	if strings.Contains(sql, " OR ") {
+		t.Errorf("AND group should not use OR: %q", sql)
+	}
+	// 2 subqueries: each has key + value + type = 3 args, total 6.
+	if len(args) != 6 {
+		t.Errorf("args = %v, want 6 elements", args)
+	}
+}
+
+func TestWhereClause_AndGroup_DiffKeys(t *testing.T) {
+	wc := &WhereClause{AndGroups: [][]WhereCond{
+		{
+			{Key: "priority", Op: WhereOpGt, Value: "100000000000000000001.00000000", valueType: "number"},
+			{Key: "status", Op: WhereOpEq, Value: "active"},
+		},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, "INTERSECT") {
+		t.Errorf("different keys in AND group should use INTERSECT: %q", sql)
+	}
+	// priority subquery: key + value + type = 3, status subquery: key + value = 2, total 5.
+	if len(args) != 5 {
+		t.Errorf("args = %v, want 5 elements", args)
+	}
+}
+
+func TestWhereClause_AndGroup_WithSingles(t *testing.T) {
+	wc := &WhereClause{
+		Conditions: []WhereCond{
+			{Key: "priority", Op: WhereOpEq, Value: "2"},
+			{Key: "priority", Op: WhereOpEq, Value: "3"},
+		},
+		AndGroups: [][]WhereCond{
+			{
+				{Key: "created", Op: WhereOpGte, Value: "2025-02-01", valueType: "date"},
+				{Key: "created", Op: WhereOpLte, Value: "2025-02-28", valueType: "date"},
+			},
+		},
+	}
+	sql, args := wc.MetaFilterSQL("n.id")
+	// Should have INTERSECT (Conditions subquery INTERSECT created>= INTERSECT created<=).
+	if !strings.Contains(sql, "INTERSECT") {
+		t.Errorf("mixed should use INTERSECT: %q", sql)
+	}
+	// Conditions: key + val1 + val2 = 3, AndGroup: (key+val+type)*2 = 6, total 9.
+	if len(args) != 9 {
+		t.Errorf("args len = %d, want 9", len(args))
+	}
+}
+
+func TestWhereClause_AndGroup_Only(t *testing.T) {
+	wc := &WhereClause{AndGroups: [][]WhereCond{
+		{
+			{Key: "status", Op: WhereOpEq, Value: "active"},
+		},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if sql == "" {
+		t.Fatal("expected non-empty SQL for AndGroups-only clause")
+	}
+	if strings.Contains(sql, "INTERSECT") {
+		t.Errorf("single condition should not use INTERSECT: %q", sql)
+	}
+	// key + value = 2.
+	if len(args) != 2 {
+		t.Errorf("args = %v, want 2 elements", args)
+	}
+}
+
+func TestWhereClause_AndGroup_Like(t *testing.T) {
+	wc := &WhereClause{AndGroups: [][]WhereCond{
+		{
+			{Key: "status", Op: WhereOpLike, Value: "act%"},
+			{Key: "priority", Op: WhereOpGt, Value: "100000000000000000001.00000000", valueType: "number"},
+		},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, "LIKE") {
+		t.Errorf("should contain LIKE: %q", sql)
+	}
+	if !strings.Contains(sql, "INTERSECT") {
+		t.Errorf("should use INTERSECT: %q", sql)
+	}
+	// LIKE: key + pattern = 2, Gt: key + value + type = 3, total 5.
+	if len(args) != 5 {
+		t.Errorf("args len = %d, want 5", len(args))
+	}
+}
+
+func TestWhereClause_AndGroup_Neq(t *testing.T) {
+	wc := &WhereClause{AndGroups: [][]WhereCond{
+		{
+			{Key: "status", Op: WhereOpNeq, Value: "done"},
+			{Key: "status", Op: WhereOpNeq, Value: "active"},
+		},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, "INTERSECT") {
+		t.Errorf("neq AND group should use INTERSECT: %q", sql)
+	}
+	// Each neq subquery: key + key + value = 3, total 6.
+	if len(args) != 6 {
+		t.Errorf("args len = %d, want 6", len(args))
 	}
 }
 
@@ -567,4 +850,87 @@ func TestQueryBacklinksWhere_AliasNeq(t *testing.T) {
 	// D has no aliases key → no meta → excluded (!=  means "key exists AND value doesn't match").
 	// E has no aliases key → excluded.
 	assertNames(t, "aliases!=beta", res.Backlinks, []string{"C"})
+}
+
+// --- AND group integration tests ---
+
+func TestQueryBacklinksWhere_AndSameKey(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"priority>=2 && priority<=3"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// B (priority=2, >=2 AND <=3), C (priority=3, >=2 AND <=3).
+	// E has priority=abc → type guard excludes. D has no priority.
+	assertNames(t, "priority>=2 && priority<=3", res.Backlinks, []string{"B", "C"})
+}
+
+func TestSearchWhere_AndSameKey(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"created>=2025-02-01 && created<=2025-02-28"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Search(vault, SearchOptions{
+		Where: wc,
+	})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	// A: 2025-01-15 (before range). B: 2025-02-10 (in range). C: 2025-02-20 (in range).
+	// D: no created. E: 2025-03-05 (after range).
+	var nodes []NodeInfo
+	for _, item := range res.Items {
+		nodes = append(nodes, item.Node)
+	}
+	assertNames(t, "created range", nodes, []string{"B", "C"})
+}
+
+func TestQueryBacklinksWhere_AndMixedKeys(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"status!=done && priority>1"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// status!=done: B(active), E(active). C(done) excluded. D(no meta) excluded.
+	// priority>1: B(2), C(3). E(abc) excluded by type guard.
+	// Intersection: B only.
+	assertNames(t, "status!=done && priority>1", res.Backlinks, []string{"B"})
+}
+
+func TestQueryBacklinksWhere_AndNeqSameKey(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"status!=done && status!=active"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// B(active) excluded by status!=active. C(done) excluded by status!=done.
+	// E(active) excluded by status!=active. D has no status → excluded (no meta row).
+	// All excluded → empty result.
+	assertNames(t, "status!=done && status!=active", res.Backlinks, nil)
 }
