@@ -741,4 +741,3 @@ func TestDisambiguatePhantomPathLinkScan(t *testing.T) {
 		t.Errorf("B.md should contain [[dir1/X]], got:\n%s", gotB)
 	}
 }
-

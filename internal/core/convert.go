@@ -10,7 +10,7 @@ import (
 
 // ConvertOptions controls the convert operation.
 type ConvertOptions struct {
-	ToFormat string   // "wikilink" or "markdown"
+	ToFormat string // "wikilink" or "markdown"
 	DryRun   bool
 	Files    []string // limit to these source files
 }

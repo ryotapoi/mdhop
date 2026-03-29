@@ -81,4 +81,3 @@ func runSearch(args []string) error {
 		return printSearchText(os.Stdout, result)
 	}
 }
-

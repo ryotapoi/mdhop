@@ -128,4 +128,3 @@ func TestDiagnose_FieldsFilter(t *testing.T) {
 		t.Errorf("basename_conflicts = %v, want nil (not requested)", result.BasenameConflicts)
 	}
 }
-

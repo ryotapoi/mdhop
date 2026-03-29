@@ -508,5 +508,3 @@ func writeFile(t *testing.T, dir, rel, content string) {
 		t.Fatal(err)
 	}
 }
-
-

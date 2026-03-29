@@ -23,7 +23,7 @@ func TestIsRootFile(t *testing.T) {
 
 func TestIsAmbiguousBasenameLink(t *testing.T) {
 	tests := []struct {
-		name string
+		name   string
 		target string
 		rm     *resolveMaps
 		want   bool

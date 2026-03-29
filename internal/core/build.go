@@ -429,7 +429,6 @@ func collectAssetFiles(vaultPath string) ([]string, error) {
 	return files, err
 }
 
-
 func escapesVault(fromPath, target string) bool {
 	base := filepath.Dir(fromPath)
 	joined := filepath.Clean(filepath.Join(base, target))

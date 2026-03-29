@@ -626,8 +626,8 @@ func printUpdateJSON(w io.Writer, r *core.UpdateResult) error {
 // --- Add output ---
 
 type addJSONOutput struct {
-	Added    []string        `json:"added"`
-	Promoted []string        `json:"promoted"`
+	Added     []string        `json:"added"`
+	Promoted  []string        `json:"promoted"`
 	Rewritten []rewrittenJSON `json:"rewritten"`
 }
 
@@ -639,8 +639,8 @@ func printAddText(w io.Writer, r *core.AddResult) {
 
 func printAddJSON(w io.Writer, r *core.AddResult) error {
 	out := addJSONOutput{
-		Added:    r.Added,
-		Promoted: r.Promoted,
+		Added:     r.Added,
+		Promoted:  r.Promoted,
 		Rewritten: toRewrittenJSON(r.Rewritten),
 	}
 	if out.Added == nil {

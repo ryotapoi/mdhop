@@ -192,11 +192,11 @@ func TestConvertToWikilink(t *testing.T) {
 
 	// Check specific conversion pairs.
 	wantPairs := map[string]string{
-		"[Target](Target.md)":        "[[Target]]",
+		"[Target](Target.md)":         "[[Target]]",
 		"[Target](Target.md#Heading)": "[[Target#Heading]]",
-		"[custom alias](Target.md)":  "[[Target|custom alias]]",
-		"[Deep](sub/Deep.md)":        "[[sub/Deep]]",
-		"[Sibling](./Sibling.md)":    "[[./Sibling]]",
+		"[custom alias](Target.md)":   "[[Target|custom alias]]",
+		"[Deep](sub/Deep.md)":         "[[sub/Deep]]",
+		"[Sibling](./Sibling.md)":     "[[./Sibling]]",
 	}
 	for old, want := range wantPairs {
 		found := false
@@ -259,13 +259,13 @@ func TestConvertToMarkdown(t *testing.T) {
 
 	// Check specific conversion pairs.
 	wantPairs := map[string]string{
-		"[[Target]]":               "[Target](Target.md)",
-		"[[Target#Heading]]":       "[Target#Heading](Target.md#Heading)",
-		"[[Target|custom alias]]":  "[custom alias](Target.md)",
-		"[[sub/Deep]]":             "[Deep](sub/Deep.md)",
-		"[[./Sibling]]":            "[Sibling](./Sibling.md)",
-		"[[photo.png]]":            "[photo.png](photo.png)",
-		"[[#Section]]":             "[#Section](#Section)",
+		"[[Target]]":              "[Target](Target.md)",
+		"[[Target#Heading]]":      "[Target#Heading](Target.md#Heading)",
+		"[[Target|custom alias]]": "[custom alias](Target.md)",
+		"[[sub/Deep]]":            "[Deep](sub/Deep.md)",
+		"[[./Sibling]]":           "[Sibling](./Sibling.md)",
+		"[[photo.png]]":           "[photo.png](photo.png)",
+		"[[#Section]]":            "[#Section](#Section)",
 	}
 	for old, want := range wantPairs {
 		found := false
@@ -682,8 +682,8 @@ func TestConvertRoundTrip(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		mdLink  string
+		name     string
+		mdLink   string
 		wikiLink string
 	}{
 		{"basic", "[Name](Name.md)", "[[Name]]"},

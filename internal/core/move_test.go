@@ -2347,11 +2347,11 @@ func TestMoveDir_ConsecutiveMergeNoStale(t *testing.T) {
 }
 
 // Exact reproduction of the reported bug:
-// - Moved file (04-Resources/A.md) has outgoing links to files in 05-Thoughts/
-// - After move to 03-Notes/, the file's outgoing link is rewritten (Phase 4.2)
-// - File's mtime changes on disk
-// - Second move (05-Thoughts/ → 03-Notes/) needs to rewrite links in 03-Notes/A.md
-//   (now an external file), triggering stale check
+//   - Moved file (04-Resources/A.md) has outgoing links to files in 05-Thoughts/
+//   - After move to 03-Notes/, the file's outgoing link is rewritten (Phase 4.2)
+//   - File's mtime changes on disk
+//   - Second move (05-Thoughts/ → 03-Notes/) needs to rewrite links in 03-Notes/A.md
+//     (now an external file), triggering stale check
 func TestMoveDir_ConsecutiveWithCrossLinks(t *testing.T) {
 	vault := t.TempDir()
 
