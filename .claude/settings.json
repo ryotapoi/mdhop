@@ -6,5 +6,19 @@
       "Read(./secrets/**)"
     ]
   },
-  "plansDirectory": "./backlog/plans"
+  "plansDirectory": "./backlog/plans",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/go-format.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
 }
