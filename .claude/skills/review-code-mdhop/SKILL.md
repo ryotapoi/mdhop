@@ -88,10 +88,19 @@ Task ツールで `subagent_type: Plan, model: "sonnet"` を使う。
 16. **既存ループの早期 return / continue を全件チェックする**: 新しいノードタイプ（asset 等）を追加した場合、既存の for ループが `continue` で新タイプをスキップしていないか確認すること
 17. **新しい map / キャッシュを追加したら、既存の調整ループでも同様に調整する**: rootBasenameToPath のような map を追加した場合、ディスク欠損調整等の既存ループにも反映が必要
 
+### stdout の安定インターフェース
+18. **stdout JSON に新フィールドを追加していないか**: overview.md で定義された JSON フィールド以外を stdout に追加するのは agent 向け安定 IF の破壊。warnings 等の付加情報は stderr に出力すること（Build と同じパターン）
+
+### テスト検証の網羅性（ミューテーション系コマンド）
+19. **build のテスト観点が add/update/delete にも適用されているか**: エラーメッセージ改善・出力フォーマット変更等で build_test のみ検証し add_test/update_test が漏れるパターンが繰り返し発生。変更が複数コマンドに影響する場合は全コマンドのテストを確認すること
+
+### config 読み込み
+20. **config 読み込みが条件付きになっているか**: MetaConfig 等の設定が必要なフラグ（--where 等）が使われていない場合、壊れた yaml で新たにエラーを出さないよう条件付きロードになっていること
+
 ### モジュール配置・構造
-18. **モジュール配置と依存方向の遵守**: 新しい import が `cmd/mdhop → internal/core` の方向に従っているか。`internal/core` が `cmd/mdhop` に依存していないか（rules/architecture.md 参照）
-19. **共通化の妥当性**: `cmd/mdhop` と `internal/core` 間で共有するコードが `internal/core` に正しく配置されているか。`cmd/mdhop` のローカルなヘルパーが本来 `internal/core` に属する概念を扱っていないか
-20. **リファクタリングと機能実装のコミット分離**: diff にリファクタリング（rename、ファイル移動、構造変更）と機能実装（新しいビジネスロジック）が混在していないか
+21. **モジュール配置と依存方向の遵守**: 新しい import が `cmd/mdhop → internal/core` の方向に従っているか。`internal/core` が `cmd/mdhop` に依存していないか（rules/architecture.md 参照）
+22. **共通化の妥当性**: `cmd/mdhop` と `internal/core` 間で共有するコードが `internal/core` に正しく配置されているか。`cmd/mdhop` のローカルなヘルパーが本来 `internal/core` に属する概念を扱っていないか
+23. **リファクタリングと機能実装のコミット分離**: diff にリファクタリング（rename、ファイル移動、構造変更）と機能実装（新しいビジネスロジック）が混在していないか
 
 上記に該当しないが mdhop 固有の設計判断に関わる問題も自由に指摘してよい。
 
