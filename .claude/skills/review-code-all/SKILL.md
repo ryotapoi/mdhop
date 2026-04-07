@@ -61,7 +61,7 @@ go test ./...
 初回はそのまま、2回目以降は `--resume` をつけて呼ぶ。
 手順1で Codex スキップが決定している場合、このステップを飛ばして手順12に進む。
 
-Codex の出力に 🔴 MUST / 🟡 SHOULD / 🔵 NIT の指摘がある場合（LGTM でない場合）、指摘を `~/.claude/resources/codex-findings.md` に追記する。
+Codex の出力に 🔴 MUST / 🟡 SHOULD / 🔵 NIT の指摘がある場合（LGTM でない場合）、指摘を `~/.claude/resources/review/codex-findings.md` に追記する。
 
 **IMPORTANT: 必ず Edit ツール（末尾追記）を使うこと。Write ツールは既存内容を上書きするため絶対に使わない。**
 
