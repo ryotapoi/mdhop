@@ -58,10 +58,15 @@ go test ./...
 
 ### 9. `/review-code-codex` を Skill tool で実行する
 
-初回はそのまま、2回目以降は `--resume` をつけて呼ぶ。
+**引数は自然言語で渡すこと**（harness 制約により `--resume` や `--flag` 形式のフラグは `$ARGUMENTS` 全体を空にしてしまう）:
+
+- 初回（プランあり）: `args: "プランファイル <PLAN_PATH> に対する実装をレビューしてください"`
+- 初回（プランなし）: `args: "プランなしで git diff をレビューしてください"`
+- 2 回目以降: `args: "<上記初回文> を前回の続きで再レビューしてください"`
+
 手順1で Codex スキップが決定している場合、このステップを飛ばして手順12に進む。
 
-Codex の出力に 🔴 MUST / 🟡 SHOULD / 🔵 NIT の指摘がある場合（LGTM でない場合）、指摘を `~/.claude/resources/review/codex-findings.md` に追記する。
+Codex の出力に 🔴 MUST / 🟡 SHOULD / 🔵 NIT の指摘がある場合（LGTM でない場合）、指摘を `~/.local/share/codex-findings/codex-findings.md` に追記する。
 
 **IMPORTANT: 必ず Edit ツール（末尾追記）を使うこと。Write ツールは既存内容を上書きするため絶対に使わない。**
 

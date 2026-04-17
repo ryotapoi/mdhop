@@ -33,9 +33,14 @@ argument-hint: [plan-file-path]
 
 ### 5. `/review-plan-codex` を Skill tool で実行する
 
-初回はそのまま、2回目以降は `--resume` をつけて呼ぶ。
+**引数は自然言語で渡すこと**（harness 制約により `--resume` や `--flag` 形式のフラグは `$ARGUMENTS` 全体を空にしてしまう）:
 
-Codex の出力に 🔴 MUST / 🟡 SHOULD / 🔵 NIT の指摘がある場合（LGTM でない場合）、指摘を `~/.claude/resources/review/codex-findings.md` に追記する。
+- 初回: `args: "プランファイル <PLAN_PATH> をレビューしてください"`
+- 2 回目以降: `args: "プランファイル <PLAN_PATH> を前回の続きで再レビューしてください"`
+
+`<PLAN_PATH>` は手順 1 で受け取ったプランファイルの絶対パスに置換する。
+
+Codex の出力に 🔴 MUST / 🟡 SHOULD / 🔵 NIT の指摘がある場合（LGTM でない場合）、指摘を `~/.local/share/codex-findings/codex-findings.md` に追記する。
 
 **IMPORTANT: 必ず Edit ツール（末尾追記）を使うこと。Write ツールは既存内容を上書きするため絶対に使わない。**
 
