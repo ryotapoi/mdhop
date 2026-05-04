@@ -1,135 +1,106 @@
 ---
 name: review-code-mdhop
-description: mdhop 固有の設計制約に基づく実装レビュー。通常はチェーンスキルから呼ばれる。
-argument-hint: <plan-file-path>
-allowed-tools: Read, Glob, Grep, Bash(git diff *), Bash(git log *), Bash(git status *), Task
+description: mdhop プロジェクト固有の設計制約に基づく実装レビュー worker。引数 `viewpoint=<name>` で観点を指定する（現状 mdhop のみ）。通常はチェーンスキル `/review-code-all` から呼ばれる。
+argument-hint: viewpoint=<name> [<plan-file-path>]
+allowed-tools: Read, Glob, Grep, Bash(git diff:*), Bash(git log:*), Bash(git status:*), Bash(mkdir:*), Bash(printf:*), Bash(date:*), Write
 context: fork
+model: claude-sonnet-4-6
+effort: medium
 ---
 
-# Self Implementation Review — mdhop Project
+# Code Review — mdhop Project Worker
 
-グローバルの `/review-code` + `/review-code-go` の後に追加実行する mdhop プロジェクト固有の実装レビュー。
-1つの Plan サブエージェントで実行する。
+## ICAR
 
-**重要な制約:**
-- 使用できるツール: Read, Glob, Grep, Bash(git diff/log/status), Task **のみ**
-- レビューは Task ツール（subagent_type: Plan）で実行する。自分で直接レビューしない
-- **結果はファイルに書き出さない。テキストとして返すだけにすること。/tmp やプロジェクト配下へのファイル作成は行わない**
+- **Intent**: 引数で指定された 1 観点（viewpoint）で実装差分をプロジェクト固有制約と照合し、結果を `/tmp/claude/claude-review-results/` 配下のファイルに書き出して、戻り値は `RESULT_FILE` と `SUMMARY` の 2 行のみ返す
+- **Constraints**:
+  - 観点本体（検証手順・チェックリスト）はプロジェクト側 `.claude/skills/review-code-mdhop/viewpoints/<viewpoint>.md` に外出ししてある
+  - レビューは fork 自身（sonnet）が直接実行する
+  - 結果は `/tmp/claude/claude-review-results/` 配下のファイルに書き出し、text には `RESULT_FILE` と `SUMMARY` の 2 行のみ返す
+  - 差分が無い場合は「レビュー対象の変更がありません」と返して終了する
+  - 変更ファイルに `.go` が 1 つも含まれていなければ「Go ファイルの変更がないためスキップします」と返して終了する
+- **Acceptance**:
+  - 結果ファイルに該当観点のレビュー結果が書き出されている
+  - text 出力は `RESULT_FILE: <path>` と `SUMMARY: needs_action=<YES|NO> must=<N> should=<N> nit=<N> — <1行サマリ>` の 2 行構成（または `RESULT_FILE: ERROR — <理由>` のフォールバック形式）
+
+## 引数
+
+ARGUMENTS_BEGIN
+$ARGUMENTS
+ARGUMENTS_END
 
 ## 手順
 
-### 1. レビュー対象の差分を取得する
+### 1. viewpoint と（あれば）プランパスを抽出する
 
-- `git diff` と `git diff --cached` で未コミットの変更差分を取得する
-- `git status` で変更ファイル一覧を取得する
-- 差分がなければ「レビュー対象の変更がありません」と返して終了する
-- 変更ファイルに `.go` ファイルが含まれていなければ「Go ファイルの変更がないためスキップします」と返して終了する
+- `VIEWPOINT`: `viewpoint=<name>` の形で指定される観点名
+- `PLAN_PATH`: プランファイルの絶対パス（省略可、バッククォート対応）。あれば `HAS_PLAN=true`
+- `PRIOR_REVIEW_BLOCK`: 「前回の続き」「再レビュー」「前回の指摘」のいずれかが含まれていれば再レビューモード
 
-### 2. Plan サブエージェントを起動する
+`VIEWPOINT` を抽出できない場合は `RESULT_FILE: ERROR — viewpoint が指定されていません` を返して終了。
 
-Task ツールで `subagent_type: Plan, model: "sonnet"` を使う。
+### 2. 差分を取得する
 
-エージェントのプロンプトには、手順1で取得済みの以下の値を埋め込む:
-- `{GIT_DIFF}`: 手順1で取得した変更差分（git diff + git diff --cached の結合出力）
-- `{FILE_LIST}`: 手順1で取得した変更ファイル一覧（git status の出力）
+- `git diff` と `git diff --cached` を結合して `GIT_DIFF`、`git status` を `FILE_LIST` として保持する
+- 差分なしなら「レビュー対象の変更がありません」と返して終了
+- `FILE_LIST` に `.go` が 1 つも含まれていなければ「Go ファイルの変更がないためスキップします」と返して終了
 
-加えて、「変更されたファイルの全文は自分で Read/Grep/Glob して確認すること」という指示を含める。
+### 3. 観点ファイルとプランファイルを読む
 
-#### Agent 1: mdhop 固有の設計制約チェック
+- 観点ファイル: `/Users/ryota/Sources/ryotapoi/mdhop/.claude/skills/review-code-mdhop/viewpoints/<VIEWPOINT>.md` を Read で読む。存在しなければエラー終了
+- プランファイル: `HAS_PLAN=true` の場合、`PLAN_PATH` を Read で読む
 
-プロンプト:
+### 4. レビューを実行する
 
-```
-あなたはコードレビュアーです。以下の実装変更を「mdhop プロジェクト固有の設計制約」と照合し、違反がないか検証してください。
+worker 自身（sonnet）が、観点ファイルに従って `GIT_DIFF` をレビューする。
 
-## 変更差分
-{GIT_DIFF}
+レビュー時に守るルール:
 
-## 変更ファイル一覧
-{FILE_LIST}
+- 観点ファイルの「検証手順」に従って関連ファイルを Read/Glob/Grep する
+- 観点ファイルのチェックリストを順に当てて、該当箇所があれば指摘する
+- 1 箇所に複数の問題があれば全部出す。指摘はまとめずに別指摘として並べる
+- 1 つの編集で複数指摘を解決できる場合でも「理想形」をまとめて書かない
+- 実害のある問題の指摘と、確認できた点の LGTM の両方を返す。LGTM のみの出力も正当
 
-## 検証手順
-1. 変更されたファイルを Read で読み、変更の全体像を把握する
-2. 以下の設計制約リストと実装を照合する
-3. 違反があれば指摘する
+### 5. 出力フォーマット
 
-## mdhop 設計制約
+- 日本語、🔴 MUST / 🟡 SHOULD / 🔵 NIT
+- 該当するコードの箇所を引用する
+- 問題なければ「mdhop 固有の指摘なし」
 
-以下はこのプロジェクトで繰り返し発見された設計上の落とし穴です。実装がこれらに抵触していないか検証してください。
+### 6. 再レビュー時の判定規約
 
-### リンクパース・rawLink の仕様
-1. **`!` プレフィックスは rawLink に含まれない**: `![[image.png]]` の rawLink は `[[image.png]]`。embed の `!` は rawLink の外。CLI 入力で `![[...]]` を受け取っても DB の rawLink とは一致しない
-2. **filepath.Ext の罠 — `.md` のみ除去すべき箇所で全拡張子除去しない**: `filepath.Ext("Note.v1")` は `.v1` を返す。basename 生成・拡張子判定では `.md` のみを明示除去し、`filepath.Ext` で汎用除去しないこと
-3. **wikilink は常に .md なし、markdown link は元リンクの拡張子有無を保持**: rewrite 時にこの規則を破らないこと
+`PRIOR_REVIEW_BLOCK` が空でない場合、✅ / ⚠️ + 新規指摘の 2 区分で出力（`review-plan-mdhop` と同じ規約）。
 
-### ルート優先ルール（ADR 0004）
-4. **ルート優先ルールの影響を全コマンドに波及させる**: basename 重複時、ルート直下にファイルがあれば `[[basename]]` はルートに解決する。新しい機能や仕様変更がこのルールに影響する場合、resolve / query / add / move / update / delete / disambiguate の全コマンドで整合性を確認すること
-5. **move でルート優先の状態変化を検出する**: ファイルがルートに出入りすると `[[basename]]` の解決先が変わる。`isAmbiguousBasenameLink` だけでは検出できず、pre-move vs post-move のターゲットパス比較が必要
+### 7. 結果ファイルを書き出して返す
 
-### DB・SQL の安全性
-6. **upsertTag の name は原文保持、node_key は小文字正規化**: `LOWER()` でクエリする必要がある箇所で name を直接比較しないこと
-7. **SQL の NULL 三値論理**: phantom / tag の path は NULL。`NOT (path GLOB ?)` は NULL 行を除外する。`(path IS NULL OR NOT (path GLOB ?))` にすること
-8. **exists_flag フィルタ**: `type='note'` だけでは phantom（exists_flag=0）も含まれうる。実在ノードのみ必要な場合は `AND exists_flag=1` を追加すること
-9. **modernc.org/sqlite の LastInsertId の罠**: `ON CONFLICT DO NOTHING` 時、`LastInsertId()` は前回挿入の rowid を返す。`RowsAffected()` を先にチェックすること
-
-### Vault escape・パス安全性
-10. **vault escape チェックは filepath.IsAbs + pathEscapesVault の両方必要**: `..` チェックのみでは絶対パスを弾けない。`filepath.Join(vaultPath, "/sub")` は vaultPath を無視して `/sub` になる
-11. **vault 内判定で strings.HasPrefix は不安全**: `/vault` と `/vault2` を誤許可する。`filepath.Rel(vaultAbs, targetAbs)` で `..` 始まりでないことを検証すること
-
-### Disk 操作の制約
-12. **D5: disk-based operation は非 .md のみ**: delete --rm や move のディスク walk で `.md` ファイルを誤って削除・移動しないこと。WalkDir に `.md` 拡張子チェックを入れること
-13. **破壊的操作の順序**: DB 操作 → ディスク操作の順。ディスク操作を先にすると未登録ファイルでも削除してしまう。`committed = true` は DB commit 成功後に設定すること
-
-### テスト検証の網羅性
-14. **テストでは DB edge の raw_link も検証する**: ファイル内容の書き換え検証だけでなく、DB 側の edge 更新（raw_link 値）が正しいか確認すること
-15. **仕様変更時は既存テストの期待値変更を grep で網羅的に洗い出す**: 見落とすと旧仕様の期待値でテストが通り続けるリスクがある
-
-### 新規ノードタイプ・機能追加時
-16. **既存ループの早期 return / continue を全件チェックする**: 新しいノードタイプ（asset 等）を追加した場合、既存の for ループが `continue` で新タイプをスキップしていないか確認すること
-17. **新しい map / キャッシュを追加したら、既存の調整ループでも同様に調整する**: rootBasenameToPath のような map を追加した場合、ディスク欠損調整等の既存ループにも反映が必要
-
-### stdout の安定インターフェース
-18. **stdout JSON に新フィールドを追加していないか**: overview.md で定義された JSON フィールド以外を stdout に追加するのは agent 向け安定 IF の破壊。warnings 等の付加情報は stderr に出力すること（Build と同じパターン）
-
-### テスト検証の網羅性（ミューテーション系コマンド）
-19. **build のテスト観点が add/update/delete にも適用されているか**: エラーメッセージ改善・出力フォーマット変更等で build_test のみ検証し add_test/update_test が漏れるパターンが繰り返し発生。変更が複数コマンドに影響する場合は全コマンドのテストを確認すること
-
-### config 読み込み
-20. **config 読み込みが条件付きになっているか**: MetaConfig 等の設定が必要なフラグ（--where 等）が使われていない場合、壊れた yaml で新たにエラーを出さないよう条件付きロードになっていること
-
-### モジュール配置・構造
-21. **モジュール配置と依存方向の遵守**: 新しい import が `cmd/mdhop → internal/core` の方向に従っているか。`internal/core` が `cmd/mdhop` に依存していないか（rules/architecture.md 参照）
-22. **共通化の妥当性**: `cmd/mdhop` と `internal/core` 間で共有するコードが `internal/core` に正しく配置されているか。`cmd/mdhop` のローカルなヘルパーが本来 `internal/core` に属する概念を扱っていないか
-23. **リファクタリングと機能実装のコミット分離**: diff にリファクタリング（rename、ファイル移動、構造変更）と機能実装（新しいビジネスロジック）が混在していないか
-
-上記に該当しないが mdhop 固有の設計判断に関わる問題も自由に指摘してよい。
-
-## 出力形式
-- 日本語で出力
-- 指摘事項は箇条書きで、該当するコードの箇所を引用する
-- 指摘ごとに重要度を付ける: 🔴 MUST / 🟡 SHOULD / 🔵 NIT
-- 問題がなければ「mdhop 固有の指摘なし」と記載する
-```
-
-### 3. 結果を出力する
-
-エージェントの結果を以下の形式でユーザーに表示する:
+1. `mkdir -p /tmp/claude/claude-review-results`
+2. `printf '%s/review-code-mdhop-%s-%s-%04x.md' /tmp/claude/claude-review-results "<VIEWPOINT>" "$(date +%Y%m%d-%H%M%S)" "$RANDOM"` で `RESULT_PATH` を組み立て
+3. Write で `RESULT_PATH` にレビュー本文を書き出す
+4. 集計: 🔴 MUST / 🟡 SHOULD / 🔵 NIT の件数を数える。`needs_action = (must + should > 0) || (⚠️ ≥ 1)`
+5. 戻り値:
 
 ```
-## 自己レビュー結果（mdhop 固有）
-
-### mdhop 設計制約チェック
-{Agent 1 の結果}
+RESULT_FILE: <RESULT_PATH>
+SUMMARY: needs_action=<YES|NO> must=<N> should=<N> nit=<N> — <1行サマリ>
 ```
 
-スキル側ではコードの修正は行わない（呼び出し元に判断を委ねる）。
+`<1行サマリ>` は LGTM 時は「mdhop 固有の指摘なし」、指摘ありの場合は最重要指摘の要旨を 1 行で。
 
-### 差分チェック（2回目以降の実行時）
+#### フォールバック
 
-このスキルがループ内で繰り返し呼ばれる場合、エージェントに以下の追加指示を含めること:
+mkdir / Write のいずれかが失敗した場合:
 
 ```
-## 差分チェック指示
-実装に「対処済み」「意図的な判断」と読み取れるコード・コメントがある場合、その論点を再度指摘しないこと。
-報告するのは **新規の指摘のみ**。既出の論点の言い換え・補足・「もっと明示的に書け」は NIT としても報告しない。
+RESULT_FILE: ERROR — <失敗理由を1行で>
+
+<従来形式のレビュー本文>
+```
+
+### 8. 結果ファイルの中身
+
+```
+## 自己レビュー結果（mdhop, viewpoint=<VIEWPOINT>）
+
+<レビュー本文>
 ```
