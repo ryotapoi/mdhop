@@ -1,6 +1,6 @@
 ---
 name: review-code-all
-description: 実装レビューを実行する司令塔。実装・テスト完了後、コミット前にリスクに応じた深さでレビューを通す（L0 self-check / L1 領域固有 / L2 別視点）。実装が終わった、レビューに進む、コミットする、といった文脈で起動する。個別のレビュースキル（/review-code, /review-code-go, /review-code-codex 等）を直接呼ばず、このスキルを使う。Small な変更は L0 で済ませてよい。
+description: 実装レビューを実行する司令塔。実装・テスト完了後にリスクに応じた深さでレビューを通す（L0 self-check / L1 領域固有 / L2 別視点）。実装が終わった、レビューに進む、といった文脈で起動する。個別のレビュースキル（/review-code, /review-code-go, /review-code-codex 等）を直接呼ばず、このスキルを使う。Small な変更は L0 で済ませてよい。
 argument-hint: [plan-file-path]
 ---
 
@@ -17,7 +17,7 @@ argument-hint: [plan-file-path]
 
 最初に main 側で diff の risk profile を判定し、Depth を選ぶ。判定が揺れたら一段深い側に倒す。
 
-- **L0 self-check**: Small 変更（typo、docs、テスト追加だけ、1 ファイルの明確な修正）。main で diff を読み直し、acceptance と照合するだけ。手順 0 のビルド・テストを通したら手順 7 (commit) に直接進む
+- **L0 self-check**: Small 変更（typo、docs、テスト追加だけ、1 ファイルの明確な修正）。main で diff を読み直し、acceptance と照合するだけ。手順 0 のビルド・テストを通したらレビュー完了とする
 - **L1 targeted**: 通常の変更。手順 0〜2 + 領域固有レビューを実施
 - **L2 external**: High-risk、設計判断が重い、曖昧、または L1 で重大な指摘が出た。L1 に加えて Codex を入れる
 
@@ -204,5 +204,3 @@ viewpoint=<name>
 レビュー対応で CLI 出力・対話的挙動・実 vault/DB への副作用に影響しうる変更を入れた場合、実際に `bin/mdhop <args>` を叩いて挙動を確認する（`verify.md` の観点）。必要ならユーザーにコマンド実行と出力共有を依頼する。
 
 自動テストで十分にカバーできる変更のみ、または変更なしの場合はスキップしてよい。
-
-### 7. `/commit` を Skill tool で実行する
