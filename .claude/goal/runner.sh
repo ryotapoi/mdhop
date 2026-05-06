@@ -89,7 +89,8 @@ $WORKFLOW と $GOAL を読み、$GOAL の指示に従って処理してくださ
 PROMPT
 )
 
-  claude -p "$PROMPT"
+  claude -p "$PROMPT" --output-format stream-json --verbose \
+    | jq --unbuffered -rf .claude/goal/format.jq
 done
 
 echo
