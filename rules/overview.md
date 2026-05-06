@@ -330,7 +330,7 @@ meta:
 - tag: `#tag`, `#nested/tag`, `#日本語タグ`, `#my-tag`, frontmatter `tags`
   - ネストタグは祖先に展開される: `#a/b/c` → `#a`, `#a/b`, `#a/b/c` の各タグが resolve 可能
 - url: `https://...`（将来拡張）
-- frontmatter 内リンクは指定キーのみ（設定で制御）
+- frontmatter 内 wikilink: `tags` キー以外の全キーを対象に `[[...]]` を解析する（quoted/bare/array いずれの YAML 形式も対応）
 - frontmatter の `aliases` は初期バージョンでは解析しない
 
 ## resolve のルール（要点）

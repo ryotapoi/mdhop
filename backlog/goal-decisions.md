@@ -101,6 +101,36 @@
 - 選んだ案: 案B
 - 理由: 識別ニーズのない sentinel を増やしても、可読性が下がるだけで利点がない。今回明確な識別ニーズがあるのは file/link 解決系・stale 検出・vault escape の 14 種で、構文エラー（`where.go` `convert.go` の `--ToFormat`）や YAML パースエラー（`config.go` `init_meta.go` 既に `%w` 済）は呼び出し元が `errors.Is` で分岐していないため除外した。`query_fetch.go:438` の `"stale index"` は `move/disambiguate` 系の `"... is stale"` と意味が異なるため別カテゴリとしてスコープ外。`delete.go:90` の `"path escapes vault"` と `move_helpers.go:96,153` の `"rewritten link would escape vault"` はメッセージが他の `link escapes vault` と異なるため、メッセージ完全保持制約の下で別 sentinel が必要になる。識別ニーズが出たら別タスクで追加する
 
+### 2026-05-07 - frontmatter wikilink を build 時の vault-escape / ambiguous 検証対象に含めた
+
+- 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応 (1/2): 解析と edge 化」
+- 論点: `build.go:87` の検証ループ（`if link.linkType != "wikilink" && link.linkType != "markdown" { continue }`）に `frontmatter_wikilink` を加えるか
+- 選択肢:
+  - 案A: 加える（本文 wikilink と同じ厳格さで vault-escape / ambiguous link を検出）— 「リンク種別ごとに検証スキップする差をなくす」設計判断を優先
+  - 案B: 加えない（frontmatter wikilink は edge 化のみで、検証は本文と分離）— 「frontmatter は誤記しやすいから緩めに扱う」「(2/2) で書き換え対応するときに合わせて入れる」タスク管理を優先
+- 選んだ案: 案A
+- 理由: `build.go` の検証は「DB に登録する前に vault-escape / ambiguous をフェイルさせる」ものなので、リンク種別が違っても同じ厳格さで扱う方が自然。事前確認で既存 testdata 全 .md に frontmatter+`[[...]]` の組み合わせが無いことを Python スクリプトで確認したため、既存テスト 388+ ケースは全 pass。`add.go:249` / `update.go:136` の同型検証ガード（書き換え対象フィルタではなく「ambiguous 検出ガード」）には今回触らない。これらは新ノート追加 / 更新の経路で、frontmatter_wikilink を含むファイル投入時の検証は (2/2) の書き換えコマンド対応と合わせて整合をとる方がスコープ的にきれい
+
+### 2026-05-07 - parseFrontmatterWikilinks のシグネチャから fileLineOffset を削除した
+
+- 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応 (1/2): 解析と edge 化」
+- 論点: プランの設計判断 §3 では `parseFrontmatterWikilinks(rawLines []string, startIdx, endIdx, fileLineOffset int) []linkOccur` だったが、実装では `(rawLines []string, startIdx, endIdx int) []linkOccur` に縮小した
+- 選択肢:
+  - 案A: プランどおり `fileLineOffset` を保つ — 「将来 frontmatter が file 先頭以外から始まる拡張余地を残す」設計判断を優先
+  - 案B: `fileLineOffset` を削除し `lineNum = j + 1` で計算 — 「YAGNI、現行仕様では frontmatter は常に file 先頭」設計判断を優先
+- 選んだ案: 案B
+- 理由: mdhop の現行仕様では frontmatter は常にファイル先頭（lines[0] = `---`）から始まる前提。`fileLineOffset` を保ったまま callers が常に 0 を渡す形は、将来必要になる前にパラメータを増やす YAGNI 違反。design レビュー (NIT) でも「YAGNI 改善として正当」と評価された。前提（`rawLines[0] = file line 1`）はコード上のコメントで明示
+
+### 2026-05-07 - linkType 文字列リテラル直書きの増殖を今回スコープ外として残した
+
+- 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応 (1/2): 解析と edge 化」
+- 論点: 本タスクで `linkType` の文字列リテラル直書き種類が 4 → 5 種類目になり、`build.go`、`resolve.go`、`parse.go`、`rewrite.go`、書き換え系コマンド群（add/move/update/disambiguate/simplify/repair/convert）の各所に分散している。design レビューで「分岐ミスリスクが高まる」SHOULD 指摘
+- 選択肢:
+  - 案A: 今回タスクで `type LinkType string` の named type 昇格まで実施 — 「コンパイル時の網羅チェック確保」設計判断を優先
+  - 案B: 別タスクとして backlog Later に追加し、今回はスコープ外とする — 「タスク粒度を保つ」「NodeType 昇格と同型で別ループにする」タスク管理を優先
+- 選んだ案: 案B
+- 理由: NodeType 昇格 (v0.7.0 既完了) と同パターンで、シグネチャ変更を含む横断対応になる。今回の (1/2) スコープに混ぜると review 範囲が parse / build / resolve から書き換え系コマンド群まで膨らむ。backlog Later に「`linkType` 値を `type LinkType string` の named type に昇格して定数化」として追加し、独立タスクで対応する
+
 ### 2026-05-07 - frontmatter 内 wikilink 対応を解析側 / 書き換え側に2分割
 
 - 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応」

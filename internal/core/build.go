@@ -84,7 +84,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 
 		// Validate links: collect user errors (ambiguous, vault-escape) up to maxBuildErrors.
 		for _, link := range pr.Links {
-			if link.linkType != "wikilink" && link.linkType != "markdown" {
+			if link.linkType != "wikilink" && link.linkType != "markdown" && link.linkType != "frontmatter_wikilink" {
 				continue
 			}
 			if link.isRelative && escapesVault(rel, link.target) {
@@ -255,7 +255,7 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps
 	}
 
 	// Wikilink with vault-relative path (contains /, not relative): [[path/to/Note]]
-	if link.linkType == "wikilink" && !link.isBasename {
+	if (link.linkType == "wikilink" || link.linkType == "frontmatter_wikilink") && !link.isBasename {
 		return resolvePathTarget(db, target, link, rm)
 	}
 

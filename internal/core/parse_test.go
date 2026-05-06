@@ -344,6 +344,139 @@ func TestParseFrontmatterScalarEmptySegment(t *testing.T) {
 	}
 }
 
+func TestParseFrontmatterWikilinkQuoted(t *testing.T) {
+	content := "---\nrelated: \"[[B]]\"\n---\n# A\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink, got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "B" {
+		t.Errorf("target = %q, want B", fmw[0].target)
+	}
+	if fmw[0].rawLink != "[[B]]" {
+		t.Errorf("rawLink = %q, want [[B]]", fmw[0].rawLink)
+	}
+	if !fmw[0].isBasename {
+		t.Error("expected isBasename=true")
+	}
+	// "---" line 1, "related: ..." line 2
+	if fmw[0].lineStart != 2 {
+		t.Errorf("lineStart = %d, want 2", fmw[0].lineStart)
+	}
+}
+
+func TestParseFrontmatterWikilinkBare(t *testing.T) {
+	content := "---\nparent: [[B]]\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink, got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "B" {
+		t.Errorf("target = %q, want B", fmw[0].target)
+	}
+	if fmw[0].lineStart != 2 {
+		t.Errorf("lineStart = %d, want 2", fmw[0].lineStart)
+	}
+}
+
+func TestParseFrontmatterWikilinkArray(t *testing.T) {
+	content := "---\nseealso:\n  - \"[[B]]\"\n  - \"[[Sub/C]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 2 {
+		t.Fatalf("expected 2 frontmatter wikilinks, got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "B" {
+		t.Errorf("first target = %q, want B", fmw[0].target)
+	}
+	if fmw[1].target != "Sub/C" {
+		t.Errorf("second target = %q, want Sub/C", fmw[1].target)
+	}
+	// "---" 1, "seealso:" 2, "  - [[B]]" 3, "  - [[Sub/C]]" 4
+	if fmw[0].lineStart != 3 {
+		t.Errorf("first lineStart = %d, want 3", fmw[0].lineStart)
+	}
+	if fmw[1].lineStart != 4 {
+		t.Errorf("second lineStart = %d, want 4", fmw[1].lineStart)
+	}
+}
+
+func TestParseFrontmatterWikilinkAlias(t *testing.T) {
+	content := "---\nrelated: \"[[B|Display]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink, got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "B" {
+		t.Errorf("target = %q, want B", fmw[0].target)
+	}
+	if fmw[0].rawLink != "[[B|Display]]" {
+		t.Errorf("rawLink = %q, want [[B|Display]]", fmw[0].rawLink)
+	}
+}
+
+func TestParseFrontmatterWikilinkSubpath(t *testing.T) {
+	content := "---\nheading_ref: \"[[B#Heading]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink, got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "B" {
+		t.Errorf("target = %q, want B", fmw[0].target)
+	}
+	if fmw[0].subpath != "#Heading" {
+		t.Errorf("subpath = %q, want #Heading", fmw[0].subpath)
+	}
+}
+
+func TestParseFrontmatterWikilinkVaultRelative(t *testing.T) {
+	content := "---\nrelated: \"[[Sub/C]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink, got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "Sub/C" {
+		t.Errorf("target = %q, want Sub/C", fmw[0].target)
+	}
+	if fmw[0].isBasename {
+		t.Error("Sub/C should not be basename")
+	}
+}
+
+func TestParseFrontmatterTagsKeyExcludedFromWikilinks(t *testing.T) {
+	// The "tags" key must not be processed as wikilink even if it contains [[...]]
+	// shapes. (Realistic input: tags should always be plain words; we just guard
+	// against accidental cross-processing.)
+	content := "---\ntags:\n  - \"foo\"\nrelated: \"[[B]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink (related only), got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "B" {
+		t.Errorf("target = %q, want B", fmw[0].target)
+	}
+}
+
+func TestParseFrontmatterWikilinkNoneWhenAbsent(t *testing.T) {
+	content := "---\nstatus: active\ntags:\n  - foo\n---\n# A\n[[BodyLink]]\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 0 {
+		t.Errorf("expected no frontmatter wikilinks, got %d: %+v", len(fmw), fmw)
+	}
+	// Body wikilink should still be detected as "wikilink".
+	body := filterByType(links, "wikilink")
+	if len(body) != 1 || body[0].target != "BodyLink" {
+		t.Errorf("body wikilink missing or wrong: %+v", body)
+	}
+}
+
 func TestParseURLIgnored(t *testing.T) {
 	links := parseLinksSlice("[link](https://example.com)\n")
 	if len(links) != 0 {

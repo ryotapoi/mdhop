@@ -126,7 +126,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 	}
 
 	// Wikilink with vault-relative path (contains /, not relative): [[path/to/Note]]
-	if link.linkType == "wikilink" && !link.isBasename {
+	if (link.linkType == "wikilink" || link.linkType == "frontmatter_wikilink") && !link.isBasename {
 		return resolvePathFromDB(db, target, link)
 	}
 

@@ -11,7 +11,7 @@ type linkOccur struct {
 	target     string
 	isBasename bool
 	isRelative bool
-	linkType   string // "wikilink", "markdown", "tag", "frontmatter"
+	linkType   string // "wikilink", "markdown", "tag", "frontmatter", "frontmatter_wikilink"
 	rawLink    string
 	subpath    string
 	lineStart  int
@@ -357,8 +357,56 @@ func parseFrontmatter(lines []string) ([]linkOccur, []FrontmatterEntry) {
 			continue
 		}
 		meta = collectMeta(key.Value, val, offset, meta)
+		// Extract wikilinks from the file-line range covering this key/val pair.
+		// We rely on raw text scanning rather than yaml.Node interpretation to
+		// handle bare [[note]] (parsed as nested flow seq), quoted "[[note]]"
+		// (parsed as scalar), and array forms uniformly.
+		startIdx, endIdx := frontmatterEntryRange(mapping.Content, i, len(lines))
+		out = append(out, parseFrontmatterWikilinks(lines, startIdx, endIdx)...)
 	}
 	return out, meta
+}
+
+// frontmatterEntryRange returns the index range [startIdx, endIdx) within
+// frontmatter `lines` that covers the key at mapping.Content[i] and its value.
+// Indices are 0-based into `lines` (so `lines[0]` is the opening "---" and
+// `lines[totalLines-1]` is the closing "---").
+//
+// yaml.Node.Line is 1-based against the yaml body which starts at lines[1],
+// so lines[node.Line] is the file line for that node.
+func frontmatterEntryRange(content []*yaml.Node, i, totalLines int) (int, int) {
+	startIdx := content[i].Line
+	endIdx := totalLines - 1 // exclude closing "---"
+	if i+2 < len(content) {
+		endIdx = content[i+2].Line
+	}
+	if startIdx < 1 {
+		startIdx = 1
+	}
+	if endIdx > totalLines-1 {
+		endIdx = totalLines - 1
+	}
+	return startIdx, endIdx
+}
+
+// parseFrontmatterWikilinks scans rawLines[startIdx:endIdx] for [[...]]
+// occurrences and returns them as linkOccur entries with linkType
+// "frontmatter_wikilink". Each occurrence's lineStart/lineEnd is the file line
+// number (1-based, with rawLines[0] as file line 1).
+//
+// rawLines includes the opening and closing "---" of frontmatter. startIdx /
+// endIdx are 0-based indices into rawLines.
+func parseFrontmatterWikilinks(rawLines []string, startIdx, endIdx int) []linkOccur {
+	var out []linkOccur
+	for j := startIdx; j < endIdx; j++ {
+		lineNum := j + 1 // 1-based file line
+		line := rawLines[j]
+		for _, l := range parseWikiLinks(line, lineNum) {
+			l.linkType = "frontmatter_wikilink"
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 // parseFrontmatterTags handles the "tags" key, producing both linkOccur (with nested expansion)

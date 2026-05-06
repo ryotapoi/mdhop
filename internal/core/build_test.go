@@ -708,6 +708,100 @@ func TestBuildTagsUnicode(t *testing.T) {
 	}
 }
 
+// --- Frontmatter wikilink tests ---
+
+func TestBuildFrontmatterWikilinkEdges(t *testing.T) {
+	vault := copyVault(t, "vault_build_frontmatter_wikilink")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	edges := queryEdges(t, dbPath(vault), "A.md")
+
+	type want struct {
+		targetName string
+		rawLink    string
+		subpath    string
+	}
+	wants := []want{
+		{"B", "[[B]]", ""},                 // related: "[[B]]"
+		{"B", "[[B]]", ""},                 // parent: [[B]]
+		{"C", "[[Sub/C]]", ""},             // seealso[0]
+		{"D", "[[Sub/D|Display]]", ""},     // seealso[1]
+		{"B", "[[B#Heading]]", "#Heading"}, // heading_ref
+		{"Ghost", "[[Ghost]]", ""},         // phantom_ref
+	}
+
+	if len(edges) != len(wants) {
+		t.Fatalf("expected %d edges, got %d: %+v", len(wants), len(edges), edges)
+	}
+
+	for i, e := range edges {
+		if e.linkType != "frontmatter_wikilink" {
+			t.Errorf("edge[%d] linkType = %q, want frontmatter_wikilink", i, e.linkType)
+		}
+	}
+
+	gotKeys := make(map[string]int)
+	for _, e := range edges {
+		key := e.targetName + "|" + e.rawLink + "|" + e.subpath
+		gotKeys[key]++
+	}
+	for _, w := range wants {
+		key := w.targetName + "|" + w.rawLink + "|" + w.subpath
+		if gotKeys[key] == 0 {
+			t.Errorf("expected edge %+v not found", w)
+			continue
+		}
+		gotKeys[key]--
+	}
+}
+
+func TestBuildFrontmatterWikilinkPhantom(t *testing.T) {
+	vault := copyVault(t, "vault_build_frontmatter_wikilink")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	phantoms := queryNodes(t, dbPath(vault), "phantom")
+	var hasGhost bool
+	for _, p := range phantoms {
+		if p.name == "Ghost" {
+			hasGhost = true
+		}
+	}
+	if !hasGhost {
+		t.Errorf("expected Ghost phantom from frontmatter wikilink, got %+v", phantoms)
+	}
+}
+
+func TestBuildFrontmatterWikilinkLineNumbers(t *testing.T) {
+	vault := copyVault(t, "vault_build_frontmatter_wikilink")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	// "---" line 1
+	// "related: ..." line 2
+	// "parent: [[B]]" line 3
+	// "seealso:" line 4
+	// "  - [[Sub/C]]" line 5
+	// "  - [[Sub/D|Display]]" line 6
+	// "heading_ref: ..." line 7
+	// "phantom_ref: ..." line 8
+	expected := map[string]int{
+		"[[Sub/C]]":         5,
+		"[[Sub/D|Display]]": 6,
+		"[[B#Heading]]":     7,
+		"[[Ghost]]":         8,
+	}
+	for _, e := range edges {
+		if want, ok := expected[e.rawLink]; ok {
+			if e.lineStart != want {
+				t.Errorf("edge %s lineStart = %d, want %d", e.rawLink, e.lineStart, want)
+			}
+		}
+	}
+}
+
 // --- Integration tests ---
 
 func TestBuildFullVault(t *testing.T) {

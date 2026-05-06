@@ -18,7 +18,7 @@
 - [x] `internal/core/move_dir.go` の `MoveDir`（758 行 1 関数）を分解
   - **問題**: ファイル列挙・DB 読み込み・リンク書き換え計画・ファイルリネーム・DB 更新・ロールバックが単一関数に同居。「実行段階」と「エラー時復元段階」が混在し、ロールバックロジックが散在（585, 607, 616 行）
   - **対応**: move_helpers.go 側に段階別ヘルパーを追加し、MoveDir はオーケストレーションのみに縮小。ロールバックは defer + 状態フラグで集約
-- [ ] frontmatter 内 wikilink 対応 (1/2): 解析と edge 化
+- [x] frontmatter 内 wikilink 対応 (1/2): 解析と edge 化
   - **目的**: frontmatter の `key: "[[note]]"` / `key: [[note]]` / 配列形式の wikilink を解析し edge にする。`mdhop query` で辿れるようにする。書き換え系は (2/2) に分離（このタスクでは触らない）
   - **対応**: `internal/core/parse.go` の `parseFrontmatter` / `collectMeta` を拡張。新 `linkType = "frontmatter_wikilink"` を追加し、build.go の edge 化と resolve.go の解決経路に通す。alias/subpath は本文 wikilink と同等にサポート
   - **設計判断（このタスク内で確定）**:
@@ -37,6 +37,7 @@
 - [ ] frontmatter 内 wikilink 対応 (2/2): 書き換えコマンド対応
   - **目的**: (1/2) で edge 化された `frontmatter_wikilink` を、書き換え系コマンド（add/update/move/disambiguate/convert）で正しく書き換える
   - **対応**: `add.go` `update.go` `move_helpers.go` `disambiguate.go` `convert.go` の `linkType` 分岐に `frontmatter_wikilink` を追加。書き換えは YAML 再シリアライズではなく、`val.Line` から取った行範囲内で `replaceOutsideInlineCode` 相当の行ベース置換（quoted/bare style を保持。`""` 内なら `""` 内、bare なら bare のまま書き換え）
+  - **検証ガードの整合**: `add.go:249` / `update.go:136` の `if link.linkType != "wikilink" && link.linkType != "markdown" { continue }` は (1/2) 時点で意図的に拡張されておらず、ambiguous / vault-escape の検出ガードが `build.go:87` と非対称になっている。(2/2) ではこの 2 箇所も `frontmatter_wikilink` を含むよう拡張し、3 箇所の検証ガードを揃える
   - **設計判断（このタスク内で確定）**:
     - YAML 再シリアライズしない（quoted/bare style が変わる恐れ）
     - 行範囲内で `[[old]]` → `[[new]]` を生置換（rawLink を持っているので一意に特定できる）
@@ -51,3 +52,12 @@
 - [ ] `--where` NOT EXISTS 演算子（特定キーを持たないノートの検索。現状 EXISTS の逆がない）
 - [ ] Obsidian 互換モード（曖昧リンクを暗黙解決。全コマンドに横断影響あり、要望が出たら再検討）
 - [ ] 対話的 disambiguate `--interactive`（人間向け UX 改善。Agent は `--scan` で十分）
+- [ ] `linkType` 値を `type LinkType string` の named type に昇格して定数化
+  - **問題**: 現状 `linkType` は文字列リテラル直書き（`"wikilink"` / `"markdown"` / `"tag"` / `"frontmatter"` / `"frontmatter_wikilink"`）で、`build.go`、`resolve.go`、`parse.go`、`rewrite.go`、書き換え系コマンド群（add/move/update/disambiguate/simplify/repair/convert）に分散している。新 linkType 追加時の grep 漏れリスクが種類数 5 で顕在化
+  - **対応**: NodeType 昇格と同パターン。`type LinkType string` を `parse.go` または `db.go` に定義し、定数を昇格。`linkOccur.linkType` フィールドの型と既存比較箇所すべてを `LinkType` 定数参照に置き換える
+  - **影響範囲**: 全 linkType 比較箇所（核モジュール + 書き換え系 7 ファイル）と関連テスト
+  - **由来**: `goal-decisions.md` 2026-05-07「linkType 文字列リテラル直書きの増殖を今回スコープ外として残した」案B として切り出し
+- [ ] `parseFrontmatter` の責務分離検討
+  - **問題**: 現状 `parseFrontmatter` は tags / meta / frontmatter_wikilink の 3 系統を返す。今後さらに追加する種別があると肥大化する
+  - **対応**: 戻り値が 4 系統以上になるタイミングで `parseResult` 構造体ベースへ移行する判断
+  - **由来**: design レビュー（v0.7.0 frontmatter 内 wikilink 対応 (1/2)）で予兆として記録
