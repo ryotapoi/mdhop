@@ -22,6 +22,8 @@ description: >
 
 mdhop pre-indexes link relationships (wikilinks, markdown links, tags, frontmatter) in a Markdown vault into SQLite, so you can navigate between notes structurally instead of relying on grep. It tracks assets (images, PDFs, etc.) and stores frontmatter metadata with type-safe querying. When files are created, moved, renamed, or deleted, mdhop handles both the disk operation and the link rewrites atomically.
 
+Wikilinks inside frontmatter values (e.g. `related: "[[Spec]]"`, `parent: [[Notes/Index]]`, or list items like `- "[[A]]"`) are also indexed as edges and surface in `query`/`search` results alongside body links. File operation commands (`add`, `update`, `move`, `disambiguate`) rewrite them in place while preserving quoted/bare YAML style and any `|alias` / `#subpath` suffix; `convert`, `simplify`, and `repair` only touch body links.
+
 ## Prerequisites
 
 - `mdhop` binary (install: `go install github.com/ryotapoi/mdhop/cmd/mdhop@latest`)

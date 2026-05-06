@@ -45,7 +45,7 @@
   - **依存**: (1/2) のマージ後
   - **影響範囲**: 5 コマンドそれぞれにテスト追加（rawLink 一意マッチ、alias 保持、subpath 保持、quoted 保持、bare 保持）
   - **由来**: backlog v0.7.0「frontmatter 内 wikilink 対応」を解析側 / 書き換え側に分割した片方
-- [ ] サンプルスキル更新（`examples/skills/` 配下を最新仕様に合わせる。リリース直前に実施）
+- [x] サンプルスキル更新（`examples/skills/` 配下を最新仕様に合わせる。リリース直前に実施）
 
 ## Later
 

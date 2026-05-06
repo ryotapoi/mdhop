@@ -161,6 +161,26 @@
 - 選んだ案: 案B
 - 理由: 当該テストの vault には frontmatter wikilink を含むファイルが無いため、現状フィルタの 2 型でも検証は機能している。frontmatter_wikilink を含む edge をテスト対象に追加するならテスト fixture 自体の変更も必要で、(2/2) のスコープ「書き換えコマンドの linkType 拡張」とは別の「テストカバレッジ向上」軸。backlog Later に「`add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張」を追加して別タスク化
 
+### 2026-05-07 - サンプルスキル更新の対象範囲を `examples/skills/mdhop/` のみに絞った
+
+- 対象タスク: backlog v0.7.0「サンプルスキル更新」
+- 論点: memory 記述では「`examples/skills/` 配下に `mdhop`, `mdhop-query`, `mdhop-workflow` の 3 サブディレクトリ」とあったが、実際は `mdhop/` 1 つしか存在しない。3 サブディレクトリ構成へ拡張するか、現状の単一ディレクトリ構成のまま更新するか
+- 選択肢:
+  - 案A: memory どおり `mdhop-query` `mdhop-workflow` を新規作成し、責務別 3 サブディレクトリに分ける — 「サンプル粒度を機能別に細分化」設計判断を優先
+  - 案B: 現状の単一 `mdhop/` 構成のまま frontmatter wikilink 対応分のみ追記 — 「memory が古いと判断し現状を正とする」「リリース直前タスクでスコープを最小化」タスク管理を優先
+- 選んだ案: 案B
+- 理由: backlog タスクの目的は「`examples/skills/` 配下を最新仕様に合わせる」で、構造変更ではなく内容更新が要点。memory には「`examples/skills/mdhop/`, `examples/skills/mdhop-query/`, `examples/skills/mdhop-workflow/`」とあるが、現行リポジトリには `mdhop/` のみで、過去のリファクタで統合された可能性が高い（`SKILL.md` 自体に query/file-operation の両方が含まれる）。今回タスクで構造再分割を始めると、責務切り分け方針を新たに決める必要が出てスコープが膨らむ。memory の方を後で更新する形で整合させる
+
+### 2026-05-07 - examples/skills/mdhop 更新は self-check で済ませた
+
+- 対象タスク: backlog v0.7.0「サンプルスキル更新」
+- 論点: ドキュメント変更のみだが対象がエージェント向け SKILL であり、説明の精度が低いと利用者の振る舞いに影響する。並列レビュー（review-code-all）に回すか self-check で済ますか
+- 選択肢:
+  - 案A: `/review-code-all` 系で並列レビュー — 「外部仕様ドキュメントの精度確保」設計判断を優先
+  - 案B: self-check で済ます（内容は v0.7.0 で確定した frontmatter wikilink 仕様の反映のみ、検証ガード/書き換えコマンドのソース・ADR と整合確認済み） — 「ドキュメント修正は Small、`docs.md` ルール（ユーザー視点の挙動のみ・内部実装非掲載）に照らして自己確認可能」タスク管理を優先
+- 選んだ案: 案B
+- 理由: 追加内容は (1) frontmatter 内 wikilink が edge として拾われる (2) `add/update/move/disambiguate` は書き換え対象 (3) `convert/simplify/repair` は本文のみ、の 3 点に限定され、いずれも v0.7.0 で確定済みの実装挙動。decisions/0013 と internal/core/rewrite.go の `pathLinkTypeSQLList` で SSoT 化されており、ドキュメント記述と実装の整合は ADR 経由で再確認できる。go コードに変更がなくテスト実行不要
+
 ### 2026-05-07 - frontmatter 内 wikilink 対応を解析側 / 書き換え側に2分割
 
 - 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応」

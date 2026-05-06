@@ -119,6 +119,7 @@ mdhop move --from OldDir/ --to NewDir/
   - Links that would become ambiguous or resolve differently are rewritten to full paths
   - Path-based links (`[[path/to/a]]`) are always rewritten
   - Relative links in the moved file are adjusted for the new location
+  - Wikilinks inside frontmatter values are rewritten the same way; quoted vs bare YAML style is preserved
 - Errors if source file or affected files have stale mtime (mtime mismatch with DB)
 
 **Output fields (single file):** `from`, `to`, `rewritten`
@@ -199,7 +200,7 @@ mdhop repair --dry-run --format json
 - Skips links whose target file exists on disk
 - Skips basename links (already in basename form)
 - After repair, run `mdhop build` to create or update the index
-- URL links, tag links, and frontmatter links are not affected
+- URL links, tag links, and frontmatter values (including wikilinks inside frontmatter) are not affected
 
 **Output fields:** `rewritten`, `skipped`
 
@@ -245,6 +246,7 @@ mdhop simplify --file Notes/A.md
 - Basename links are skipped (already short)
 - Broken links and vault-escape links are skipped (use `repair` first)
 - Asset path links are only shortened when no note has the same basename
+- Wikilinks inside frontmatter values are not shortened
 - `build.exclude_paths` is respected
 - After simplify, run `mdhop build` to update the index
 
@@ -289,8 +291,8 @@ mdhop convert --to markdown --file A.md
 
 **Behavior:**
 - DB not required (file-scan based). Can run before `build`
-- Converts wikilink (`[[...]]`) ↔ markdown link (`[...](...)`)
-- URL links, tags, and frontmatter links are not affected
+- Converts wikilink (`[[...]]`) ↔ markdown link (`[...](...)`) in note bodies
+- URL links, tags, and frontmatter values (including wikilinks inside frontmatter) are not affected
 - `build.exclude_paths` is respected
 - After convert, run `mdhop build` to create or update the index
 
