@@ -41,6 +41,26 @@
 - 選んだ案: 案B
 - 理由: untyped string constant と `NodeType` の比較はコンパイル・実行ともに正しく動き実害がない。今回のタスクは「Go 側引数・構造体・SQL バインドの両端を整合させる」が主眼で、テストコード内の比較リテラルすべてを定数化することは含まれない。範囲を広げると 50+ 箇所の機械的修正でレビュー対象が膨らむ。残存箇所は別タスクで一括処理する余地を残す
 
+### 2026-05-06 - MoveDir ロールバックテストのレビュー深さを self-check に絞った
+
+- 対象タスク: `internal/core/move_dir.go` の `MoveDir` ロールバックパスのテスト追加
+- 論点: タスクは複数ファイル横断の `move_dir.go` に網を張るためレビュー的には非 Small。並列レビュー（review-code-all）に回すか、self-check で済ますか
+- 選択肢:
+  - 案A: `/review-code-all` に通して並列レビュー（design / facts / go / mdhop） — 「mdhop コア領域への変更は深いレビューを通す」設計判断を優先
+  - 案B: self-check で済ます（既存テスト全 pass + テスト追加のみ + プロダクトコード変更なし） — 「review.md の『軽微なら self-check に落とせる』を適用、ループの実装速度を優先」タスク管理を優先
+- 選んだ案: 案B
+- 理由: 変更は `move_test.go` 末尾への 2 テスト追加のみで、`MoveDir` 本体・ヘルパーには触れていない。既存 388+ テストが全 pass し、新規 2 テストはロールバック後の disk 状態 / DB 状態 / 外部ファイル内容を最終状態のみで検証する形（順序非依存）。仕様変更も挙動変更もないためレビュー観点の MUST / SHOULD 指摘が出る余地が薄く、並列レビューのコストに見合わない
+
+### 2026-05-06 - MoveDir ロールバックテストのカバー戦略を「失敗トリガ x 2 種類」に絞った
+
+- 対象タスク: `internal/core/move_dir.go` の `MoveDir` ロールバックパスのテスト追加
+- 論点: ロールバック発火点は `move_dir.go` 行 583-590（Phase 4.2 内 inline rollback）と行 601-620（defer 内 rollback：rename 巻き戻し + moved file restore + external restore）の 2 系統。テストでどう網を張るか
+- 選択肢:
+  - 案A: 583-590 と 611-617 をそれぞれ独立に発火させる 2 + α テストを書く（Phase 4.2 の write 失敗を直接起こすため、特定 moved file の `os.Chmod 0o400` 等で個別失敗を起こす） — 「行ごとの直接カバレッジ」設計判断を優先
+  - 案B: 「outRewrites が積まれない rename 失敗」+「outRewrites が積まれた状態の rename 失敗」の 2 ケースで、ロールバック後の最終状態（disk / DB / 外部ファイル）が pre-move と一致することを検証 — 「行ごとカバレッジに固執せず、ロールバックの実害（state が壊れる）を捉える網にする」設計判断を優先
+- 選んだ案: 案B
+- 理由: 583-590 と 611-617 はロジック的にほぼ同じ（外部 backup 復元 + moved file content 復元 + rename 巻き戻し）。Phase 4.2 の早期 rollback と defer 内 rollback の違いは「completedRenames が空かどうか」「movedFileBackups の要素数」で、両方とも rollback 後の最終状態は「pre-move と等価」が要件。状態の等価性で検証すれば、ロジックのどちらが壊れても検出できる。Phase 4.2 内で write を確実に失敗させるには moved file 単位の chmod が必要だが、`m.from` の chmod 0o400 では `writeFilePreservePerm` の `os.WriteFile` (O_WRONLY|O_CREATE|O_TRUNC) が macOS で意図通り失敗するか不安定（実測で失敗しなかった）。代わりに「outRewrites が積まれた直後に rename を失敗させる」シナリオで、defer 内 moved file restore (611-617) が動く経路を網羅した
+
 ### 2026-05-06 23:36 - sentinel error 化のスコープを意味的識別ニーズのある範囲に絞った
 
 - 対象タスク: `internal/core` の sentinel error 化

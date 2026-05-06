@@ -2488,3 +2488,178 @@ func TestMoveDir_CollateralSkipsPathLink(t *testing.T) {
 		t.Errorf("X.md should still contain [[other/A]], got: %s", string(xContent))
 	}
 }
+
+// --- MoveDir: rollback paths ---
+
+// TestMoveDir_Rollback_RenameFails covers move_dir.go lines 606-619:
+// when an os.Rename in Phase 4.3 fails, the deferred rollback restores
+// previously completed renames, moved-file content, and external rewrites.
+func TestMoveDir_Rollback_RenameFails(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses directory permission checks")
+	}
+	vault := copyVault(t, "vault_move_dir")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Snapshot Other.md content for post-rollback comparison.
+	otherPath := filepath.Join(vault, "Other.md")
+	originalOther, err := os.ReadFile(otherPath)
+	if err != nil {
+		t.Fatalf("read Other.md: %v", err)
+	}
+
+	// Create the destination directory ahead of time and remove its write
+	// permission so os.Rename into it fails for every moved file.
+	newdir := filepath.Join(vault, "newdir")
+	if err := os.MkdirAll(newdir, 0o755); err != nil {
+		t.Fatalf("mkdir newdir: %v", err)
+	}
+	if err := os.Chmod(newdir, 0o555); err != nil {
+		t.Fatalf("chmod newdir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(newdir, 0o755) })
+
+	if _, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"}); err == nil {
+		t.Fatal("expected MoveDir to fail when rename target dir is read-only")
+	}
+
+	// Disk: every from-path must still exist; no to-paths created.
+	for _, from := range []string{"sub/A.md", "sub/B.md", "sub/inner/X.md"} {
+		if !fileExists(filepath.Join(vault, from)) {
+			t.Errorf("after rollback: %s should still exist", from)
+		}
+	}
+	for _, to := range []string{"newdir/A.md", "newdir/B.md", "newdir/inner/X.md"} {
+		if fileExists(filepath.Join(vault, to)) {
+			t.Errorf("after rollback: %s should not exist", to)
+		}
+	}
+
+	// External file content must be restored.
+	restoredOther, err := os.ReadFile(otherPath)
+	if err != nil {
+		t.Fatalf("read Other.md after rollback: %v", err)
+	}
+	if string(restoredOther) != string(originalOther) {
+		t.Errorf("Other.md not restored after rollback:\nwant: %q\ngot:  %q", originalOther, restoredOther)
+	}
+
+	// DB must be untouched: paths still under sub/, edges still point to sub/B.
+	notes := queryNodes(t, dbPath(vault), "note")
+	for _, n := range notes {
+		if strings.HasPrefix(n.path, "newdir/") {
+			t.Errorf("DB should not contain newdir/ paths after rollback, got: %s", n.path)
+		}
+	}
+	edges := queryEdges(t, dbPath(vault), "Other.md")
+	var sawSubB bool
+	for _, e := range edges {
+		if e.rawLink == "[[sub/B]]" {
+			sawSubB = true
+		}
+		if e.rawLink == "[[newdir/B]]" {
+			t.Errorf("edge raw_link should be rolled back, but found %s", e.rawLink)
+		}
+	}
+	if !sawSubB {
+		t.Error("Other.md edge to sub/B.md missing after rollback")
+	}
+}
+
+// TestMoveDir_Rollback_MovedFileRestore covers move_dir.go lines 583-590
+// (Phase 4.2 inline rollback) and 611-617 (deferred moved-file restore):
+// when a moved file has scheduled outgoing rewrites, Phase 4.2 writes them
+// to disk and registers backups; any later failure must restore those bytes.
+// We force Phase 4.3's rename to fail via a read-only destination directory
+// after Phase 4.2 has already rewritten every moved file.
+func TestMoveDir_Rollback_MovedFileRestore(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses directory permission checks")
+	}
+
+	// Each moved file owns a relative `../external.md` link. MoveDir(sub →
+	// newdir/inner) shifts every sub/*.md from depth 1 to depth 2, so the
+	// link must become `../../external.md` — that is what makes Phase 3
+	// schedule an outgoing rewrite, which is what populates movedFileBackups.
+	vault := t.TempDir()
+	mustWrite := func(rel, body string) {
+		full := filepath.Join(vault, rel)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("mkdir for %s: %v", rel, err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+	mustWrite("external.md", "external\n")
+	mustWrite("sub/A.md", "[link](../external.md)\n")
+	mustWrite("sub/B.md", "[link](../external.md)\n")
+
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	originalSubA, err := os.ReadFile(filepath.Join(vault, "sub", "A.md"))
+	if err != nil {
+		t.Fatalf("read sub/A.md: %v", err)
+	}
+	originalSubB, err := os.ReadFile(filepath.Join(vault, "sub", "B.md"))
+	if err != nil {
+		t.Fatalf("read sub/B.md: %v", err)
+	}
+
+	// Pre-create the destination's inner dir read-only so Phase 4.3's
+	// Rename(...) fails. MkdirAll is a no-op on existing dirs and does not
+	// fail; Rename into a read-only directory does.
+	innerDir := filepath.Join(vault, "newdir", "inner")
+	if err := os.MkdirAll(innerDir, 0o755); err != nil {
+		t.Fatalf("mkdir inner: %v", err)
+	}
+	if err := os.Chmod(innerDir, 0o555); err != nil {
+		t.Fatalf("chmod inner: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(innerDir, 0o755) })
+
+	if _, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir/inner"}); err == nil {
+		t.Fatal("expected MoveDir to fail when destination dir is read-only")
+	}
+
+	// Moved file content must be restored to pre-move bytes; if rollback was
+	// skipped or buggy, we'd see the rewritten body here instead.
+	gotA, err := os.ReadFile(filepath.Join(vault, "sub", "A.md"))
+	if err != nil {
+		t.Fatalf("read sub/A.md after rollback: %v", err)
+	}
+	if string(gotA) != string(originalSubA) {
+		t.Errorf("sub/A.md not restored:\nwant: %q\ngot:  %q", originalSubA, gotA)
+	}
+	gotB, err := os.ReadFile(filepath.Join(vault, "sub", "B.md"))
+	if err != nil {
+		t.Fatalf("read sub/B.md after rollback: %v", err)
+	}
+	if string(gotB) != string(originalSubB) {
+		t.Errorf("sub/B.md not restored:\nwant: %q\ngot:  %q", originalSubB, gotB)
+	}
+
+	// Disk: from-paths intact, to-paths absent.
+	for _, from := range []string{"sub/A.md", "sub/B.md"} {
+		if !fileExists(filepath.Join(vault, from)) {
+			t.Errorf("after rollback: %s should still exist", from)
+		}
+	}
+	for _, to := range []string{"newdir/inner/A.md", "newdir/inner/B.md"} {
+		if fileExists(filepath.Join(vault, to)) {
+			t.Errorf("after rollback: %s should not exist", to)
+		}
+	}
+
+	// DB must be untouched.
+	notes := queryNodes(t, dbPath(vault), "note")
+	for _, n := range notes {
+		if strings.HasPrefix(n.path, "newdir/") {
+			t.Errorf("DB should not contain newdir/ paths after rollback, got: %s", n.path)
+		}
+	}
+}
