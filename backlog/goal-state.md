@@ -1,19 +1,19 @@
 # Goal State
 
-status: running
+status: done
 
 ## Current scope
 
-v0.6.1 の残タスク（1件）:
-- `internal/core/query.go`（797 行）をエントリ解決とデータフェッチに分離
+v0.6.1 の全タスク完了。
 
 ## Last completed loop
 
-2026-05-06: `cmd/mdhop/format.go`（838 行）をコマンド別ファイルに分割。
-- 共通ヘルパーは `format.go`（196 行）に残す: `printWarnings` `parseFields` `validateFormat` `validateFields` `fieldSet` `printStringListText` `encodeJSON` + 共有型 `jsonNodeInfo`/`toJSONNodeInfo` + mutation 共通 `rewrittenJSON`/`toRewrittenJSON`/`printRewrittenText` + repair/simplify 共通 `skippedJSON`/`toSkippedJSON`/`printSkippedText`/`printRewriteResultJSON`
-- コマンド別 14 ファイルへ分離: `format_resolve.go` `format_stats.go` `format_diagnose.go` `format_search.go` `format_query.go` `format_delete.go` `format_update.go` `format_add.go` `format_move.go` `format_movedir.go` `format_disambiguate.go` `format_convert.go` `format_repair.go` `format_simplify.go`
-- 最大ファイル: `format_query.go` 186 行（writeNodeInfoText/nodeInfoOneLine/queryJSONOutput 等 query 専用ロジックを集約）
-- レビュー: facts/design/go/mdhop の 4 観点すべて needs_action=NO で完了。go では既存問題の NIT（`validSearchFieldsCLI` 未使用）が指摘されたが本タスクのスコープ外
+2026-05-06: `internal/core/query.go`（797 行）をエントリ解決とデータフェッチに分離。
+- `query.go`（156 行）: 型定義（`EntrySpec` `QueryOptions` `NodeInfo` `TwoHopEntry` `SnippetEntry` `QueryResult`）と `Query` エントリポイントのみ
+- `query_entry.go`（200 行）: `findEntryNode` `findEntryByKey` `findEntryByFile` `findEntryByTag` `findEntryByPhantom` `findEntryByName` `fetchNodeInfo`
+- `query_fetch.go`（438 行）: `queryBacklinks` `queryOutgoing` `queryTags` `filterLeafTags` `fetchNodeInfoBatch` `queryTwoHop` `readHead` `readSnippets` `checkStale` `readFileLines`
+- ロジック変更なし・公開 API 変更なし・SQL 変更なしの純粋な物理分割
+- レビュー: facts / design / mdhop は LGTM。go で `sql.ErrNoRows` の `==` 比較が指摘されたが、これは元コードからの持ち越しで、backlog v0.7.0「`internal/core` の sentinel error 化」で横断対応する範囲のため今回は対処せず（再レビューで妥当と判定）
 - 検証: `go vet ./...` `go build ./...` `go test ./...` 全グリーン
 
 ## Skipped tasks
@@ -26,4 +26,4 @@ v0.6.1 の残タスク（1件）:
 
 ## Next hint
 
-次ループは `internal/core/query.go`（797 行）の分割。`query.go` には `Query` エントリポイント + 型定義のみを残し、エントリ解決系（`findEntryNode` `findEntryByKey` 等 6 関数）を `query_entry.go`、データフェッチ系（`queryBacklinks` `queryOutgoing` `queryTwoHop` `fetchNodeInfoBatch` + ファイル読み取り `readHead` `readSnippets` `readFileLines`）を `query_fetch.go` に分離する方針。
+v0.6.1 の Acceptance（v0.6.1 セクションに `- [ ]` がない）を満たしたため `goal-done.md` を作成して終了。

@@ -31,3 +31,13 @@
 - 理由: SQL 文字列の動的生成は既存パターン（RAW SQL 文字列）を崩し、SQL injection 対策・可読性の観点でリスク。Intent を「Go コード側のタイポ検出」に絞ることで定数化の効果を保ちつつ範囲を限定
 - ユーザー意図と違う可能性: backlog の「内部コア全体に 35 箇所以上散在」「SQL の WHERE 句と Go の switch 文で型安全性なく重複」という問題説明から、SQL 内も含めて統一したい意図だった可能性
 - 後で確認してほしい点: SQL 内シングルクォートも const に統一する別タスクが必要か（`fmt.Sprintf` 化または `'note'` 等を bind 変数化）
+
+### 2026-05-06 20:10 - query_entry.go の `sql.ErrNoRows == 比較` を今回は修正しない
+
+- 対象タスク: v0.6.1「`internal/core/query.go` をエントリ解決とデータフェッチに分離」
+- 迷った点: review-code go 観点で `query_entry.go:47` `:70` の `err == sql.ErrNoRows` を `errors.Is(err, sql.ErrNoRows)` に直すべきという 🔴 MUST 指摘が出た。今回タスクのスコープ内で対処すべきか
+- 選んだ案: 対象外（今回タスクでは修正しない）
+- 選ばなかった案: 当該 2 箇所だけ `errors.Is` に書き換え
+- 理由: 今回タスクの Intent は「query.go の物理分割」で、ロジック変更を含めない。`sql.ErrNoRows == 比較` は元の `query.go` から無修正で持ち越したコードで、`internal/core` 全体に同種の `==` 比較が 13 箇所あり（goal-state memory 参照）、backlog v0.7.0「`internal/core` の sentinel error 化」で横断対応する範囲。ここだけ部分修正すると残り 11 箇所と一貫性が崩れる
+- ユーザー意図と違う可能性: 「分割ついでに直してほしい」と意図していた可能性は低い（goal.md の Constraints「v0.6.1 の範囲外の unrelated refactor はやらない」と整合）
+- 後で確認してほしい点: なし。v0.7.0 の sentinel error 化タスクで横断的に修正される

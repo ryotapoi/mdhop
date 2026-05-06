@@ -8,7 +8,7 @@
 - [x] `cmd/mdhop/format.go`（838 行）をコマンド別に分割
   - **問題**: 13 コマンド分の `printXText` / `printXJSON` ペアが 1 ファイルに集約。コマンド追加のたびに肥大化が確定している構造
   - **対応**: `format_query.go` `format_stats.go` ... のようにコマンド別分離。共通の `encodeJSON` `printStringListText` `parseFields` `validateFormat` `validateFields` `fieldSet` は `format.go` に残す
-- [ ] `internal/core/query.go`（797 行）をエントリ解決とデータフェッチに分離
+- [x] `internal/core/query.go`（797 行）をエントリ解決とデータフェッチに分離
   - **問題**: `Query` エントリポイント、エントリ解決（`findEntryNode` `findEntryByKey` 等 6 関数）、データフェッチ（`queryBacklinks` `queryOutgoing` `queryTwoHop` `fetchNodeInfoBatch`）、ファイル読み取り（`readHead` `readSnippets` `readFileLines`）が同居
   - **対応**: `query_entry.go`（エントリ解決）と `query_fetch.go`（データフェッチ＋ファイル読み取り）に分割。`query.go` はエントリポイントと型定義のみに縮小
 
