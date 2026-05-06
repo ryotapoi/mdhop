@@ -8,14 +8,13 @@ status: running
 
 ## Last completed loop
 
-2026-05-07: `internal/core/move_dir.go` の `MoveDir`（758 行 1 関数）を段階別ヘルパーに分割。
-- move_helpers.go に段階別ヘルパーを追加: validateMoveDirOptions / loadMovesFromDB / checkDestinationsFree / collectDiskOnlyFiles / classifyDiskState / checkMovedFilesNotStale / adjustMapsForDirMove / collectIncomingRewritesForDir / collectCollateralRewritesForDir / buildMovedFileRewrites / lookupEdgeTargetPath
-- move_dir.go: 758 → 297 行に縮小、本体は薄いオーケストレーション
-- 型を昇格: moveInfo / movedFileRewrite / dirMoveMaps / diskOnlyMove を package scope に
-- Phase 4.3 (rename + completedRenames) と Phase 5 (DB tx) は rollback 状態管理が密に絡むため本体に残置
-- 挙動変更なし、テスト追加なし（前ループのロールバックテスト + 既存 388+ テストが回帰検出網）
-- レビュー: review-code-all 並列レビュー 2 周。1 周目 facts LGTM / mdhop LGTM / design SHOULD x1 / go SHOULD x1。doc コメント不正確 + 無名 struct を named type 化で対処。2 周目 design LGTM / go SHOULD x1（classifyDiskState 空スライス時の暗黙挙動）→ doc コメント追記で対処
-- `go vet ./...` / `go test ./...` 全部グリーン
+2026-05-07 (B パス): frontmatter 内 wikilink 対応タスクを解析側 / 書き換え側に 2 分割。
+- backlog v0.7.0「frontmatter 内 wikilink 対応」を以下に分解:
+  - (1/2) 解析と edge 化（parse.go / build.go / resolve.go、新 linkType `frontmatter_wikilink` 追加、5 コマンド書き換えは触らない）
+  - (2/2) 書き換えコマンド対応（add/update/move/disambiguate/convert、行ベース置換、quoted/bare style 維持）
+- 設計判断は (1/2) 内で確定する（新 linkType / bare 検出戦略 / meta 両立 / alias 流用）
+- 詳細は backlog エントリ参照
+- このループは整理のみ（実装なし、A パスは次ループで実施）
 
 ## Skipped tasks
 
@@ -23,8 +22,18 @@ status: running
 
 ## Last verification
 
-`go vet ./...` / `go test ./...` 全部グリーン。
+検証なし（ドキュメント編集のみ）。
 
 ## Next hint
 
-次タスクは backlog v0.7.0 の上から: frontmatter 内 wikilink 対応。backlog 該当エントリに「現状」「YAML パース調査結果」「設計論点」が事細かに書かれているため、まずそれらを読み込み、設計判断（新 linkType 追加 vs 既存 wikilink 流用、bare `[[note]]` 検出戦略、書き換え戦略、meta テーブル両立、alias/subpath 対応）を進める。横断対応（add/update/move/disambiguate/convert）が必須なため、複数コミット分割の検討が必要になる可能性が高い → goal-loop B パスに切り替えてタスク細分化を先に行う判断もありうる。
+次ループは A パスで「frontmatter 内 wikilink 対応 (1/2): 解析と edge 化」に着手。
+
+着手時の手順:
+1. `internal/core/parse.go` の `parseFrontmatter` / `collectMeta` / `parseFrontmatterTags` の現状を再読
+2. `gopkg.in/yaml.v3` の `Node.Line` / `Node.Column` を使い、val の行範囲を取得して生テキストから `[[...]]` を本文用正規表現で抽出する方針を確定
+3. `linkOccur` の `linkType` に `"frontmatter_wikilink"` を追加し、build.go の edge 化、resolve.go の解決経路に流す
+4. alias / subpath は本文 wikilink と同等（`splitAlias` / `splitSubpath` 流用）
+5. `rules/03-data-model.md:126` の `link_type` 列挙に `frontmatter_wikilink` を追記
+6. テスト: `testutil` フィクスチャに frontmatter wikilink を含む note を追加し、build → query で edge が辿れることを確認
+7. 既存書き換え系コマンドは新 linkType を「未対応」のまま放置（次ループで対応）
+8. レビュー: 解析側変更は parse/build/resolve に跨るため `/review-code-all` 並列レビュー想定

@@ -18,25 +18,32 @@
 - [x] `internal/core/move_dir.go` の `MoveDir`（758 行 1 関数）を分解
   - **問題**: ファイル列挙・DB 読み込み・リンク書き換え計画・ファイルリネーム・DB 更新・ロールバックが単一関数に同居。「実行段階」と「エラー時復元段階」が混在し、ロールバックロジックが散在（585, 607, 616 行）
   - **対応**: move_helpers.go 側に段階別ヘルパーを追加し、MoveDir はオーケストレーションのみに縮小。ロールバックは defer + 状態フラグで集約
-- [ ] frontmatter 内 wikilink 対応
-  - **目的**: frontmatter で `key: "[[note]]"` / `key: [[note]]` / 配列形式が実際に使われている。これらを本文 wikilink と同等に解析し、edge 化して `mdhop query` で辿れるようにする。`""` の有無は Obsidian 都合（囲わないと wikilink 認識されない）なので、mdhop はどちらでも認識する
-  - **現状（2026-05-04 時点）**:
-    - `internal/core/parse.go:322` の `parseFrontmatter` は `tags` キーだけ特別扱いし、それ以外は `collectMeta` (`parse.go:418`) で文字列値として meta テーブルに格納するのみ。wikilink 記法は無視されている（edge 生成なし）
-    - 既存 `linkType` は `wikilink | markdown | tag | frontmatter`（`frontmatter` は frontmatter tags 用、`rules/03-data-model.md:126`）
-    - 書き換え系（`add.go` `update.go` `move_helpers.go` `disambiguate.go` `convert.go`）はほぼ全て `linkType == "wikilink" | "markdown"` で分岐し、`rewriteRawLink` (`rewrite.go:36`) を共通利用
-  - **YAML パース調査結果**（`gopkg.in/yaml.v3` で実測、検証コードは捨てた）:
-    - `key: "[[note]]"` → Scalar `"[[note]]"` （普通の文字列、想定どおり）
-    - `key: [[note]]` → **ネストした flow sequence**として解釈される（`[[note]]` = `[ [note] ]`、要素1個の seq の seq）。エラーにならず構造が崩れる
-    - `key:\n  - "[[a]]"` → block seq of scalar string ✅
+- [ ] frontmatter 内 wikilink 対応 (1/2): 解析と edge 化
+  - **目的**: frontmatter の `key: "[[note]]"` / `key: [[note]]` / 配列形式の wikilink を解析し edge にする。`mdhop query` で辿れるようにする。書き換え系は (2/2) に分離（このタスクでは触らない）
+  - **対応**: `internal/core/parse.go` の `parseFrontmatter` / `collectMeta` を拡張。新 `linkType = "frontmatter_wikilink"` を追加し、build.go の edge 化と resolve.go の解決経路に通す。alias/subpath は本文 wikilink と同等にサポート
+  - **設計判断（このタスク内で確定）**:
+    - 新 linkType `frontmatter_wikilink` を追加（既存 `wikilink` 流用ではなく分離。書き換え時の YAML quoted/bare 維持 + 行範囲制約のため、type で分岐できる方が安全）
+    - bare `[[note]]` 検出: YAML 構造（flow seq ネスト）には頼らず、`val.Line` から行範囲を取った上で生テキストに本文 wikilink と同じ正規表現を当てる（YAML パーサの曖昧解釈に依存しない）
+    - meta テーブルとの両立: edge と meta の両方に書く（`--where key=value` での絞り込みと edge クエリの両立）
+    - alias/subpath: 本文 wikilink と同じ `splitAlias` / `splitSubpath` を流用
+  - **YAML パース調査結果**（`gopkg.in/yaml.v3` で実測済み、再調査不要）:
+    - `key: "[[note]]"` → Scalar `"[[note]]"` （普通の文字列）
+    - `key: [[note]]` → **ネストした flow sequence**として解釈される（`[[note]]` = `[ [note] ]`、要素1個の seq の seq）
+    - `key:\n  - "[[a]]"` → block seq of scalar string
     - `key:\n  - [[a]]` → block seq の中で各要素が flow seq of flow seq になる
     - `[[a|alias]]` `[[a#h]]` の `|` `#` は scalar 値の一部として保持される（YAML コメント扱いされない）
-  - **設計論点**:
-    - 新 linkType（例: `frontmatter_wikilink`）を追加するか、既存 `wikilink` を流用してロケーションを別カラム or rawLink から判別するか。書き換え時に YAML 文字列の `""` 維持が必要なため type 分けが安全
-    - bare `[[note]]` の検出は YAML 後段で walk し「flow style の 1要素ネスト seq・全要素 scalar」のパターンを bare wikilink として再解釈する。`key: [a, b]` のような正当な flow seq との誤検出に注意
-    - 書き換えは YAML 再シリアライズだと quoted/bare の style が変わる恐れ。行ベース文字列置換(`replaceOutsideInlineCode` 系）に倒すのが無難。yaml.v3 の `Node.Line` で行範囲は取れる
-    - meta テーブルとの両立: frontmatter wikilink を edge と meta の両方に書くか edge のみか（`--where key=value` での絞り込みニーズと整合させる）
-    - alias/subpath（`[[a|alias]]` `[[a#h]]`）は本文 wikilink と同様にサポート
-  - **影響範囲**: 書き換え系コマンド（add/update/move/disambiguate/convert）への横断対応が必須。詳細は計画フェーズで詰める
+  - **影響範囲**: parse.go / build.go / resolve.go / rules/03-data-model.md の linkType 追記。書き換え系は触らない（5 コマンドは新 linkType を「未対応」として扱い、移行後の (2/2) で対応）
+  - **由来**: backlog v0.7.0「frontmatter 内 wikilink 対応」を解析側 / 書き換え側に分割した片方
+- [ ] frontmatter 内 wikilink 対応 (2/2): 書き換えコマンド対応
+  - **目的**: (1/2) で edge 化された `frontmatter_wikilink` を、書き換え系コマンド（add/update/move/disambiguate/convert）で正しく書き換える
+  - **対応**: `add.go` `update.go` `move_helpers.go` `disambiguate.go` `convert.go` の `linkType` 分岐に `frontmatter_wikilink` を追加。書き換えは YAML 再シリアライズではなく、`val.Line` から取った行範囲内で `replaceOutsideInlineCode` 相当の行ベース置換（quoted/bare style を保持。`""` 内なら `""` 内、bare なら bare のまま書き換え）
+  - **設計判断（このタスク内で確定）**:
+    - YAML 再シリアライズしない（quoted/bare style が変わる恐れ）
+    - 行範囲内で `[[old]]` → `[[new]]` を生置換（rawLink を持っているので一意に特定できる）
+    - convert は `frontmatter_wikilink` ↔ markdown 変換は行わない（YAML 内に markdown link は不自然 → 既存 wikilink/markdown 間のみ）
+  - **依存**: (1/2) のマージ後
+  - **影響範囲**: 5 コマンドそれぞれにテスト追加（rawLink 一意マッチ、alias 保持、subpath 保持、quoted 保持、bare 保持）
+  - **由来**: backlog v0.7.0「frontmatter 内 wikilink 対応」を解析側 / 書き換え側に分割した片方
 - [ ] サンプルスキル更新（`examples/skills/` 配下を最新仕様に合わせる。リリース直前に実施）
 
 ## Later

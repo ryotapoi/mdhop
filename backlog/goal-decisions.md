@@ -100,3 +100,13 @@
   - 案B: 「呼び出し元または将来の呼び出し元が分岐したい意味的エラー」14 種に絞り、構文エラー・YAML パース・CLI バリデーション系は対象外 — 「YAGNI、識別ニーズが見えてから足す」設計判断を優先
 - 選んだ案: 案B
 - 理由: 識別ニーズのない sentinel を増やしても、可読性が下がるだけで利点がない。今回明確な識別ニーズがあるのは file/link 解決系・stale 検出・vault escape の 14 種で、構文エラー（`where.go` `convert.go` の `--ToFormat`）や YAML パースエラー（`config.go` `init_meta.go` 既に `%w` 済）は呼び出し元が `errors.Is` で分岐していないため除外した。`query_fetch.go:438` の `"stale index"` は `move/disambiguate` 系の `"... is stale"` と意味が異なるため別カテゴリとしてスコープ外。`delete.go:90` の `"path escapes vault"` と `move_helpers.go:96,153` の `"rewritten link would escape vault"` はメッセージが他の `link escapes vault` と異なるため、メッセージ完全保持制約の下で別 sentinel が必要になる。識別ニーズが出たら別タスクで追加する
+
+### 2026-05-07 - frontmatter 内 wikilink 対応を解析側 / 書き換え側に2分割
+
+- 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応」
+- 論点: backlog エントリに「設計論点」が 5 つ（新 linkType / bare 検出 / 書き換え戦略 / meta 両立 / alias-subpath）並び、影響範囲も「parse + edge 化 + add/update/move/disambiguate/convert の 5 コマンド書き換え」と幅広い。1 ループ 1 コミットで全部入れるか、解析側と書き換え側で 2 タスクに分けるか
+- 選択肢:
+  - 案A: 1 タスクとして残し、1 ループで全部実装（parse 拡張 + 5 コマンド対応 + テスト全件）— 「機能としての完成形を 1 コミットでまとめて出す」タスク管理を優先
+  - 案B: (1/2) 解析と edge 化 / (2/2) 5 コマンドの書き換え対応 に分割 — 「設計判断の重さを 2 分割し、レビュー粒度を保つ」タスク管理を優先
+- 選んだ案: 案B
+- 理由: 解析側（新 linkType / bare 検出 / meta 両立 / alias 流用）と書き換え側（行ベース置換 / quoted/bare 維持 / 5 コマンド × テスト）は決定軸が独立しており、合算すると 1 コミットの review 対象が parse.go + build.go + resolve.go + 5 コマンド + 多数のテストに膨らむ。前ループまでの分解粒度（NodeType 昇格 / sentinel error / init_meta 分割 / move_dir 分解）と揃え、1 ループあたり 200〜500 行スケールに収める。(1/2) のマージ後 (2/2) を実装する依存関係も自然で、(1/2) で edge が増えるだけなら既存の書き換え系は新 linkType を未対応として無視するため挙動破壊もない
