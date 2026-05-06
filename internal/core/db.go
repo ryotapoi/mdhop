@@ -22,9 +22,10 @@ const (
 	dbFileName  = "index.sqlite"
 )
 
-// NodeType 定数は `nodes.type` 列の値セット。Go コード上での比較・代入に使う。
-// SQL 内シングルクォートリテラル（`'phantom'` 等）はこれと文字列値が一致するが、
-// SQL 構文の一部として残しているため定数参照に置換していない。
+// NodeType constants are the value set of the `nodes.type` column,
+// used for comparisons and assignments in Go code. Single-quoted SQL
+// literals such as `'phantom'` share the same string values but are
+// kept as part of the SQL syntax rather than referencing these constants.
 const (
 	NodeTypeNote    = "note"
 	NodeTypeAsset   = "asset"
