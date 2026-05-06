@@ -2663,3 +2663,142 @@ func TestMoveDir_Rollback_MovedFileRestore(t *testing.T) {
 		}
 	}
 }
+
+// --- Frontmatter wikilink rewriting ---
+//
+// A.md frontmatter (vault_build_frontmatter_wikilink):
+//
+//	related: "[[B]]"
+//	parent: [[B]]
+//	seealso:
+//	  - "[[Sub/C]]"
+//	  - "[[Sub/D|Display]]"
+//	heading_ref: "[[B#Heading]]"
+//	phantom_ref: "[[Ghost]]"
+//
+// Renaming B.md → NewB.md exercises quoted/bare style preservation and subpath
+// preservation in a single pass.
+func TestMove_FrontmatterWikilink_BasenameChange(t *testing.T) {
+	vault := copyVault(t, "vault_build_frontmatter_wikilink")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "B.md", To: "NewB.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	// Edge rawLinks store the inner [[...]] form (parser strips YAML quoting).
+	// Two edges share rawLink "[[B]]" (one quoted, one bare); both report the
+	// same OldLink/NewLink pair. We assert at least one such rewrite plus the
+	// subpath rewrite, then validate disk content for quoted/bare preservation.
+	var sawB, sawBHeading int
+	for _, rw := range result.Rewritten {
+		if rw.File != "A.md" {
+			continue
+		}
+		switch rw.OldLink {
+		case "[[B]]":
+			if rw.NewLink != "[[NewB]]" {
+				t.Errorf("[[B]] rewrite: got %q, want [[NewB]]", rw.NewLink)
+			}
+			sawB++
+		case "[[B#Heading]]":
+			if rw.NewLink != "[[NewB#Heading]]" {
+				t.Errorf("[[B#Heading]] rewrite: got %q, want [[NewB#Heading]]", rw.NewLink)
+			}
+			sawBHeading++
+		}
+	}
+	if sawB == 0 {
+		t.Errorf("A.md should rewrite [[B]] (frontmatter wikilink), rewrites: %+v", result.Rewritten)
+	}
+	if sawBHeading == 0 {
+		t.Errorf("A.md should rewrite [[B#Heading]] (frontmatter wikilink with subpath), rewrites: %+v", result.Rewritten)
+	}
+
+	// Disk content: quoted style stays quoted, bare style stays bare.
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	got := string(content)
+	wantLines := []string{
+		`related: "[[NewB]]"`,
+		`parent: [[NewB]]`,
+		`heading_ref: "[[NewB#Heading]]"`,
+	}
+	for _, want := range wantLines {
+		if !strings.Contains(got, want) {
+			t.Errorf("A.md should contain %q after move, got:\n%s", want, got)
+		}
+	}
+
+	// Untouched frontmatter wikilinks remain (Sub/C, Sub/D, Ghost).
+	wantUnchanged := []string{
+		`"[[Sub/C]]"`,
+		`"[[Sub/D|Display]]"`,
+		`"[[Ghost]]"`,
+	}
+	for _, want := range wantUnchanged {
+		if !strings.Contains(got, want) {
+			t.Errorf("A.md should still contain %q, got:\n%s", want, got)
+		}
+	}
+
+	// DB edges must reflect the rewritten rawLinks (not stale).
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	wantEdgeRaw := map[string]bool{
+		"[[NewB]]":         true,
+		"[[NewB#Heading]]": true,
+	}
+	for _, e := range edges {
+		if e.linkType != "frontmatter_wikilink" {
+			continue
+		}
+		if e.rawLink == "[[B]]" || e.rawLink == "[[B#Heading]]" {
+			t.Errorf("DB edge still has stale rawLink %q after move", e.rawLink)
+		}
+		delete(wantEdgeRaw, e.rawLink)
+	}
+	for raw := range wantEdgeRaw {
+		t.Errorf("DB should contain frontmatter_wikilink edge with rawLink %q", raw)
+	}
+}
+
+// Renaming Sub/D.md → Sub/NewD.md exercises alias preservation in
+// frontmatter wikilink rewriting.
+func TestMove_FrontmatterWikilink_AliasPreserved(t *testing.T) {
+	vault := copyVault(t, "vault_build_frontmatter_wikilink")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "Sub/D.md", To: "Sub/NewD.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	var found bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "A.md" && rw.OldLink == "[[Sub/D|Display]]" {
+			found = true
+			if rw.NewLink != "[[Sub/NewD|Display]]" {
+				t.Errorf("alias preservation failed: got %q", rw.NewLink)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("A.md should rewrite [[Sub/D|Display]] frontmatter wikilink, rewrites: %+v", result.Rewritten)
+	}
+
+	// Disk: alias preserved.
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	if !strings.Contains(string(content), `"[[Sub/NewD|Display]]"`) {
+		t.Errorf("A.md should contain quoted alias link, got:\n%s", content)
+	}
+}

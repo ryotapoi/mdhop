@@ -1288,3 +1288,119 @@ func TestAddAutoDisambiguateSubdirTarget(t *testing.T) {
 		t.Fatalf("rebuild after auto-disambiguate: %v", err)
 	}
 }
+
+// Add must apply the same vault-escape guard to frontmatter wikilinks as
+// build does. Adding a new file whose frontmatter wikilink escapes the vault
+// should fail add.
+func TestAdd_FrontmatterWikilinkEscapesVault(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	newFile := `---
+parent: "[[../escape]]"
+---
+# C
+`
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte(newFile), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Add(vault, AddOptions{Files: []string{"C.md"}})
+	if err == nil {
+		t.Fatal("expected vault escape error for frontmatter wikilink, got nil")
+	}
+	if !strings.Contains(err.Error(), "escapes vault") {
+		t.Errorf("error = %q, want containing 'escapes vault'", err.Error())
+	}
+}
+
+// Pattern A with a frontmatter wikilink: sub/B.md is the unique B at build
+// time, A.md frontmatter has both quoted and bare basename links to B. Adding
+// root B.md must trigger auto-disambiguate and rewrite both occurrences to
+// [[sub/B]] while preserving quoted/bare style.
+func TestAddAutoDisambiguateFrontmatterWikilink(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	aContent := `---
+related: "[[B]]"
+parent: [[B]]
+---
+# A
+`
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("# B sub\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	// Create root B.md to trigger Pattern A auto-disambiguate.
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	// Both bare and quoted [[B]] in A.md frontmatter share the rawLink "[[B]]".
+	// applyFileRewrites runs replaceOutsideInlineCode on the line containing
+	// each edge — so both lines get rewritten in a single pass.
+	var rewriteCount int
+	for _, r := range result.Rewritten {
+		if r.File == "A.md" && r.OldLink == "[[B]]" {
+			rewriteCount++
+			if r.NewLink != "[[sub/B]]" {
+				t.Errorf("rewrite NewLink = %q, want [[sub/B]]", r.NewLink)
+			}
+		}
+	}
+	if rewriteCount != 2 {
+		t.Errorf("A.md frontmatter [[B]] rewrite count = %d, want 2 (quoted + bare)", rewriteCount)
+		for _, r := range result.Rewritten {
+			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+		}
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(content)
+	if !strings.Contains(got, `related: "[[sub/B]]"`) {
+		t.Errorf("A.md should contain quoted form, got:\n%s", got)
+	}
+	if !strings.Contains(got, `parent: [[sub/B]]`) {
+		t.Errorf("A.md should contain bare form, got:\n%s", got)
+	}
+
+	// DB edges must reflect the rewritten rawLinks (not stale).
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	var fmEdges int
+	for _, e := range edges {
+		if e.linkType != "frontmatter_wikilink" {
+			continue
+		}
+		fmEdges++
+		if e.rawLink != "[[sub/B]]" {
+			t.Errorf("DB edge raw_link = %q, want [[sub/B]] (stale or unrewritten)", e.rawLink)
+		}
+	}
+	if fmEdges != 2 {
+		t.Errorf("frontmatter_wikilink edges in A.md = %d, want 2", fmEdges)
+	}
+}

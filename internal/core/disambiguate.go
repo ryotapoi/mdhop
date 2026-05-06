@@ -107,20 +107,20 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 	// plus broken path links pointing to the phantom (if any).
 	var edgeRows *sql.Rows
 	if phantomID.Valid {
-		edgeRows, err = db.Query(
+		edgeRows, err = db.Query(fmt.Sprintf(
 			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.type
 			 FROM edges e
 			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 JOIN nodes tn ON tn.id = e.target_id
-			 WHERE e.target_id IN (?, ?) AND e.link_type IN ('wikilink', 'markdown')`,
+			 WHERE e.target_id IN (?, ?) AND e.link_type IN (%s)`, pathLinkTypeSQLList),
 			target.id, phantomID.Int64)
 	} else {
-		edgeRows, err = db.Query(
+		edgeRows, err = db.Query(fmt.Sprintf(
 			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.type
 			 FROM edges e
 			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 JOIN nodes tn ON tn.id = e.target_id
-			 WHERE e.target_id = ? AND e.link_type IN ('wikilink', 'markdown')`, target.id)
+			 WHERE e.target_id = ? AND e.link_type IN (%s)`, pathLinkTypeSQLList), target.id)
 	}
 	if err != nil {
 		return nil, err
@@ -352,7 +352,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 
 		links := parseLinks(string(content)).Links
 		for _, lo := range links {
-			if lo.linkType != "wikilink" && lo.linkType != "markdown" {
+			if !isPathLinkType(lo.linkType) {
 				continue
 			}
 			if lo.isBasename {

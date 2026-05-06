@@ -90,6 +90,11 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 		links := parseLinks(string(content)).Links
 
 		for _, lo := range links {
+			// Body links only. frontmatter_wikilink is intentionally excluded:
+			// "simplify path → basename" rewrites the visible link form, but
+			// frontmatter wikilink rawLinks are commonly authored as full paths
+			// (e.g. parent: "[[Sub/B]]") and basename simplification there is
+			// not part of the disambiguate/simplify contract.
 			if lo.linkType != "wikilink" && lo.linkType != "markdown" {
 				continue
 			}

@@ -34,7 +34,7 @@
     - `[[a|alias]]` `[[a#h]]` の `|` `#` は scalar 値の一部として保持される（YAML コメント扱いされない）
   - **影響範囲**: parse.go / build.go / resolve.go / rules/03-data-model.md の linkType 追記。書き換え系は触らない（5 コマンドは新 linkType を「未対応」として扱い、移行後の (2/2) で対応）
   - **由来**: backlog v0.7.0「frontmatter 内 wikilink 対応」を解析側 / 書き換え側に分割した片方
-- [ ] frontmatter 内 wikilink 対応 (2/2): 書き換えコマンド対応
+- [x] frontmatter 内 wikilink 対応 (2/2): 書き換えコマンド対応
   - **目的**: (1/2) で edge 化された `frontmatter_wikilink` を、書き換え系コマンド（add/update/move/disambiguate/convert）で正しく書き換える
   - **対応**: `add.go` `update.go` `move_helpers.go` `disambiguate.go` `convert.go` の `linkType` 分岐に `frontmatter_wikilink` を追加。書き換えは YAML 再シリアライズではなく、`val.Line` から取った行範囲内で `replaceOutsideInlineCode` 相当の行ベース置換（quoted/bare style を保持。`""` 内なら `""` 内、bare なら bare のまま書き換え）
   - **検証ガードの整合**: `add.go:249` / `update.go:136` の `if link.linkType != "wikilink" && link.linkType != "markdown" { continue }` は (1/2) 時点で意図的に拡張されておらず、ambiguous / vault-escape の検出ガードが `build.go:87` と非対称になっている。(2/2) ではこの 2 箇所も `frontmatter_wikilink` を含むよう拡張し、3 箇所の検証ガードを揃える
@@ -61,3 +61,11 @@
   - **問題**: 現状 `parseFrontmatter` は tags / meta / frontmatter_wikilink の 3 系統を返す。今後さらに追加する種別があると肥大化する
   - **対応**: 戻り値が 4 系統以上になるタイミングで `parseResult` 構造体ベースへ移行する判断
   - **由来**: design レビュー（v0.7.0 frontmatter 内 wikilink 対応 (1/2)）で予兆として記録
+- [ ] `simplify.go` / `repair.go` の手書き 2 型フィルタを述語化
+  - **問題**: `simplify.go:98` / `repair.go:83` は `lo.linkType != "wikilink" && lo.linkType != "markdown"` の手書きリテラルで、意図的に `frontmatter_wikilink` を除外している。コメントで意図は明示したが、`isPathLinkType` 等が 4 型以上に拡張された場合に取りこぼしリスクが残る
+  - **対応**: `isBodyPathLinkType` 等の述語を切り出し、両ファイルに適用。`linkType` の named type 昇格と同タイミングでまとめて実施可
+  - **由来**: design レビュー（v0.7.0 frontmatter 内 wikilink 対応 (2/2)）SHOULD 指摘の派生
+- [ ] `add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張
+  - **問題**: `add_test.go:672` / `add_test.go:935` の既存テスト（`TestAddAutoDisambiguateBasic` 等）は edge をループする際 `e.linkType == "wikilink" || e.linkType == "markdown"` で frontmatter_wikilink を見落としている。対象 vault には frontmatter_wikilink edge が無く現状実害なし
+  - **対応**: 既存テストの vault に frontmatter wikilink を含めるか、フィルタを `isPathLinkType(e.linkType)` に統一するか
+  - **由来**: facts レビュー（v0.7.0 frontmatter 内 wikilink 対応 (2/2)）SHOULD 指摘の派生

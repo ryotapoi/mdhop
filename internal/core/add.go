@@ -159,11 +159,11 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		}
 
 		// Query edges with source info for potential rewriting.
-		rows, err := db.Query(
+		rows, err := db.Query(fmt.Sprintf(
 			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id
 			 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 WHERE e.target_id = ?
-			 AND e.link_type IN ('wikilink', 'markdown')`, targetID)
+			 AND e.link_type IN (%s)`, pathLinkTypeSQLList), targetID)
 		if err != nil {
 			return nil, err
 		}
@@ -246,7 +246,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		links := pr.Links
 
 		for _, link := range links {
-			if link.linkType != "wikilink" && link.linkType != "markdown" {
+			if !isPathLinkType(link.linkType) {
 				continue
 			}
 			if link.isRelative && escapesVault(f.path, link.target) {

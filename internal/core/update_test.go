@@ -30,6 +30,37 @@ func TestUpdateUnregisteredFile(t *testing.T) {
 	}
 }
 
+// Update must apply the same vault-escape guard to frontmatter wikilinks as
+// build does (rules/03-data-model.md). Editing A.md to add a frontmatter
+// wikilink that escapes the vault should fail update.
+func TestUpdate_FrontmatterWikilinkEscapesVault(t *testing.T) {
+	vault := t.TempDir()
+	aContent := "# A\n"
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	bad := `---
+parent: "[[../escape]]"
+---
+# A
+`
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(bad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Update(vault, UpdateOptions{Files: []string{"A.md"}})
+	if err == nil {
+		t.Fatal("expected vault escape error for frontmatter wikilink, got nil")
+	}
+	if !strings.Contains(err.Error(), "escapes vault") {
+		t.Errorf("error = %q, want containing 'escapes vault'", err.Error())
+	}
+}
+
 func TestUpdateContentChange(t *testing.T) {
 	vault := copyVault(t, "vault_update")
 	if _, err := Build(vault); err != nil {

@@ -84,7 +84,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 
 		// Validate links: collect user errors (ambiguous, vault-escape) up to maxBuildErrors.
 		for _, link := range pr.Links {
-			if link.linkType != "wikilink" && link.linkType != "markdown" && link.linkType != "frontmatter_wikilink" {
+			if !isPathLinkType(link.linkType) {
 				continue
 			}
 			if link.isRelative && escapesVault(rel, link.target) {

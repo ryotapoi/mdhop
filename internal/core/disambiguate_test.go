@@ -696,6 +696,72 @@ func TestDisambiguatePhantomPathLink(t *testing.T) {
 	}
 }
 
+// Frontmatter wikilink basename rewrite via DisambiguateScan.
+// A.md frontmatter has bare `parent: [[B]]` and quoted `related: "[[B]]"`,
+// both of which are basename links to ambiguous B (root B.md + Sub/B.md).
+// Disambiguating to Sub/B.md should rewrite both while preserving
+// quoted/bare style.
+func TestDisambiguateScan_FrontmatterWikilink(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "Sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	aContent := `---
+related: "[[B]]"
+parent: [[B]]
+---
+# A
+`
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Sub", "B.md"), []byte("# Sub B\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := DisambiguateScan(vault, DisambiguateOptions{
+		Name:   "B",
+		Target: "Sub/B.md",
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	// Both bare and quoted occurrences share rawLink "[[B]]" — the scan reports
+	// each occurrence separately, so we expect 2 rewrites in A.md.
+	var rewriteCount int
+	for _, r := range result.Rewritten {
+		if r.File == "A.md" && r.OldLink == "[[B]]" {
+			rewriteCount++
+			if r.NewLink != "[[Sub/B]]" {
+				t.Errorf("rewrite NewLink = %q, want [[Sub/B]]", r.NewLink)
+			}
+		}
+	}
+	if rewriteCount != 2 {
+		t.Errorf("A.md frontmatter [[B]] rewrite count = %d, want 2 (quoted + bare)", rewriteCount)
+		for _, r := range result.Rewritten {
+			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+		}
+	}
+
+	// Disk: quoted style stays quoted, bare style stays bare.
+	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, `related: "[[Sub/B]]"`) {
+		t.Errorf("A.md should contain quoted form, got:\n%s", got)
+	}
+	if !strings.Contains(got, `parent: [[Sub/B]]`) {
+		t.Errorf("A.md should contain bare form, got:\n%s", got)
+	}
+}
+
 func TestDisambiguatePhantomPathLinkScan(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate_phantom")
 

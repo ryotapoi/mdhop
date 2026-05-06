@@ -6,6 +6,22 @@ import (
 	"strings"
 )
 
+// pathLinkTypeSQLList is the SQL `IN (...)` literal listing every link_type
+// whose target resolves to a vault path (and therefore participates in
+// rewrite/move/disambiguate operations). Embed via fmt or string concatenation,
+// not as a parameterized argument.
+const pathLinkTypeSQLList = `'wikilink', 'markdown', 'frontmatter_wikilink'`
+
+// isPathLinkType reports whether linkType is one of the path-resolving link
+// types tracked in pathLinkTypeSQLList.
+func isPathLinkType(linkType string) bool {
+	switch linkType {
+	case "wikilink", "markdown", "frontmatter_wikilink":
+		return true
+	}
+	return false
+}
+
 // rewriteBackup holds original file content for rollback on failure.
 type rewriteBackup struct {
 	path    string
@@ -36,7 +52,7 @@ func buildRewritePath(targetPath string) string {
 // rewriteRawLink replaces the target in a raw link with the rewritten path.
 func rewriteRawLink(rawLink, linkType, targetPath string) string {
 	switch linkType {
-	case "wikilink":
+	case "wikilink", "frontmatter_wikilink":
 		// rawLink: [[Target]], [[Target|alias]], [[Target#Heading]], [[Target#Heading|alias]]
 		inner := strings.TrimPrefix(rawLink, "[[")
 		inner = strings.TrimSuffix(inner, "]]")
@@ -211,7 +227,7 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 // isBasenameRawLink checks if a raw_link represents a basename link (no path separators).
 func isBasenameRawLink(rawLink, linkType string) bool {
 	switch linkType {
-	case "wikilink":
+	case "wikilink", "frontmatter_wikilink":
 		// raw_link is like "[[Target]]" or "[[Target|alias]]" or "[[Target#heading]]"
 		inner := strings.TrimPrefix(rawLink, "[[")
 		inner = strings.TrimSuffix(inner, "]]")

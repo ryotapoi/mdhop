@@ -317,8 +317,9 @@ func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMap
 		query := fmt.Sprintf(
 			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.target_id
 			 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-			 WHERE e.target_id IN (%s) AND e.link_type IN ('wikilink', 'markdown')`,
+			 WHERE e.target_id IN (%s) AND e.link_type IN (%s)`,
 			strings.Join(placeholders, ","),
+			pathLinkTypeSQLList,
 		)
 		rows, err := db.Query(query, args...)
 		if err != nil {
@@ -470,7 +471,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 
 		links := parseLinks(string(content)).Links
 		for _, link := range links {
-			if link.linkType != "wikilink" && link.linkType != "markdown" {
+			if !isPathLinkType(link.linkType) {
 				continue
 			}
 
@@ -549,16 +550,17 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 }
 
 // lookupEdgeTargetPath returns the target node path for the edge identified by
-// (sourceID, rawLink) among wikilink/markdown link types. Returns ("", nil) when
-// no matching edge exists or when the target is a phantom node (whose path is
-// stored as NULL); callers treat both cases as "skip".
+// (sourceID, rawLink) among path-resolving link types (see pathLinkTypeSQLList).
+// Returns ("", nil) when no matching edge exists or when the target is a
+// phantom node (whose path is stored as NULL); callers treat both cases as
+// "skip".
 func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string) (string, error) {
 	var path string
-	err := db.QueryRow(
+	err := db.QueryRow(fmt.Sprintf(
 		`SELECT COALESCE(tn.path, '') FROM edges e
 		 JOIN nodes tn ON tn.id = e.target_id
-		 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
-		 LIMIT 1`, sourceID, rawLink).Scan(&path)
+		 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN (%s)
+		 LIMIT 1`, pathLinkTypeSQLList), sourceID, rawLink).Scan(&path)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", err
 	}
@@ -568,12 +570,12 @@ func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string) (string, 
 // queryCollateralRewrites finds basename links to non-moved nodes of the given type
 // that need rewriting due to root-priority changes.
 func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
-	rows, err := db.Query(
+	rows, err := db.Query(fmt.Sprintf(
 		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
 		 FROM edges e
 		 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 		 JOIN nodes tn ON tn.id = e.target_id AND tn.type = ? AND tn.exists_flag = 1
-		 WHERE tn.name = ? AND e.link_type IN ('wikilink', 'markdown')`,
+		 WHERE tn.name = ? AND e.link_type IN (%s)`, pathLinkTypeSQLList),
 		nodeType, name)
 	if err != nil {
 		return nil, err

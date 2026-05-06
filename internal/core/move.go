@@ -148,10 +148,10 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}
 
 	// Phase 2: incoming link rewrite.
-	incomingRows, err := db.Query(
+	incomingRows, err := db.Query(fmt.Sprintf(
 		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id
 		 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-		 WHERE e.target_id = ? AND e.link_type IN ('wikilink', 'markdown')`, nodeID)
+		 WHERE e.target_id = ? AND e.link_type IN (%s)`, pathLinkTypeSQLList), nodeID)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		outgoingLinks := parseLinks(string(movedContent)).Links
 
 		for _, link := range outgoingLinks {
-			if link.linkType != "wikilink" && link.linkType != "markdown" {
+			if !isPathLinkType(link.linkType) {
 				continue
 			}
 			// Basename link: check if resolution changes after move.
@@ -273,11 +273,11 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 				var preMoveTargetPath string
 
 				// Get pre-move target path from DB.
-				err := db.QueryRow(
+				err := db.QueryRow(fmt.Sprintf(
 					`SELECT COALESCE(tn.path, '') FROM edges e
 					 JOIN nodes tn ON tn.id = e.target_id
-					 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
-					 LIMIT 1`, nodeID, link.rawLink).Scan(&preMoveTargetPath)
+					 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN (%s)
+					 LIMIT 1`, pathLinkTypeSQLList), nodeID, link.rawLink).Scan(&preMoveTargetPath)
 				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					return nil, err
 				}

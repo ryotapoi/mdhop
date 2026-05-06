@@ -131,6 +131,36 @@
 - 選んだ案: 案B
 - 理由: NodeType 昇格 (v0.7.0 既完了) と同パターンで、シグネチャ変更を含む横断対応になる。今回の (1/2) スコープに混ぜると review 範囲が parse / build / resolve から書き換え系コマンド群まで膨らむ。backlog Later に「`linkType` 値を `type LinkType string` の named type に昇格して定数化」として追加し、独立タスクで対応する
 
+### 2026-05-07 - frontmatter wikilink 書き換え対応で `pathLinkTypeSQLList` / `isPathLinkType` を導入
+
+- 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応 (2/2): 書き換えコマンド対応」
+- 論点: 書き換え系の `link_type IN ('wikilink', 'markdown')` SQL リテラルが 6 箇所、Go 側 `linkType != "wikilink" && linkType != "markdown"` フィルタが 6 箇所散在しており、`frontmatter_wikilink` を加えると合計 12 箇所の重複拡張が必要
+- 選択肢:
+  - 案A: 12 箇所すべて手書きで `'wikilink', 'markdown', 'frontmatter_wikilink'` / 3 値 OR 比較に拡張 — 「定数化はコード volume を追加するため YAGNI」設計判断を優先
+  - 案B: `pathLinkTypeSQLList` 定数 + `isPathLinkType` ヘルパーを `rewrite.go` に集約し、12 箇所を helper / fmt.Sprintf 経由に書き換え — 「同じ集合の 12 重複を SSoT 化、新 linkType 追加時の grep 漏れリスク低減」設計判断を優先
+- 選んだ案: 案B（simplify レビュー時にエージェントが提案、採用）
+- 理由: 12 重複は backlog Later「`linkType` 値を `type LinkType string` の named type に昇格して定数化」と同質の保守リスクで、今回タスクで触る箇所だけでも先行集約しておくと named type 昇格時の置き換え対象が SSoT 1 か所で済む。simplify 自動修正で既に 12 箇所が一括変換され、レビューでも DRY 改善として LGTM。なお `simplify.go` / `repair.go` の本文専用フィルタは「frontmatter wikilink を意図的に除外」する書き換え方針（convert と同様の判断）に合致するため、`isPathLinkType` には合流させずコメントで意図明示にとどめた
+
+### 2026-05-07 - simplify/repair の `frontmatter_wikilink` 除外を手書きリテラル + コメントで残した
+
+- 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応 (2/2): 書き換えコマンド対応」
+- 論点: `simplify.go:98` / `repair.go:83` の `lo.linkType != "wikilink" && lo.linkType != "markdown"` フィルタを `isPathLinkType` に統一すべきか。design レビューでは「`isPathLinkType` と乖離して保守リスク」と SHOULD 指摘
+- 選択肢:
+  - 案A: `isBodyPathLinkType` 等の新述語を切り出し、両ファイルを述語ベースに統一 — 「型変更時の取りこぼし防止」設計判断を優先
+  - 案B: 手書きリテラルを残し、両ファイルに「frontmatter_wikilink を意図的に除外」コメントを追加。新述語化は別タスクへ — 「(2/2) スコープに含まれる「書き換え対応」と同質の本文専用処理ではない（簡略化/repair）ため、述語追加は保守改善として独立タスクが適切」タスク管理を優先
+- 選んだ案: 案B
+- 理由: simplify は「path → basename 簡略化」、repair は「broken/escape 修復」で、いずれも frontmatter wikilink には適用しない方針（convert と同じ）。convert.go では既存のリテラル比較が現状のまま意図一致しており、simplify/repair も同パターンで意図明示するのが整合的。`isBodyPathLinkType` ヘルパーを新設すると述語がもう 1 種類増え、用途が違う（書き換え系 vs 本文整理系）2 系統を同 helper で扱う設計責務になりやすい。design レビュアーも「実害リスクは低い」と評価。派生タスクとして backlog Later に「simplify/repair の手書き 2 型フィルタを述語化」を追加し、`linkType` named type 昇格と同タイミングで一括処理できるようにした
+
+### 2026-05-07 - 既存 add_test.go ヘルパー検証の linkType フィルタは据え置き
+
+- 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応 (2/2): 書き換えコマンド対応」
+- 論点: `add_test.go:672` / `add_test.go:935` の既存テスト（`TestAddAutoDisambiguateBasic` 等）が edge をループする際 `e.linkType == "wikilink" || e.linkType == "markdown"` でフィルタしており、`frontmatter_wikilink` が漏れている。facts レビュー SHOULD 指摘
+- 選択肢:
+  - 案A: 既存 2 箇所を `isPathLinkType(e.linkType)` に統一 — 「テスト間の一貫性」タスク管理を優先
+  - 案B: 据え置き、別タスク化 — 「対象 vault `vault_add_disambiguate` に frontmatter_wikilink edge が無く現状実害ゼロ。既存テストヘルパーの修正はカバレッジ向上テーマで別タスク」タスク管理を優先
+- 選んだ案: 案B
+- 理由: 当該テストの vault には frontmatter wikilink を含むファイルが無いため、現状フィルタの 2 型でも検証は機能している。frontmatter_wikilink を含む edge をテスト対象に追加するならテスト fixture 自体の変更も必要で、(2/2) のスコープ「書き換えコマンドの linkType 拡張」とは別の「テストカバレッジ向上」軸。backlog Later に「`add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張」を追加して別タスク化
+
 ### 2026-05-07 - frontmatter 内 wikilink 対応を解析側 / 書き換え側に2分割
 
 - 対象タスク: backlog v0.7.0「frontmatter 内 wikilink 対応」

@@ -133,7 +133,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 
 		// Check for ambiguous links and vault escape (same logic as build's inline validation).
 		for _, link := range links {
-			if link.linkType != "wikilink" && link.linkType != "markdown" {
+			if !isPathLinkType(link.linkType) {
 				continue
 			}
 			if link.isRelative && escapesVault(cf.path, link.target) {
