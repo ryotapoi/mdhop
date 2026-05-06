@@ -38,7 +38,8 @@ func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, w
 
 	var result []NodeInfo
 	for rows.Next() {
-		var typ, name, path string
+		var typ NodeType
+		var name, path string
 		var exists int
 		if err := rows.Scan(&typ, &name, &path, &exists); err != nil {
 			return nil, err
@@ -76,7 +77,8 @@ func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClau
 
 	var result []NodeInfo
 	for rows.Next() {
-		var typ, name, path string
+		var typ NodeType
+		var name, path string
 		var exists int
 		if err := rows.Scan(&typ, &name, &path, &exists); err != nil {
 			return nil, err
@@ -173,7 +175,8 @@ func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
 
 		for rows.Next() {
 			var id int64
-			var typ, name, path string
+			var typ NodeType
+			var name, path string
 			var exists int
 			if err := rows.Scan(&id, &typ, &name, &path, &exists); err != nil {
 				rows.Close()
@@ -190,7 +193,7 @@ func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
 	return result, nil
 }
 
-func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxViaPerTarget int, ef *ExcludeFilter, wc *WhereClause) ([]TwoHopEntry, error) {
+func queryTwoHop(db dbExecer, entryID int64, entryType NodeType, maxTwoHop, maxViaPerTarget int, ef *ExcludeFilter, wc *WhereClause) ([]TwoHopEntry, error) {
 	var seedQuery string
 	var seedIsOutbound bool
 
@@ -284,7 +287,8 @@ func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxVia
 
 		var targets []NodeInfo
 		for targetRows.Next() {
-			var typ, name, path string
+			var typ NodeType
+			var name, path string
 			var exists int
 			if err := targetRows.Scan(&typ, &name, &path, &exists); err != nil {
 				targetRows.Close()

@@ -160,7 +160,8 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	var rowItems []rowData
 	for rows.Next() {
 		var rd rowData
-		var typ, name, path string
+		var typ NodeType
+		var name, path string
 		var exists int
 		if err := rows.Scan(&rd.id, &typ, &name, &path, &exists); err != nil {
 			return nil, err

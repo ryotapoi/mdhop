@@ -313,7 +313,7 @@ func TestQueryOutgoing(t *testing.T) {
 	if len(res.Outgoing) != 3 {
 		t.Errorf("outgoing count = %d, want 3, got %v", len(res.Outgoing), names)
 	}
-	wantTypes := map[string]string{"Design": "note", "Impl": "note", "Missing": "phantom"}
+	wantTypes := map[string]NodeType{"Design": NodeTypeNote, "Impl": NodeTypeNote, "Missing": NodeTypePhantom}
 	for _, o := range res.Outgoing {
 		if wantType, ok := wantTypes[o.Name]; ok {
 			if o.Type != wantType {

@@ -94,10 +94,10 @@ func encodeJSON(w io.Writer, v any) error {
 // --- Shared NodeInfo JSON form (used by query and search) ---
 
 type jsonNodeInfo struct {
-	Type   string `json:"type"`
-	Name   string `json:"name"`
-	Path   string `json:"path,omitempty"`
-	Exists *bool  `json:"exists,omitempty"`
+	Type   core.NodeType `json:"type"`
+	Name   string        `json:"name"`
+	Path   string        `json:"path,omitempty"`
+	Exists *bool         `json:"exists,omitempty"`
 }
 
 func toJSONNodeInfo(n core.NodeInfo) jsonNodeInfo {

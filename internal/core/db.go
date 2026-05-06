@@ -22,15 +22,17 @@ const (
 	dbFileName  = "index.sqlite"
 )
 
-// NodeType constants are the value set of the `nodes.type` column,
-// used for comparisons and assignments in Go code. Single-quoted SQL
-// literals such as `'phantom'` share the same string values but are
-// kept as part of the SQL syntax rather than referencing these constants.
+// NodeType is the value set of the `nodes.type` column, used for
+// comparisons and assignments in Go code. Single-quoted SQL literals
+// such as `'phantom'` share the same string values but are kept as
+// part of the SQL syntax rather than referencing these constants.
+type NodeType string
+
 const (
-	NodeTypeNote    = "note"
-	NodeTypeAsset   = "asset"
-	NodeTypePhantom = "phantom"
-	NodeTypeTag     = "tag"
+	NodeTypeNote    NodeType = "note"
+	NodeTypeAsset   NodeType = "asset"
+	NodeTypePhantom NodeType = "phantom"
+	NodeTypeTag     NodeType = "tag"
 )
 
 func dbPath(vaultPath string) string {
@@ -105,7 +107,7 @@ func initSchema(db *sql.DB) error {
 	return nil
 }
 
-func upsertNode(db dbExecer, key, typ, name, path string, mtime int64) (int64, error) {
+func upsertNode(db dbExecer, key string, typ NodeType, name, path string, mtime int64) (int64, error) {
 	res, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime)
 		 VALUES (?, ?, ?, ?, 1, ?)
@@ -379,7 +381,7 @@ func escapeLikePattern(s string) string {
 
 // listDirNodesByType returns vault-relative paths of all registered nodes of
 // the given type under the given directory prefix.
-func listDirNodesByType(db dbExecer, dirPrefix, nodeType string) ([]string, error) {
+func listDirNodesByType(db dbExecer, dirPrefix string, nodeType NodeType) ([]string, error) {
 	pattern := escapeLikePattern(dirPrefix) + "/%"
 	rows, err := db.Query(
 		`SELECT path FROM nodes WHERE type=? AND exists_flag=1 AND (path LIKE ? ESCAPE '\')`,

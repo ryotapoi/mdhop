@@ -179,7 +179,7 @@ func TestUpdateAmbiguousLinkRootPriority(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	var hasDNote bool
 	for _, e := range edges {
-		if e.targetName == "D" && e.targetType == "note" {
+		if e.targetName == "D" && e.targetType == NodeTypeNote {
 			hasDNote = true
 		}
 	}
@@ -377,7 +377,7 @@ func TestUpdateNewPhantom(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	var hasEdge bool
 	for _, e := range edges {
-		if e.targetName == "Missing" && e.targetType == "phantom" {
+		if e.targetName == "Missing" && e.targetType == NodeTypePhantom {
 			hasEdge = true
 		}
 	}
@@ -553,7 +553,7 @@ func TestUpdateDeletedWithSimultaneousRef(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	var hasPhantomB bool
 	for _, e := range edges {
-		if e.targetName == "B" && e.targetType == "phantom" {
+		if e.targetName == "B" && e.targetType == NodeTypePhantom {
 			hasPhantomB = true
 		}
 	}
@@ -634,7 +634,7 @@ func TestUpdateBasenameCountTransition(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "B.md")
 	var hasNoteA bool
 	for _, e := range edges {
-		if e.targetName == "A" && e.targetType == "note" {
+		if e.targetName == "A" && e.targetType == NodeTypeNote {
 			hasNoteA = true
 		}
 	}
@@ -926,7 +926,7 @@ func TestUpdateRootDeletedResolvesToSubdir(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "B.md")
 	var foundA bool
 	for _, e := range edges {
-		if e.targetName == "A" && e.targetType == "note" {
+		if e.targetName == "A" && e.targetType == NodeTypeNote {
 			foundA = true
 		}
 	}

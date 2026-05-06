@@ -22,7 +22,7 @@ type QueryOptions struct {
 
 // NodeInfo describes a node in the graph.
 type NodeInfo struct {
-	Type   string // NodeTypeNote ("note"), NodeTypePhantom ("phantom"), NodeTypeTag ("tag"), NodeTypeAsset ("asset")
+	Type   NodeType
 	Name   string
 	Path   string // note/asset only
 	Exists bool

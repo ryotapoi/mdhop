@@ -106,7 +106,8 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 	}
 	for rows.Next() {
 		var id int64
-		var typ, n, p string
+		var typ NodeType
+		var n, p string
 		var exists int
 		if err := rows.Scan(&id, &typ, &n, &p, &exists); err != nil {
 			return 0, NodeInfo{}, err
@@ -149,7 +150,8 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 	}
 	for assetRows.Next() {
 		var id int64
-		var typ, n, p string
+		var typ NodeType
+		var n, p string
 		var exists int
 		if err := assetRows.Scan(&id, &typ, &n, &p, &exists); err != nil {
 			return 0, NodeInfo{}, err
@@ -181,7 +183,8 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 
 // fetchNodeInfo retrieves NodeInfo for a node by ID.
 func fetchNodeInfo(db dbExecer, nodeID int64) (NodeInfo, error) {
-	var typ, name, path string
+	var typ NodeType
+	var name, path string
 	var existsFlag int
 
 	err := db.QueryRow(

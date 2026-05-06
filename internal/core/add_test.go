@@ -101,7 +101,7 @@ func TestAddMultipleFiles(t *testing.T) {
 	if len(edgesC) != 1 {
 		t.Fatalf("C.md edges = %d, want 1", len(edgesC))
 	}
-	if edgesC[0].targetType != "note" || edgesC[0].targetName != "D" {
+	if edgesC[0].targetType != NodeTypeNote || edgesC[0].targetName != "D" {
 		t.Errorf("C→D edge: type=%s name=%s, want note/D", edgesC[0].targetType, edgesC[0].targetName)
 	}
 
@@ -109,7 +109,7 @@ func TestAddMultipleFiles(t *testing.T) {
 	if len(edgesD) != 1 {
 		t.Fatalf("D.md edges = %d, want 1", len(edgesD))
 	}
-	if edgesD[0].targetType != "note" || edgesD[0].targetName != "C" {
+	if edgesD[0].targetType != NodeTypeNote || edgesD[0].targetName != "C" {
 		t.Errorf("D→C edge: type=%s name=%s, want note/C", edgesD[0].targetType, edgesD[0].targetName)
 	}
 }

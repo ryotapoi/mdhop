@@ -17,7 +17,7 @@ type outgoingRewrite struct {
 
 // queryCollateralRewrites finds basename links to non-moved nodes of the given type
 // that need rewriting due to root-priority changes.
-func queryCollateralRewrites(db dbExecer, nodeType, name string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
+func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
 	rows, err := db.Query(
 		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
 		 FROM edges e

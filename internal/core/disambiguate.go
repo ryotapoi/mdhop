@@ -127,7 +127,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 	var rewrites []rewriteEntry
 	for edgeRows.Next() {
 		var re rewriteEntry
-		var targetType string
+		var targetType NodeType
 		if err := edgeRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetType); err != nil {
 			edgeRows.Close()
 			return nil, err

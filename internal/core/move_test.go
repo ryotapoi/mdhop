@@ -419,7 +419,7 @@ func TestMove_PhantomPromotion(t *testing.T) {
 	edges := queryEdges(t, dbp, "B.md")
 	var bToX bool
 	for _, e := range edges {
-		if e.targetName == "X" && e.targetType == "note" {
+		if e.targetName == "X" && e.targetType == NodeTypeNote {
 			bToX = true
 		}
 	}

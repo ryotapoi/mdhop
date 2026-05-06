@@ -30,3 +30,13 @@
 - マスターが「妥当」と返せば履歴として残るだけ、「妥当でない」と返せばマスター指示で別タスク化や修正コミットが入る
 
 派生タスクは `goal-decisions.md` には書かず、`backlog/backlog.md` に追記する（→ `.claude/goal/workflow.md`「Task SSoT」）。
+
+### 2026-05-06 22:55 - NodeType 昇格時のテスト定数化スコープ
+
+- 対象タスク: ノード型を `type NodeType string` の named type に昇格
+- 論点: テストコードで `Node.Type != "note"` のような untyped string リテラル比較が多数（resolve_test.go / asset_test.go / query_test.go / search_test.go / query_exclude_test.go 計 50 箇所超）残存している。今回スコープに含めるか
+- 選択肢:
+  - 案A: 全テストの `Type != "note"` 系も `NodeTypeNote` 定数で書き換え — 「型昇格の意図をテストにも徹底」設計判断を優先
+  - 案B: レビュー指摘で挙がった範囲（build_test.go の `targetType` 派生 + cli_test.go + query_test.go の `wantTypes`）に絞り、残る `Type != "note"` 系は据え置き — 「タスクスコープを守り、範囲爆発を避ける」タスク管理を優先
+- 選んだ案: 案B
+- 理由: untyped string constant と `NodeType` の比較はコンパイル・実行ともに正しく動き実害がない。今回のタスクは「Go 側引数・構造体・SQL バインドの両端を整合させる」が主眼で、テストコード内の比較リテラルすべてを定数化することは含まれない。範囲を広げると 50+ 箇所の機械的修正でレビュー対象が膨らむ。残存箇所は別タスクで一括処理する余地を残す

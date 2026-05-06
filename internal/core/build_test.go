@@ -15,7 +15,7 @@ import (
 type edgeRow struct {
 	sourcePath string
 	targetKey  string
-	targetType string
+	targetType NodeType
 	targetName string
 	linkType   string
 	rawLink    string
@@ -26,7 +26,7 @@ type edgeRow struct {
 
 type nodeRow struct {
 	nodeKey    string
-	nodeType   string
+	nodeType   NodeType
 	name       string
 	path       string
 	existsFlag int
@@ -89,7 +89,7 @@ func queryEdges(t *testing.T, dbp, sourcePath string) []edgeRow {
 	return out
 }
 
-func queryNodes(t *testing.T, dbp, nodeType string) []nodeRow {
+func queryNodes(t *testing.T, dbp string, nodeType NodeType) []nodeRow {
 	t.Helper()
 	db := openTestDB(t, dbp)
 	defer db.Close()
@@ -344,7 +344,7 @@ func TestBuildEdgesWikilink(t *testing.T) {
 		switch {
 		case e.linkType == "wikilink" && e.targetName == "B" && e.rawLink == "[[B]]":
 			foundB = true
-			if e.targetType != "note" {
+			if e.targetType != NodeTypeNote {
 				t.Errorf("B should be note, got %s", e.targetType)
 			}
 			if e.lineStart != 3 {
@@ -352,17 +352,17 @@ func TestBuildEdgesWikilink(t *testing.T) {
 			}
 		case e.linkType == "markdown" && e.targetName == "C" && e.rawLink == "[C](sub/C.md)":
 			foundC = true
-			if e.targetType != "note" {
+			if e.targetType != NodeTypeNote {
 				t.Errorf("C should be note, got %s", e.targetType)
 			}
 		case e.linkType == "wikilink" && e.targetName == "D":
 			foundD = true
-			if e.targetType != "phantom" {
+			if e.targetType != NodeTypePhantom {
 				t.Errorf("D should be phantom, got %s", e.targetType)
 			}
 		case e.linkType == "wikilink" && e.subpath == "#Heading":
 			foundSelf = true
-			if e.targetType != "note" {
+			if e.targetType != NodeTypeNote {
 				t.Errorf("self-edge target should be note, got %s", e.targetType)
 			}
 			// Source and target should be the same (A.md).
@@ -371,7 +371,7 @@ func TestBuildEdgesWikilink(t *testing.T) {
 			}
 		case e.linkType == "markdown" && e.rawLink == "[link](/sub/B.md)":
 			foundAbsB = true
-			if e.targetType != "note" {
+			if e.targetType != NodeTypeNote {
 				t.Errorf("absolute link to B should be note, got %s", e.targetType)
 			}
 		}
@@ -476,10 +476,10 @@ func TestBuildPhantomEdges(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	var foundNonExistent, foundMissing bool
 	for _, e := range edges {
-		if e.targetType == "phantom" && e.targetName == "NonExistent" {
+		if e.targetType == NodeTypePhantom && e.targetName == "NonExistent" {
 			foundNonExistent = true
 		}
-		if e.targetType == "phantom" && e.targetName == "Missing" {
+		if e.targetType == NodeTypePhantom && e.targetName == "Missing" {
 			foundMissing = true
 			if e.rawLink != "[[Missing|alias]]" {
 				t.Errorf("alias phantom rawLink = %q, want [[Missing|alias]]", e.rawLink)
@@ -824,7 +824,7 @@ func TestBuildRootPriority(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "B.md")
 	var foundA bool
 	for _, e := range edges {
-		if e.targetName == "A" && e.targetType == "note" {
+		if e.targetName == "A" && e.targetType == NodeTypeNote {
 			foundA = true
 			// Check it resolves to the root file via DB query.
 			db := openTestDB(t, dbPath(vault))
@@ -1126,7 +1126,7 @@ func TestBuildExclude_PhantomForPathLink(t *testing.T) {
 	for _, e := range edges {
 		if e.rawLink == "[link](daily/D.md)" {
 			found = true
-			if e.targetType != "phantom" {
+			if e.targetType != NodeTypePhantom {
 				t.Errorf("daily/D.md link should be phantom, got %s", e.targetType)
 			}
 		}
@@ -1147,7 +1147,7 @@ func TestBuildExclude_PhantomForBasenameLink(t *testing.T) {
 	for _, e := range edges {
 		if e.rawLink == "[[D]]" {
 			found = true
-			if e.targetType != "phantom" {
+			if e.targetType != NodeTypePhantom {
 				t.Errorf("[[D]] should be phantom, got %s", e.targetType)
 			}
 		}
@@ -1168,7 +1168,7 @@ func TestBuildExclude_RemovesAmbiguity(t *testing.T) {
 	for _, e := range edges {
 		if e.rawLink == "[[E]]" {
 			found = true
-			if e.targetType != "note" {
+			if e.targetType != NodeTypeNote {
 				t.Errorf("[[E]] should resolve to note, got %s", e.targetType)
 			}
 		}

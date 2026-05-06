@@ -477,7 +477,7 @@ func TestRunMove_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("querying sub/A.md: %v", err)
 	}
-	if qr.Entry.Type != "note" {
+	if qr.Entry.Type != core.NodeTypeNote {
 		t.Errorf("sub/A.md type = %q, want note", qr.Entry.Type)
 	}
 }
