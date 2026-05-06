@@ -1,12 +1,8 @@
 package core
 
 import (
-	"database/sql"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // MoveDirOptions controls the directory move operation.
@@ -30,517 +26,59 @@ type MovedFile struct {
 // MoveDir moves all files under a directory to a new directory prefix,
 // updating the index and rewriting links in a single batch.
 func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
-	// Phase 0: validation.
 	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	fromDir := NormalizePath(opts.FromDir)
-	toDir := NormalizePath(opts.ToDir)
-
-	// Absolute path check.
-	if filepath.IsAbs(fromDir) {
-		return nil, fmt.Errorf("source directory must be vault-relative: %s", fromDir)
-	}
-	if filepath.IsAbs(toDir) {
-		return nil, fmt.Errorf("destination directory must be vault-relative: %s", toDir)
-	}
-
-	// Vault escape check.
-	if pathEscapesVault(fromDir) {
-		return nil, fmt.Errorf("source directory escapes vault: %s", fromDir)
-	}
-	if pathEscapesVault(toDir) {
-		return nil, fmt.Errorf("destination directory escapes vault: %s", toDir)
-	}
-
-	if fromDir == toDir {
-		return nil, fmt.Errorf("source and destination are the same: %s", fromDir)
-	}
-
-	// Overlap check.
-	if strings.HasPrefix(toDir+"/", fromDir+"/") || strings.HasPrefix(fromDir+"/", toDir+"/") {
-		return nil, fmt.Errorf("source and destination directories overlap")
-	}
-
-	// Get all notes under fromDir.
-	fromNotePaths, err := listDirNodesByType(db, fromDir, NodeTypeNote)
+	// Phase 0: validation and load.
+	fromDir, toDir, err := validateMoveDirOptions(opts)
 	if err != nil {
 		return nil, err
 	}
-
-	// Get all assets under fromDir.
-	fromAssetPaths, err := listDirNodesByType(db, fromDir, NodeTypeAsset)
+	moves, err := loadMovesFromDB(db, fromDir, toDir)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(fromNotePaths) == 0 && len(fromAssetPaths) == 0 {
-		return nil, fmt.Errorf("no files registered under directory: %s", fromDir)
-	}
-
-	// Build move list for notes.
-	type moveInfo struct {
-		from    string
-		to      string
-		nodeID  int64
-		dbMtime int64
-		isAsset bool
-	}
-	moves := make([]moveInfo, 0, len(fromNotePaths)+len(fromAssetPaths))
-	for _, from := range fromNotePaths {
-		to := toDir + "/" + strings.TrimPrefix(from, fromDir+"/")
-		var nodeID, dbMtime int64
-		err := db.QueryRow(
-			"SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'note'",
-			noteKey(from),
-		).Scan(&nodeID, &dbMtime)
-		if err != nil {
-			return nil, err
-		}
-		moves = append(moves, moveInfo{from: from, to: to, nodeID: nodeID, dbMtime: dbMtime})
-	}
-
-	// Build move list for assets.
-	for _, from := range fromAssetPaths {
-		to := toDir + "/" + strings.TrimPrefix(from, fromDir+"/")
-		var nodeID, dbMtime int64
-		err := db.QueryRow(
-			"SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'asset'",
-			assetKey(from),
-		).Scan(&nodeID, &dbMtime)
-		if err != nil {
-			return nil, err
-		}
-		moves = append(moves, moveInfo{from: from, to: to, nodeID: nodeID, dbMtime: dbMtime, isAsset: true})
-	}
-
-	// Check destinations not registered.
-	for _, m := range moves {
-		var toKey string
-		if m.isAsset {
-			toKey = assetKey(m.to)
-		} else {
-			toKey = noteKey(m.to)
-		}
-		var existingID int64
-		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", toKey).Scan(&existingID)
-		if err == nil {
-			return nil, fmt.Errorf("%w: %s", ErrAlreadyRegistered, m.to)
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
-		}
-	}
-
-	// Collect non-registered disk files under fromDir for disk-only move.
-	var diskOnlyFiles []struct{ from, to string }
-	absDir := filepath.Join(vaultPath, fromDir)
-	registeredPaths := make(map[string]bool)
-	for _, m := range moves {
-		registeredPaths[m.from] = true
-	}
-	if err := filepath.WalkDir(absDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			if os.IsNotExist(err) {
-				return filepath.SkipAll
-			}
-			return err
-		}
-		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if strings.HasPrefix(d.Name(), ".") {
-			return nil
-		}
-		// Only move non-.md files as disk-only (D5: disk-based move for assets only).
-		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
-			return nil
-		}
-		rel, _ := filepath.Rel(vaultPath, path)
-		relNorm := NormalizePath(rel)
-		if !registeredPaths[relNorm] {
-			to := toDir + "/" + strings.TrimPrefix(relNorm, fromDir+"/")
-			diskOnlyFiles = append(diskOnlyFiles, struct{ from, to string }{relNorm, to})
-		}
-		return nil
-	}); err != nil {
+	if err := checkDestinationsFree(db, moves); err != nil {
 		return nil, err
 	}
-
-	// Determine disk state.
-	var normalMode, alreadyMovedMode bool
-	for _, m := range moves {
-		fromOnDisk := fileExists(filepath.Join(vaultPath, m.from))
-		toOnDisk := fileExists(filepath.Join(vaultPath, m.to))
-		switch {
-		case fromOnDisk && !toOnDisk:
-			normalMode = true
-		case !fromOnDisk && toOnDisk:
-			alreadyMovedMode = true
-		case fromOnDisk && toOnDisk:
-			return nil, fmt.Errorf("%w: %s", ErrAlreadyExistsOnDisk, m.to)
-		default:
-			return nil, fmt.Errorf("%w: %s", ErrSourceFileMissing, m.from)
-		}
+	diskOnlyFiles, err := collectDiskOnlyFiles(vaultPath, fromDir, toDir, moves)
+	if err != nil {
+		return nil, err
 	}
-	if normalMode && alreadyMovedMode {
-		return nil, fmt.Errorf("inconsistent disk state for directory move")
+	needDiskMove, err := classifyDiskState(vaultPath, moves)
+	if err != nil {
+		return nil, err
 	}
-	needDiskMove := normalMode
-
-	// Stale check for moved files.
-	for _, m := range moves {
-		var checkPath string
-		if needDiskMove {
-			checkPath = filepath.Join(vaultPath, m.from)
-		} else {
-			checkPath = filepath.Join(vaultPath, m.to)
-		}
-		info, err := os.Stat(checkPath)
-		if err != nil {
-			return nil, err
-		}
-		if info.ModTime().Unix() != m.dbMtime {
-			if needDiskMove {
-				return nil, fmt.Errorf("%w: %s", ErrSourceStale, m.from)
-			}
-			return nil, fmt.Errorf("%w: %s", ErrMovedFileStale, m.to)
-		}
+	if err := checkMovedFilesNotStale(vaultPath, moves, needDiskMove); err != nil {
+		return nil, err
 	}
 
 	// Phase 1: build maps and adjust for post-move state.
-	rm, err := buildMapsFromDB(db)
+	dm, err := adjustMapsForDirMove(db, moves)
 	if err != nil {
 		return nil, err
 	}
 
-	preMovePathSet := make(map[string]string, len(rm.pathSet))
-	for k, v := range rm.pathSet {
-		preMovePathSet[k] = v
+	// Phase 2 + 2.5: external link rewrites (incoming + collateral).
+	incomingRewrites, err := collectIncomingRewritesForDir(db, moves, dm)
+	if err != nil {
+		return nil, err
 	}
-	preMoveAssetPathSet := make(map[string]string, len(rm.assetPathSet))
-	for k, v := range rm.assetPathSet {
-		preMoveAssetPathSet[k] = v
+	collateralRewrites, err := collectCollateralRewritesForDir(db, moves, dm)
+	if err != nil {
+		return nil, err
 	}
-
-	// Build movedFromTo and movedNodeIDs.
-	movedFromTo := make(map[string]string, len(moves))
-	movedNodeIDs := make(map[int64]bool, len(moves))
-	for _, m := range moves {
-		movedFromTo[m.from] = m.to
-		movedNodeIDs[m.nodeID] = true
-	}
-
-	// Remove all from paths, then add all to paths.
-	for _, m := range moves {
-		if m.isAsset {
-			rm.removeAsset(m.from)
-		} else {
-			rm.removeNote(m.from)
-		}
-	}
-	for _, m := range moves {
-		if m.isAsset {
-			rm.assetPathToID[m.to] = m.nodeID
-			rm.addAsset(m.to)
-		} else {
-			rm.pathToID[m.to] = m.nodeID
-			rm.addNote(m.to)
-		}
-	}
-
-	// Rebuild basenameToPath (count == 1 only).
-	rm.rebuildBasenameToPath(nil)
-	rm.rebuildAssetBasenameToPath()
-
-	// Phase 2: incoming link rewrite.
-	// Batch query: all incoming edges to any moved node, from external sources.
-	var incomingRewrites []rewriteEntry
-	nodeIDs := make([]int64, 0, len(moves))
-	nodeIDToPath := make(map[int64]string, len(moves))
-	nodeIDIsAsset := make(map[int64]bool, len(moves))
-	for _, m := range moves {
-		nodeIDs = append(nodeIDs, m.nodeID)
-		nodeIDToPath[m.nodeID] = m.to
-		nodeIDIsAsset[m.nodeID] = m.isAsset
-	}
-
-	// Process in batches of 500 to stay under SQLite parameter limit.
-	const batchSize = 500
-	for batchStart := 0; batchStart < len(nodeIDs); batchStart += batchSize {
-		batchEnd := batchStart + batchSize
-		if batchEnd > len(nodeIDs) {
-			batchEnd = len(nodeIDs)
-		}
-		batch := nodeIDs[batchStart:batchEnd]
-
-		placeholders := make([]string, len(batch))
-		args := make([]any, len(batch))
-		for i, id := range batch {
-			placeholders[i] = "?"
-			args[i] = id
-		}
-		query := fmt.Sprintf(
-			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.target_id
-			 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-			 WHERE e.target_id IN (%s) AND e.link_type IN ('wikilink', 'markdown')`,
-			strings.Join(placeholders, ","),
-		)
-		rows, err := db.Query(query, args...)
-		if err != nil {
-			return nil, err
-		}
-		for rows.Next() {
-			var re rewriteEntry
-			var targetID int64
-			if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetID); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			// Skip if source is in moved set (handled in Phase 3).
-			if movedNodeIDs[re.sourceID] {
-				continue
-			}
-			// Find the target's new path.
-			toPath := nodeIDToPath[targetID]
-			if toPath == "" {
-				continue // should not happen
-			}
-
-			if isBasenameRawLink(re.rawLink, re.linkType) {
-				// In dir move, basename doesn't change. Check if ambiguous.
-				// Use the correct key function/counts/pathSet based on node type.
-				var fromBK string
-				var counts map[string]int
-				var prePS, postPS map[string]string
-				if nodeIDIsAsset[targetID] {
-					fromBK = assetBasenameKey(toPath)
-					counts = rm.assetBasenameCounts
-					prePS = preMoveAssetPathSet
-					postPS = rm.assetPathSet
-				} else {
-					fromBK = basenameKey(toPath)
-					counts = rm.basenameCounts
-					prePS = preMovePathSet
-					postPS = rm.pathSet
-				}
-				if counts[fromBK] > 1 {
-					preRoot := hasRootInPathSet(fromBK, prePS)
-					postRoot := hasRootInPathSet(fromBK, postPS)
-					if !(preRoot && postRoot) {
-						re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath)
-						incomingRewrites = append(incomingRewrites, re)
-					}
-				}
-				// else: basename unchanged and unique → no rewrite needed.
-			} else {
-				// Path link → always rewrite.
-				re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath)
-				incomingRewrites = append(incomingRewrites, re)
-			}
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
-	}
-
-	// Phase 2.5: collateral rewrite for notes and assets.
-	var collateralRewrites []rewriteEntry
-
-	// Note collateral: collect affected note basenames.
-	affectedNoteBasenames := make(map[string]bool)
-	for _, m := range moves {
-		if m.isAsset {
-			continue
-		}
-		bk := basenameKey(m.to)
-		if rm.basenameCounts[bk] > 1 {
-			affectedNoteBasenames[bk] = true
-		}
-	}
-	for bk := range affectedNoteBasenames {
-		preRoot := hasRootInPathSet(bk, preMovePathSet)
-		postRoot := hasRootInPathSet(bk, rm.pathSet)
-		if preRoot && postRoot {
-			continue
-		}
-		var bn string
-		for _, m := range moves {
-			if !m.isAsset && basenameKey(m.to) == bk {
-				bn = basename(m.to)
-				break
-			}
-		}
-		crs, err := queryCollateralRewrites(db, NodeTypeNote, bn, movedNodeIDs)
-		if err != nil {
-			return nil, err
-		}
-		collateralRewrites = append(collateralRewrites, crs...)
-	}
-
-	// Asset collateral: collect affected asset basenames.
-	affectedAssetBasenames := make(map[string]bool)
-	for _, m := range moves {
-		if !m.isAsset {
-			continue
-		}
-		abk := assetBasenameKey(m.to)
-		if rm.assetBasenameCounts[abk] > 1 {
-			affectedAssetBasenames[abk] = true
-		}
-	}
-	for abk := range affectedAssetBasenames {
-		preRoot := hasRootInPathSet(abk, preMoveAssetPathSet)
-		postRoot := hasRootInPathSet(abk, rm.assetPathSet)
-		if preRoot && postRoot {
-			continue
-		}
-		var bn string
-		for _, m := range moves {
-			if m.isAsset && assetBasenameKey(m.to) == abk {
-				bn = filepath.Base(m.to)
-				break
-			}
-		}
-		crs, err := queryCollateralRewrites(db, NodeTypeAsset, bn, movedNodeIDs)
-		if err != nil {
-			return nil, err
-		}
-		collateralRewrites = append(collateralRewrites, crs...)
-	}
-
 	allExternalRewrites := make([]rewriteEntry, 0, len(incomingRewrites)+len(collateralRewrites))
 	allExternalRewrites = append(allExternalRewrites, incomingRewrites...)
 	allExternalRewrites = append(allExternalRewrites, collateralRewrites...)
 
-	// Phase 3: outgoing link rewrite.
-	type movedFileRewrite struct {
-		content     []byte
-		perm        os.FileMode
-		outRewrites []outgoingRewrite
-	}
-	movedFileRewrites := make([]movedFileRewrite, len(moves))
-	for i, m := range moves {
-		if m.isAsset {
-			continue // assets have no outgoing links to rewrite
-		}
-		var diskPath string
-		if needDiskMove {
-			diskPath = filepath.Join(vaultPath, m.from)
-		} else {
-			diskPath = filepath.Join(vaultPath, m.to)
-		}
-		info, err := os.Stat(diskPath)
-		if err != nil {
-			return nil, err
-		}
-		content, err := os.ReadFile(diskPath)
-		if err != nil {
-			return nil, err
-		}
-		movedFileRewrites[i] = movedFileRewrite{
-			content: content,
-			perm:    info.Mode().Perm(),
-		}
-
-		links := parseLinks(string(content)).Links
-		for _, link := range links {
-			if link.linkType != "wikilink" && link.linkType != "markdown" {
-				continue
-			}
-
-			if link.isBasename {
-				bk := basenameKey(link.target)
-				// Get pre-move target path from DB.
-				var preMoveTargetPath string
-				err := db.QueryRow(
-					`SELECT COALESCE(tn.path, '') FROM edges e
-					 JOIN nodes tn ON tn.id = e.target_id
-					 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
-					 LIMIT 1`, m.nodeID, link.rawLink).Scan(&preMoveTargetPath)
-				if err != nil && !errors.Is(err, sql.ErrNoRows) {
-					return nil, err
-				}
-				if preMoveTargetPath == "" {
-					continue // phantom target, skip
-				}
-
-				// Check if target is in moved set → use post-move path.
-				postMoveTargetPath := preMoveTargetPath
-				if newPath, ok := movedFromTo[preMoveTargetPath]; ok {
-					postMoveTargetPath = newPath
-				}
-
-				// Determine post-move resolution.
-				needRewrite := false
-				if p, ok := rm.basenameToPath[bk]; ok {
-					if p != postMoveTargetPath {
-						needRewrite = true
-					}
-				} else if p, ok := rm.rootBasenameToPath[bk]; ok {
-					if p != postMoveTargetPath {
-						needRewrite = true
-					}
-				} else if rm.basenameCounts[bk] > 1 {
-					needRewrite = true
-				}
-
-				if needRewrite {
-					newRL := rewriteRawLink(link.rawLink, link.linkType, postMoveTargetPath)
-					movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
-						rawLink:    link.rawLink,
-						newRawLink: newRL,
-						lineStart:  link.lineStart,
-					})
-				}
-				continue
-			}
-
-			if link.isRelative {
-				newRL, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, m.from, m.to, movedFromTo)
-				if err != nil {
-					return nil, err
-				}
-				if newRL != link.rawLink {
-					movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
-						rawLink:    link.rawLink,
-						newRawLink: newRL,
-						lineStart:  link.lineStart,
-					})
-				}
-				continue
-			}
-
-			// Path-specified link (non-relative, non-basename).
-			// Get pre-move target from DB.
-			var preMoveTargetPath string
-			err = db.QueryRow(
-				`SELECT COALESCE(tn.path, '') FROM edges e
-				 JOIN nodes tn ON tn.id = e.target_id
-				 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
-				 LIMIT 1`, m.nodeID, link.rawLink).Scan(&preMoveTargetPath)
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, err
-			}
-			if preMoveTargetPath == "" {
-				continue // phantom target, skip
-			}
-			if newPath, ok := movedFromTo[preMoveTargetPath]; ok {
-				newRL := rewriteRawLink(link.rawLink, link.linkType, newPath)
-				movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
-					rawLink:    link.rawLink,
-					newRawLink: newRL,
-					lineStart:  link.lineStart,
-				})
-			}
-		}
+	// Phase 3: outgoing link rewrites for moved notes.
+	movedFileRewrites, err := buildMovedFileRewrites(db, vaultPath, moves, dm, needDiskMove)
+	if err != nil {
+		return nil, err
 	}
 
 	// Phase 4: disk operations.
@@ -607,14 +145,10 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 			cr := completedRenames[j]
 			_ = os.Rename(filepath.Join(vaultPath, cr.to), filepath.Join(vaultPath, cr.from))
 		}
-		// Restore moved file backups.
+		// Restore moved file backups. After rename rollback (if any), each backup's
+		// restorePath is the original disk location.
 		for _, b := range movedFileBackups {
-			restorePath := b.restorePath
-			if needDiskMove {
-				// After rollback, files are back at from paths.
-				// restorePath is already the from path for normal mode.
-			}
-			_ = writeFilePreservePerm(filepath.Join(vaultPath, restorePath), b.content, b.perm)
+			_ = writeFilePreservePerm(filepath.Join(vaultPath, b.restorePath), b.content, b.perm)
 		}
 		restoreBackups(vaultPath, externalBackups)
 	}()
@@ -693,7 +227,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		}
 		newLinks := parseLinks(string(movedFileRewrites[i].content)).Links
 		for _, link := range newLinks {
-			targetID, subpath, err := resolveLink(tx, m.to, link, rm)
+			targetID, subpath, err := resolveLink(tx, m.to, link, dm.rm)
 			if err != nil {
 				return nil, err
 			}

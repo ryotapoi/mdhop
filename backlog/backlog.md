@@ -15,7 +15,7 @@
   - **対応**: `init_meta_yaml.go`（YAML 生成）/ `init_meta_infer.go`（型推論）/ `init_meta.go`（マージとエントリポイント）に分割
 - [x] `internal/core/move_dir.go` の `MoveDir` ロールバックパスのテスト追加
   - **目的**: 分解の前提。挙動変更リスクが高いため、ロールバック経路（585, 607, 616 行）の回帰検出網を先に張る
-- [ ] `internal/core/move_dir.go` の `MoveDir`（758 行 1 関数）を分解
+- [x] `internal/core/move_dir.go` の `MoveDir`（758 行 1 関数）を分解
   - **問題**: ファイル列挙・DB 読み込み・リンク書き換え計画・ファイルリネーム・DB 更新・ロールバックが単一関数に同居。「実行段階」と「エラー時復元段階」が混在し、ロールバックロジックが散在（585, 607, 616 行）
   - **対応**: move_helpers.go 側に段階別ヘルパーを追加し、MoveDir はオーケストレーションのみに縮小。ロールバックは defer + 状態フラグで集約
 - [ ] frontmatter 内 wikilink 対応

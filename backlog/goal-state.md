@@ -8,12 +8,14 @@ status: running
 
 ## Last completed loop
 
-2026-05-06: `internal/core/move_dir.go` の `MoveDir` ロールバックパス向けテストを 2 件追加。
-- `TestMoveDir_Rollback_RenameFails`: destination dir を read-only にして Phase 4.3 の `os.Rename` を失敗させ、defer 内 rename rollback (607) と external rewrite restore (619) を発火。`Other.md` の `[[sub/B]]` が元に戻ること、DB の path / edge raw_link が元のままであることを検証
-- `TestMoveDir_Rollback_MovedFileRestore`: `MoveDir(sub → newdir/inner)` で各 sub/*.md の `../external.md` 相対リンクを `../../external.md` に書き換え必須にして Phase 4.2 で `movedFileBackups` を埋め、`newdir/inner` を read-only にして Phase 4.3 を失敗させ、moved file の content rollback (583-590 / 611-617) を発火。
-- root ユーザー実行時は permission チェックがバイパスされるため `os.Geteuid()==0` でスキップ
-- 既存コードロジックは未変更。`go vet ./...` / `go test ./...` 全部グリーン
-- レビュー: 非 Small だがテスト追加のみ・既存テスト全 pass・コードロジック変更なし → self-check で完了
+2026-05-07: `internal/core/move_dir.go` の `MoveDir`（758 行 1 関数）を段階別ヘルパーに分割。
+- move_helpers.go に段階別ヘルパーを追加: validateMoveDirOptions / loadMovesFromDB / checkDestinationsFree / collectDiskOnlyFiles / classifyDiskState / checkMovedFilesNotStale / adjustMapsForDirMove / collectIncomingRewritesForDir / collectCollateralRewritesForDir / buildMovedFileRewrites / lookupEdgeTargetPath
+- move_dir.go: 758 → 297 行に縮小、本体は薄いオーケストレーション
+- 型を昇格: moveInfo / movedFileRewrite / dirMoveMaps / diskOnlyMove を package scope に
+- Phase 4.3 (rename + completedRenames) と Phase 5 (DB tx) は rollback 状態管理が密に絡むため本体に残置
+- 挙動変更なし、テスト追加なし（前ループのロールバックテスト + 既存 388+ テストが回帰検出網）
+- レビュー: review-code-all 並列レビュー 2 周。1 周目 facts LGTM / mdhop LGTM / design SHOULD x1 / go SHOULD x1。doc コメント不正確 + 無名 struct を named type 化で対処。2 周目 design LGTM / go SHOULD x1（classifyDiskState 空スライス時の暗黙挙動）→ doc コメント追記で対処
+- `go vet ./...` / `go test ./...` 全部グリーン
 
 ## Skipped tasks
 
@@ -25,4 +27,4 @@ status: running
 
 ## Next hint
 
-次タスクは backlog v0.7.0 の上から: `internal/core/move_dir.go` の `MoveDir`（758 行 1 関数）の分解。今回追加したロールバックテストが回帰検出網。move_helpers.go 側に段階別ヘルパーを追加し、MoveDir はオーケストレーションのみに縮小。ロールバックは defer + 状態フラグで集約する方針。
+次タスクは backlog v0.7.0 の上から: frontmatter 内 wikilink 対応。backlog 該当エントリに「現状」「YAML パース調査結果」「設計論点」が事細かに書かれているため、まずそれらを読み込み、設計判断（新 linkType 追加 vs 既存 wikilink 流用、bare `[[note]]` 検出戦略、書き換え戦略、meta テーブル両立、alias/subpath 対応）を進める。横断対応（add/update/move/disambiguate/convert）が必須なため、複数コミット分割の検討が必要になる可能性が高い → goal-loop B パスに切り替えてタスク細分化を先に行う判断もありうる。

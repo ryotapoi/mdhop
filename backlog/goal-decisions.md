@@ -61,6 +61,36 @@
 - 選んだ案: 案B
 - 理由: 583-590 と 611-617 はロジック的にほぼ同じ（外部 backup 復元 + moved file content 復元 + rename 巻き戻し）。Phase 4.2 の早期 rollback と defer 内 rollback の違いは「completedRenames が空かどうか」「movedFileBackups の要素数」で、両方とも rollback 後の最終状態は「pre-move と等価」が要件。状態の等価性で検証すれば、ロジックのどちらが壊れても検出できる。Phase 4.2 内で write を確実に失敗させるには moved file 単位の chmod が必要だが、`m.from` の chmod 0o400 では `writeFilePreservePerm` の `os.WriteFile` (O_WRONLY|O_CREATE|O_TRUNC) が macOS で意図通り失敗するか不安定（実測で失敗しなかった）。代わりに「outRewrites が積まれた直後に rename を失敗させる」シナリオで、defer 内 moved file restore (611-617) が動く経路を網羅した
 
+### 2026-05-07 - MoveDir 分解で Phase 4.3 + Phase 5 を本体に残した
+
+- 対象タスク: `internal/core/move_dir.go` の `MoveDir`（758 行 1 関数）を分解
+- 論点: Phase 4.3（disk rename + completedRenames 蓄積）と Phase 5（DB transaction + 5.1〜5.5）も段階別ヘルパーに切り出すか、MoveDir 本体に残すか
+- 選択肢:
+  - 案A: Phase 4.3・Phase 5 もそれぞれヘルパー化（例: `executeRenames` / `commitMoveTransaction`）— 「全段階を等しく分離」設計判断を優先
+  - 案B: Phase 4.3・Phase 5 は本体に残し、defer rollback と組み合わせて記述する — 「rollback の状態 (completedRenames / movedFileBackups / externalBackups / committed) が密結合のため、ヘルパー化すると引数 6〜7 個 + ポインタ受け渡しになり、概念分離の利点より複雑化が勝る」設計判断を優先
+- 選んだ案: 案B
+- 理由: defer rollback は「Phase 4.2 の write 失敗 / Phase 4.3 の rename 失敗 / Phase 5 の DB error」3 系統からの巻き戻しを集約しており、状態を持つ closure として本体に残すのが自然。ヘルパーに切り出すと rollback closure の引数列に 4〜5 個の状態変数を引き渡す必要があり、概念分離どころか「状態をパラメータ化した可変コンテキスト」になり可読性が落ちる。Phase 0〜3（事前準備）のヘルパー化で 758 → 297 行に縮小しており、目的（読みやすい関数長への縮小）は達成済み
+
+### 2026-05-07 - dirMoveMaps に movedFromTo / movedNodeIDs を混在させた
+
+- 対象タスク: `internal/core/move_dir.go` の `MoveDir` 分解
+- 論点: design レビューで「`dirMoveMaps` は地図のスナップショット型なのに `movedFromTo` / `movedNodeIDs` も同居している」と NIT 指摘
+- 選択肢:
+  - 案A: `dirMoveMaps` を `resolveMaps + 前後 pathSet スナップショット` に絞り、`movedFromTo` / `movedNodeIDs` は別構造体（`moveContext` 等）に分ける — 「概念分離」設計判断を優先
+  - 案B: 現状のまま `dirMoveMaps` に同居 — 「現状で十分シンプル」「Phase 1 で同時に構築され Phase 2/3 で同時に参照される一束のコンテキスト」とみなす設計判断を優先
+- 選んだ案: 案B
+- 理由: `movedFromTo` / `movedNodeIDs` は確かに概念上「ムーブの入力」由来だが、resolveMaps 側の前後スナップショットと**同じタイミングで構築・参照される**ため Phase 2/3 ヘルパーが両方を必要とする。分離すると引数が `(dirMoveMaps, moveContext)` の 2 引数に増えるだけで実害がない。design レビュアーも NIT として「現状で十分シンプル」と明記しており、design-principles 1.2「シンプル > エレガント」を優先
+
+### 2026-05-07 - MoveDir 分解はテスト追加なしで進めた
+
+- 対象タスク: `internal/core/move_dir.go` の `MoveDir` 分解
+- 論点: 大規模リファクタリング（758 → 297 行）でテストの網を増やすか
+- 選択肢:
+  - 案A: 各ヘルパー関数のユニットテストを追加（validateMoveDirOptions / loadMovesFromDB / classifyDiskState 等）— 「分解した個別ユニットを直接検証」設計判断を優先
+  - 案B: 既存の MoveDir 統合テスト 388+ 件 + 前ループ追加のロールバックテスト 2 件のみで回帰検出 — 「リファクタはブラックボックスの挙動を変えないため、統合テストで検出できる範囲を信頼する」設計判断を優先
+- 選んだ案: 案B
+- 理由: ヘルパー化はリファクタリングであり、外部から見た MoveDir の挙動は不変。各ヘルパーは MoveDir からのみ呼ばれる private 関数で、独立したユニットテストを書く必然性が薄い。前ループでロールバックパスのテストを張った前提が backlog タスク説明にあり、その網と既存統合テストで「分解前後で同じ振る舞い」が検証できる。実際 vet/test は全てグリーン。3.1 YAGNI と 1.1 直近のコスト（ヘルパーごとの fixture 構築コストは大きいが将来の保守利益は小さい）を踏まえた判断
+
 ### 2026-05-06 23:36 - sentinel error 化のスコープを意味的識別ニーズのある範囲に絞った
 
 - 対象タスク: `internal/core` の sentinel error 化
