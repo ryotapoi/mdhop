@@ -25,6 +25,10 @@
 
 set -euo pipefail
 
+# Ctrl+C で即終了する。これがないと claude -p が SIGINT を飲んで
+# 終わった後、for ループの次の iteration が走り続ける。
+trap 'echo; echo "Interrupted"; exit 130' INT
+
 GOAL_DIR="${GOAL_DIR:-backlog}"
 GOAL="$GOAL_DIR/goal.md"
 LOOP="$GOAL_DIR/goal-loop.md"
