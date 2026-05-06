@@ -36,3 +36,9 @@ CLAUDE.local.md
 
 # Temporary files (scratch notes, etc.)
 /tmp/
+
+# Goal runner runtime flags (stop / blocked / done のフラグファイル。state と decisions はコミット対象)
+backlog/goal-blocked.md
+backlog/goal-done.md
+backlog/goal-stop.md
+backlog/goal-plan.md
