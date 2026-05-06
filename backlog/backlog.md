@@ -10,7 +10,7 @@
 - [x] `internal/core` の sentinel error 化
   - **問題**: `fmt.Errorf` 94 箇所のうち `%w` でのラップは 8 箇所のみ。`sql.ErrNoRows` 比較は `==` を 13 箇所で使っており `errors.Is` 不在。エラー識別を文字列マッチに頼る箇所が壊れやすい
   - **対応**: `errIndexNotFound` 等の sentinel を定義し、呼び出し元は `errors.Is` で分岐。既存 `fmt.Errorf` を `%w` ラップに置換
-- [ ] `internal/core/init_meta.go`（578 行）の責務分離
+- [x] `internal/core/init_meta.go`（578 行）の責務分離
   - **問題**: YAML 生成・型推論・既存設定マージの 3 責務が同居。新メタ型追加のたびに肥大化するリスク
   - **対応**: `init_meta_yaml.go`（YAML 生成）/ `init_meta_infer.go`（型推論）/ `init_meta.go`（マージとエントリポイント）に分割
 - [ ] `internal/core/move_dir.go` の `MoveDir` ロールバックパスのテスト追加

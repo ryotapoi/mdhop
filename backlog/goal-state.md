@@ -8,12 +8,13 @@ status: running
 
 ## Last completed loop
 
-2026-05-06: `internal/core` の sentinel error 化を完了。
-- `internal/core/errors.go` を新規作成し 14 個の sentinel を定義（ErrIndexNotFound / ErrFileNotRegistered / ErrFileNotFound / ErrSourceFileMissing / ErrFileAlreadyRegistered / ErrAlreadyRegistered / ErrAlreadyExistsOnDisk / ErrAmbiguousLink / ErrAmbiguousName / ErrLinkNotFound / ErrLinkEscapesVault / ErrSourceStale / ErrMovedFileStale / ErrAddingMakesAmbiguous）
-- `sql.ErrNoRows` の `==` / `!=` 比較を 26 箇所すべて `errors.Is` に置換（test 1 件含む）
-- `fmt.Errorf` を `%w` ラップに置換し、各 sentinel のメッセージ文字列を既存エラー先頭フレーズと完全一致させて strings.Contains テスト互換性を維持
-- 対象ファイル: db.go, query_entry.go, disambiguate.go, move.go, move_dir.go, move_helpers.go, add.go, update.go, resolve.go, build.go, delete.go, simplify.go, asset_test.go
-- `go vet ./...` / `go test ./...` / `go build ./...` 全部グリーン（388+ tests）
+2026-05-06: `internal/core/init_meta.go`（578 行）の 3 責務分離を完了。
+- 純粋なファイル分割。シンボル名・関数本体・シグネチャは保持
+- `init_meta.go`（130 行）: `mergeMetaConfig` / `InitMetaOptions` / `InitMetaResult` / `InitMeta`（マージとエントリポイント）
+- `init_meta_yaml.go`（278 行）: `presetEntry` / `presetMetaTypes` / `orderedKeys` / `buildMetaYAMLNode` / `formatSamples` / `buildTypeComment` / `buildOrderedValueNode` / `mergeIntoExistingYAML` / `marshalYAML` / `generateMetaYAML`（YAML 生成）
+- `init_meta_infer.go`（183 行）: 推論定数 / `keyStats` / `InferredMeta` / `looksLikeDate|Number|Semver` / `inferType` / `skipKeys` / `scanMetaTypes`（型推論+走査）
+- `go vet ./...` / `go test ./...` / `go build ./...` 全部グリーン
+- レビュー: Intake 非 Small だが純粋リファクタなので self-check で完了
 
 ## Skipped tasks
 
@@ -25,4 +26,4 @@ status: running
 
 ## Next hint
 
-次タスクは backlog v0.7.0 の上から: `internal/core/init_meta.go` の責務分離（YAML 生成 / 型推論 / マージ の3ファイル分割）。
+次タスクは backlog v0.7.0 の上から: `internal/core/move_dir.go` の `MoveDir` ロールバックパスのテスト追加（`MoveDir` 分解の前提として、ロールバック経路 585/607/616 行の回帰検出網を先に張る）。
