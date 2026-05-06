@@ -40,3 +40,13 @@
   - 案B: レビュー指摘で挙がった範囲（build_test.go の `targetType` 派生 + cli_test.go + query_test.go の `wantTypes`）に絞り、残る `Type != "note"` 系は据え置き — 「タスクスコープを守り、範囲爆発を避ける」タスク管理を優先
 - 選んだ案: 案B
 - 理由: untyped string constant と `NodeType` の比較はコンパイル・実行ともに正しく動き実害がない。今回のタスクは「Go 側引数・構造体・SQL バインドの両端を整合させる」が主眼で、テストコード内の比較リテラルすべてを定数化することは含まれない。範囲を広げると 50+ 箇所の機械的修正でレビュー対象が膨らむ。残存箇所は別タスクで一括処理する余地を残す
+
+### 2026-05-06 23:36 - sentinel error 化のスコープを意味的識別ニーズのある範囲に絞った
+
+- 対象タスク: `internal/core` の sentinel error 化
+- 論点: `internal/core` には `fmt.Errorf` が 94 箇所ある。全部を機械的に `%w` ラップして sentinel 化するか、識別ニーズのある範囲に絞るか
+- 選択肢:
+  - 案A: 全 94 箇所を sentinel + `%w` 化 — 「将来の identification ニーズに先回り」設計判断を優先
+  - 案B: 「呼び出し元または将来の呼び出し元が分岐したい意味的エラー」14 種に絞り、構文エラー・YAML パース・CLI バリデーション系は対象外 — 「YAGNI、識別ニーズが見えてから足す」設計判断を優先
+- 選んだ案: 案B
+- 理由: 識別ニーズのない sentinel を増やしても、可読性が下がるだけで利点がない。今回明確な識別ニーズがあるのは file/link 解決系・stale 検出・vault escape の 14 種で、構文エラー（`where.go` `convert.go` の `--ToFormat`）や YAML パースエラー（`config.go` `init_meta.go` 既に `%w` 済）は呼び出し元が `errors.Is` で分岐していないため除外した。`query_fetch.go:438` の `"stale index"` は `move/disambiguate` 系の `"... is stale"` と意味が異なるため別カテゴリとしてスコープ外。`delete.go:90` の `"path escapes vault"` と `move_helpers.go:96,153` の `"rewritten link would escape vault"` はメッセージが他の `link escapes vault` と異なるため、メッセージ完全保持制約の下で別 sentinel が必要になる。識別ニーズが出たら別タスクで追加する

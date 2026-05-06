@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -50,8 +51,8 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		var id int64
 		var name, path string
 		err := db.QueryRow("SELECT id, name, path FROM nodes WHERE node_key = ? AND type = 'note'", key).Scan(&id, &name, &path)
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("file not registered: %s", f)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, f)
 		}
 		if err != nil {
 			return nil, err
@@ -136,14 +137,14 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 				continue
 			}
 			if link.isRelative && escapesVault(cf.path, link.target) {
-				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, cf.path)
+				return nil, fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, cf.path)
 			}
 			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
-				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, cf.path)
+				return nil, fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, cf.path)
 			}
 			if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
 				candidates := ambiguousCandidates(link.target, rm)
-				return nil, fmt.Errorf("ambiguous link: %s in %s (candidates: %s)", link.target, cf.path, strings.Join(candidates, ", "))
+				return nil, fmt.Errorf("%w: %s in %s (candidates: %s)", ErrAmbiguousLink, link.target, cf.path, strings.Join(candidates, ", "))
 			}
 		}
 

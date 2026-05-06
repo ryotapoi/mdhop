@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -127,9 +128,9 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		var existingID int64
 		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", toKey).Scan(&existingID)
 		if err == nil {
-			return nil, fmt.Errorf("destination already registered: %s", m.to)
+			return nil, fmt.Errorf("%w: %s", ErrAlreadyRegistered, m.to)
 		}
-		if err != sql.ErrNoRows {
+		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
 	}
@@ -183,9 +184,9 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		case !fromOnDisk && toOnDisk:
 			alreadyMovedMode = true
 		case fromOnDisk && toOnDisk:
-			return nil, fmt.Errorf("destination already exists on disk: %s", m.to)
+			return nil, fmt.Errorf("%w: %s", ErrAlreadyExistsOnDisk, m.to)
 		default:
-			return nil, fmt.Errorf("source file not found on disk: %s", m.from)
+			return nil, fmt.Errorf("%w: %s", ErrSourceFileMissing, m.from)
 		}
 	}
 	if normalMode && alreadyMovedMode {
@@ -207,9 +208,9 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		}
 		if info.ModTime().Unix() != m.dbMtime {
 			if needDiskMove {
-				return nil, fmt.Errorf("source file is stale: %s", m.from)
+				return nil, fmt.Errorf("%w: %s", ErrSourceStale, m.from)
 			}
-			return nil, fmt.Errorf("moved file is stale: %s", m.to)
+			return nil, fmt.Errorf("%w: %s", ErrMovedFileStale, m.to)
 		}
 	}
 
@@ -464,7 +465,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 					 JOIN nodes tn ON tn.id = e.target_id
 					 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
 					 LIMIT 1`, m.nodeID, link.rawLink).Scan(&preMoveTargetPath)
-				if err != nil && err != sql.ErrNoRows {
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					return nil, err
 				}
 				if preMoveTargetPath == "" {
@@ -525,7 +526,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 				 JOIN nodes tn ON tn.id = e.target_id
 				 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
 				 LIMIT 1`, m.nodeID, link.rawLink).Scan(&preMoveTargetPath)
-			if err != nil && err != sql.ErrNoRows {
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return nil, err
 			}
 			if preMoveTargetPath == "" {

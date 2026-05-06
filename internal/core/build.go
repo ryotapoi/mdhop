@@ -238,14 +238,14 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps
 	if link.isRelative {
 		resolved := NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
 		if escapesVault(sourcePath, target) {
-			return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
+			return 0, "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
 		}
 		return resolvePathTarget(db, resolved, link, rm)
 	}
 
 	// Vault-absolute path escape check (defense-in-depth).
 	if !link.isBasename && pathEscapesVault(target) {
-		return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
+		return 0, "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
 	}
 
 	// Absolute path (/ prefix, markdown link only): /sub/B.md → sub/B.md

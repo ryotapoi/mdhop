@@ -7,7 +7,7 @@
   - **対応**: `internal/core/db.go` で `type NodeType string` を定義し、定数を `NodeType` に昇格。`upsertNode` 等の `typ string` 引数を `NodeType` に変更し、DB スキャン結果（`Type string` フィールド）と SQL バインドの両端を整合させる
   - **影響範囲**: テスト全件と DB スキャン結果マッピング。シグネチャ変更を伴う横断対応
   - **由来**: `goal-decisions.md` 2026-05-06「ノード型定数化を untyped const に絞る」案B として切り出し
-- [ ] `internal/core` の sentinel error 化
+- [x] `internal/core` の sentinel error 化
   - **問題**: `fmt.Errorf` 94 箇所のうち `%w` でのラップは 8 箇所のみ。`sql.ErrNoRows` 比較は `==` を 13 箇所で使っており `errors.Is` 不在。エラー識別を文字列マッチに頼る箇所が壊れやすい
   - **対応**: `errIndexNotFound` 等の sentinel を定義し、呼び出し元は `errors.Is` で分岐。既存 `fmt.Errorf` を `%w` ラップに置換
 - [ ] `internal/core/init_meta.go`（578 行）の責務分離

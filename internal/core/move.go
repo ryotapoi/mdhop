@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,12 +43,12 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	var isAsset bool
 	fromKey := noteKey(from)
 	err = db.QueryRow("SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'note'", fromKey).Scan(&nodeID, &dbMtime)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		// Try asset.
 		fromKey = assetKey(from)
 		err = db.QueryRow("SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'asset'", fromKey).Scan(&nodeID, &dbMtime)
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("file not registered: %s", from)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, from)
 		}
 		if err != nil {
 			return nil, err
@@ -67,9 +68,9 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	var existingID int64
 	err = db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", toKey).Scan(&existingID)
 	if err == nil {
-		return nil, fmt.Errorf("destination already registered: %s", to)
+		return nil, fmt.Errorf("%w: %s", ErrAlreadyRegistered, to)
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 
@@ -87,9 +88,9 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		// Already moved: skip disk move.
 		needDiskMove = false
 	case fromOnDisk && toOnDisk:
-		return nil, fmt.Errorf("destination already exists on disk: %s", to)
+		return nil, fmt.Errorf("%w: %s", ErrAlreadyExistsOnDisk, to)
 	default: // !fromOnDisk && !toOnDisk
-		return nil, fmt.Errorf("source file not found on disk: %s", from)
+		return nil, fmt.Errorf("%w: %s", ErrSourceFileMissing, from)
 	}
 
 	// Stale check for the moved file.
@@ -99,7 +100,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 			return nil, err
 		}
 		if info.ModTime().Unix() != dbMtime {
-			return nil, fmt.Errorf("source file is stale: %s", from)
+			return nil, fmt.Errorf("%w: %s", ErrSourceStale, from)
 		}
 	} else {
 		// Already moved: check that the file at 'to' has the same mtime as DB recorded for 'from'.
@@ -109,7 +110,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 			return nil, err
 		}
 		if info.ModTime().Unix() != dbMtime {
-			return nil, fmt.Errorf("moved file is stale: %s", to)
+			return nil, fmt.Errorf("%w: %s", ErrMovedFileStale, to)
 		}
 	}
 
@@ -277,7 +278,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 					 JOIN nodes tn ON tn.id = e.target_id
 					 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN ('wikilink', 'markdown')
 					 LIMIT 1`, nodeID, link.rawLink).Scan(&preMoveTargetPath)
-				if err != nil && err != sql.ErrNoRows {
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					return nil, err
 				}
 

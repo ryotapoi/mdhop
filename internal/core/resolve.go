@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -29,7 +30,7 @@ func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
 	// Look up source node.
 	sourceID, err := getNodeID(db, noteKey(fromPath))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("source not in index: %s", fromPath)
 		}
 		return nil, err
@@ -59,7 +60,7 @@ func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, fmt.Errorf("link not found in source %s: %s", fromPath, link)
+		return nil, fmt.Errorf("%w in source %s: %s", ErrLinkNotFound, fromPath, link)
 	}
 
 	// Fetch target node info.
@@ -94,7 +95,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 		key := tagKey(link.target)
 		id, err := getNodeID(db, key)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return 0, "", fmt.Errorf("tag not found: %s", link.target)
 			}
 			return 0, "", err
@@ -107,7 +108,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 	// Relative path resolution: ./Target or ../Root
 	if link.isRelative {
 		if escapesVault(sourcePath, target) {
-			return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
+			return 0, "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
 		}
 		resolved := NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
 		return resolvePathFromDB(db, resolved, link)
@@ -115,7 +116,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 
 	// Vault-absolute path escape check (defense-in-depth).
 	if !link.isBasename && pathEscapesVault(target) {
-		return 0, "", fmt.Errorf("link escapes vault: %s in %s", link.rawLink, sourcePath)
+		return 0, "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
 	}
 
 	// Absolute path (/ prefix): /sub/B.md → sub/B.md
@@ -153,7 +154,7 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 	if err == nil {
 		return id, link.subpath, nil
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, "", err
 	}
 
@@ -165,7 +166,7 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 	if err == nil {
 		return id, link.subpath, nil
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, "", err
 	}
 
@@ -180,11 +181,11 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 	if err == nil {
 		return id, link.subpath, nil
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, "", err
 	}
 
-	return 0, "", fmt.Errorf("link not found: %s", resolved)
+	return 0, "", fmt.Errorf("%w: %s", ErrLinkNotFound, resolved)
 }
 
 // resolveBasenameFromDB finds a note/asset node by basename (case-insensitive).
@@ -213,7 +214,7 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 				return m.id, link.subpath, nil
 			}
 		}
-		return 0, "", fmt.Errorf("ambiguous link: %s resolves to %d notes", target, len(noteMatches))
+		return 0, "", fmt.Errorf("%w: %s resolves to %d notes", ErrAmbiguousLink, target, len(noteMatches))
 	}
 
 	// Try asset by basename (name = filename with extension).
@@ -231,7 +232,7 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 				return m.id, link.subpath, nil
 			}
 		}
-		return 0, "", fmt.Errorf("ambiguous link: %s resolves to %d assets", target, len(assetMatches))
+		return 0, "", fmt.Errorf("%w: %s resolves to %d assets", ErrAmbiguousLink, target, len(assetMatches))
 	}
 
 	// 0 matches → look for phantom.
@@ -241,11 +242,11 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 	if err == nil {
 		return id, link.subpath, nil
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, "", err
 	}
 
-	return 0, "", fmt.Errorf("link not found: %s", target)
+	return 0, "", fmt.Errorf("%w: %s", ErrLinkNotFound, target)
 }
 
 // queryBasenameMatches queries nodes of the given type matching a lowercase name.

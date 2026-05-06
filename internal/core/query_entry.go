@@ -23,10 +23,10 @@ func findEntryNode(db dbExecer, spec EntrySpec) (int64, NodeInfo, error) {
 		count++
 	}
 	if count == 0 {
-		return 0, NodeInfo{}, fmt.Errorf("no entry specified: provide --file, --tag, --phantom, or --name")
+		return 0, NodeInfo{}, errors.New("no entry specified: provide --file, --tag, --phantom, or --name")
 	}
 	if count > 1 {
-		return 0, NodeInfo{}, fmt.Errorf("multiple entry specs: provide exactly one of --file, --tag, --phantom, --name")
+		return 0, NodeInfo{}, errors.New("multiple entry specs: provide exactly one of --file, --tag, --phantom, --name")
 	}
 
 	if spec.File != "" {
@@ -44,7 +44,7 @@ func findEntryNode(db dbExecer, spec EntrySpec) (int64, NodeInfo, error) {
 func findEntryByKey(db dbExecer, key, errMsg string) (int64, NodeInfo, error) {
 	id, err := getNodeID(db, key)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, NodeInfo{}, errors.New(errMsg)
 		}
 		return 0, NodeInfo{}, err
@@ -67,7 +67,7 @@ func findEntryByFile(db dbExecer, file string) (int64, NodeInfo, error) {
 		}
 		return noteID, info, nil
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, NodeInfo{}, err
 	}
 	return findEntryByKey(db, assetKey(path), fmt.Sprintf("file not in index: %s", path))
@@ -131,7 +131,7 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 				return m.id, m.info, nil
 			}
 		}
-		return 0, NodeInfo{}, fmt.Errorf("ambiguous name: %s matches %d notes", name, len(matches))
+		return 0, NodeInfo{}, fmt.Errorf("%w: %s matches %d notes", ErrAmbiguousName, name, len(matches))
 	}
 
 	// Try asset by basename (case-insensitive).
@@ -174,7 +174,7 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 				return m.id, m.info, nil
 			}
 		}
-		return 0, NodeInfo{}, fmt.Errorf("ambiguous name: %s matches %d assets", name, len(assetMatches))
+		return 0, NodeInfo{}, fmt.Errorf("%w: %s matches %d assets", ErrAmbiguousName, name, len(assetMatches))
 	}
 
 	// Try phantom.

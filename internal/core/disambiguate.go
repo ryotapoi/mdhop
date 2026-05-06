@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -81,8 +82,8 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		var id int64
 		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'note'",
 			noteKey(np)).Scan(&id)
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("file not registered: %s", np)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, np)
 		}
 		if err != nil {
 			return nil, err
@@ -98,7 +99,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		phantomKey(nameKey)).Scan(&phantomID.Int64)
 	if err == nil {
 		phantomID.Valid = true
-	} else if err != sql.ErrNoRows {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 
@@ -180,7 +181,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 			return nil, err
 		}
 		if info.ModTime().Unix() != dbMtime {
-			return nil, fmt.Errorf("source file is stale: %s", re.sourcePath)
+			return nil, fmt.Errorf("%w: %s", ErrSourceStale, re.sourcePath)
 		}
 	}
 
@@ -315,7 +316,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 	for _, f := range opts.Files {
 		np := NormalizePath(f)
 		if !fileSet[np] {
-			return nil, fmt.Errorf("file not found: %s", np)
+			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, np)
 		}
 		fileScope[np] = true
 	}

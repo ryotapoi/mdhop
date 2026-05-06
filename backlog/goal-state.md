@@ -8,13 +8,12 @@ status: running
 
 ## Last completed loop
 
-2026-05-06: ノード型を `type NodeType string` の named type に昇格。
-- `internal/core/db.go` に `type NodeType string` を定義し、`NodeTypeNote/Asset/Phantom/Tag` を昇格
-- `upsertNode` / `listDirNodesByType` / `queryBasenameMatches` / `queryTwoHop` / `queryCollateralRewrites` のシグネチャを `NodeType` に変更
-- `core.NodeInfo.Type` / `core.ResolveResult.Type` / `cmd/mdhop.jsonNodeInfo.Type` を `NodeType` に
-- DB scan は `var typ NodeType` で直接受ける（database/sql の reflect で動作）
-- テストヘルパー `edgeRow.targetType` / `nodeRow.nodeType` / `queryNodes` を `NodeType` 化、関連リテラル比較を定数化（一部スコープ外残存あり、decisions 参照）
-- 全テスト 388+ 通過、`go vet` クリーン
+2026-05-06: `internal/core` の sentinel error 化を完了。
+- `internal/core/errors.go` を新規作成し 14 個の sentinel を定義（ErrIndexNotFound / ErrFileNotRegistered / ErrFileNotFound / ErrSourceFileMissing / ErrFileAlreadyRegistered / ErrAlreadyRegistered / ErrAlreadyExistsOnDisk / ErrAmbiguousLink / ErrAmbiguousName / ErrLinkNotFound / ErrLinkEscapesVault / ErrSourceStale / ErrMovedFileStale / ErrAddingMakesAmbiguous）
+- `sql.ErrNoRows` の `==` / `!=` 比較を 26 箇所すべて `errors.Is` に置換（test 1 件含む）
+- `fmt.Errorf` を `%w` ラップに置換し、各 sentinel のメッセージ文字列を既存エラー先頭フレーズと完全一致させて strings.Contains テスト互換性を維持
+- 対象ファイル: db.go, query_entry.go, disambiguate.go, move.go, move_dir.go, move_helpers.go, add.go, update.go, resolve.go, build.go, delete.go, simplify.go, asset_test.go
+- `go vet ./...` / `go test ./...` / `go build ./...` 全部グリーン（388+ tests）
 
 ## Skipped tasks
 
@@ -26,4 +25,4 @@ status: running
 
 ## Next hint
 
-次タスクは backlog v0.7.0 の上から: `internal/core` の sentinel error 化。
+次タスクは backlog v0.7.0 の上から: `internal/core/init_meta.go` の責務分離（YAML 生成 / 型推論 / マージ の3ファイル分割）。

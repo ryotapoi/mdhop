@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -54,7 +55,7 @@ func openDBAt(path string) (*sql.DB, error) {
 func openDBChecked(vaultPath string) (*sql.DB, error) {
 	dbp := dbPath(vaultPath)
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index not found: run 'mdhop build' first")
+		return nil, fmt.Errorf("%w: run 'mdhop build' first", ErrIndexNotFound)
 	}
 	return openDBAt(dbp)
 }
@@ -337,7 +338,7 @@ func removeOrPhantomize(tx dbExecer, nodeID int64, name string) (phantomized boo
 			if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", nodeID); err != nil {
 				return false, err
 			}
-		} else if err == sql.ErrNoRows {
+		} else if errors.Is(err, sql.ErrNoRows) {
 			// No existing phantom: convert note to phantom in-place.
 			if _, err := tx.Exec(
 				"UPDATE nodes SET type='phantom', node_key=?, path=NULL, exists_flag=0, mtime=NULL WHERE id=?",

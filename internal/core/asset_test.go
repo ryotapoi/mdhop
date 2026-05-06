@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -619,7 +620,7 @@ func TestPhantomPreservesNonMdExtension(t *testing.T) {
 	pk := phantomKey("missing.png")
 	var id int64
 	err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&id)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		t.Fatal("phantom missing.png not found")
 	}
 	if err != nil {

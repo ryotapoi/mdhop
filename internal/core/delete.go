@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -50,12 +51,12 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 		var id int64
 		var name, path string
 		err := db.QueryRow("SELECT id, name, path FROM nodes WHERE node_key = ? AND type = 'note'", key).Scan(&id, &name, &path)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			// Fallback to asset.
 			key = assetKey(np)
 			err = db.QueryRow("SELECT id, name, path FROM nodes WHERE node_key = ? AND type = 'asset'", key).Scan(&id, &name, &path)
-			if err == sql.ErrNoRows {
-				return nil, fmt.Errorf("file not registered: %s", f)
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, f)
 			}
 			if err != nil {
 				return nil, err

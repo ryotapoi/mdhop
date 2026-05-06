@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,9 +65,9 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		var id int64
 		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'note'", key).Scan(&id)
 		if err == nil {
-			return nil, fmt.Errorf("file already registered: %s", f.path)
+			return nil, fmt.Errorf("%w: %s", ErrFileAlreadyRegistered, f.path)
 		}
-		if err != sql.ErrNoRows {
+		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
 	}
@@ -75,7 +76,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	for i := range files {
 		info, err := os.Stat(filepath.Join(vaultPath, files[i].path))
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("file not found: %s", files[i].path)
+			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, files[i].path)
 		}
 		if err != nil {
 			return nil, err
@@ -149,7 +150,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			}
 			pk := phantomKey(bk)
 			err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&targetID)
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				continue // no phantom, so no existing basename links
 			}
 			if err != nil {
@@ -195,7 +196,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			allRewrites = append(allRewrites, basenameEdges...)
 		} else {
 			// Pattern B or auto-disambiguate not enabled → error.
-			return nil, fmt.Errorf("adding files would make existing links ambiguous")
+			return nil, ErrAddingMakesAmbiguous
 		}
 	}
 
@@ -217,7 +218,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 				return nil, err
 			}
 			if info.ModTime().Unix() != dbMtime {
-				return nil, fmt.Errorf("source file is stale: %s", re.sourcePath)
+				return nil, fmt.Errorf("%w: %s", ErrSourceStale, re.sourcePath)
 			}
 		}
 	}
@@ -249,14 +250,14 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 				continue
 			}
 			if link.isRelative && escapesVault(f.path, link.target) {
-				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, f.path)
+				return nil, fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, f.path)
 			}
 			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
-				return nil, fmt.Errorf("link escapes vault: %s in %s", link.rawLink, f.path)
+				return nil, fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, f.path)
 			}
 			if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
 				candidates := ambiguousCandidates(link.target, rm)
-				return nil, fmt.Errorf("ambiguous link: %s in %s (candidates: %s)", link.target, f.path, strings.Join(candidates, ", "))
+				return nil, fmt.Errorf("%w: %s in %s (candidates: %s)", ErrAmbiguousLink, link.target, f.path, strings.Join(candidates, ", "))
 			}
 		}
 
@@ -332,7 +333,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		pk := phantomKey(basename(pf.file.path))
 		var phantomID int64
 		err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			continue // no phantom to promote
 		}
 		if err != nil {

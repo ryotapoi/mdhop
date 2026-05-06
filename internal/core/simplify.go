@@ -61,7 +61,7 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 	for _, f := range opts.Files {
 		np := NormalizePath(f)
 		if !fileSet[np] {
-			return nil, fmt.Errorf("file not found: %s", np)
+			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, np)
 		}
 		fileScope[np] = true
 	}
