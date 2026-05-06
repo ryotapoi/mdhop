@@ -33,7 +33,7 @@ type QueryOptions struct {
 
 // NodeInfo describes a node in the graph.
 type NodeInfo struct {
-	Type   string // "note", "phantom", "tag", "asset"
+	Type   string // NodeTypeNote ("note"), NodeTypePhantom ("phantom"), NodeTypeTag ("tag"), NodeTypeAsset ("asset")
 	Name   string
 	Path   string // note/asset only
 	Exists bool
@@ -102,7 +102,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive("outgoing", opts.Fields) {
-		if info.Type == "note" {
+		if info.Type == NodeTypeNote {
 			og, err := queryOutgoing(db, nodeID, ef, wc)
 			if err != nil {
 				return nil, err
@@ -112,7 +112,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive("tags", opts.Fields) {
-		if info.Type == "note" {
+		if info.Type == NodeTypeNote {
 			tags, err := queryTags(db, nodeID, ef)
 			if err != nil {
 				return nil, err
@@ -130,7 +130,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive("head", opts.Fields) && opts.IncludeHead > 0 {
-		if info.Type == "note" && info.Exists {
+		if info.Type == NodeTypeNote && info.Exists {
 			head, err := readHead(db, vaultPath, nodeID, opts.IncludeHead)
 			if err != nil {
 				return nil, err
@@ -540,7 +540,7 @@ func queryTwoHop(db dbExecer, entryID int64, entryType string, maxTwoHop, maxVia
 	var seedIsOutbound bool
 
 	switch entryType {
-	case "note":
+	case NodeTypeNote:
 		// Outbound seed: targets of the entry.
 		seedQuery = `SELECT DISTINCT target_id FROM edges WHERE source_id = ?`
 		seedIsOutbound = true

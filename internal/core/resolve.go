@@ -9,7 +9,7 @@ import (
 
 // ResolveResult is the result of resolving a link.
 type ResolveResult struct {
-	Type    string // "note", "phantom", "tag", "url", "asset"
+	Type    string // NodeTypeNote ("note"), NodeTypePhantom ("phantom"), NodeTypeTag ("tag"), NodeTypeAsset ("asset"), or "url"
 	Name    string // note=basename, tag="#tag", phantom=link name, asset=filename
 	Path    string // vault-relative path (note/asset only, empty otherwise)
 	Exists  bool   // file existence flag
@@ -199,7 +199,7 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 		path string
 	}
 
-	noteMatches, err := queryBasenameMatches(db, "note", lower)
+	noteMatches, err := queryBasenameMatches(db, NodeTypeNote, lower)
 	if err != nil {
 		return 0, "", err
 	}
@@ -217,7 +217,7 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 	}
 
 	// Try asset by basename (name = filename with extension).
-	assetMatches, err := queryBasenameMatches(db, "asset", lower)
+	assetMatches, err := queryBasenameMatches(db, NodeTypeAsset, lower)
 	if err != nil {
 		return 0, "", err
 	}

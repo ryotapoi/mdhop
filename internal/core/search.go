@@ -190,7 +190,7 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 			items[i].Meta = meta
 		}
 
-		if wantHead && rd.node.Type == "note" && rd.node.Exists {
+		if wantHead && rd.node.Type == NodeTypeNote && rd.node.Exists {
 			head, err := readHead(db, vaultPath, rd.id, opts.IncludeHead)
 			if err != nil {
 				return nil, err

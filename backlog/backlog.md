@@ -2,9 +2,9 @@
 
 ## v0.6.1
 
-- [ ] ノード型文字列リテラル（`"note"` `"asset"` `"phantom"` `"tag"`）を定数化
+- [x] ノード型文字列リテラル（`"note"` `"asset"` `"phantom"` `"tag"`）を定数化
   - **問題**: 内部コア全体に 35 箇所以上散在（`db.go` `move_dir.go` `resolve.go` `query.go` 等）。SQL の WHERE 句と Go の switch 文で型安全性なく重複しており、タイポしてもコンパイル時に検出できない暗黙結合
-  - **対応**: `db.go` または `types.go` に `const nodeTypeNote = "note"` 等を定義し、リテラル参照を全置換
+  - **対応**: `db.go` に `NodeTypeNote = "note"` 等 4 件の exported untyped string const を定義し、Go コード側のリテラル参照を全置換。SQL 内シングルクォート、test ファイル、linkType 用 `"tag"`/`"frontmatter"` は対象外（`backlog/goal-decisions.md` 2026-05-06 参照）
 - [ ] `cmd/mdhop/format.go`（838 行）をコマンド別に分割
   - **問題**: 13 コマンド分の `printXText` / `printXJSON` ペアが 1 ファイルに集約。コマンド追加のたびに肥大化が確定している構造
   - **対応**: `format_query.go` `format_stats.go` ... のようにコマンド別分離。共通の `encodeJSON` `printStringListText` `parseFields` `validateFormat` `validateFields` `fieldSet` は `format.go` に残す

@@ -244,14 +244,14 @@ func (ef *ExcludeFilter) IsViaExcluded(info NodeInfo) bool {
 		return false
 	}
 	switch info.Type {
-	case "tag":
+	case NodeTypeTag:
 		lower := strings.ToLower(info.Name)
 		for _, t := range ef.Tags {
 			if t == lower {
 				return true
 			}
 		}
-	case "note", "asset":
+	case NodeTypeNote, NodeTypeAsset:
 		for _, g := range ef.PathGlobs {
 			if globMatch(g, info.Path) {
 				return true

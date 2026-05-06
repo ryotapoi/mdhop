@@ -22,6 +22,16 @@ const (
 	dbFileName  = "index.sqlite"
 )
 
+// NodeType 定数は `nodes.type` 列の値セット。Go コード上での比較・代入に使う。
+// SQL 内シングルクォートリテラル（`'phantom'` 等）はこれと文字列値が一致するが、
+// SQL 構文の一部として残しているため定数参照に置換していない。
+const (
+	NodeTypeNote    = "note"
+	NodeTypeAsset   = "asset"
+	NodeTypePhantom = "phantom"
+	NodeTypeTag     = "tag"
+)
+
 func dbPath(vaultPath string) string {
 	return filepath.Join(vaultPath, dataDirName, dbFileName)
 }
@@ -123,11 +133,11 @@ func upsertNode(db dbExecer, key, typ, name, path string, mtime int64) (int64, e
 }
 
 func upsertNote(db dbExecer, path, name string, mtime int64) (int64, error) {
-	return upsertNode(db, noteKey(path), "note", name, path, mtime)
+	return upsertNode(db, noteKey(path), NodeTypeNote, name, path, mtime)
 }
 
 func upsertAsset(db dbExecer, path, name string, mtime int64) (int64, error) {
-	return upsertNode(db, assetKey(path), "asset", name, path, mtime)
+	return upsertNode(db, assetKey(path), NodeTypeAsset, name, path, mtime)
 }
 
 func noteKey(path string) string {
@@ -400,7 +410,7 @@ func ListDirNotes(vaultPath, dirPrefix string) ([]string, error) {
 	}
 	defer db.Close()
 
-	return listDirNodesByType(db, dirPrefix, "note")
+	return listDirNodesByType(db, dirPrefix, NodeTypeNote)
 }
 
 // ListDirAssets returns vault-relative paths of all registered assets
@@ -413,5 +423,5 @@ func ListDirAssets(vaultPath, dirPrefix string) ([]string, error) {
 	}
 	defer db.Close()
 
-	return listDirNodesByType(db, dirPrefix, "asset")
+	return listDirNodesByType(db, dirPrefix, NodeTypeAsset)
 }

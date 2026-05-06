@@ -65,13 +65,13 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	}
 
 	// Get all notes under fromDir.
-	fromNotePaths, err := listDirNodesByType(db, fromDir, "note")
+	fromNotePaths, err := listDirNodesByType(db, fromDir, NodeTypeNote)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get all assets under fromDir.
-	fromAssetPaths, err := listDirNodesByType(db, fromDir, "asset")
+	fromAssetPaths, err := listDirNodesByType(db, fromDir, NodeTypeAsset)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +377,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 				break
 			}
 		}
-		crs, err := queryCollateralRewrites(db, "note", bn, movedNodeIDs)
+		crs, err := queryCollateralRewrites(db, NodeTypeNote, bn, movedNodeIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -408,7 +408,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 				break
 			}
 		}
-		crs, err := queryCollateralRewrites(db, "asset", bn, movedNodeIDs)
+		crs, err := queryCollateralRewrites(db, NodeTypeAsset, bn, movedNodeIDs)
 		if err != nil {
 			return nil, err
 		}

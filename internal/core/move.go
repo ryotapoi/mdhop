@@ -219,10 +219,10 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		postRoot := hasRootInPathSet(moveBKTo, movePathSet)
 		if !(preRoot && postRoot) {
 			// Query target type matching the moved node.
-			targetType := "note"
+			targetType := NodeTypeNote
 			collateralName := basename(to)
 			if isAsset {
-				targetType = "asset"
+				targetType = NodeTypeAsset
 				collateralName = filepath.Base(to)
 			}
 			singleMovedIDs := map[int64]bool{nodeID: true}

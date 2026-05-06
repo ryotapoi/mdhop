@@ -134,7 +134,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		}
 		// Filter: basename links to the note target are always candidates.
 		// Path links are only candidates if they point to a phantom.
-		if !isBasenameRawLink(re.rawLink, re.linkType) && targetType != "phantom" {
+		if !isBasenameRawLink(re.rawLink, re.linkType) && targetType != NodeTypePhantom {
 			continue
 		}
 		// Filter: skip self-references.

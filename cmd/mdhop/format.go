@@ -96,10 +96,10 @@ func printResolveText(w io.Writer, r *core.ResolveResult, fields []string) error
 	if show["name"] {
 		fmt.Fprintf(w, "name: %s\n", r.Name)
 	}
-	if show["path"] && (r.Type == "note" || r.Type == "asset") {
+	if show["path"] && (r.Type == core.NodeTypeNote || r.Type == core.NodeTypeAsset) {
 		fmt.Fprintf(w, "path: %s\n", r.Path)
 	}
-	if show["exists"] && (r.Type == "note" || r.Type == "asset") {
+	if show["exists"] && (r.Type == core.NodeTypeNote || r.Type == core.NodeTypeAsset) {
 		fmt.Fprintf(w, "exists: %v\n", r.Exists)
 	}
 	if show["subpath"] && r.Subpath != "" {
@@ -117,10 +117,10 @@ func buildResolveMap(r *core.ResolveResult, fields []string) map[string]any {
 	if show["name"] {
 		m["name"] = r.Name
 	}
-	if show["path"] && (r.Type == "note" || r.Type == "asset") {
+	if show["path"] && (r.Type == core.NodeTypeNote || r.Type == core.NodeTypeAsset) {
 		m["path"] = r.Path
 	}
-	if show["exists"] && (r.Type == "note" || r.Type == "asset") {
+	if show["exists"] && (r.Type == core.NodeTypeNote || r.Type == core.NodeTypeAsset) {
 		m["exists"] = r.Exists
 	}
 	if show["subpath"] && r.Subpath != "" {
@@ -367,7 +367,7 @@ type jsonSnippet struct {
 
 func toJSONNodeInfo(n core.NodeInfo) jsonNodeInfo {
 	ji := jsonNodeInfo{Type: n.Type, Name: n.Name}
-	if n.Type == "note" || n.Type == "asset" {
+	if n.Type == core.NodeTypeNote || n.Type == core.NodeTypeAsset {
 		ji.Path = n.Path
 		ji.Exists = &n.Exists
 	}
@@ -502,7 +502,7 @@ func printQueryText(w io.Writer, r *core.QueryResult) error {
 func writeNodeInfoText(w io.Writer, n core.NodeInfo, firstIndent, restIndent string) {
 	fmt.Fprintf(w, "%stype: %s\n", firstIndent, n.Type)
 	fmt.Fprintf(w, "%sname: %s\n", restIndent, n.Name)
-	if n.Type == "note" || n.Type == "asset" {
+	if n.Type == core.NodeTypeNote || n.Type == core.NodeTypeAsset {
 		fmt.Fprintf(w, "%spath: %s\n", restIndent, n.Path)
 		fmt.Fprintf(w, "%sexists: %v\n", restIndent, n.Exists)
 	}
@@ -512,7 +512,7 @@ func writeNodeInfoText(w io.Writer, n core.NodeInfo, firstIndent, restIndent str
 // Format: "note: path" or "phantom: name" or "tag: name"
 func nodeInfoOneLine(n core.NodeInfo) string {
 	switch n.Type {
-	case "note", "asset":
+	case core.NodeTypeNote, core.NodeTypeAsset:
 		return fmt.Sprintf("%s: %s", n.Type, n.Path)
 	default:
 		return fmt.Sprintf("%s: %s", n.Type, n.Name)
