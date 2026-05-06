@@ -14,6 +14,11 @@
 
 ## v0.7.0
 
+- [ ] ノード型を `type NodeType string` の named type に昇格
+  - **問題**: v0.6.1 の untyped string const（`NodeTypeNote = "note"` 等）はリテラル参照のタイポ検出にとどまり、`upsertNode(db, key, "invalid", ...)` のような `string` 直渡しはコンパイル時に防げない
+  - **対応**: `internal/core/db.go` で `type NodeType string` を定義し、定数を `NodeType` に昇格。`upsertNode` 等の `typ string` 引数を `NodeType` に変更し、DB スキャン結果（`Type string` フィールド）と SQL バインドの両端を整合させる
+  - **影響範囲**: テスト全件と DB スキャン結果マッピング。シグネチャ変更を伴う横断対応のため `sentinel error 化` と並んで v0.7.0 の構造改善トラックに位置づける
+  - **由来**: `goal-decisions.md` 2026-05-06「ノード型定数化を untyped const に絞る」案B として切り出し
 - [ ] `--where` NOT EXISTS 演算子（特定キーを持たないノートの検索。現状 EXISTS の逆がない）
 - [ ] サンプルスキル更新（`examples/skills/` 配下を最新仕様に合わせる）
 - [ ] frontmatter 内 wikilink 対応

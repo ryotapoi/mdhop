@@ -10,7 +10,7 @@
 
 次のどれかで1ループ完了とする。
 
-- A: タスクの実装・検証・`- [x]` 更新と goal-state.md / goal-decisions.md 更新を 1 コミットで作成した
+- A: タスクの実装・検証・`- [x]` 更新・派生タスクの backlog.md 追記（あれば）と goal-state.md / goal-decisions.md 更新を 1 コミットで作成した
 - B: backlog の整理と goal-state.md / goal-decisions.md 更新を 1 コミットで作成した
 - C: goal-state.md のスキップ記録と goal-decisions.md 追記を 1 コミットで作成した
 - ユーザー確認が絶対に必要なため `goal-blocked.md` を作成した
@@ -68,8 +68,11 @@
 
 1. 全体ゴール内の未完了タスクを1つ選ぶ（原則は上から順）
 2. 選んだタスクを「ユーザー依頼」として `.claude/goal/workflow/default.md` に従って実装・検証・レビューまで進める
-3. `finish.md`（コミット）に入る**前**に `goal-state.md` を更新し、必要なら `goal-decisions.md` に追記する
-4. `finish.md` でコミットする（`backlog/backlog.md` の `- [x]` 更新と goal-state.md / goal-decisions.md の更新が同じコミットに入る）
+3. `finish.md`（コミット）に入る**前**に以下を更新する:
+   - `goal-state.md`（必須）
+   - `goal-decisions.md`（必要なら）
+   - `backlog/backlog.md`: 実装中に派生したタスクがあれば該当バージョンセクションへ追記する（→ `.claude/goal/workflow.md`「Task SSoT」）
+4. `finish.md` でコミットする（`- [x]` 更新 / goal-state.md / goal-decisions.md / 派生タスクの backlog.md 追記が同じコミットに入る）
 
 `.claude/goal/workflow/default.md` 系列の workflow（`plan.md` `implement.md` `verify.md` `review.md` `finish.md` 等）が、タスク完了までの調査・計画・実装・検証・コミット・`backlog/backlog.md` の `- [x]` 更新を担う。
 
