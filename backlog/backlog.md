@@ -46,26 +46,43 @@
   - **影響範囲**: 5 コマンドそれぞれにテスト追加（rawLink 一意マッチ、alias 保持、subpath 保持、quoted 保持、bare 保持）
   - **由来**: backlog v0.7.0「frontmatter 内 wikilink 対応」を解析側 / 書き換え側に分割した片方
 - [x] サンプルスキル更新（`examples/skills/` 配下を最新仕様に合わせる。リリース直前に実施）
+- [ ] `linkType` 値を `type LinkType string` の named type に昇格して定数化
+  - **問題**: 現状 `linkType` は文字列リテラル直書き（`"wikilink"` / `"markdown"` / `"tag"` / `"frontmatter"` / `"frontmatter_wikilink"`）で、`build.go`、`resolve.go`、`parse.go`、`rewrite.go`、書き換え系コマンド群（add/move/update/disambiguate/simplify/repair/convert）に分散している。frontmatter wikilink 実装で 4 → 5 種類に増えた直接の派生課題
+  - **対応**: NodeType 昇格と同パターン。`type LinkType string` を `parse.go` または `db.go` に定義し、定数を昇格。`linkOccur.linkType` フィールドの型と既存比較箇所すべてを `LinkType` 定数参照に置き換える。`pathLinkTypeSQLList` / `isPathLinkType` も型ベースに置き換え
+  - **影響範囲**: 全 linkType 比較箇所（核モジュール + 書き換え系 7 ファイル）と関連テスト
+  - **由来**: `goal-decisions.md` 2026-05-07「linkType 文字列リテラル直書きの増殖を今回スコープ外として残した」案B として切り出し
+- [ ] `simplify` を frontmatter wikilink 対応に拡張
+  - **問題**: `simplify.go:98` の `lo.linkType != "wikilink" && lo.linkType != "markdown"` フィルタで `frontmatter_wikilink` を意図的に除外している。利用者から見ると「frontmatter の `[[notes/foo]]` が `[[foo]]` に簡略化されない」のは v0.7.0 の機能期待に反する
+  - **対応**: フィルタを `!isPathLinkType(...)` に変更し、frontmatter wikilink も `simplify` の対象に含める。frontmatter wikilink を含む vault でテスト追加
+  - **影響範囲**: `simplify.go` + 新 fixture / テスト。書き換えは既存 `rewriteRawLink`（`frontmatter_wikilink` 対応済み）を流用するため簡略化ロジック自体に変更なし
+  - **由来**: `goal-decisions.md` 2026-05-07「simplify/repair の `frontmatter_wikilink` 除外を手書きリテラル + コメントで残した」を再検討した結果、simplify は利用者期待寄りなので v0.7.0 に取り込む
+- [ ] frontmatter wikilink の生 raw scan が YAML コメントを edge 化する不具合
+  - **問題**: `internal/core/parse.go:399` `parseFrontmatterWikilinks` は frontmatter の各行（`val.Line` 範囲）の生テキストに `parseWikiLinks` の正規表現を当てるため、YAML コメント中の `[[...]]` も edge 化される。例: `related: ok # [[B]] is only a YAML comment` で A → B edge が誤って作られる。`rules/03-data-model.md` の定義（frontmatter の値として現れた `[[...]]`）と乖離
+  - **再現**: `vault_x/A.md` に `---\nrelated: ok # [[B]] comment\n---` を書き、build 後 `query -file A.md -fields outgoing` で `B` が outgoing に出る
+  - **対応方針**: 行内で `#` 以降のコメント部分を除去してから `parseWikiLinks` に渡す。ただし quoted scalar 内の `#` は文字列の一部なので除外しない（`"foo # bar"` の `#` はコメントではない）。bare scalar 中の `#` のみコメントとして扱う必要があり、quoted/bare の判定ロジックを共有 or 抽出する
+  - **影響範囲**: `parse.go` の `parseFrontmatterWikilinks` + 単体テスト（quoted 内 `#` は edge 化される / bare 行の `#` 以降は edge 化されない、両方の testdata）
+  - **由来**: v0.7.0 frontmatter wikilink (1/2) 実装後の facts 観点レビュー SHOULD 指摘
+- [ ] `add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張（fixture 拡張 + フィルタ修正）
+  - **問題**: `add_test.go:672` / `add_test.go:935` の既存テストは edge をループする際 `e.linkType == "wikilink" || e.linkType == "markdown"` で frontmatter_wikilink を見落としている。対象 vault `vault_add_disambiguate` に frontmatter_wikilink edge が無く現状実害ゼロだが、frontmatter wikilink の書き換えが basename のまま残っても検出できない
+  - **対応**: (a) `vault_add_disambiguate` の既存ファイルに frontmatter wikilink を追加（または別 vault 新設）して frontmatter_wikilink edge を持つ状態にする (b) `add_test.go:672` / `add_test.go:935` のフィルタを `isPathLinkType(e.linkType)` に統一して frontmatter wikilink の書き換えも検証対象に含める
+  - **影響範囲**: testdata 拡張 + add_test.go の 2 箇所のフィルタ修正
+  - **由来**: facts レビュー（v0.7.0 frontmatter 内 wikilink 対応 (2/2)）SHOULD 指摘。フィルタ修正単独では検証強化にならず、fixture 拡張とセットで v0.7.0 機能を網で守る判断
 
 ## Later
 
 - [ ] `--where` NOT EXISTS 演算子（特定キーを持たないノートの検索。現状 EXISTS の逆がない）
 - [ ] Obsidian 互換モード（曖昧リンクを暗黙解決。全コマンドに横断影響あり、要望が出たら再検討）
 - [ ] 対話的 disambiguate `--interactive`（人間向け UX 改善。Agent は `--scan` で十分）
-- [ ] `linkType` 値を `type LinkType string` の named type に昇格して定数化
-  - **問題**: 現状 `linkType` は文字列リテラル直書き（`"wikilink"` / `"markdown"` / `"tag"` / `"frontmatter"` / `"frontmatter_wikilink"`）で、`build.go`、`resolve.go`、`parse.go`、`rewrite.go`、書き換え系コマンド群（add/move/update/disambiguate/simplify/repair/convert）に分散している。新 linkType 追加時の grep 漏れリスクが種類数 5 で顕在化
-  - **対応**: NodeType 昇格と同パターン。`type LinkType string` を `parse.go` または `db.go` に定義し、定数を昇格。`linkOccur.linkType` フィールドの型と既存比較箇所すべてを `LinkType` 定数参照に置き換える
-  - **影響範囲**: 全 linkType 比較箇所（核モジュール + 書き換え系 7 ファイル）と関連テスト
-  - **由来**: `goal-decisions.md` 2026-05-07「linkType 文字列リテラル直書きの増殖を今回スコープ外として残した」案B として切り出し
+- [ ] テストコード内の `Node.Type != "note"` 等 untyped string リテラル比較の定数化
+  - **問題**: NodeType を named type に昇格した際、テストコードに残った `e.Type != "note"` / `n.Type == "phantom"` 等の untyped string 比較が約49箇所（resolve_test.go / asset_test.go / query_test.go / search_test.go / query_exclude_test.go 等）残存している。コンパイル・実行は通るが、型昇格の意図がテスト側に徹底されていない
+  - **対応**: 残存箇所を `NodeTypeNote` / `NodeTypePhantom` / `NodeTypeTag` / `NodeTypeAsset` 定数に機械的に置換
+  - **影響範囲**: 約49箇所のテストファイル横断修正。挙動変更なし
+  - **由来**: `goal-decisions.md` 2026-05-06 22:55「NodeType 昇格時のテスト定数化スコープ」案B として切り出した別タスク化分（goal-decision に書いて backlog に追加し忘れていた分の回収）
 - [ ] `parseFrontmatter` の責務分離検討
   - **問題**: 現状 `parseFrontmatter` は tags / meta / frontmatter_wikilink の 3 系統を返す。今後さらに追加する種別があると肥大化する
   - **対応**: 戻り値が 4 系統以上になるタイミングで `parseResult` 構造体ベースへ移行する判断
   - **由来**: design レビュー（v0.7.0 frontmatter 内 wikilink 対応 (1/2)）で予兆として記録
-- [ ] `simplify.go` / `repair.go` の手書き 2 型フィルタを述語化
-  - **問題**: `simplify.go:98` / `repair.go:83` は `lo.linkType != "wikilink" && lo.linkType != "markdown"` の手書きリテラルで、意図的に `frontmatter_wikilink` を除外している。コメントで意図は明示したが、`isPathLinkType` 等が 4 型以上に拡張された場合に取りこぼしリスクが残る
-  - **対応**: `isBodyPathLinkType` 等の述語を切り出し、両ファイルに適用。`linkType` の named type 昇格と同タイミングでまとめて実施可
-  - **由来**: design レビュー（v0.7.0 frontmatter 内 wikilink 対応 (2/2)）SHOULD 指摘の派生
-- [ ] `add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張
-  - **問題**: `add_test.go:672` / `add_test.go:935` の既存テスト（`TestAddAutoDisambiguateBasic` 等）は edge をループする際 `e.linkType == "wikilink" || e.linkType == "markdown"` で frontmatter_wikilink を見落としている。対象 vault には frontmatter_wikilink edge が無く現状実害なし
-  - **対応**: 既存テストの vault に frontmatter wikilink を含めるか、フィルタを `isPathLinkType(e.linkType)` に統一するか
-  - **由来**: facts レビュー（v0.7.0 frontmatter 内 wikilink 対応 (2/2)）SHOULD 指摘の派生
+- [ ] `repair.go` の手書き 2 型フィルタを述語化
+  - **問題**: `repair.go:83` は `lo.linkType != "wikilink" && lo.linkType != "markdown"` の手書きリテラルで、意図的に `frontmatter_wikilink` を除外している。コメントで意図は明示したが、`isPathLinkType` 等が 4 型以上に拡張された場合に取りこぼしリスクが残る
+  - **対応**: `isBodyPathLinkType` 等の述語を切り出して `repair.go` に適用。`linkType` の named type 昇格と同タイミングでまとめて実施可
+  - **由来**: design レビュー（v0.7.0 frontmatter 内 wikilink 対応 (2/2)）SHOULD 指摘の派生。simplify は v0.7.0 で対応に切り替えたためこの Later タスクから除外
