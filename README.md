@@ -49,10 +49,15 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `delete` | Remove files from the index |
 | `move` | Reflect file moves and update links |
 | `disambiguate` | Rewrite ambiguous basename links to full paths |
+| `simplify` | Shorten redundant path links to basename form (inverse of disambiguate) |
+| `convert` | Convert link format between wikilink and markdown |
+| `repair` | Rewrite broken or vault-escaping path links to basename form |
 | `resolve` | Resolve a link to its target |
 | `query` | Return Backlinks / 2-Hop / Tags etc. for a node |
+| `search` | Find notes vault-wide by frontmatter metadata or path |
 | `stats` | Show vault statistics (note count, link count, etc.) |
 | `diagnose` | Detect basename conflicts and phantom nodes |
+| `init-meta` | Generate frontmatter type declarations for `mdhop.yaml` |
 
 Common options: `--vault <path>` (defaults to current directory), `--format json|text`, `--fields <comma-separated>`
 

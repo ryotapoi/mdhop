@@ -246,7 +246,7 @@ mdhop simplify --file Notes/A.md
 - Basename links are skipped (already short)
 - Broken links and vault-escape links are skipped (use `repair` first)
 - Asset path links are only shortened when no note has the same basename
-- Wikilinks inside frontmatter values are not shortened
+- Wikilinks inside frontmatter values are also shortened (quoted vs bare YAML style is preserved)
 - `build.exclude_paths` is respected
 - After simplify, run `mdhop build` to update the index
 

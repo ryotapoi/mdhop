@@ -47,10 +47,15 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `delete` | ファイルをインデックスから削除 |
 | `move` | ファイル移動を反映しリンクを更新 |
 | `disambiguate` | 曖昧な basename リンクをフルパスに書き換え |
+| `simplify` | 冗長なパスリンクを basename 形式に短縮（disambiguate の逆） |
+| `convert` | リンク形式を wikilink ↔ markdown で変換 |
+| `repair` | 壊れた・vault 外を指すパスリンクを basename 形式に修復 |
 | `resolve` | リンクの解決先を返す |
 | `query` | 起点ノートの Backlinks / 2-Hop / Tags 等を返す |
+| `search` | frontmatter メタデータやパスで Vault 全体からノートを検索 |
 | `stats` | ノート数・リンク数などの統計情報 |
 | `diagnose` | basename 衝突・phantom ノードの検出 |
+| `init-meta` | `mdhop.yaml` の frontmatter 型定義を生成 |
 
 共通オプション: `--vault <path>`（省略時はカレントディレクトリ）、`--format json|text`、`--fields <comma-separated>`
 
