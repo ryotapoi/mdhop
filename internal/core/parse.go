@@ -349,7 +349,7 @@ func parseFrontmatter(lines []string) ([]linkOccur, []FrontmatterEntry) {
 
 	var out []linkOccur
 	var meta []FrontmatterEntry
-	blockScalarLines := collectBlockScalarLines(mapping.Content, len(lines))
+	blockScalarLines := collectBlockScalarLines(mapping.Content, lines)
 	for i := 0; i < len(mapping.Content)-1; i += 2 {
 		key := mapping.Content[i]
 		val := mapping.Content[i+1]
@@ -375,9 +375,16 @@ func parseFrontmatter(lines []string) ([]linkOccur, []FrontmatterEntry) {
 //
 // yaml.Node.Line is 1-based against the yaml body which starts at lines[1],
 // so file line = node.Line + 1.
-func collectBlockScalarLines(content []*yaml.Node, totalLines int) map[int]bool {
+//
+// A block scalar body line must be more deeply indented than the key
+// (YAML 1.2 §8.1). Lines that fall back to the key's indent (or shallower)
+// terminate the body, even if they precede the next mapping key (e.g. a
+// top-level "# comment" line between two mapping entries).
+func collectBlockScalarLines(content []*yaml.Node, lines []string) map[int]bool {
 	out := map[int]bool{}
+	totalLines := len(lines)
 	for i := 0; i < len(content)-1; i += 2 {
+		key := content[i]
 		val := content[i+1]
 		if val.Kind != yaml.ScalarNode {
 			continue
@@ -386,19 +393,47 @@ func collectBlockScalarLines(content []*yaml.Node, totalLines int) map[int]bool 
 			continue
 		}
 		// val.Line points at the line carrying the `|` or `>` indicator
-		// (same line as the key). The body starts on the next file line.
+		// (same line as the key). Body starts on the next file line.
 		bodyStartFileLine := val.Line + 2
-		// bodyEnd: last file line inside this entry (exclude closing "---" and next key).
-		bodyEndFileLine := totalLines - 1 // exclude closing "---"; lines[totalLines-1] is "---" at file line totalLines
+		// Hard upper bound: next key file line - 1, or last frontmatter
+		// content line (exclude closing "---").
+		bodyEndFileLine := totalLines - 1
 		if i+2 < len(content) {
-			// next key file line = content[i+2].Line + 1; body ends one line above
 			bodyEndFileLine = content[i+2].Line
 		}
+		// Block scalar body indent must be deeper than the key column.
+		keyIndent := key.Column - 1 // Column is 1-based
 		for ln := bodyStartFileLine; ln <= bodyEndFileLine; ln++ {
+			if ln < 1 || ln > totalLines {
+				continue
+			}
+			line := lines[ln-1]
+			if strings.TrimSpace(line) == "" {
+				// Blank lines belong to the body (per YAML spec) but
+				// carry no '#', so marking them is harmless either way.
+				out[ln] = true
+				continue
+			}
+			if leadingSpaceCount(line) <= keyIndent {
+				// Dedented to key indent or shallower: body terminates here.
+				break
+			}
 			out[ln] = true
 		}
 	}
 	return out
+}
+
+// leadingSpaceCount returns the number of leading space characters in line.
+// YAML block scalar indentation is measured in spaces only (tabs are not
+// allowed for indentation), so a simple space count is sufficient.
+func leadingSpaceCount(line string) int {
+	for i := 0; i < len(line); i++ {
+		if line[i] != ' ' {
+			return i
+		}
+	}
+	return len(line)
 }
 
 // frontmatterEntryRange returns the index range [startIdx, endIdx) within

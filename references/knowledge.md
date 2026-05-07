@@ -24,7 +24,7 @@
 - Tag parser はブラックリスト方式。ハイフン・アンダースコア・Unicode 文字は許可。先頭数字は Obsidian 準拠で不可
 - **frontmatter タグと inline タグの文字種差異**: inline は Unicode 対応済みだが、frontmatter は YAML からそのまま取り込むためブラックリスト対象の句読点も含み得る。この差異は実用上問題にならない
 - **frontmatter wikilink (`linkType="frontmatter_wikilink"`)** は YAML 構造を辿らず生テキスト走査で抽出する。bare `key: [[note]]` が yaml.v3 でネスト flow seq として解釈される問題を回避するため、mapping の各 (key, val) について `key.Line` 起点の行範囲を計算し、その範囲を `parseWikiLinks` で走査する。`tags` キーは除外（`parseFrontmatterTags` 側でハンドル）。詳細は ADR 0013
-- frontmatter 行に対する `stripYAMLComment` 適用は **block scalar (`key: |` / `key: >`) の値行を除外**する必要がある。block scalar 内の `#` は値の一部であってコメントではないため、剥がすと `# [[B]]` のような wikilink が edge から落ちる。判定は `yaml.Node.Style == LiteralStyle | FoldedStyle` で行い、body 行範囲は `val.Line + 2`（次の file line）から「次キー file line - 1」または `totalLines - 1` まで。ADR 0013 が「block scalar も raw range scan で自動カバー」を明記しているため、この除外は ADR 整合性の必須条件
+- frontmatter 行に対する `stripYAMLComment` 適用は **block scalar (`key: |` / `key: >`) の値行を除外**する必要がある。block scalar 内の `#` は値の一部であってコメントではないため、剥がすと `# [[B]]` のような wikilink が edge から落ちる。判定は `yaml.Node.Style == LiteralStyle | FoldedStyle` で行い、本文行は **インデントが key.Column より深い行のみ**。「次キーの直前まで」を一律本文扱いにすると、block scalar 終端と次キーの間に挟まる top-level コメント行（例: `# [[B]] is a top-level YAML comment`）まで本文扱いになり、その `#` がコメントとして剥がされず edge 化してしまう。YAML 1.2 §8.1 の block scalar indentation rule に従い、key indent 以下の非空行で本文を打ち切る。空行は本文扱いで問題ない（`#` を含まないため判定に影響しない）
 - `isBasenameRawLink` は self-link（`[[#Heading]]`, `[text](#heading)`）で false を返す必要がある。fragment 除去後に target が空なら self-link
 
 ## ルート優先ルール

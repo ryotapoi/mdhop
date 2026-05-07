@@ -508,6 +508,22 @@ func TestParseFrontmatterWikilinkKeepsHashInsideQuoted(t *testing.T) {
 	}
 }
 
+func TestParseFrontmatterWikilinkTopLevelCommentAfterBlockScalar(t *testing.T) {
+	// A top-level YAML comment that appears between a block scalar entry and
+	// the next mapping key is NOT part of the block scalar body — its indent
+	// is at or below the key indent. "# [[B]]" must be stripped as a comment
+	// so it does not become an edge.
+	content := "---\nnote: |\n  real text\n# [[B]] is a top-level YAML comment after the block scalar\nnext: \"[[C]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected only [[C]] (B is in a top-level comment), got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "C" {
+		t.Errorf("target = %q, want C", fmw[0].target)
+	}
+}
+
 func TestParseFrontmatterWikilinkBlockScalarKeepsHash(t *testing.T) {
 	// Inside a `key: |` block scalar, '#' is part of the value, not a YAML
 	// comment, so "# [[B]]" must be detected as a frontmatter wikilink.
