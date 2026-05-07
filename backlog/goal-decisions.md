@@ -51,6 +51,16 @@
 - 選んだ案: 案A
 - 理由: タスク説明には「quoted/bare の判定ロジックを共有 or 抽出する必要があり」と書かれており、block scalar への言及がない。frontmatter で wikilink を block scalar に書くケースは現実的にほぼ無く（バグ報告も bare 行の `#` コメント）、案B は再走査ロジック追加で複雑性が増す。仕様に書かれていない範囲の改善は YAGNI として後回し。実害が出たら同 helper を `yaml.Node.Style` 参照に拡張する形で対応可能（Later タスク化はせず、必要時にバックログ追加で十分）
 
+### 2026-05-07 - add_test 既存ヘルパー検証の fixture 拡張方法
+
+- 対象タスク: `add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張
+- 論点: `frontmatter_wikilink` edge を持つ状態で `TestAddAutoDisambiguateDBUpdated` / `TestAddAutoDisambiguateRebuildConsistent` を流すために、既存 `vault_add_disambiguate/A.md` に frontmatter を追記するか、別 vault を新設するか
+- 選択肢:
+  - 案A: `vault_add_disambiguate/A.md` に frontmatter wikilink を追記し、既存 12 箇所のテスト（特に `TestAddAutoDisambiguateBasic` の行リテラル検証 + `Rewritten = 5` 期待値、`TestAddAutoDisambiguateExtensionPreserved` 等）の期待値を連動更新 — 「1 vault で auto-disambiguate の挙動を網羅する」整合性を優先
+  - 案B: 別 vault `vault_add_disambiguate_frontmatter` を新設し、新規テスト 2 本（DBUpdated / RebuildConsistent 相当）でフィルタ統一の検証強化を担う。既存テストはフィルタ修正のみ（`isPathLinkType` 統一）に留める — 「フィクスチャの責務をテーマ別に分割し、既存テスト群への副作用を避ける」局所修正を優先
+- 選んだ案: 案B
+- 理由: `vault_add_disambiguate/A.md` を変更すると `TestAddAutoDisambiguateBasic` が行番号ベースで A.md 内容を直接アサートしている (`lines[0]..lines[4]`)、`Rewritten = 5` を hard-code、`TestAddAutoDisambiguateExtensionPreserved`/`InlineCodeIgnored`/`Embed` 等が独自に A.md を上書きしているなど、影響範囲が大きい。前ループの simplify でも同パターン（別 vault `vault_simplify_frontmatter` 新設）を採用しており判断の一貫性が取れる。frontmatter_wikilink テーマだけを切り出した小さい vault の方が、後続の修正でも fixture 変更が局所化できる
+
 ### 2026-05-07 - LinkType 昇格時のテスト側リテラル定数化スコープ
 
 - 対象タスク: `linkType` 値を `type LinkType string` の named type に昇格して定数化

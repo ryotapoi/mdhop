@@ -669,10 +669,11 @@ func TestAddAutoDisambiguateDBUpdated(t *testing.T) {
 	// Check edges from A.md — raw_link should be rewritten.
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	for _, e := range edges {
-		if e.linkType == LinkTypeWikilink || e.linkType == LinkTypeMarkdown {
-			if isBasenameRawLink(e.rawLink, e.linkType) {
-				t.Errorf("edge raw_link %q is still a basename link after rewrite", e.rawLink)
-			}
+		if !isPathLinkType(e.linkType) {
+			continue
+		}
+		if isBasenameRawLink(e.rawLink, e.linkType) {
+			t.Errorf("edge raw_link %q is still a basename link after rewrite", e.rawLink)
 		}
 	}
 
@@ -932,10 +933,11 @@ func TestAddAutoDisambiguateRebuildConsistent(t *testing.T) {
 	// Verify the rewritten links in A.md resolve correctly.
 	edgesA := queryEdges(t, dbPath(vault), "A.md")
 	for _, e := range edgesA {
-		if e.linkType == LinkTypeWikilink || e.linkType == LinkTypeMarkdown {
-			if isBasenameRawLink(e.rawLink, e.linkType) {
-				t.Errorf("after rebuild, edge raw_link %q is still basename", e.rawLink)
-			}
+		if !isPathLinkType(e.linkType) {
+			continue
+		}
+		if isBasenameRawLink(e.rawLink, e.linkType) {
+			t.Errorf("after rebuild, edge raw_link %q is still basename", e.rawLink)
 		}
 	}
 }
@@ -1402,5 +1404,101 @@ parent: [[B]]
 	}
 	if fmEdges != 2 {
 		t.Errorf("frontmatter_wikilink edges in A.md = %d, want 2", fmEdges)
+	}
+}
+
+// vault_add_disambiguate_frontmatter has both a frontmatter wikilink and a
+// body wikilink to basename B. Adding root B.md must trigger auto-disambiguate
+// and the post-add DB edges must contain no basename rawLinks for any
+// path-resolving link type — including frontmatter_wikilink.
+func TestAddAutoDisambiguateFrontmatterDBUpdated(t *testing.T) {
+	vault := copyVault(t, "vault_add_disambiguate_frontmatter")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	var fmEdges int
+	for _, e := range edges {
+		if !isPathLinkType(e.linkType) {
+			continue
+		}
+		if isBasenameRawLink(e.rawLink, e.linkType) {
+			t.Errorf("edge raw_link %q (type %s) is still a basename link after rewrite", e.rawLink, e.linkType)
+		}
+		if e.linkType == LinkTypeFrontmatterWikilink {
+			fmEdges++
+		}
+	}
+	if fmEdges == 0 {
+		t.Error("expected at least one frontmatter_wikilink edge from A.md after rewrite")
+	}
+}
+
+// Same vault as TestAddAutoDisambiguateFrontmatterDBUpdated, but verifies that
+// a full rebuild after auto-disambiguate produces the same DB state and that
+// frontmatter_wikilink edges still resolve away from the ambiguous basename.
+func TestAddAutoDisambiguateFrontmatterRebuildConsistent(t *testing.T) {
+	vault := copyVault(t, "vault_add_disambiguate_frontmatter")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	_, err := Add(vault, AddOptions{
+		Files:            []string{"B.md"},
+		AutoDisambiguate: true,
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	addEdges := countEdges(t, dbPath(vault))
+	addNotes := countNotes(t, dbPath(vault))
+
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+
+	rebuildEdges := countEdges(t, dbPath(vault))
+	rebuildNotes := countNotes(t, dbPath(vault))
+
+	if addNotes != rebuildNotes {
+		t.Errorf("notes: add=%d, rebuild=%d", addNotes, rebuildNotes)
+	}
+	if addEdges != rebuildEdges {
+		t.Errorf("edges: add=%d, rebuild=%d", addEdges, rebuildEdges)
+	}
+
+	edgesA := queryEdges(t, dbPath(vault), "A.md")
+	var fmEdges int
+	for _, e := range edgesA {
+		if !isPathLinkType(e.linkType) {
+			continue
+		}
+		if isBasenameRawLink(e.rawLink, e.linkType) {
+			t.Errorf("after rebuild, edge raw_link %q (type %s) is still basename", e.rawLink, e.linkType)
+		}
+		if e.linkType == LinkTypeFrontmatterWikilink {
+			fmEdges++
+		}
+	}
+	if fmEdges == 0 {
+		t.Error("expected at least one frontmatter_wikilink edge from A.md after rebuild")
 	}
 }

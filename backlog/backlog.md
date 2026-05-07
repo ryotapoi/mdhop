@@ -62,7 +62,7 @@
   - **対応方針**: 行内で `#` 以降のコメント部分を除去してから `parseWikiLinks` に渡す。ただし quoted scalar 内の `#` は文字列の一部なので除外しない（`"foo # bar"` の `#` はコメントではない）。bare scalar 中の `#` のみコメントとして扱う必要があり、quoted/bare の判定ロジックを共有 or 抽出する
   - **影響範囲**: `parse.go` の `parseFrontmatterWikilinks` + 単体テスト（quoted 内 `#` は edge 化される / bare 行の `#` 以降は edge 化されない、両方の testdata）
   - **由来**: v0.7.0 frontmatter wikilink (1/2) 実装後の facts 観点レビュー SHOULD 指摘
-- [ ] `add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張（fixture 拡張 + フィルタ修正）
+- [x] `add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張（fixture 拡張 + フィルタ修正）
   - **問題**: `add_test.go:672` / `add_test.go:935` の既存テストは edge をループする際 `e.linkType == "wikilink" || e.linkType == "markdown"` で frontmatter_wikilink を見落としている。対象 vault `vault_add_disambiguate` に frontmatter_wikilink edge が無く現状実害ゼロだが、frontmatter wikilink の書き換えが basename のまま残っても検出できない
   - **対応**: (a) `vault_add_disambiguate` の既存ファイルに frontmatter wikilink を追加（または別 vault 新設）して frontmatter_wikilink edge を持つ状態にする (b) `add_test.go:672` / `add_test.go:935` のフィルタを `isPathLinkType(e.linkType)` に統一して frontmatter wikilink の書き換えも検証対象に含める
   - **影響範囲**: testdata 拡張 + add_test.go の 2 箇所のフィルタ修正
