@@ -11,7 +11,7 @@ type linkOccur struct {
 	target     string
 	isBasename bool
 	isRelative bool
-	linkType   string // "wikilink", "markdown", "tag", "frontmatter", "frontmatter_wikilink"
+	linkType   LinkType
 	rawLink    string
 	subpath    string
 	lineStart  int
@@ -149,7 +149,7 @@ func parseWikiLinks(line string, lineNum int) []linkOccur {
 				target:     "",
 				isBasename: false,
 				isRelative: false,
-				linkType:   "wikilink",
+				linkType:   LinkTypeWikilink,
 				rawLink:    rawLink,
 				subpath:    subpath,
 				lineStart:  lineNum,
@@ -160,7 +160,7 @@ func parseWikiLinks(line string, lineNum int) []linkOccur {
 				target:     normalizeBasename(target),
 				isBasename: isBasenameLink(target),
 				isRelative: isRelativePath(target),
-				linkType:   "wikilink",
+				linkType:   LinkTypeWikilink,
 				rawLink:    rawLink,
 				subpath:    subpath,
 				lineStart:  lineNum,
@@ -204,7 +204,7 @@ func parseMarkdownLinks(line string, lineNum int) []linkOccur {
 				target:     normalizeBasename(target),
 				isBasename: isBasenameLink(target),
 				isRelative: isRelativePath(target),
-				linkType:   "markdown",
+				linkType:   LinkTypeMarkdown,
 				rawLink:    rawLink,
 				subpath:    subpath,
 				lineStart:  lineNum,
@@ -292,7 +292,7 @@ func parseTags(line string, lineNum int) []linkOccur {
 				target:     "#" + prefix,
 				isBasename: false,
 				isRelative: false,
-				linkType:   "tag",
+				linkType:   LinkTypeTag,
 				rawLink:    "#" + prefix,
 				subpath:    "",
 				lineStart:  lineNum,
@@ -402,7 +402,7 @@ func parseFrontmatterWikilinks(rawLines []string, startIdx, endIdx int) []linkOc
 		lineNum := j + 1 // 1-based file line
 		line := rawLines[j]
 		for _, l := range parseWikiLinks(line, lineNum) {
-			l.linkType = "frontmatter_wikilink"
+			l.linkType = LinkTypeFrontmatterWikilink
 			out = append(out, l)
 		}
 	}
@@ -453,7 +453,7 @@ func expandFrontmatterTag(normalized string, fileLine int, out []linkOccur) []li
 		prefix := "#" + strings.Join(parts[:j+1], "/")
 		out = append(out, linkOccur{
 			target:    prefix,
-			linkType:  "frontmatter",
+			linkType:  LinkTypeFrontmatter,
 			rawLink:   prefix,
 			lineStart: fileLine,
 			lineEnd:   fileLine,

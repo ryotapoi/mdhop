@@ -36,6 +36,19 @@ const (
 	NodeTypeTag     NodeType = "tag"
 )
 
+// LinkType is the value set of the `edges.link_type` column. Same
+// convention as NodeType: Go code uses these constants, while SQL
+// literals such as `'wikilink'` keep the same string values.
+type LinkType string
+
+const (
+	LinkTypeWikilink            LinkType = "wikilink"
+	LinkTypeMarkdown            LinkType = "markdown"
+	LinkTypeTag                 LinkType = "tag"
+	LinkTypeFrontmatter         LinkType = "frontmatter"
+	LinkTypeFrontmatterWikilink LinkType = "frontmatter_wikilink"
+)
+
 func dbPath(vaultPath string) string {
 	return filepath.Join(vaultPath, dataDirName, dbFileName)
 }
@@ -287,11 +300,11 @@ func queryMetaByNode(db dbExecer, nodeID int64) ([]MetaRow, error) {
 	return result, rows.Err()
 }
 
-func insertEdge(db dbExecer, sourceID, targetID int64, linkType, rawLink, subpath string, lineStart, lineEnd int) error {
+func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, subpath string, lineStart, lineEnd int) error {
 	_, err := db.Exec(
 		`INSERT INTO edges (source_id, target_id, link_type, raw_link, subpath, line_start, line_end)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		sourceID, targetID, linkType, rawLink, subpath, lineStart, lineEnd,
+		sourceID, targetID, string(linkType), rawLink, subpath, lineStart, lineEnd,
 	)
 	return err
 }

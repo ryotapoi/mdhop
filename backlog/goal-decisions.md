@@ -30,3 +30,14 @@
 - マスターが「妥当」と返せば履歴として残るだけ、「妥当でない」と返せばマスター指示で別タスク化や修正コミットが入る
 
 派生タスクは `goal-decisions.md` には書かず、`backlog/backlog.md` に追記する（→ `.claude/goal/workflow.md`「Task SSoT」）。
+
+### 2026-05-07 - LinkType 昇格時のテスト側リテラル定数化スコープ
+
+- 対象タスク: `linkType` 値を `type LinkType string` の named type に昇格して定数化
+- 論点: テストファイル内に残る `linkType` リテラルのうち、どこまでを `LinkType` 定数参照に置換するか
+- 選択肢:
+  - 案A: テストの `==` / `!=` 直接比較のみ定数化し、`filterByType(links, "wikilink")` のような関数引数や `t.Errorf("... want wikilink", ...)` の出力テキストはそのまま — 「型昇格の意図はテストの比較に行き渡らせるが、untyped const → LinkType の暗黙変換が成立する箇所は文字列リテラルでも害がない」局所修正を優先
+  - 案B: テスト内に現れる `wikilink`/`markdown`/`tag`/`frontmatter`/`frontmatter_wikilink` の文字列リテラルすべてを定数に置換 — 「テストでも意図を 100% 徹底する」整合性を優先
+- 選んだ案: 案A
+- 理由: NodeType 昇格時に Later タスクとして残った「テスト側の untyped string リテラル比較の定数化」（backlog/backlog.md Later 節）と同じ構造だが、今回は比較箇所までは即時対応した。`filterByType` 引数は untyped const として呼出時に `LinkType` へ自動変換されるため、定数化しなくても型安全性は失われない。`t.Errorf` のメッセージ文字列は人間向け出力で型ではないため対象外。残った文字列リテラルでも将来の追加（例えば 6 種類目の linkType）でテストが壊れる経路は無い
+

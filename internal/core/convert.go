@@ -102,12 +102,12 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 
 			switch opts.ToFormat {
 			case "wikilink":
-				if lo.linkType != "markdown" {
+				if lo.linkType != LinkTypeMarkdown {
 					continue
 				}
 				newRawLink = convertMarkdownToWikilink(lo.rawLink)
 			case "markdown":
-				if lo.linkType != "wikilink" {
+				if lo.linkType != LinkTypeWikilink {
 					continue
 				}
 				newRawLink = convertWikilinkToMarkdown(lo.rawLink, isAssetTarget)
@@ -344,7 +344,7 @@ func parseMarkdownSelfLinks(line string, lineNum int) []linkOccur {
 				target:     "",
 				isBasename: false,
 				isRelative: false,
-				linkType:   "markdown",
+				linkType:   LinkTypeMarkdown,
 				rawLink:    rawLink,
 				subpath:    rawTarget,
 				lineStart:  lineNum,

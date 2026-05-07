@@ -61,7 +61,7 @@ func TestApplyFileRewritesPreservesPermission(t *testing.T) {
 			{
 				edgeID:     1,
 				rawLink:    "[[OldTarget]]",
-				linkType:   "wikilink",
+				linkType:   LinkTypeWikilink,
 				lineStart:  1,
 				sourcePath: filePath,
 				sourceID:   100,

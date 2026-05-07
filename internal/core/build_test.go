@@ -17,7 +17,7 @@ type edgeRow struct {
 	targetKey  string
 	targetType NodeType
 	targetName string
-	linkType   string
+	linkType   LinkType
 	rawLink    string
 	subpath    string
 	lineStart  int
@@ -342,7 +342,7 @@ func TestBuildEdgesWikilink(t *testing.T) {
 	var foundB, foundC, foundD, foundSelf, foundAbsB bool
 	for _, e := range edges {
 		switch {
-		case e.linkType == "wikilink" && e.targetName == "B" && e.rawLink == "[[B]]":
+		case e.linkType == LinkTypeWikilink && e.targetName == "B" && e.rawLink == "[[B]]":
 			foundB = true
 			if e.targetType != NodeTypeNote {
 				t.Errorf("B should be note, got %s", e.targetType)
@@ -350,17 +350,17 @@ func TestBuildEdgesWikilink(t *testing.T) {
 			if e.lineStart != 3 {
 				t.Errorf("B lineStart = %d, want 3", e.lineStart)
 			}
-		case e.linkType == "markdown" && e.targetName == "C" && e.rawLink == "[C](sub/C.md)":
+		case e.linkType == LinkTypeMarkdown && e.targetName == "C" && e.rawLink == "[C](sub/C.md)":
 			foundC = true
 			if e.targetType != NodeTypeNote {
 				t.Errorf("C should be note, got %s", e.targetType)
 			}
-		case e.linkType == "wikilink" && e.targetName == "D":
+		case e.linkType == LinkTypeWikilink && e.targetName == "D":
 			foundD = true
 			if e.targetType != NodeTypePhantom {
 				t.Errorf("D should be phantom, got %s", e.targetType)
 			}
-		case e.linkType == "wikilink" && e.subpath == "#Heading":
+		case e.linkType == LinkTypeWikilink && e.subpath == "#Heading":
 			foundSelf = true
 			if e.targetType != NodeTypeNote {
 				t.Errorf("self-edge target should be note, got %s", e.targetType)
@@ -369,7 +369,7 @@ func TestBuildEdgesWikilink(t *testing.T) {
 			if e.targetKey != noteKey("A.md") {
 				t.Errorf("self-edge target key = %s, want %s", e.targetKey, noteKey("A.md"))
 			}
-		case e.linkType == "markdown" && e.rawLink == "[link](/sub/B.md)":
+		case e.linkType == LinkTypeMarkdown && e.rawLink == "[link](/sub/B.md)":
 			foundAbsB = true
 			if e.targetType != NodeTypeNote {
 				t.Errorf("absolute link to B should be note, got %s", e.targetType)
@@ -401,7 +401,7 @@ func TestBuildEdgesBacklink(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "sub/B.md")
 	var foundBacklink bool
 	for _, e := range edges {
-		if e.linkType == "wikilink" && e.targetName == "A" {
+		if e.linkType == LinkTypeWikilink && e.targetName == "A" {
 			foundBacklink = true
 		}
 	}
@@ -541,14 +541,14 @@ func TestBuildTagsFrontmatter(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	var foundFmTag, foundFmNested bool
 	for _, e := range edges {
-		if e.linkType == "frontmatter" && e.targetName == "#fm_tag" {
+		if e.linkType == LinkTypeFrontmatter && e.targetName == "#fm_tag" {
 			foundFmTag = true
 			// frontmatter tag at line 3 ("  - fm_tag" is YAML line 2, + offset 1 = file line 3)
 			if e.lineStart != 3 {
 				t.Errorf("fm_tag lineStart = %d, want 3", e.lineStart)
 			}
 		}
-		if e.linkType == "frontmatter" && e.targetName == "#nested/deep/tag" {
+		if e.linkType == LinkTypeFrontmatter && e.targetName == "#nested/deep/tag" {
 			foundFmNested = true
 		}
 	}
@@ -590,7 +590,7 @@ func TestBuildTagsInlineEdge(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	var foundInlineTag bool
 	for _, e := range edges {
-		if e.linkType == "tag" && e.targetName == "#simple" {
+		if e.linkType == LinkTypeTag && e.targetName == "#simple" {
 			foundInlineTag = true
 		}
 	}
@@ -627,13 +627,13 @@ func TestBuildTagsSharedAcrossFiles(t *testing.T) {
 	var aHasSimple, bHasSimple bool
 	var aTargetKey, bTargetKey string
 	for _, e := range edgesA {
-		if e.linkType == "tag" && e.targetName == "#simple" {
+		if e.linkType == LinkTypeTag && e.targetName == "#simple" {
 			aHasSimple = true
 			aTargetKey = e.targetKey
 		}
 	}
 	for _, e := range edgesB {
-		if e.linkType == "tag" && e.targetName == "#simple" {
+		if e.linkType == LinkTypeTag && e.targetName == "#simple" {
 			bHasSimple = true
 			bTargetKey = e.targetKey
 		}
@@ -736,7 +736,7 @@ func TestBuildFrontmatterWikilinkEdges(t *testing.T) {
 	}
 
 	for i, e := range edges {
-		if e.linkType != "frontmatter_wikilink" {
+		if e.linkType != LinkTypeFrontmatterWikilink {
 			t.Errorf("edge[%d] linkType = %q, want frontmatter_wikilink", i, e.linkType)
 		}
 	}
@@ -873,7 +873,7 @@ func TestBuildFullVault(t *testing.T) {
 	designEdges := queryEdges(t, dbPath(vault), "Design.md")
 	var designToIndex, designToImplSubpath bool
 	for _, e := range designEdges {
-		if e.targetKey == noteKey("Index.md") && e.linkType == "wikilink" {
+		if e.targetKey == noteKey("Index.md") && e.linkType == LinkTypeWikilink {
 			designToIndex = true
 		}
 		if e.targetKey == noteKey("sub/Impl.md") && e.subpath == "#Details" {
@@ -891,7 +891,7 @@ func TestBuildFullVault(t *testing.T) {
 	implEdges := queryEdges(t, dbPath(vault), "sub/Impl.md")
 	var implAbsToIndex bool
 	for _, e := range implEdges {
-		if e.targetKey == noteKey("Index.md") && e.linkType == "markdown" {
+		if e.targetKey == noteKey("Index.md") && e.linkType == LinkTypeMarkdown {
 			implAbsToIndex = true
 		}
 	}

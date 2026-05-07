@@ -95,7 +95,7 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 			// frontmatter wikilink rawLinks are commonly authored as full paths
 			// (e.g. parent: "[[Sub/B]]") and basename simplification there is
 			// not part of the disambiguate/simplify contract.
-			if lo.linkType != "wikilink" && lo.linkType != "markdown" {
+			if lo.linkType != LinkTypeWikilink && lo.linkType != LinkTypeMarkdown {
 				continue
 			}
 			if lo.target == "" {

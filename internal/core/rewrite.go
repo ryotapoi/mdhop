@@ -14,9 +14,9 @@ const pathLinkTypeSQLList = `'wikilink', 'markdown', 'frontmatter_wikilink'`
 
 // isPathLinkType reports whether linkType is one of the path-resolving link
 // types tracked in pathLinkTypeSQLList.
-func isPathLinkType(linkType string) bool {
+func isPathLinkType(linkType LinkType) bool {
 	switch linkType {
-	case "wikilink", "markdown", "frontmatter_wikilink":
+	case LinkTypeWikilink, LinkTypeMarkdown, LinkTypeFrontmatterWikilink:
 		return true
 	}
 	return false
@@ -33,7 +33,7 @@ type rewriteBackup struct {
 type rewriteEntry struct {
 	edgeID     int64
 	rawLink    string
-	linkType   string
+	linkType   LinkType
 	lineStart  int
 	sourcePath string
 	sourceID   int64
@@ -50,9 +50,9 @@ func buildRewritePath(targetPath string) string {
 }
 
 // rewriteRawLink replaces the target in a raw link with the rewritten path.
-func rewriteRawLink(rawLink, linkType, targetPath string) string {
+func rewriteRawLink(rawLink string, linkType LinkType, targetPath string) string {
 	switch linkType {
-	case "wikilink", "frontmatter_wikilink":
+	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
 		// rawLink: [[Target]], [[Target|alias]], [[Target#Heading]], [[Target#Heading|alias]]
 		inner := strings.TrimPrefix(rawLink, "[[")
 		inner = strings.TrimSuffix(inner, "]]")
@@ -71,7 +71,7 @@ func rewriteRawLink(rawLink, linkType, targetPath string) string {
 		newPath := buildRewritePath(targetPath)
 		return "[[" + newPath + subpath + alias + "]]"
 
-	case "markdown":
+	case LinkTypeMarkdown:
 		// rawLink: [text](url), [text](url#frag)
 		start := strings.Index(rawLink, "](")
 		if start < 0 {
@@ -225,9 +225,9 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 }
 
 // isBasenameRawLink checks if a raw_link represents a basename link (no path separators).
-func isBasenameRawLink(rawLink, linkType string) bool {
+func isBasenameRawLink(rawLink string, linkType LinkType) bool {
 	switch linkType {
-	case "wikilink", "frontmatter_wikilink":
+	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
 		// raw_link is like "[[Target]]" or "[[Target|alias]]" or "[[Target#heading]]"
 		inner := strings.TrimPrefix(rawLink, "[[")
 		inner = strings.TrimSuffix(inner, "]]")
@@ -244,7 +244,7 @@ func isBasenameRawLink(rawLink, linkType string) bool {
 			return false
 		}
 		return !strings.Contains(inner, "/")
-	case "markdown":
+	case LinkTypeMarkdown:
 		// raw_link is like "[text](url)" or "[text](url#heading)"
 		start := strings.Index(rawLink, "](")
 		if start < 0 {

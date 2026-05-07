@@ -12,7 +12,7 @@ func TestParseWikiLinkBasic(t *testing.T) {
 	links := parseLinksSlice("# A\n\n[[B]]\n")
 	var found bool
 	for _, l := range links {
-		if l.linkType == "wikilink" && l.target == "B" && l.isBasename {
+		if l.linkType == LinkTypeWikilink && l.target == "B" && l.isBasename {
 			found = true
 			if l.rawLink != "[[B]]" {
 				t.Errorf("rawLink = %q, want [[B]]", l.rawLink)
@@ -70,7 +70,7 @@ func TestParseWikiLinkSelfHeading(t *testing.T) {
 	if l.subpath != "#Heading" {
 		t.Errorf("subpath = %q, want #Heading", l.subpath)
 	}
-	if l.linkType != "wikilink" {
+	if l.linkType != LinkTypeWikilink {
 		t.Errorf("linkType = %q, want wikilink", l.linkType)
 	}
 }
@@ -96,7 +96,7 @@ func TestParseMarkdownLink(t *testing.T) {
 		t.Fatalf("expected 1 link, got %d", len(links))
 	}
 	l := links[0]
-	if l.linkType != "markdown" {
+	if l.linkType != LinkTypeMarkdown {
 		t.Errorf("linkType = %q, want markdown", l.linkType)
 	}
 	if l.target != "sub/C" {
@@ -857,7 +857,7 @@ func TestParseFrontmatterMetaNullValues(t *testing.T) {
 	}
 }
 
-func filterByType(links []linkOccur, linkType string) []linkOccur {
+func filterByType(links []linkOccur, linkType LinkType) []linkOccur {
 	var out []linkOccur
 	for _, l := range links {
 		if l.linkType == linkType {

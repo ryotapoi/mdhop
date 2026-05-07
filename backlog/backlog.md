@@ -46,7 +46,7 @@
   - **影響範囲**: 5 コマンドそれぞれにテスト追加（rawLink 一意マッチ、alias 保持、subpath 保持、quoted 保持、bare 保持）
   - **由来**: backlog v0.7.0「frontmatter 内 wikilink 対応」を解析側 / 書き換え側に分割した片方
 - [x] サンプルスキル更新（`examples/skills/` 配下を最新仕様に合わせる。リリース直前に実施）
-- [ ] `linkType` 値を `type LinkType string` の named type に昇格して定数化
+- [x] `linkType` 値を `type LinkType string` の named type に昇格して定数化
   - **問題**: 現状 `linkType` は文字列リテラル直書き（`"wikilink"` / `"markdown"` / `"tag"` / `"frontmatter"` / `"frontmatter_wikilink"`）で、`build.go`、`resolve.go`、`parse.go`、`rewrite.go`、書き換え系コマンド群（add/move/update/disambiguate/simplify/repair/convert）に分散している。frontmatter wikilink 実装で 4 → 5 種類に増えた直接の派生課題
   - **対応**: NodeType 昇格と同パターン。`type LinkType string` を `parse.go` または `db.go` に定義し、定数を昇格。`linkOccur.linkType` フィールドの型と既存比較箇所すべてを `LinkType` 定数参照に置き換える。`pathLinkTypeSQLList` / `isPathLinkType` も型ベースに置き換え
   - **影響範囲**: 全 linkType 比較箇所（核モジュール + 書き換え系 7 ファイル）と関連テスト

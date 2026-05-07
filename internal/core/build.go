@@ -224,7 +224,7 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps
 	}
 
 	// Tag or frontmatter tag
-	if link.linkType == "tag" || link.linkType == "frontmatter" {
+	if link.linkType == LinkTypeTag || link.linkType == LinkTypeFrontmatter {
 		id, err := upsertTag(db, link.target)
 		if err != nil {
 			return 0, "", err
@@ -255,7 +255,7 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps
 	}
 
 	// Wikilink with vault-relative path (contains /, not relative): [[path/to/Note]]
-	if (link.linkType == "wikilink" || link.linkType == "frontmatter_wikilink") && !link.isBasename {
+	if (link.linkType == LinkTypeWikilink || link.linkType == LinkTypeFrontmatterWikilink) && !link.isBasename {
 		return resolvePathTarget(db, target, link, rm)
 	}
 

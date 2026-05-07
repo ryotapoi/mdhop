@@ -52,7 +52,7 @@ func TestAddNewFile(t *testing.T) {
 	// Check wikilink to A.
 	var hasA bool
 	for _, e := range edges {
-		if e.targetName == "A" && e.linkType == "wikilink" {
+		if e.targetName == "A" && e.linkType == LinkTypeWikilink {
 			hasA = true
 		}
 	}
@@ -63,7 +63,7 @@ func TestAddNewFile(t *testing.T) {
 	// Check tag edge.
 	var hasTag bool
 	for _, e := range edges {
-		if e.targetName == "#newtag" && e.linkType == "tag" {
+		if e.targetName == "#newtag" && e.linkType == LinkTypeTag {
 			hasTag = true
 		}
 	}
@@ -669,7 +669,7 @@ func TestAddAutoDisambiguateDBUpdated(t *testing.T) {
 	// Check edges from A.md — raw_link should be rewritten.
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	for _, e := range edges {
-		if e.linkType == "wikilink" || e.linkType == "markdown" {
+		if e.linkType == LinkTypeWikilink || e.linkType == LinkTypeMarkdown {
 			if isBasenameRawLink(e.rawLink, e.linkType) {
 				t.Errorf("edge raw_link %q is still a basename link after rewrite", e.rawLink)
 			}
@@ -932,7 +932,7 @@ func TestAddAutoDisambiguateRebuildConsistent(t *testing.T) {
 	// Verify the rewritten links in A.md resolve correctly.
 	edgesA := queryEdges(t, dbPath(vault), "A.md")
 	for _, e := range edgesA {
-		if e.linkType == "wikilink" || e.linkType == "markdown" {
+		if e.linkType == LinkTypeWikilink || e.linkType == LinkTypeMarkdown {
 			if isBasenameRawLink(e.rawLink, e.linkType) {
 				t.Errorf("after rebuild, edge raw_link %q is still basename", e.rawLink)
 			}
@@ -1392,7 +1392,7 @@ parent: [[B]]
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	var fmEdges int
 	for _, e := range edges {
-		if e.linkType != "frontmatter_wikilink" {
+		if e.linkType != LinkTypeFrontmatterWikilink {
 			continue
 		}
 		fmEdges++

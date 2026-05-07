@@ -71,7 +71,7 @@ func TestUpdateContentChange(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	var hasB bool
 	for _, e := range edges {
-		if e.targetName == "B" && e.linkType == "wikilink" {
+		if e.targetName == "B" && e.linkType == LinkTypeWikilink {
 			hasB = true
 		}
 	}
@@ -96,10 +96,10 @@ func TestUpdateContentChange(t *testing.T) {
 	edges = queryEdges(t, dbPath(vault), "A.md")
 	var hasBAfter, hasCAfter bool
 	for _, e := range edges {
-		if e.targetName == "B" && e.linkType == "wikilink" {
+		if e.targetName == "B" && e.linkType == LinkTypeWikilink {
 			hasBAfter = true
 		}
-		if e.targetName == "C" && e.linkType == "wikilink" {
+		if e.targetName == "C" && e.linkType == LinkTypeWikilink {
 			hasCAfter = true
 		}
 	}
@@ -361,12 +361,12 @@ func TestUpdateMultipleFiles(t *testing.T) {
 	edgesB := queryEdges(t, dbPath(vault), "B.md")
 	var aToC, bToC bool
 	for _, e := range edgesA {
-		if e.targetName == "C" && e.linkType == "wikilink" {
+		if e.targetName == "C" && e.linkType == LinkTypeWikilink {
 			aToC = true
 		}
 	}
 	for _, e := range edgesB {
-		if e.targetName == "C" && e.linkType == "wikilink" {
+		if e.targetName == "C" && e.linkType == LinkTypeWikilink {
 			bToC = true
 		}
 	}

@@ -91,7 +91,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 	}
 
 	// Tag or frontmatter tag
-	if link.linkType == "tag" || link.linkType == "frontmatter" {
+	if link.linkType == LinkTypeTag || link.linkType == LinkTypeFrontmatter {
 		key := tagKey(link.target)
 		id, err := getNodeID(db, key)
 		if err != nil {
@@ -126,7 +126,7 @@ func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, s
 	}
 
 	// Wikilink with vault-relative path (contains /, not relative): [[path/to/Note]]
-	if (link.linkType == "wikilink" || link.linkType == "frontmatter_wikilink") && !link.isBasename {
+	if (link.linkType == LinkTypeWikilink || link.linkType == LinkTypeFrontmatterWikilink) && !link.isBasename {
 		return resolvePathFromDB(db, target, link)
 	}
 

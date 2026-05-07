@@ -608,9 +608,9 @@ func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedN
 // rewriteOutgoingRelativeLink rewrites a relative link in the moved file
 // from the old path perspective to the new path perspective.
 // If movedFromTo is non-nil, it also checks whether the target was moved.
-func rewriteOutgoingRelativeLink(rawLink, linkType, from, to string, movedFromTo map[string]string) (string, error) {
+func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to string, movedFromTo map[string]string) (string, error) {
 	switch linkType {
-	case "wikilink", "frontmatter_wikilink":
+	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
 		inner := strings.TrimPrefix(rawLink, "[[")
 		inner = strings.TrimSuffix(inner, "]]")
 
@@ -658,7 +658,7 @@ func rewriteOutgoingRelativeLink(rawLink, linkType, from, to string, movedFromTo
 
 		return "[[" + rel + subpath + alias + "]]", nil
 
-	case "markdown":
+	case LinkTypeMarkdown:
 		start := strings.Index(rawLink, "](")
 		if start < 0 {
 			return rawLink, nil

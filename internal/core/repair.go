@@ -80,7 +80,7 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 			// basename form, but frontmatter wikilinks are routinely authored
 			// as full vault-relative paths and "broken" detection there would
 			// produce noisy rewrites that change YAML semantics.
-			if lo.linkType != "wikilink" && lo.linkType != "markdown" {
+			if lo.linkType != LinkTypeWikilink && lo.linkType != LinkTypeMarkdown {
 				continue
 			}
 			if lo.target == "" {

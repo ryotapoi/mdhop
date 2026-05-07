@@ -194,7 +194,7 @@ func TestMove_BasenameUnchanged(t *testing.T) {
 	edges := queryEdges(t, dbp, "B.md")
 	var hasLinkToA bool
 	for _, e := range edges {
-		if e.targetName == "A" && e.linkType == "wikilink" && e.rawLink == "[[A]]" {
+		if e.targetName == "A" && e.linkType == LinkTypeWikilink && e.rawLink == "[[A]]" {
 			hasLinkToA = true
 		}
 	}
@@ -2754,7 +2754,7 @@ func TestMove_FrontmatterWikilink_BasenameChange(t *testing.T) {
 		"[[NewB#Heading]]": true,
 	}
 	for _, e := range edges {
-		if e.linkType != "frontmatter_wikilink" {
+		if e.linkType != LinkTypeFrontmatterWikilink {
 			continue
 		}
 		if e.rawLink == "[[B]]" || e.rawLink == "[[B#Heading]]" {
@@ -2856,7 +2856,7 @@ func TestMove_FrontmatterWikilink_RelativeLinkInMovedNote(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "new/RelA.md")
 	var edgePointsToTarget bool
 	for _, e := range edges {
-		if e.linkType != "frontmatter_wikilink" {
+		if e.linkType != LinkTypeFrontmatterWikilink {
 			continue
 		}
 		if e.rawLink == "[[./Target]]" {
