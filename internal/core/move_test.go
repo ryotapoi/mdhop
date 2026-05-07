@@ -2802,3 +2802,71 @@ func TestMove_FrontmatterWikilink_AliasPreserved(t *testing.T) {
 		t.Errorf("A.md should contain quoted alias link, got:\n%s", content)
 	}
 }
+
+// Moving a note that itself contains a relative frontmatter wikilink must
+// rewrite that link from the old location's perspective to the new location's.
+// Without this rewrite the frontmatter relative link silently breaks: the disk
+// file keeps the stale path and the DB edge becomes a phantom.
+func TestMove_FrontmatterWikilink_RelativeLinkInMovedNote(t *testing.T) {
+	vault := copyVault(t, "vault_build_frontmatter_wikilink")
+	if err := os.MkdirAll(filepath.Join(vault, "old"), 0o755); err != nil {
+		t.Fatalf("mkdir old: %v", err)
+	}
+	relA := "---\nrel: \"[[./Target]]\"\n---\nbody\n"
+	if err := os.WriteFile(filepath.Join(vault, "old", "RelA.md"), []byte(relA), 0o644); err != nil {
+		t.Fatalf("write old/RelA.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "old", "Target.md"), []byte("# Target\n"), 0o644); err != nil {
+		t.Fatalf("write old/Target.md: %v", err)
+	}
+
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "old/RelA.md", To: "new/RelA.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	var sawRewrite bool
+	for _, rw := range result.Rewritten {
+		if rw.File == "new/RelA.md" && rw.OldLink == "[[./Target]]" {
+			sawRewrite = true
+			if rw.NewLink != "[[../old/Target]]" {
+				t.Errorf("relative frontmatter wikilink rewrite: got %q, want [[../old/Target]]", rw.NewLink)
+			}
+		}
+	}
+	if !sawRewrite {
+		t.Errorf("moved note should rewrite [[./Target]] frontmatter wikilink, rewrites: %+v", result.Rewritten)
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "new", "RelA.md"))
+	if err != nil {
+		t.Fatalf("read new/RelA.md: %v", err)
+	}
+	if !strings.Contains(string(content), `rel: "[[../old/Target]]"`) {
+		t.Errorf("new/RelA.md should contain rewritten relative link, got:\n%s", content)
+	}
+	if strings.Contains(string(content), `[[./Target]]`) {
+		t.Errorf("new/RelA.md must not retain stale link [[./Target]], got:\n%s", content)
+	}
+
+	edges := queryEdges(t, dbPath(vault), "new/RelA.md")
+	var edgePointsToTarget bool
+	for _, e := range edges {
+		if e.linkType != "frontmatter_wikilink" {
+			continue
+		}
+		if e.rawLink == "[[./Target]]" {
+			t.Errorf("DB edge still has stale rawLink %q after move", e.rawLink)
+		}
+		if e.rawLink == "[[../old/Target]]" {
+			edgePointsToTarget = true
+		}
+	}
+	if !edgePointsToTarget {
+		t.Errorf("DB should contain frontmatter_wikilink edge with rawLink [[../old/Target]] from new/RelA.md, got edges: %+v", edges)
+	}
+}

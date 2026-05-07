@@ -610,7 +610,7 @@ func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedN
 // If movedFromTo is non-nil, it also checks whether the target was moved.
 func rewriteOutgoingRelativeLink(rawLink, linkType, from, to string, movedFromTo map[string]string) (string, error) {
 	switch linkType {
-	case "wikilink":
+	case "wikilink", "frontmatter_wikilink":
 		inner := strings.TrimPrefix(rawLink, "[[")
 		inner = strings.TrimSuffix(inner, "]]")
 
