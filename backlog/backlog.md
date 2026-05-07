@@ -51,7 +51,7 @@
   - **対応**: NodeType 昇格と同パターン。`type LinkType string` を `parse.go` または `db.go` に定義し、定数を昇格。`linkOccur.linkType` フィールドの型と既存比較箇所すべてを `LinkType` 定数参照に置き換える。`pathLinkTypeSQLList` / `isPathLinkType` も型ベースに置き換え
   - **影響範囲**: 全 linkType 比較箇所（核モジュール + 書き換え系 7 ファイル）と関連テスト
   - **由来**: `goal-decisions.md` 2026-05-07「linkType 文字列リテラル直書きの増殖を今回スコープ外として残した」案B として切り出し
-- [ ] `simplify` を frontmatter wikilink 対応に拡張
+- [x] `simplify` を frontmatter wikilink 対応に拡張
   - **問題**: `simplify.go:98` の `lo.linkType != "wikilink" && lo.linkType != "markdown"` フィルタで `frontmatter_wikilink` を意図的に除外している。利用者から見ると「frontmatter の `[[notes/foo]]` が `[[foo]]` に簡略化されない」のは v0.7.0 の機能期待に反する
   - **対応**: フィルタを `!isPathLinkType(...)` に変更し、frontmatter wikilink も `simplify` の対象に含める。frontmatter wikilink を含む vault でテスト追加
   - **影響範囲**: `simplify.go` + 新 fixture / テスト。書き換えは既存 `rewriteRawLink`（`frontmatter_wikilink` 対応済み）を流用するため簡略化ロジック自体に変更なし

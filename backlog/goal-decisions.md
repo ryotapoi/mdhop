@@ -31,6 +31,16 @@
 
 派生タスクは `goal-decisions.md` には書かず、`backlog/backlog.md` に追記する（→ `.claude/goal/workflow.md`「Task SSoT」）。
 
+### 2026-05-07 - simplify frontmatter wikilink テスト用 vault の場所
+
+- 対象タスク: `simplify` を frontmatter wikilink 対応に拡張
+- 論点: frontmatter wikilink を含む simplify テストの fixture を、既存 `testdata/vault_simplify` に追加するか別 vault として新設するか
+- 選択肢:
+  - 案A: 既存 `vault_simplify` に frontmatter wikilink 入りファイルを追記 — 「1 vault で simplify の挙動を網羅する」整合性を優先
+  - 案B: 別 vault `vault_simplify_frontmatter` を新設 — 「フィクスチャの責務をテーマ別に分割し、既存テスト（A.md / sub/B.md など）への副作用を避ける」局所修正を優先
+- 選んだ案: 案B
+- 理由: `vault_simplify` 既存ファイルに frontmatter を後付けすると、TestSimplifyDryRun / TestSimplifyInlineCodeIgnored など既存ファイルの内容を直接検証するテストの期待値が連動して変わるリスクがある。frontmatter wikilink テーマだけを切り出した小さい vault の方が、後続ループの修正（YAML コメント除外バグ等）でも fixture 変更が局所化できる
+
 ### 2026-05-07 - LinkType 昇格時のテスト側リテラル定数化スコープ
 
 - 対象タスク: `linkType` 値を `type LinkType string` の named type に昇格して定数化

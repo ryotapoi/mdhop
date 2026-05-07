@@ -497,6 +497,91 @@ func TestSimplifyFileScopeNotFound(t *testing.T) {
 	}
 }
 
+func TestSimplifyFrontmatterWikilink(t *testing.T) {
+	tmp := t.TempDir()
+	if err := testutil.CopyDir("../../testdata/vault_simplify_frontmatter", tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := map[string]string{}
+	for _, r := range result.Rewritten {
+		if r.File == "Index.md" {
+			found[r.OldLink] = r.NewLink
+		}
+	}
+
+	// Quoted scalar wikilink rewritten to basename.
+	if got, ok := found["[[sub/B]]"]; !ok || got != "[[B]]" {
+		t.Errorf("expected [[sub/B]] → [[B]], got %q (ok=%v)", got, ok)
+	}
+	// Alias preserved.
+	if got, ok := found["[[sub/C|alias C]]"]; !ok || got != "[[C|alias C]]" {
+		t.Errorf("expected [[sub/C|alias C]] → [[C|alias C]], got %q (ok=%v)", got, ok)
+	}
+	// Subpath preserved.
+	if got, ok := found["[[sub/B#Heading]]"]; !ok || got != "[[B#Heading]]" {
+		t.Errorf("expected [[sub/B#Heading]] → [[B#Heading]], got %q (ok=%v)", got, ok)
+	}
+
+	// Ambiguous frontmatter wikilink should be skipped, not rewritten.
+	if _, ok := found["[[dir1/M]]"]; ok {
+		t.Error("[[dir1/M]] in frontmatter should not be simplified (ambiguous)")
+	}
+	var ambiguousReported bool
+	for _, s := range result.Skipped {
+		if s.File == "Index.md" && s.RawLink == "[[dir1/M]]" {
+			ambiguousReported = true
+			if len(s.Candidates) != 2 {
+				t.Errorf("expected 2 candidates for [[dir1/M]], got %d: %v", len(s.Candidates), s.Candidates)
+			}
+		}
+	}
+	if !ambiguousReported {
+		t.Error("expected ambiguous frontmatter [[dir1/M]] in skipped list")
+	}
+}
+
+func TestSimplifyFrontmatterWikilinkApplied(t *testing.T) {
+	tmp := t.TempDir()
+	if err := testutil.CopyDir("../../testdata/vault_simplify_frontmatter", tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := core.Simplify(tmp, core.SimplifyOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(tmp, "Index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(content)
+
+	// Quoted style preserved (still wrapped in "...").
+	if !strings.Contains(got, `parent: "[[B]]"`) {
+		t.Errorf("expected parent rewritten to quoted [[B]], got:\n%s", got)
+	}
+	if !strings.Contains(got, `"[[C|alias C]]"`) {
+		t.Errorf("expected [[sub/C|alias C]] rewritten with alias preserved, got:\n%s", got)
+	}
+	if !strings.Contains(got, `"[[B#Heading]]"`) {
+		t.Errorf("expected [[sub/B#Heading]] rewritten with subpath preserved, got:\n%s", got)
+	}
+	// Ambiguous untouched.
+	if !strings.Contains(got, `ambiguous: "[[dir1/M]]"`) {
+		t.Errorf("expected ambiguous [[dir1/M]] untouched, got:\n%s", got)
+	}
+	// Body wikilink also rewritten.
+	if !strings.Contains(got, "Body link to keep behavior consistent: [[B]]") {
+		t.Errorf("expected body [[sub/B]] also rewritten, got:\n%s", got)
+	}
+}
+
 // writeFile is a test helper that writes content to a file relative to dir.
 func writeFile(t *testing.T, dir, rel, content string) {
 	t.Helper()
