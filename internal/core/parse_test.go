@@ -508,6 +508,26 @@ func TestParseFrontmatterWikilinkKeepsHashInsideQuoted(t *testing.T) {
 	}
 }
 
+func TestParseFrontmatterWikilinkBlockScalarKeepsHash(t *testing.T) {
+	// Inside a `key: |` block scalar, '#' is part of the value, not a YAML
+	// comment, so "# [[B]]" must be detected as a frontmatter wikilink.
+	// ADR 0013 explicitly lists block scalar coverage as a positive
+	// consequence of raw-range scanning.
+	content := "---\nnote: |\n  # [[B]] is content in a block scalar\n  trailing\nfolded: >\n  # [[C]] folded scalar\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 2 {
+		t.Fatalf("expected 2 frontmatter wikilinks (B,C inside block scalars), got %d: %+v", len(fmw), fmw)
+	}
+	got := map[string]bool{}
+	for _, l := range fmw {
+		got[l.target] = true
+	}
+	if !got["B"] || !got["C"] {
+		t.Errorf("expected both B and C, got %+v", fmw)
+	}
+}
+
 func TestParseFrontmatterWikilinkCommentAfterQuoted(t *testing.T) {
 	// A YAML comment after a closed quoted scalar must strip "[[X]]" inside
 	// the comment, while preserving the quoted "[[B]]" before it.

@@ -349,6 +349,7 @@ func parseFrontmatter(lines []string) ([]linkOccur, []FrontmatterEntry) {
 
 	var out []linkOccur
 	var meta []FrontmatterEntry
+	blockScalarLines := collectBlockScalarLines(mapping.Content, len(lines))
 	for i := 0; i < len(mapping.Content)-1; i += 2 {
 		key := mapping.Content[i]
 		val := mapping.Content[i+1]
@@ -362,9 +363,42 @@ func parseFrontmatter(lines []string) ([]linkOccur, []FrontmatterEntry) {
 		// handle bare [[note]] (parsed as nested flow seq), quoted "[[note]]"
 		// (parsed as scalar), and array forms uniformly.
 		startIdx, endIdx := frontmatterEntryRange(mapping.Content, i, len(lines))
-		out = append(out, parseFrontmatterWikilinks(lines, startIdx, endIdx)...)
+		out = append(out, parseFrontmatterWikilinks(lines, startIdx, endIdx, blockScalarLines)...)
 	}
 	return out, meta
+}
+
+// collectBlockScalarLines returns the set of file line numbers (1-based) that
+// fall inside a YAML block scalar value (`key: |` / `key: >`). Inside a block
+// scalar, '#' is part of the value, not a comment, so callers must skip
+// stripYAMLComment for these lines (ADR 0013).
+//
+// yaml.Node.Line is 1-based against the yaml body which starts at lines[1],
+// so file line = node.Line + 1.
+func collectBlockScalarLines(content []*yaml.Node, totalLines int) map[int]bool {
+	out := map[int]bool{}
+	for i := 0; i < len(content)-1; i += 2 {
+		val := content[i+1]
+		if val.Kind != yaml.ScalarNode {
+			continue
+		}
+		if val.Style != yaml.LiteralStyle && val.Style != yaml.FoldedStyle {
+			continue
+		}
+		// val.Line points at the line carrying the `|` or `>` indicator
+		// (same line as the key). The body starts on the next file line.
+		bodyStartFileLine := val.Line + 2
+		// bodyEnd: last file line inside this entry (exclude closing "---" and next key).
+		bodyEndFileLine := totalLines - 1 // exclude closing "---"; lines[totalLines-1] is "---" at file line totalLines
+		if i+2 < len(content) {
+			// next key file line = content[i+2].Line + 1; body ends one line above
+			bodyEndFileLine = content[i+2].Line
+		}
+		for ln := bodyStartFileLine; ln <= bodyEndFileLine; ln++ {
+			out[ln] = true
+		}
+	}
+	return out
 }
 
 // frontmatterEntryRange returns the index range [startIdx, endIdx) within
@@ -396,11 +430,14 @@ func frontmatterEntryRange(content []*yaml.Node, i, totalLines int) (int, int) {
 //
 // rawLines includes the opening and closing "---" of frontmatter. startIdx /
 // endIdx are 0-based indices into rawLines.
-func parseFrontmatterWikilinks(rawLines []string, startIdx, endIdx int) []linkOccur {
+func parseFrontmatterWikilinks(rawLines []string, startIdx, endIdx int, blockScalarLines map[int]bool) []linkOccur {
 	var out []linkOccur
 	for j := startIdx; j < endIdx; j++ {
 		lineNum := j + 1 // 1-based file line
-		line := stripYAMLComment(rawLines[j])
+		line := rawLines[j]
+		if !blockScalarLines[lineNum] {
+			line = stripYAMLComment(line)
+		}
 		for _, l := range parseWikiLinks(line, lineNum) {
 			l.linkType = LinkTypeFrontmatterWikilink
 			out = append(out, l)

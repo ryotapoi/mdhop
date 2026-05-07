@@ -61,6 +61,17 @@
 - 選んだ案: 案B
 - 理由: `vault_add_disambiguate/A.md` を変更すると `TestAddAutoDisambiguateBasic` が行番号ベースで A.md 内容を直接アサートしている (`lines[0]..lines[4]`)、`Rewritten = 5` を hard-code、`TestAddAutoDisambiguateExtensionPreserved`/`InlineCodeIgnored`/`Embed` 等が独自に A.md を上書きしているなど、影響範囲が大きい。前ループの simplify でも同パターン（別 vault `vault_simplify_frontmatter` 新設）を採用しており判断の一貫性が取れる。frontmatter_wikilink テーマだけを切り出した小さい vault の方が、後続の修正でも fixture 変更が局所化できる
 
+### 2026-05-07 - 前ループ「YAML コメント除去スコープ」判断の修正（ADR 0013 違反リグレッション）
+
+- 対象タスク: frontmatter wikilink の block scalar 内 `# [[B]]` が edge 化されないリグレッションの修正
+- 論点: 直前ループ（goal-decisions「YAML コメント除去スコープ（block scalar / 複数行 quoted）」案A）で「block scalar は対象外、bare 行の `#` のみ追跡」を選んだが、レビューで ADR 0013 (`decisions/0013-frontmatter-wikilink-detection.md:43`) が「block scalar (`key: |`) も行範囲走査で自動的にカバーされる」を肯定的 Consequence として明記していると指摘された。前ループ判断は ADR を読まずに行われた誤判断
+- 選択肢:
+  - 案A: 今ループ内で修正＋テスト追加。`yaml.Node.Style` で block scalar 行範囲を判定し `stripYAMLComment` 適用を除外。`decisions/0013` の保証を尊重 — 「ADR と実装の整合性を即時回復、リグレッションを 1 ループで閉じる」整合性を優先
+  - 案B: backlog に積んで次ループで対応 — 「1 セッション 1 ループ運用を厳守」タスク管理を優先
+  - 案C: ADR 0013 側を「block scalar 非対応」に改訂 — 「実装の現状に合わせて ADR を縮小」局所修正を優先
+- 選んだ案: 案A
+- 理由: ADR の Consequences として明文化された保証を破ったままにすると、ADR を信じて読むエージェント / 人間の意思決定が壊れる。`yaml.Node.Style == LiteralStyle/FoldedStyle` で静的に判定できるため追加複雑度は限定的（追加コード 25 行）。`design-principles` 1.3「より上位の仕組みで防ぐ」（ADR は仕組みの一種）と 1.1「直近の作業量を軸にしない」に当てはめて案A。案C は ADR の Considered Options で B（生 raw scan）を選んだ動機（block scalar カバー）自体を否定することになり、選んだ理由が消える。マスター承認済み
+
 ### 2026-05-07 - LinkType 昇格時のテスト側リテラル定数化スコープ
 
 - 対象タスク: `linkType` 値を `type LinkType string` の named type に昇格して定数化
