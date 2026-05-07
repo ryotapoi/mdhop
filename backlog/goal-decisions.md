@@ -41,6 +41,16 @@
 - 選んだ案: 案B
 - 理由: `vault_simplify` 既存ファイルに frontmatter を後付けすると、TestSimplifyDryRun / TestSimplifyInlineCodeIgnored など既存ファイルの内容を直接検証するテストの期待値が連動して変わるリスクがある。frontmatter wikilink テーマだけを切り出した小さい vault の方が、後続ループの修正（YAML コメント除外バグ等）でも fixture 変更が局所化できる
 
+### 2026-05-07 - YAML コメント除去スコープ（block scalar / 複数行 quoted）
+
+- 対象タスク: frontmatter wikilink の生 raw scan が YAML コメントを edge 化する不具合
+- 論点: `stripYAMLComment` をどこまで YAML 仕様に忠実にするか。block scalar (`|`, `>`) や複数行にまたがる quoted scalar 中の `#` も「コメントではない」と判定する必要があるか
+- 選択肢:
+  - 案A: 1 行内の single-quoted / double-quoted のみ追跡し、block scalar・複数行 quoted は対象外。タスク説明の「quoted/bare の判定」最小実装に絞る — 「YAGNI、現実報告された不具合とテストでカバー可能な範囲のみ修正」局所修正を優先
+  - 案B: yaml.Node の Style 情報を再走査して block scalar / 複数行 quoted の行範囲を計算し、その範囲では `#` をコメントとして扱わない — 「YAML 仕様に忠実、将来の追加 frontmatter スタイルでも壊れない」整合性を優先
+- 選んだ案: 案A
+- 理由: タスク説明には「quoted/bare の判定ロジックを共有 or 抽出する必要があり」と書かれており、block scalar への言及がない。frontmatter で wikilink を block scalar に書くケースは現実的にほぼ無く（バグ報告も bare 行の `#` コメント）、案B は再走査ロジック追加で複雑性が増す。仕様に書かれていない範囲の改善は YAGNI として後回し。実害が出たら同 helper を `yaml.Node.Style` 参照に拡張する形で対応可能（Later タスク化はせず、必要時にバックログ追加で十分）
+
 ### 2026-05-07 - LinkType 昇格時のテスト側リテラル定数化スコープ
 
 - 対象タスク: `linkType` 値を `type LinkType string` の named type に昇格して定数化

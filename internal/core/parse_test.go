@@ -477,6 +477,51 @@ func TestParseFrontmatterWikilinkNoneWhenAbsent(t *testing.T) {
 	}
 }
 
+func TestParseFrontmatterWikilinkIgnoresBareComment(t *testing.T) {
+	// "# [[B]]" appears inside a YAML comment on a bare-scalar line and must
+	// not be turned into an edge.
+	content := "---\nrelated: ok # [[B]] comment\nactual: \"[[C]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink (C only), got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "C" {
+		t.Errorf("target = %q, want C", fmw[0].target)
+	}
+}
+
+func TestParseFrontmatterWikilinkKeepsHashInsideQuoted(t *testing.T) {
+	// '#' inside a double-quoted scalar is part of the value, so subsequent
+	// "[[...]]" must still be detected (subpath is preserved).
+	content := "---\nref: \"[[B#Heading]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink, got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "B" {
+		t.Errorf("target = %q, want B", fmw[0].target)
+	}
+	if fmw[0].subpath != "#Heading" {
+		t.Errorf("subpath = %q, want #Heading", fmw[0].subpath)
+	}
+}
+
+func TestParseFrontmatterWikilinkCommentAfterQuoted(t *testing.T) {
+	// A YAML comment after a closed quoted scalar must strip "[[X]]" inside
+	// the comment, while preserving the quoted "[[B]]" before it.
+	content := "---\nref: \"[[B]]\" # see also [[X]]\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 1 {
+		t.Fatalf("expected 1 frontmatter wikilink (B only), got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "B" {
+		t.Errorf("target = %q, want B", fmw[0].target)
+	}
+}
+
 func TestParseURLIgnored(t *testing.T) {
 	links := parseLinksSlice("[link](https://example.com)\n")
 	if len(links) != 0 {

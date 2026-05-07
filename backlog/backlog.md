@@ -56,7 +56,7 @@
   - **対応**: フィルタを `!isPathLinkType(...)` に変更し、frontmatter wikilink も `simplify` の対象に含める。frontmatter wikilink を含む vault でテスト追加
   - **影響範囲**: `simplify.go` + 新 fixture / テスト。書き換えは既存 `rewriteRawLink`（`frontmatter_wikilink` 対応済み）を流用するため簡略化ロジック自体に変更なし
   - **由来**: `goal-decisions.md` 2026-05-07「simplify/repair の `frontmatter_wikilink` 除外を手書きリテラル + コメントで残した」を再検討した結果、simplify は利用者期待寄りなので v0.7.0 に取り込む
-- [ ] frontmatter wikilink の生 raw scan が YAML コメントを edge 化する不具合
+- [x] frontmatter wikilink の生 raw scan が YAML コメントを edge 化する不具合
   - **問題**: `internal/core/parse.go:399` `parseFrontmatterWikilinks` は frontmatter の各行（`val.Line` 範囲）の生テキストに `parseWikiLinks` の正規表現を当てるため、YAML コメント中の `[[...]]` も edge 化される。例: `related: ok # [[B]] is only a YAML comment` で A → B edge が誤って作られる。`rules/03-data-model.md` の定義（frontmatter の値として現れた `[[...]]`）と乖離
   - **再現**: `vault_x/A.md` に `---\nrelated: ok # [[B]] comment\n---` を書き、build 後 `query -file A.md -fields outgoing` で `B` が outgoing に出る
   - **対応方針**: 行内で `#` 以降のコメント部分を除去してから `parseWikiLinks` に渡す。ただし quoted scalar 内の `#` は文字列の一部なので除外しない（`"foo # bar"` の `#` はコメントではない）。bare scalar 中の `#` のみコメントとして扱う必要があり、quoted/bare の判定ロジックを共有 or 抽出する

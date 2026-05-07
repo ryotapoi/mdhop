@@ -8,13 +8,13 @@ v0.7.0 の未完了タスクをすべて完了させる。
 
 ## Last completed loop
 
-2026-05-07: `simplify` を frontmatter wikilink 対応に拡張
+2026-05-07: frontmatter wikilink の生 raw scan が YAML コメントを edge 化する不具合を修正
 
-- `internal/core/simplify.go` の linkType フィルタを `lo.linkType != LinkTypeWikilink && lo.linkType != LinkTypeMarkdown` から `!isPathLinkType(lo.linkType)` に変更し、frontmatter wikilink も simplify の対象に取り込み
-- 旧フィルタの「frontmatter_wikilink を意図的に除外」コメントを削除（`isPathLinkType` 経由で他の書き換え系コマンドと同一基準になり、コメントによる例外説明が不要になったため）
-- 新 fixture `testdata/vault_simplify_frontmatter/`（Index.md + sub/B.md + sub/C.md + dir1/M.md + dir2/M.md）を追加
-- `simplify_test.go` に 2 ケース追加: `TestSimplifyFrontmatterWikilink`（DryRun で書き換え対象 / Skipped 一覧を検証: alias / subpath 保持、ambiguous は skip）と `TestSimplifyFrontmatterWikilinkApplied`（実書き換えで quoted style と alias / subpath が保たれ、ambiguous は変更されず、本文 wikilink も同時に書き換わる）
-- 書き換えロジック自体は既存 `rewriteRawLink` / `applyFileRewrites` が `frontmatter_wikilink` を `LinkTypeWikilink` 同等に扱うため変更不要
+- `internal/core/parse.go` の `parseFrontmatterWikilinks` で各行を `parseWikiLinks` に渡す前に `stripYAMLComment` でコメント部分を除去するように変更
+- `stripYAMLComment` ヘルパーを `parse.go` に新設: 行を rune ごとに走査し、`'`/`"` quoted の外で「行頭 or 直前が space/tab」の `#` 以降を切り捨てる。quoted 内の `#`（例: `"[[B#Heading]]"`）は保持
+- block scalar (`|`, `>`) や複数行 quoted は今回のスコープ外（タスク説明も「quoted/bare の判定」とだけ書かれている）。実害が出たら別タスクで対応
+- `parse_test.go` に 3 ケース追加: `TestParseFrontmatterWikilinkIgnoresBareComment`（`related: ok # [[B]] comment` で B を edge にしない、別行の quoted `[[C]]` は edge 化）、`TestParseFrontmatterWikilinkKeepsHashInsideQuoted`（`"[[B#Heading]]"` の subpath 保持）、`TestParseFrontmatterWikilinkCommentAfterQuoted`（quoted 後の ` # ... [[X]]` は除外）
+- 既存の `TestParseFrontmatterWikilinkSubpath` 等の quoted 内 `#` ケースは引き続き通る（subpath 保持を確認済み）
 - `go vet ./...`（無出力）/ `go test -count=1 ./...`（cmd/mdhop と internal/core ともに ok）
 
 ## Skipped tasks
@@ -27,8 +27,7 @@ v0.7.0 の未完了タスクをすべて完了させる。
 
 ## Next hint
 
-v0.7.0 残タスクは 2 件:
-1. `frontmatter wikilink の生 raw scan が YAML コメントを edge 化する不具合`（`parse.go:399` の修正、quoted/bare 判定ロジックを共有 or 抽出）
-2. `add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張（fixture 拡張 + 既存フィルタを `isPathLinkType` に統一）
+v0.7.0 残タスクは 1 件:
+1. `add_test.go` の既存ヘルパー検証で `frontmatter_wikilink` を含めるよう拡張（fixture 拡張 + 既存フィルタを `isPathLinkType` に統一）
 
-次ループは順番通り (1) のバグ修正へ進む。
+次ループはこれで v0.7.0 完了 → `goal-done.md` 作成。

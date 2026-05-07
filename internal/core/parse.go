@@ -400,13 +400,42 @@ func parseFrontmatterWikilinks(rawLines []string, startIdx, endIdx int) []linkOc
 	var out []linkOccur
 	for j := startIdx; j < endIdx; j++ {
 		lineNum := j + 1 // 1-based file line
-		line := rawLines[j]
+		line := stripYAMLComment(rawLines[j])
 		for _, l := range parseWikiLinks(line, lineNum) {
 			l.linkType = LinkTypeFrontmatterWikilink
 			out = append(out, l)
 		}
 	}
 	return out
+}
+
+// stripYAMLComment returns line with the YAML comment portion removed.
+// A '#' starts a comment only when it is at the beginning of the line or
+// preceded by whitespace, and only when it is not inside a single- or
+// double-quoted scalar on the same line.
+func stripYAMLComment(line string) string {
+	inSingle := false
+	inDouble := false
+	prev := byte(' ') // treat line start as if preceded by whitespace
+	for i := 0; i < len(line); i++ {
+		ch := line[i]
+		switch ch {
+		case '"':
+			if !inSingle {
+				inDouble = !inDouble
+			}
+		case '\'':
+			if !inDouble {
+				inSingle = !inSingle
+			}
+		case '#':
+			if !inSingle && !inDouble && (prev == ' ' || prev == '\t') {
+				return line[:i]
+			}
+		}
+		prev = ch
+	}
+	return line
 }
 
 // parseFrontmatterTags handles the "tags" key, producing both linkOccur (with nested expansion)
