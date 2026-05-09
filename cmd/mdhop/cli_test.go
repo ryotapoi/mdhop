@@ -910,3 +910,59 @@ func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
 		t.Error("expected status in meta")
 	}
 }
+
+func TestRunSearch_IsolationFlags(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search_isolation")
+
+	tests := []struct {
+		name  string
+		flag  string
+		paths []string
+	}{
+		{name: "no tags", flag: "--no-tags", paths: []string{"B.md", "D.md"}},
+		{name: "no outgoing", flag: "--no-outgoing", paths: []string{"D.md"}},
+		{name: "no incoming", flag: "--no-incoming", paths: []string{"C.md", "D.md"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			err := runSearch([]string{
+				"--vault", vault,
+				"--format", "json",
+				tt.flag,
+			})
+
+			w.Close()
+			os.Stdout = oldStdout
+
+			if err != nil {
+				t.Fatalf("search: %v", err)
+			}
+
+			var output bytes.Buffer
+			output.ReadFrom(r)
+
+			var m map[string]any
+			if err := json.Unmarshal(output.Bytes(), &m); err != nil {
+				t.Fatalf("json unmarshal: %v\noutput: %s", err, output.String())
+			}
+			items, ok := m["items"].([]any)
+			if !ok {
+				t.Fatalf("expected items array, got: %v", m["items"])
+			}
+			if len(items) != len(tt.paths) {
+				t.Fatalf("items len = %d, want %d; output: %s", len(items), len(tt.paths), output.String())
+			}
+			for i, item := range items {
+				itemMap := item.(map[string]any)
+				if got := itemMap["path"].(string); got != tt.paths[i] {
+					t.Fatalf("paths mismatch at %d: got %q, want %q; output: %s", i, got, tt.paths[i], output.String())
+				}
+			}
+		})
+	}
+}

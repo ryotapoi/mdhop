@@ -15,6 +15,9 @@ type SearchOptions struct {
 	Limit       int            // 0 = unlimited
 	Offset      int
 	IncludeHead int // 0 = skip
+	NoTags      bool
+	NoOutgoing  bool
+	NoIncoming  bool
 }
 
 // SearchResultItem represents a single matched node.
@@ -91,6 +94,16 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 		metaSQL, metaArgs := opts.Where.MetaFilterSQL("n.id")
 		whereSQL += metaSQL
 		whereArgs = append(whereArgs, metaArgs...)
+	}
+	if opts.NoTags {
+		whereSQL += " AND NOT EXISTS (SELECT 1 FROM edges e_no_tags WHERE e_no_tags.source_id = n.id AND e_no_tags.link_type IN (?, ?))"
+		whereArgs = append(whereArgs, string(LinkTypeTag), string(LinkTypeFrontmatter))
+	}
+	if opts.NoOutgoing {
+		whereSQL += " AND NOT EXISTS (SELECT 1 FROM edges e_no_outgoing WHERE e_no_outgoing.source_id = n.id)"
+	}
+	if opts.NoIncoming {
+		whereSQL += " AND NOT EXISTS (SELECT 1 FROM edges e_no_incoming WHERE e_no_incoming.target_id = n.id)"
 	}
 
 	// Count total.

@@ -267,6 +267,26 @@ func setupSearchVaultWithSub(t *testing.T) string {
 	return vault
 }
 
+func setupSearchIsolationVault(t *testing.T) string {
+	t.Helper()
+	vault := copyVaultForQuery(t, "vault_search_isolation")
+	buildForQuery(t, vault)
+	return vault
+}
+
+func assertSearchPaths(t *testing.T, items []SearchResultItem, want []string) {
+	t.Helper()
+	paths := searchPaths(items)
+	if len(paths) != len(want) {
+		t.Fatalf("paths = %v, want %v", paths, want)
+	}
+	for i := range want {
+		if paths[i] != want[i] {
+			t.Fatalf("paths = %v, want %v", paths, want)
+		}
+	}
+}
+
 func TestSearch_PathInclude(t *testing.T) {
 	vault := setupSearchVaultWithSub(t)
 
@@ -287,6 +307,62 @@ func TestSearch_PathInclude(t *testing.T) {
 			t.Errorf("items[%d].path = %q, want %q", i, result.Items[i].Node.Path, want)
 		}
 	}
+}
+
+func TestSearch_NoTags(t *testing.T) {
+	vault := setupSearchIsolationVault(t)
+
+	result, err := Search(vault, SearchOptions{NoTags: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Total != 2 {
+		t.Errorf("total = %d, want 2", result.Total)
+	}
+	assertSearchPaths(t, result.Items, []string{"B.md", "D.md"})
+}
+
+func TestSearch_NoOutgoing(t *testing.T) {
+	vault := setupSearchIsolationVault(t)
+
+	result, err := Search(vault, SearchOptions{NoOutgoing: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Total != 1 {
+		t.Errorf("total = %d, want 1", result.Total)
+	}
+	assertSearchPaths(t, result.Items, []string{"D.md"})
+}
+
+func TestSearch_NoIncoming(t *testing.T) {
+	vault := setupSearchIsolationVault(t)
+
+	result, err := Search(vault, SearchOptions{NoIncoming: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Total != 2 {
+		t.Errorf("total = %d, want 2", result.Total)
+	}
+	assertSearchPaths(t, result.Items, []string{"C.md", "D.md"})
+}
+
+func TestSearch_NoTagsAndNoIncoming(t *testing.T) {
+	vault := setupSearchIsolationVault(t)
+
+	result, err := Search(vault, SearchOptions{NoTags: true, NoIncoming: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Total != 1 {
+		t.Errorf("total = %d, want 1", result.Total)
+	}
+	assertSearchPaths(t, result.Items, []string{"D.md"})
 }
 
 func TestSearch_FieldsMeta(t *testing.T) {

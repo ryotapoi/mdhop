@@ -16,6 +16,9 @@ func runSearch(args []string) error {
 	includeHead := fs.Int("include-head", 0, "include first N lines of each note")
 	limit := fs.Int("limit", 0, "max results (0 = unlimited)")
 	offset := fs.Int("offset", 0, "skip first N results")
+	noTags := fs.Bool("no-tags", false, "only notes with no tag edges")
+	noOutgoing := fs.Bool("no-outgoing", false, "only notes with no outgoing edges")
+	noIncoming := fs.Bool("no-incoming", false, "only notes with no incoming edges")
 	var whereExprs multiString
 	var pathPatterns multiString
 	var excludePaths multiString
@@ -67,6 +70,9 @@ func runSearch(args []string) error {
 		Limit:       *limit,
 		Offset:      *offset,
 		IncludeHead: *includeHead,
+		NoTags:      *noTags,
+		NoOutgoing:  *noOutgoing,
+		NoIncoming:  *noIncoming,
 	}
 
 	result, err := core.Search(*vault, opts)
