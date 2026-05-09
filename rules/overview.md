@@ -150,8 +150,8 @@ meta:
 - `--exclude-tag <tag>` : 指定タグを結果から除外する（複数回指定可、`#` 付き推奨）
 - `--no-exclude` : `mdhop.yaml` の除外設定を無視する
 - `--where <expr>` : frontmatter メタデータによるフィルタ（複数回指定可）
-  - 演算子: `=`, `!=`, `~`（LIKE）, `>`, `<`, `>=`, `<=`, EXISTS（演算子なし）
-  - 例: `--where "status=active"`, `--where "priority>1"`, `--where "status"`, `--where "status!=done"`
+  - 演算子: `=`, `!=`, `~`（LIKE）, `>`, `<`, `>=`, `<=`, EXISTS（演算子なし）, NOT EXISTS
+  - 例: `--where "status=active"`, `--where "priority>1"`, `--where "status"`, `--where "status!=done"`, `--where "priority NOT EXISTS"`
   - 結合ルール:
     - 複数 `--where` で同一キー → OR（いずれかの条件にマッチ）
     - 複数 `--where` で異なるキー → AND（全キーの条件にマッチ）

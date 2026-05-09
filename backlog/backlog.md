@@ -2,7 +2,7 @@
 
 ## v0.8.0
 
-- [ ] `--where` NOT EXISTS 演算子（特定キーを持たないノートの検索）
+- [x] `--where` NOT EXISTS 演算子（特定キーを持たないノートの検索）
   - **問題**: 現状 EXISTS の逆がない。マイグレーション後の取りこぼし検出（「`priority` がまだ付いてない既存ノート」など）やテンプレート逸脱の検出に必要
   - **対応**: `internal/core/where.go` の文法に NOT EXISTS を追加。`--where "priority NOT EXISTS"` のような形を想定
   - **想定ユースケース**: PKM 整理（未整理ノートの洗い出し）、メタキー追加後の取りこぼし検出

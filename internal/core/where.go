@@ -9,14 +9,15 @@ import (
 type WhereOp int
 
 const (
-	WhereOpEq     WhereOp = iota // =
-	WhereOpNeq                   // !=
-	WhereOpLike                  // ~
-	WhereOpGt                    // >
-	WhereOpLt                    // <
-	WhereOpGte                   // >=
-	WhereOpLte                   // <=
-	WhereOpExists                // key only (no operator)
+	WhereOpEq        WhereOp = iota // =
+	WhereOpNeq                      // !=
+	WhereOpLike                     // ~
+	WhereOpGt                       // >
+	WhereOpLt                       // <
+	WhereOpGte                      // >=
+	WhereOpLte                      // <=
+	WhereOpExists                   // key only (no operator)
+	WhereOpNotExists                // key NOT EXISTS
 )
 
 // WhereCond represents a single where condition.
@@ -91,6 +92,13 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 }
 
 func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
+	if key, ok := parseNotExistsWhere(expr); ok {
+		if key == "" {
+			return WhereCond{}, fmt.Errorf("where: empty key in %q", expr)
+		}
+		return WhereCond{Key: key, Op: WhereOpNotExists, Value: ""}, nil
+	}
+
 	// Try each operator (longest first).
 	for _, ot := range operatorTable {
 		idx := strings.Index(expr, ot.str)
@@ -126,6 +134,15 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 		return WhereCond{}, fmt.Errorf("where: empty key in %q", expr)
 	}
 	return WhereCond{Key: key, Op: WhereOpExists, Value: ""}, nil
+}
+
+func parseNotExistsWhere(expr string) (string, bool) {
+	const suffix = " NOT EXISTS"
+	if len(expr) < len(suffix) || !strings.EqualFold(expr[len(expr)-len(suffix):], suffix) {
+		return "", false
+	}
+	key := strings.TrimSpace(expr[:len(expr)-len(suffix)])
+	return key, true
 }
 
 // MetaFilterSQL generates a SQL fragment to filter nodes by meta conditions.
@@ -179,17 +196,41 @@ func (wc *WhereClause) MetaFilterSQL(alias string) (string, []any) {
 }
 
 func buildKeyGroupSQL(key string, conds []WhereCond) (string, []any) {
-	// Check if EXISTS is present — it absorbs all other conditions.
+	// Check if EXISTS is present — it absorbs all other present-key conditions.
+	hasExists := false
+	hasNotExists := false
+	var presentConds []WhereCond
 	for _, c := range conds {
-		if c.Op == WhereOpExists {
-			return "SELECT m.node_id FROM meta m WHERE m.key = ?", []any{key}
+		switch c.Op {
+		case WhereOpExists:
+			hasExists = true
+		case WhereOpNotExists:
+			hasNotExists = true
+		default:
+			presentConds = append(presentConds, c)
 		}
+	}
+	if hasExists && hasNotExists {
+		return "SELECT n2.id FROM nodes n2 WHERE n2.type = 'note' AND n2.exists_flag = 1", nil
+	}
+	if hasExists {
+		return "SELECT m.node_id FROM meta m WHERE m.key = ?", []any{key}
+	}
+
+	var unionSQL []string
+	var unionArgs []any
+	if hasNotExists {
+		unionSQL = append(unionSQL, "SELECT n2.id FROM nodes n2 WHERE n2.type = 'note' AND n2.exists_flag = 1 AND NOT EXISTS (SELECT 1 FROM meta m WHERE m.node_id = n2.id AND m.key = ?)")
+		unionArgs = append(unionArgs, key)
+	}
+	if len(presentConds) == 0 {
+		return strings.Join(unionSQL, " UNION "), unionArgs
 	}
 
 	// Separate != from other conditions.
 	var neqs []WhereCond
 	var others []WhereCond
-	for _, c := range conds {
+	for _, c := range presentConds {
 		if c.Op == WhereOpNeq {
 			neqs = append(neqs, c)
 		} else {
@@ -199,7 +240,10 @@ func buildKeyGroupSQL(key string, conds []WhereCond) (string, []any) {
 
 	// If only != conditions: "key exists AND not matching any excluded value".
 	if len(others) == 0 {
-		return buildNeqSQL(key, neqs)
+		sql, args := buildNeqSQL(key, neqs)
+		unionSQL = append(unionSQL, sql)
+		unionArgs = append(unionArgs, args...)
+		return strings.Join(unionSQL, " UNION "), unionArgs
 	}
 
 	// Build OR conditions for positive matches.
@@ -212,7 +256,9 @@ func buildKeyGroupSQL(key string, conds []WhereCond) (string, []any) {
 		args = append(args, neqArgs...)
 	}
 
-	return sql, args
+	unionSQL = append(unionSQL, sql)
+	unionArgs = append(unionArgs, args...)
+	return strings.Join(unionSQL, " UNION "), unionArgs
 }
 
 func buildNeqSQL(key string, neqs []WhereCond) (string, []any) {

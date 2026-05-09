@@ -84,6 +84,17 @@ func TestParseWhere_Exists(t *testing.T) {
 	}
 }
 
+func TestParseWhere_NotExists(t *testing.T) {
+	wc, err := ParseWhere([]string{"priority NOT EXISTS"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := wc.Conditions[0]
+	if c.Key != "priority" || c.Op != WhereOpNotExists || c.Value != "" {
+		t.Errorf("got {%q, %d, %q}, want {priority, NotExists, \"\"}", c.Key, c.Op, c.Value)
+	}
+}
+
 func TestParseWhere_EmptyKey(t *testing.T) {
 	_, err := ParseWhere([]string{"=value"}, MetaConfig{})
 	if err == nil {
@@ -95,6 +106,13 @@ func TestParseWhere_EmptyValue(t *testing.T) {
 	_, err := ParseWhere([]string{"key="}, MetaConfig{})
 	if err == nil {
 		t.Fatal("expected error for empty value")
+	}
+}
+
+func TestParseWhere_NotExistsEmptyKey(t *testing.T) {
+	_, err := ParseWhere([]string{" NOT EXISTS"}, MetaConfig{})
+	if err == nil {
+		t.Fatal("expected error for empty NOT EXISTS key")
 	}
 }
 
@@ -399,6 +417,25 @@ func TestWhereClause_Exists(t *testing.T) {
 	}
 }
 
+func TestWhereClause_NotExists(t *testing.T) {
+	wc := &WhereClause{Conditions: []WhereCond{
+		{Key: "priority", Op: WhereOpNotExists},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, "NOT EXISTS") {
+		t.Errorf("NOT EXISTS should use anti-exists subquery: %q", sql)
+	}
+	if !strings.Contains(sql, "n2.type = 'note'") || !strings.Contains(sql, "n2.exists_flag = 1") {
+		t.Errorf("NOT EXISTS should only return existing notes: %q", sql)
+	}
+	if len(args) != 1 {
+		t.Errorf("args = %v, want 1 element", args)
+	}
+	if args[0] != "priority" {
+		t.Errorf("args = %v, want [priority]", args)
+	}
+}
+
 func TestWhereClause_Neq(t *testing.T) {
 	wc := &WhereClause{Conditions: []WhereCond{
 		{Key: "status", Op: WhereOpNeq, Value: "done"},
@@ -695,6 +732,24 @@ func TestQueryBacklinksWhere_Exists(t *testing.T) {
 	assertNames(t, "EXISTS priority", res.Backlinks, []string{"B", "C", "E"})
 }
 
+func TestQueryBacklinksWhere_NotExists(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"priority NOT EXISTS"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// D links to A and has no priority key. B/C/E all have priority.
+	assertNames(t, "priority NOT EXISTS", res.Backlinks, []string{"D"})
+}
+
 func TestQueryBacklinksWhere_Neq(t *testing.T) {
 	vault := setupWhereVault(t)
 	metaCfg := loadMetaCfg(t, vault)
@@ -893,6 +948,26 @@ func TestSearchWhere_AndSameKey(t *testing.T) {
 		nodes = append(nodes, item.Node)
 	}
 	assertNames(t, "created range", nodes, []string{"B", "C"})
+}
+
+func TestSearchWhere_NotExists(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"priority NOT EXISTS"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Search(vault, SearchOptions{
+		Where: wc,
+	})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	var nodes []NodeInfo
+	for _, item := range res.Items {
+		nodes = append(nodes, item.Node)
+	}
+	assertNames(t, "search priority NOT EXISTS", nodes, []string{"D"})
 }
 
 func TestQueryBacklinksWhere_AndMixedKeys(t *testing.T) {

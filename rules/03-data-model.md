@@ -199,6 +199,7 @@ SQL 生成パターン:
 - `>`, `<`, `>=`, `<=`: `sort_value` で比較 + `value_type` ガード（型宣言済みキーのみ意味のある比較が可能）
 - `!=`: `NOT IN` subquery
 - EXISTS（演算子なし）: `key` 存在チェック
+- NOT EXISTS: 既存 note のうち `key` を持たないものを返す
 
 演算子・構文の詳細は overview.md 参照。
 
