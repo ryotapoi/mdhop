@@ -52,7 +52,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `repair` | 壊れた・vault 外を指すパスリンクを basename 形式に修復 |
 | `resolve` | リンクの解決先を返す |
 | `query` | 起点ノートの Backlinks / 2-Hop / Tags 等を返す |
-| `search` | frontmatter メタデータやパスで Vault 全体からノートを検索 |
+| `search` | frontmatter メタデータ・パス・孤立検出条件で Vault 全体からノートを検索 |
 | `stats` | ノート数・リンク数などの統計情報 |
 | `diagnose` | basename 衝突・phantom ノードの検出 |
 | `init-meta` | `mdhop.yaml` の frontmatter 型定義を生成 |
@@ -60,6 +60,26 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 共通オプション: `--vault <path>`（省略時はカレントディレクトリ）、`--format json|text`、`--fields <comma-separated>`
 
 各コマンドの詳細は `mdhop <command> --help` を参照。
+
+## Agent Skill の例
+
+最新の Codex / Claude 形式の skill 例は [`examples/skills/mdhop`](examples/skills/mdhop) にある。構造的なノート探索、メタデータフィルタ、Vault 全体検索、ファイル操作 workflow をまとめている。
+
+最近追加された検索・フィルタ例:
+
+```bash
+# frontmatter key を持たないノート
+mdhop search --where "priority NOT EXISTS" --format json
+
+# タグがないノート
+mdhop search --no-tags --format json
+
+# outgoing edge がないノート（タグ edge を含む）
+mdhop search --no-outgoing --format json
+
+# incoming edge がないノート
+mdhop search --no-incoming --format json
+```
 
 ## 設定（mdhop.yaml）
 

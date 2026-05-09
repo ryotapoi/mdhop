@@ -54,7 +54,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `repair` | Rewrite broken or vault-escaping path links to basename form |
 | `resolve` | Resolve a link to its target |
 | `query` | Return Backlinks / 2-Hop / Tags etc. for a node |
-| `search` | Find notes vault-wide by frontmatter metadata or path |
+| `search` | Find notes vault-wide by frontmatter metadata, path, or isolation filters |
 | `stats` | Show vault statistics (note count, link count, etc.) |
 | `diagnose` | Detect basename conflicts and phantom nodes |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.yaml` |
@@ -62,6 +62,26 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 Common options: `--vault <path>` (defaults to current directory), `--format json|text`, `--fields <comma-separated>`
 
 Run `mdhop <command> --help` for command-specific details.
+
+## Agent Skill Example
+
+An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdhop`](examples/skills/mdhop). It covers structural note navigation, metadata filtering, vault-wide search, and file operation workflows.
+
+Recent search/filter examples:
+
+```bash
+# Notes missing a frontmatter key
+mdhop search --where "priority NOT EXISTS" --format json
+
+# Notes with no tags
+mdhop search --no-tags --format json
+
+# Notes with no outgoing edges, including tag edges
+mdhop search --no-outgoing --format json
+
+# Notes with no incoming edges
+mdhop search --no-incoming --format json
+```
 
 ## Configuration (mdhop.yaml)
 

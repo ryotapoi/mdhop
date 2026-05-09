@@ -70,6 +70,7 @@ Operators:
 | `>=` | `key>=value` | Greater than or equal |
 | `<=` | `key<=value` | Less than or equal |
 | EXISTS | `key` | Key exists (any value) |
+| NOT EXISTS | `key NOT EXISTS` | Key does not exist |
 
 **Logic:**
 - Multiple `--where` with the same key: OR (match any)
@@ -121,6 +122,9 @@ mdhop query --file Notes/Design.md --exclude "daily/*" --exclude-tag "#template"
 
 # With metadata filter
 mdhop query --file Notes/Design.md --where "status=active" --fields backlinks,meta --format json
+
+# Find backlinks missing a metadata key
+mdhop query --file Notes/Design.md --where "priority NOT EXISTS" --fields backlinks --format json
 
 # Date range filter (same-key AND via && syntax)
 mdhop query --tag project --where "created>=2024-01-01 && created<=2024-03-31" --fields backlinks --format json
@@ -175,6 +179,9 @@ Entry-point-free vault-wide note search. Returns notes matching metadata conditi
 | `--no-exclude` | bool | false | Disable config file exclusions |
 | `--include-head <N>` | int | 0 | Include first N lines of each note |
 | `--fields <list>` | string | — | Available: `meta` (opt-in) |
+| `--no-tags` | bool | false | Include only notes with no tag edges |
+| `--no-outgoing` | bool | false | Include only notes with no outgoing edges, including tag edges |
+| `--no-incoming` | bool | false | Include only notes with no incoming edges |
 | `--format json\|text` | string | text | Output format |
 
 ### Sorting
@@ -196,6 +203,8 @@ Entry-point-free vault-wide note search. Returns notes matching metadata conditi
 
 - Only returns existing notes (`type=note`, `exists=true`)
 - Never returns phantoms, tags, or assets
+- `--no-tags`, `--no-outgoing`, and `--no-incoming` are AND-combined with other search filters
+- `--no-outgoing` is edge-based and counts tag edges as outgoing
 
 ### Examples
 
@@ -214,6 +223,18 @@ mdhop search --where "status=draft" --fields meta --include-head 5 --limit 20 --
 
 # Combine metadata filters: active AND high priority
 mdhop search --where "status=active" --where "priority>1" --sort "-priority" --format json
+
+# Notes missing a metadata key
+mdhop search --where "priority NOT EXISTS" --format json
+
+# Notes with no tags
+mdhop search --no-tags --format json
+
+# Notes with no outgoing edges, including tag edges
+mdhop search --no-outgoing --format json
+
+# Notes with no incoming edges
+mdhop search --no-incoming --format json
 ```
 
 ### JSON Output Example

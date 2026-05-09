@@ -3,14 +3,16 @@ name: mdhop
 description: >
   Navigate, query, search, and manage Markdown vaults with mdhop. Explores link
   relationships (backlinks, outgoing, two-hop, tags), searches notes by
-  frontmatter metadata (search --where), filters query results by metadata
-  (query --where), resolves links, shows vault statistics, diagnoses issues,
+  frontmatter metadata (search --where, including NOT EXISTS), detects isolated
+  notes (search --no-tags/--no-outgoing/--no-incoming), filters query results by
+  metadata (query --where), resolves links, shows vault statistics, diagnoses issues,
   and manages file operations (add, move, delete, rename) with automatic link
   rewrites. Also handles link format conversion, broken link repair, and
   frontmatter metadata type setup (init-meta).
   Use this skill whenever: exploring connections between notes, querying
   backlinks or outgoing links, searching/listing notes by frontmatter fields
-  (status, priority, dates, due dates), checking what a link resolves to,
+  (status, priority, dates, due dates), finding notes missing required metadata,
+  finding notes with no tags/outgoing/incoming edges, checking what a link resolves to,
   getting vault statistics, investigating vault health, adding/moving/deleting/
   renaming files, fixing broken links, converting link formats, or setting up
   metadata types. Even if the user doesn't mention "mdhop" by name, use this
@@ -51,7 +53,8 @@ When investigating a vault, follow this sequence to work efficiently:
 3. **Find notes by criteria**: `mdhop search --where "status=active" --format json` — no entry point needed
 4. **Explore specific notes**: `mdhop query --file X.md --fields backlinks,outgoing --format json`
 5. **Go deeper if needed**: add `twohop` field or follow backlinks to related notes
-6. **Filter by metadata**: add `--where` to narrow query results by frontmatter fields
+6. **Find cleanup targets**: use `mdhop search --where "priority NOT EXISTS"`, `--no-tags`, `--no-outgoing`, or `--no-incoming`
+7. **Filter by metadata**: add `--where` to narrow query results by frontmatter fields
 
 ## Field Selection Guide
 
@@ -123,11 +126,14 @@ mdhop query --file X.md --where "priority>1" --fields backlinks --format json
 # Notes that have a "due" key (any value)
 mdhop query --file X.md --where "due" --fields backlinks --format json
 
+# Notes that do not have a "priority" key
+mdhop query --file X.md --where "priority NOT EXISTS" --fields backlinks --format json
+
 # Combine filters (AND): active notes with high priority
 mdhop query --file X.md --where "status=active" --where "priority>1" --format json
 ```
 
-Operators: `=`, `!=`, `~` (LIKE pattern with `%`/`_`), `>`, `<`, `>=`, `<=`, and EXISTS (key name only).
+Operators: `=`, `!=`, `~` (LIKE pattern with `%`/`_`), `>`, `<`, `>=`, `<=`, EXISTS (key name only), and NOT EXISTS (`key NOT EXISTS`).
 
 Multiple `--where` with the same key: OR. Different keys: AND. Within a single `--where`, ` && ` separator joins conditions with AND (even for the same key): `--where "created>=2025-01-01 && created<=2025-03-31"`.
 
@@ -198,9 +204,19 @@ mdhop search --path "daily/*" --format json
 
 # Include metadata in output
 mdhop search --where "priority>1" --fields meta --format json
+
+# Find notes missing a frontmatter key
+mdhop search --where "priority NOT EXISTS" --format json
+
+# PKM cleanup: notes with no tags, outgoing edges, or incoming edges
+mdhop search --no-tags --format json
+mdhop search --no-outgoing --format json
+mdhop search --no-incoming --format json
 ```
 
-Key flags: `--where` (filter), `--sort key`/`--sort -key` (asc/desc), `--limit`, `--offset`, `--path` (glob inclusion), `--exclude`, `--include-head N`, `--fields meta`.
+Key flags: `--where` (filter, including `key NOT EXISTS`), `--sort key`/`--sort -key` (asc/desc), `--limit`, `--offset`, `--path` (glob inclusion), `--exclude`, `--include-head N`, `--fields meta`, `--no-tags`, `--no-outgoing`, `--no-incoming`.
+
+`--no-tags` filters to notes with no tag edges. `--no-outgoing` filters to notes with no outgoing edges, including tag edges. `--no-incoming` filters to notes with no incoming edges.
 
 The `total` field in output shows the count before limit/offset — useful for pagination.
 
@@ -334,6 +350,14 @@ mdhop search --where "status=active" --where "priority>1" --sort "-priority" --f
 
 # Find notes with upcoming deadlines, sorted by date (same-key AND via && syntax)
 mdhop search --where "due>=2024-01-01 && due<=2024-03-31" --sort "due" --format json
+
+# Find notes that still need priority metadata
+mdhop search --where "priority NOT EXISTS" --format json
+
+# Find isolated or under-connected notes for PKM cleanup
+mdhop search --no-tags --format json
+mdhop search --no-outgoing --format json
+mdhop search --no-incoming --format json
 ```
 
 ### Metadata filtering on relationships
