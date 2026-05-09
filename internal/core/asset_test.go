@@ -192,7 +192,7 @@ func TestResolveAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	if result.Type != "asset" {
+	if result.Type != NodeTypeAsset {
 		t.Fatalf("expected type=asset, got %q", result.Type)
 	}
 	if result.Path != "image.png" {
@@ -213,7 +213,7 @@ func TestResolveAssetMarkdownLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	if result.Type != "asset" {
+	if result.Type != NodeTypeAsset {
 		t.Fatalf("expected type=asset, got %q", result.Type)
 	}
 	if result.Path != "doc.pdf" {
@@ -235,7 +235,7 @@ func TestQueryAssetBacklinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	if result.Entry.Type != "asset" {
+	if result.Entry.Type != NodeTypeAsset {
 		t.Fatalf("expected entry type=asset, got %q", result.Entry.Type)
 	}
 	if len(result.Backlinks) != 1 {
@@ -261,7 +261,7 @@ func TestQueryNoteOutgoingIncludesAsset(t *testing.T) {
 	// A.md → image.png, doc.pdf
 	foundAsset := false
 	for _, n := range result.Outgoing {
-		if n.Type == "asset" {
+		if n.Type == NodeTypeAsset {
 			foundAsset = true
 			break
 		}
@@ -283,7 +283,7 @@ func TestQueryAssetByName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	if result.Entry.Type != "asset" {
+	if result.Entry.Type != NodeTypeAsset {
 		t.Fatalf("expected entry type=asset, got %q", result.Entry.Type)
 	}
 }
@@ -758,7 +758,7 @@ func TestQueryAssetTwoHop(t *testing.T) {
 	// A.md → image.png ← C.md: Via=image.png, Targets includes C.md.
 	found := false
 	for _, th := range result.TwoHop {
-		if th.Via.Type == "asset" && th.Via.Path == "image.png" {
+		if th.Via.Type == NodeTypeAsset && th.Via.Path == "image.png" {
 			for _, tgt := range th.Targets {
 				if tgt.Path == "C.md" {
 					found = true
@@ -818,7 +818,7 @@ func TestQueryAssetExcludeIntegration(t *testing.T) {
 	}
 	// image.png via should be excluded, so C.md should not appear via image.png.
 	for _, th := range result.TwoHop {
-		if th.Via.Type == "asset" && th.Via.Path == "image.png" {
+		if th.Via.Type == NodeTypeAsset && th.Via.Path == "image.png" {
 			t.Fatal("image.png via should be excluded by ExcludeFilter")
 		}
 	}

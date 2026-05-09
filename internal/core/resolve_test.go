@@ -34,7 +34,7 @@ func TestResolveWikilinkBasename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "Design" {
@@ -59,7 +59,7 @@ func TestResolveWikilinkVaultRelative(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "Impl" {
@@ -78,7 +78,7 @@ func TestResolveWikilinkSubpath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Path != "sub/Impl.md" {
@@ -97,7 +97,7 @@ func TestResolveWikilinkSelfLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Path != "Index.md" {
@@ -116,7 +116,7 @@ func TestResolveMarkdownRelative(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "Impl" {
@@ -135,7 +135,7 @@ func TestResolveMarkdownAbsolute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "Index" {
@@ -154,7 +154,7 @@ func TestResolveMarkdownPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "C" {
@@ -173,7 +173,7 @@ func TestResolveMarkdownRelativeParent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "Root" {
@@ -192,7 +192,7 @@ func TestResolvePhantom(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "phantom" {
+	if res.Type != NodeTypePhantom {
 		t.Errorf("type = %q, want %q", res.Type, "phantom")
 	}
 	if res.Name != "Missing" {
@@ -211,7 +211,7 @@ func TestResolveTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "tag" {
+	if res.Type != NodeTypeTag {
 		t.Errorf("type = %q, want %q", res.Type, "tag")
 	}
 	if res.Name != "#overview" {
@@ -227,7 +227,7 @@ func TestResolveFrontmatterTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "tag" {
+	if res.Type != NodeTypeTag {
 		t.Errorf("type = %q, want %q", res.Type, "tag")
 	}
 	if res.Name != "#project" {
@@ -243,7 +243,7 @@ func TestResolveMarkdownBasename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "Design" {
@@ -262,7 +262,7 @@ func TestResolveWikilinkRelative(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "Impl" {
@@ -281,7 +281,7 @@ func TestResolveCaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "note" {
+	if res.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Type, "note")
 	}
 	if res.Name != "Design" {
@@ -399,7 +399,7 @@ func TestResolveAssetPathBased(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "asset" {
+	if res.Type != NodeTypeAsset {
 		t.Errorf("type = %q, want %q", res.Type, "asset")
 	}
 	if res.Path != "sub/photo.jpg" {
@@ -432,7 +432,7 @@ func TestResolvePhantomPathBased(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if res.Type != "phantom" {
+		if res.Type != NodeTypePhantom {
 			t.Errorf("type = %q, want %q", res.Type, "phantom")
 		}
 		if res.Name != "Gone" {
@@ -451,7 +451,7 @@ func TestResolvePhantomPathBased(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if res.Type != "phantom" {
+		if res.Type != NodeTypePhantom {
 			t.Errorf("type = %q, want %q", res.Type, "phantom")
 		}
 		if res.Name != "Gone" {
@@ -491,7 +491,7 @@ func TestResolvePhantomAssetExtension(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Type != "phantom" {
+	if res.Type != NodeTypePhantom {
 		t.Errorf("type = %q, want %q", res.Type, "phantom")
 	}
 	if res.Name != "file.png" {

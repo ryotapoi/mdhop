@@ -2,7 +2,7 @@
 
 ## v0.7.1
 
-- [ ] テストコード内の `Node.Type != "note"` 等 untyped string リテラル比較の定数化
+- [x] テストコード内の `Node.Type != "note"` 等 untyped string リテラル比較の定数化
   - **問題**: NodeType を named type に昇格した際、テストコードに残った `e.Type != "note"` / `n.Type == "phantom"` 等の untyped string 比較が約49箇所（resolve_test.go / asset_test.go / query_test.go / search_test.go / query_exclude_test.go 等）残存している。コンパイル・実行は通るが、型昇格の意図がテスト側に徹底されていない
   - **対応**: 残存箇所を `NodeTypeNote` / `NodeTypePhantom` / `NodeTypeTag` / `NodeTypeAsset` 定数に機械的に置換
   - **影響範囲**: 約49箇所のテストファイル横断修正。挙動変更なし

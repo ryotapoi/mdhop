@@ -50,7 +50,7 @@ func TestSearch_AllNotes(t *testing.T) {
 		if got != want {
 			t.Errorf("items[%d].path = %q, want %q", i, got, want)
 		}
-		if result.Items[i].Node.Type != "note" {
+		if result.Items[i].Node.Type != NodeTypeNote {
 			t.Errorf("items[%d].type = %q, want %q", i, result.Items[i].Node.Type, "note")
 		}
 		if !result.Items[i].Node.Exists {

@@ -43,7 +43,7 @@ func TestQueryEntryFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Entry.Type != "note" {
+	if res.Entry.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Entry.Type, "note")
 	}
 	if res.Entry.Path != "Index.md" {
@@ -57,7 +57,7 @@ func TestQueryEntryTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Entry.Type != "tag" {
+	if res.Entry.Type != NodeTypeTag {
 		t.Errorf("type = %q, want %q", res.Entry.Type, "tag")
 	}
 	if res.Entry.Name != "#overview" {
@@ -71,7 +71,7 @@ func TestQueryEntryTagWithHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Entry.Type != "tag" {
+	if res.Entry.Type != NodeTypeTag {
 		t.Errorf("type = %q, want %q", res.Entry.Type, "tag")
 	}
 	if res.Entry.Name != "#overview" {
@@ -85,7 +85,7 @@ func TestQueryEntryPhantom(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Entry.Type != "phantom" {
+	if res.Entry.Type != NodeTypePhantom {
 		t.Errorf("type = %q, want %q", res.Entry.Type, "phantom")
 	}
 	if res.Entry.Name != "Missing" {
@@ -99,7 +99,7 @@ func TestQueryEntryNameNote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Entry.Type != "note" {
+	if res.Entry.Type != NodeTypeNote {
 		t.Errorf("type = %q, want %q", res.Entry.Type, "note")
 	}
 	if res.Entry.Path != "Design.md" {
@@ -113,7 +113,7 @@ func TestQueryEntryNameTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Entry.Type != "tag" {
+	if res.Entry.Type != NodeTypeTag {
 		t.Errorf("type = %q, want %q", res.Entry.Type, "tag")
 	}
 }
@@ -222,7 +222,7 @@ func TestQueryBacklinks(t *testing.T) {
 		t.Errorf("backlinks count = %d, want 2", len(res.Backlinks))
 	}
 	for _, bl := range res.Backlinks {
-		if bl.Type != "note" {
+		if bl.Type != NodeTypeNote {
 			t.Errorf("backlink %s: type = %q, want %q", bl.Name, bl.Type, "note")
 		}
 	}
@@ -240,7 +240,7 @@ func TestQueryBacklinksPhantom(t *testing.T) {
 		t.Errorf("backlinks count = %d, want 1", len(res.Backlinks))
 	}
 	for _, bl := range res.Backlinks {
-		if bl.Type != "note" {
+		if bl.Type != NodeTypeNote {
 			t.Errorf("backlink %s: type = %q, want %q", bl.Name, bl.Type, "note")
 		}
 	}
@@ -259,7 +259,7 @@ func TestQueryBacklinksTag(t *testing.T) {
 		t.Errorf("backlinks count = %d, want 2", len(res.Backlinks))
 	}
 	for _, bl := range res.Backlinks {
-		if bl.Type != "note" {
+		if bl.Type != NodeTypeNote {
 			t.Errorf("backlink %s: type = %q, want %q", bl.Name, bl.Type, "note")
 		}
 	}
@@ -330,7 +330,7 @@ func TestQueryOutgoingExcludesTags(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	for _, o := range res.Outgoing {
-		if o.Type == "tag" {
+		if o.Type == NodeTypeTag {
 			t.Errorf("outgoing contains tag: %s", o.Name)
 		}
 	}
@@ -415,11 +415,11 @@ func TestQueryTwoHop(t *testing.T) {
 		t.Error("expected Impl as a via node")
 	}
 	for _, entry := range res.TwoHop {
-		if entry.Via.Type != "note" && entry.Via.Type != "phantom" && entry.Via.Type != "tag" {
+		if entry.Via.Type != NodeTypeNote && entry.Via.Type != NodeTypePhantom && entry.Via.Type != NodeTypeTag {
 			t.Errorf("via %s: unexpected type %q", entry.Via.Name, entry.Via.Type)
 		}
 		for _, target := range entry.Targets {
-			if target.Type != "note" && target.Type != "phantom" && target.Type != "tag" {
+			if target.Type != NodeTypeNote && target.Type != NodeTypePhantom && target.Type != NodeTypeTag {
 				t.Errorf("target %s via %s: unexpected type %q", target.Name, entry.Via.Name, target.Type)
 			}
 		}
@@ -481,7 +481,7 @@ func TestQueryTwoHopTagVia(t *testing.T) {
 	}
 	found := false
 	for _, entry := range res.TwoHop {
-		if entry.Via.Type == "tag" && entry.Via.Name == "#overview" {
+		if entry.Via.Type == NodeTypeTag && entry.Via.Name == "#overview" {
 			found = true
 			targetNames := nodeNames(entry.Targets)
 			expectContains(t, targetNames, "Design")
@@ -511,17 +511,17 @@ func TestQueryTwoHopPhantom(t *testing.T) {
 	// Via = Index.md, targets should include Design, sub/Impl, etc. (but not Missing).
 	found := false
 	for _, entry := range res.TwoHop {
-		if entry.Via.Type != "note" && entry.Via.Type != "phantom" && entry.Via.Type != "tag" {
+		if entry.Via.Type != NodeTypeNote && entry.Via.Type != NodeTypePhantom && entry.Via.Type != NodeTypeTag {
 			t.Errorf("via %s: unexpected type %q", entry.Via.Name, entry.Via.Type)
 		}
 		for _, target := range entry.Targets {
-			if target.Type != "note" && target.Type != "phantom" && target.Type != "tag" {
+			if target.Type != NodeTypeNote && target.Type != NodeTypePhantom && target.Type != NodeTypeTag {
 				t.Errorf("target %s via %s: unexpected type %q", target.Name, entry.Via.Name, target.Type)
 			}
 		}
 		if entry.Via.Name == "Index" {
 			found = true
-			if entry.Via.Type != "note" {
+			if entry.Via.Type != NodeTypeNote {
 				t.Errorf("via Index: type = %q, want %q", entry.Via.Type, "note")
 			}
 			for _, target := range entry.Targets {

@@ -106,7 +106,7 @@ func TestQueryTwoHopExcludeTagVia(t *testing.T) {
 	}
 	foundBefore := false
 	for _, th := range res0.TwoHop {
-		if th.Via.Type == "tag" && th.Via.Name == "#daily" {
+		if th.Via.Type == NodeTypeTag && th.Via.Name == "#daily" {
 			foundBefore = true
 		}
 	}
@@ -124,7 +124,7 @@ func TestQueryTwoHopExcludeTagVia(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	for _, th := range res.TwoHop {
-		if th.Via.Type == "tag" && th.Via.Name == "#daily" {
+		if th.Via.Type == NodeTypeTag && th.Via.Name == "#daily" {
 			t.Error("#daily should be excluded as via in twohop")
 		}
 	}
@@ -220,7 +220,7 @@ func TestQueryExcludePhantomSurvives(t *testing.T) {
 	}
 	found := false
 	for _, og := range res.Outgoing {
-		if og.Type == "phantom" && og.Name == "Missing" {
+		if og.Type == NodeTypePhantom && og.Name == "Missing" {
 			found = true
 		}
 	}
