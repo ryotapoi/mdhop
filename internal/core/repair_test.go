@@ -114,6 +114,37 @@ func TestRepairNoBrokenLinks(t *testing.T) {
 	}
 }
 
+func TestRepairFrontmatterWikilinkUntouched(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\nrelated: [[missing/Target]]\n---\n\n[[missing/Target]]\n"
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(content), 0644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+
+	result, err := Repair(vault, RepairOptions{})
+	if err != nil {
+		t.Fatalf("repair: %v", err)
+	}
+	if len(result.Rewritten) != 1 {
+		t.Fatalf("Rewritten count = %d, want 1: %+v", len(result.Rewritten), result.Rewritten)
+	}
+	if result.Rewritten[0].OldLink != "[[missing/Target]]" || result.Rewritten[0].NewLink != "[[Target]]" {
+		t.Fatalf("unexpected rewrite: %+v", result.Rewritten[0])
+	}
+
+	gotBytes, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+	got := string(gotBytes)
+	if !strings.Contains(got, "related: [[missing/Target]]") {
+		t.Fatalf("frontmatter wikilink was rewritten:\n%s", got)
+	}
+	if !strings.Contains(got, "\n[[Target]]\n") {
+		t.Fatalf("body wikilink was not rewritten:\n%s", got)
+	}
+}
+
 func TestRepairSkippedCandidates(t *testing.T) {
 	vault := copyVault(t, "vault_repair")
 

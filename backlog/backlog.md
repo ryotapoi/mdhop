@@ -7,7 +7,7 @@
   - **対応**: 残存箇所を `NodeTypeNote` / `NodeTypePhantom` / `NodeTypeTag` / `NodeTypeAsset` 定数に機械的に置換
   - **影響範囲**: 約49箇所のテストファイル横断修正。挙動変更なし
   - **由来**: `goal-decisions.md` 2026-05-06 22:55「NodeType 昇格時のテスト定数化スコープ」案B として切り出した別タスク化分
-- [ ] `repair.go` の手書き 2 型フィルタを述語化
+- [x] `repair.go` の手書き 2 型フィルタを述語化
   - **問題**: `repair.go:83` は `lo.linkType != "wikilink" && lo.linkType != "markdown"` の手書きリテラルで、意図的に `frontmatter_wikilink` を除外している。コメントで意図は明示したが、`isPathLinkType` 等が 4 型以上に拡張された場合に取りこぼしリスクが残る
   - **対応**: `isBodyPathLinkType` 等の述語を切り出して `repair.go` に適用
   - **由来**: design レビュー（v0.7.0 frontmatter 内 wikilink 対応 (2/2)）SHOULD 指摘の派生

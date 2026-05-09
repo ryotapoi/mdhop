@@ -75,12 +75,12 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 		links := parseLinks(string(content)).Links
 
 		for _, lo := range links {
-			// Body links only. frontmatter_wikilink is intentionally excluded:
-			// repair targets broken/escaping path links by rewriting them to
-			// basename form, but frontmatter wikilinks are routinely authored
-			// as full vault-relative paths and "broken" detection there would
-			// produce noisy rewrites that change YAML semantics.
-			if lo.linkType != LinkTypeWikilink && lo.linkType != LinkTypeMarkdown {
+			// Body links only. repair targets broken/escaping path links by
+			// rewriting them to basename form, but frontmatter wikilinks are
+			// routinely authored as full vault-relative paths and "broken"
+			// detection there would produce noisy rewrites that change YAML
+			// semantics.
+			if !isBodyPathLinkType(lo.linkType) {
 				continue
 			}
 			if lo.target == "" {
