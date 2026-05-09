@@ -1,5 +1,8 @@
 sandbox_mode = "workspace-write"
 
+[features]
+goals = true
+
 [mcp_servers.codex]
 args = ["mcp-server"]
 command = "codex"
