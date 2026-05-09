@@ -1,17 +1,5 @@
 # Backlog
 
-## v0.7.1
-
-- [x] テストコード内の `Node.Type != "note"` 等 untyped string リテラル比較の定数化
-  - **問題**: NodeType を named type に昇格した際、テストコードに残った `e.Type != "note"` / `n.Type == "phantom"` 等の untyped string 比較が約49箇所（resolve_test.go / asset_test.go / query_test.go / search_test.go / query_exclude_test.go 等）残存している。コンパイル・実行は通るが、型昇格の意図がテスト側に徹底されていない
-  - **対応**: 残存箇所を `NodeTypeNote` / `NodeTypePhantom` / `NodeTypeTag` / `NodeTypeAsset` 定数に機械的に置換
-  - **影響範囲**: 約49箇所のテストファイル横断修正。挙動変更なし
-  - **由来**: `goal-decisions.md` 2026-05-06 22:55「NodeType 昇格時のテスト定数化スコープ」案B として切り出した別タスク化分
-- [x] `repair.go` の手書き 2 型フィルタを述語化
-  - **問題**: `repair.go:83` は `lo.linkType != "wikilink" && lo.linkType != "markdown"` の手書きリテラルで、意図的に `frontmatter_wikilink` を除外している。コメントで意図は明示したが、`isPathLinkType` 等が 4 型以上に拡張された場合に取りこぼしリスクが残る
-  - **対応**: `isBodyPathLinkType` 等の述語を切り出して `repair.go` に適用
-  - **由来**: design レビュー（v0.7.0 frontmatter 内 wikilink 対応 (2/2)）SHOULD 指摘の派生
-
 ## v0.8.0
 
 - [ ] `--where` NOT EXISTS 演算子（特定キーを持たないノートの検索）
