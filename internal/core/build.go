@@ -224,7 +224,7 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps
 	}
 
 	// Tag or frontmatter tag
-	if link.linkType == LinkTypeTag || link.linkType == LinkTypeFrontmatter {
+	if isTagLinkType(link.linkType) {
 		id, err := upsertTag(db, link.target)
 		if err != nil {
 			return 0, "", err

@@ -95,6 +95,17 @@ func TestParseWhere_NotExists(t *testing.T) {
 	}
 }
 
+func TestParseWhere_NotExistsTrimsSpace(t *testing.T) {
+	wc, err := ParseWhere([]string{" priority NOT EXISTS "}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := wc.Conditions[0]
+	if c.Key != "priority" || c.Op != WhereOpNotExists || c.Value != "" {
+		t.Errorf("got {%q, %d, %q}, want {priority, NotExists, \"\"}", c.Key, c.Op, c.Value)
+	}
+}
+
 func TestParseWhere_EmptyKey(t *testing.T) {
 	_, err := ParseWhere([]string{"=value"}, MetaConfig{})
 	if err == nil {

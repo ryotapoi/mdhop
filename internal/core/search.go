@@ -96,8 +96,9 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 		whereArgs = append(whereArgs, metaArgs...)
 	}
 	if opts.NoTags {
-		whereSQL += " AND NOT EXISTS (SELECT 1 FROM edges e_no_tags WHERE e_no_tags.source_id = n.id AND e_no_tags.link_type IN (?, ?))"
-		whereArgs = append(whereArgs, string(LinkTypeTag), string(LinkTypeFrontmatter))
+		tagTypeSQL, tagTypeArgs := tagLinkTypeSQLIn("e_no_tags.link_type")
+		whereSQL += " AND NOT EXISTS (SELECT 1 FROM edges e_no_tags WHERE e_no_tags.source_id = n.id AND " + tagTypeSQL + ")"
+		whereArgs = append(whereArgs, tagTypeArgs...)
 	}
 	if opts.NoOutgoing {
 		whereSQL += " AND NOT EXISTS (SELECT 1 FROM edges e_no_outgoing WHERE e_no_outgoing.source_id = n.id)"

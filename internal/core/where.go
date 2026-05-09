@@ -92,6 +92,8 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 }
 
 func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
+	expr = strings.TrimSpace(expr)
+
 	if key, ok := parseNotExistsWhere(expr); ok {
 		if key == "" {
 			return WhereCond{}, fmt.Errorf("where: empty key in %q", expr)
@@ -138,6 +140,9 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 
 func parseNotExistsWhere(expr string) (string, bool) {
 	const suffix = " NOT EXISTS"
+	if strings.EqualFold(expr, strings.TrimSpace(suffix)) {
+		return "", true
+	}
 	if len(expr) < len(suffix) || !strings.EqualFold(expr[len(expr)-len(suffix):], suffix) {
 		return "", false
 	}

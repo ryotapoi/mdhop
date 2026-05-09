@@ -49,6 +49,27 @@ const (
 	LinkTypeFrontmatterWikilink LinkType = "frontmatter_wikilink"
 )
 
+var tagLinkTypes = []LinkType{LinkTypeTag, LinkTypeFrontmatter}
+
+func isTagLinkType(linkType LinkType) bool {
+	for _, tagLinkType := range tagLinkTypes {
+		if linkType == tagLinkType {
+			return true
+		}
+	}
+	return false
+}
+
+func tagLinkTypeSQLIn(alias string) (string, []any) {
+	placeholders := make([]string, len(tagLinkTypes))
+	args := make([]any, len(tagLinkTypes))
+	for i, linkType := range tagLinkTypes {
+		placeholders[i] = "?"
+		args[i] = string(linkType)
+	}
+	return alias + " IN (" + strings.Join(placeholders, ", ") + ")", args
+}
+
 func dbPath(vaultPath string) string {
 	return filepath.Join(vaultPath, dataDirName, dbFileName)
 }
