@@ -200,3 +200,14 @@ func linkTargetExistsRaw(vaultPath, sourcePath string, lo linkOccur) bool {
 	}
 	return false
 }
+
+// isBodyPathLinkType reports whether linkType is a body link whose target
+// resolves to a vault path. Repair only rewrites body links; other rewrite
+// operations may include frontmatter wikilinks via isPathLinkType.
+func isBodyPathLinkType(linkType LinkType) bool {
+	switch linkType {
+	case LinkTypeWikilink, LinkTypeMarkdown:
+		return true
+	}
+	return false
+}

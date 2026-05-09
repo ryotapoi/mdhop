@@ -22,17 +22,6 @@ func isPathLinkType(linkType LinkType) bool {
 	return false
 }
 
-// isBodyPathLinkType reports whether linkType is a body link whose target
-// resolves to a vault path. Frontmatter wikilinks are path links, but are not
-// considered body links for repair-style rewrites.
-func isBodyPathLinkType(linkType LinkType) bool {
-	switch linkType {
-	case LinkTypeWikilink, LinkTypeMarkdown:
-		return true
-	}
-	return false
-}
-
 // rewriteBackup holds original file content for rollback on failure.
 type rewriteBackup struct {
 	path    string
