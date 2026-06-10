@@ -966,3 +966,297 @@ func TestRunSearch_IsolationFlags(t *testing.T) {
 		})
 	}
 }
+
+// captureStdout runs fn while capturing everything written to os.Stdout.
+func captureStdout(t *testing.T, fn func() error) string {
+	t.Helper()
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := fn()
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	var output bytes.Buffer
+	output.ReadFrom(r)
+
+	if err != nil {
+		t.Fatalf("command failed: %v\noutput: %s", err, output.String())
+	}
+	return output.String()
+}
+
+// --- Search text CLI tests ---
+
+func TestRunSearch_TextOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+
+	out := captureStdout(t, func() error {
+		return runSearch([]string{
+			"--vault", vault,
+			"--format", "text",
+			"--where", "status=active",
+			"--fields", "meta",
+		})
+	})
+
+	if !strings.Contains(out, "total: 2\n") {
+		t.Errorf("missing total: 2 in output:\n%s", out)
+	}
+	if !strings.Contains(out, "- note: A.md\n") {
+		t.Errorf("missing A.md item in output:\n%s", out)
+	}
+	if !strings.Contains(out, "- note: sub/B.md\n") {
+		t.Errorf("missing sub/B.md item in output:\n%s", out)
+	}
+	if !strings.Contains(out, "  - status: active\n") {
+		t.Errorf("missing status meta in output:\n%s", out)
+	}
+	if !strings.Contains(out, "  - priority: 1\n") {
+		t.Errorf("missing priority meta in output:\n%s", out)
+	}
+}
+
+// --- Convert CLI tests ---
+
+func TestRunConvert_MissingTo(t *testing.T) {
+	err := runConvert([]string{"--vault", t.TempDir()})
+	if err == nil || !strings.Contains(err.Error(), "--to is required") {
+		t.Errorf("expected --to required error, got: %v", err)
+	}
+}
+
+func TestRunConvert_InvalidFormat(t *testing.T) {
+	err := runConvert([]string{"--to", "wikilink", "--format", "yaml"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("expected invalid format error, got: %v", err)
+	}
+}
+
+func TestRunConvert_ToWikilinkDryRunJSON(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_convert")
+
+	origNote, err := os.ReadFile(filepath.Join(vault, "Note.md"))
+	if err != nil {
+		t.Fatalf("read Note.md: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runConvert([]string{
+			"--vault", vault,
+			"--to", "wikilink",
+			"--file", "Note.md",
+			"--dry-run",
+			"--format", "json",
+		})
+	})
+
+	var m map[string]any
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	rewritten, ok := m["rewritten"].([]any)
+	if !ok || len(rewritten) == 0 {
+		t.Fatalf("expected non-empty rewritten array, got: %v", m["rewritten"])
+	}
+	found := false
+	for _, rw := range rewritten {
+		rwMap := rw.(map[string]any)
+		if rwMap["old"] == "[Target](Target.md)" {
+			found = true
+			if rwMap["file"] != "Note.md" {
+				t.Errorf("file = %v, want Note.md", rwMap["file"])
+			}
+			if rwMap["new"] != "[[Target]]" {
+				t.Errorf("new = %v, want [[Target]]", rwMap["new"])
+			}
+		}
+	}
+	if !found {
+		t.Errorf("missing [Target](Target.md) rewrite in: %s", out)
+	}
+
+	// Dry-run must not modify files.
+	afterNote, err := os.ReadFile(filepath.Join(vault, "Note.md"))
+	if err != nil {
+		t.Fatalf("read Note.md after: %v", err)
+	}
+	if string(origNote) != string(afterNote) {
+		t.Error("dry-run modified Note.md")
+	}
+}
+
+// --- Repair CLI tests ---
+
+func TestRunRepair_InvalidFormat(t *testing.T) {
+	err := runRepair([]string{"--format", "yaml"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("expected invalid format error, got: %v", err)
+	}
+}
+
+func TestRunRepair_DryRunJSON(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_repair")
+
+	out := captureStdout(t, func() error {
+		return runRepair([]string{
+			"--vault", vault,
+			"--dry-run",
+			"--format", "json",
+		})
+	})
+
+	var m map[string]any
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+
+	// X has 1 candidate → 3 rewrites, Y has 0 candidates → 1 rewrite (see core TestRepairBasic).
+	rewritten, ok := m["rewritten"].([]any)
+	if !ok || len(rewritten) != 4 {
+		t.Fatalf("rewritten len = %d, want 4; output: %s", len(rewritten), out)
+	}
+	found := false
+	for _, rw := range rewritten {
+		rwMap := rw.(map[string]any)
+		if rwMap["old"] == "[[old/path/X]]" {
+			found = true
+			if rwMap["file"] != "A.md" {
+				t.Errorf("file = %v, want A.md", rwMap["file"])
+			}
+			if rwMap["new"] != "[[X]]" {
+				t.Errorf("new = %v, want [[X]]", rwMap["new"])
+			}
+		}
+	}
+	if !found {
+		t.Errorf("missing [[old/path/X]] rewrite in: %s", out)
+	}
+
+	// M has 2 candidates → skipped.
+	skipped, ok := m["skipped"].([]any)
+	if !ok || len(skipped) != 1 {
+		t.Fatalf("skipped len = %d, want 1; output: %s", len(skipped), out)
+	}
+	sk := skipped[0].(map[string]any)
+	if sk["file"] != "A.md" || sk["raw_link"] != "[[old/M]]" || sk["basename"] != "M" {
+		t.Errorf("skipped[0] = %v", sk)
+	}
+	candidates, ok := sk["candidates"].([]any)
+	if !ok || len(candidates) != 2 {
+		t.Fatalf("candidates = %v, want 2 entries", sk["candidates"])
+	}
+	if candidates[0] != "dir1/M.md" || candidates[1] != "dir2/M.md" {
+		t.Errorf("candidates = %v, want [dir1/M.md dir2/M.md]", candidates)
+	}
+}
+
+// --- Simplify CLI tests ---
+
+func TestRunSimplify_InvalidFormat(t *testing.T) {
+	err := runSimplify([]string{"--format", "yaml"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("expected invalid format error, got: %v", err)
+	}
+}
+
+func TestRunSimplify_DryRunJSON(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_simplify")
+
+	out := captureStdout(t, func() error {
+		return runSimplify([]string{
+			"--vault", vault,
+			"--file", "A.md",
+			"--dry-run",
+			"--format", "json",
+		})
+	})
+
+	var m map[string]any
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+
+	rewritten, ok := m["rewritten"].([]any)
+	if !ok || len(rewritten) == 0 {
+		t.Fatalf("expected non-empty rewritten array, got: %v", m["rewritten"])
+	}
+	found := false
+	for _, rw := range rewritten {
+		rwMap := rw.(map[string]any)
+		if rwMap["old"] == "[[sub/B]]" {
+			found = true
+			if rwMap["file"] != "A.md" {
+				t.Errorf("file = %v, want A.md", rwMap["file"])
+			}
+			if rwMap["new"] != "[[B]]" {
+				t.Errorf("new = %v, want [[B]]", rwMap["new"])
+			}
+		}
+	}
+	if !found {
+		t.Errorf("missing [[sub/B]] rewrite in: %s", out)
+	}
+
+	// dir1/M is ambiguous (dir1/M.md, dir2/M.md) → skipped.
+	skipped, ok := m["skipped"].([]any)
+	if !ok || len(skipped) == 0 {
+		t.Fatalf("expected non-empty skipped array, got: %v", m["skipped"])
+	}
+	foundSkip := false
+	for _, sk := range skipped {
+		skMap := sk.(map[string]any)
+		if skMap["raw_link"] == "[[dir1/M]]" {
+			foundSkip = true
+			if skMap["basename"] != "M" {
+				t.Errorf("basename = %v, want M", skMap["basename"])
+			}
+			candidates, ok := skMap["candidates"].([]any)
+			if !ok || len(candidates) != 2 {
+				t.Errorf("candidates = %v, want 2 entries", skMap["candidates"])
+			}
+		}
+	}
+	if !foundSkip {
+		t.Errorf("missing [[dir1/M]] skip in: %s", out)
+	}
+}
+
+// --- InitMeta CLI tests ---
+
+func TestRunInitMeta_RequiresPresetOrScan(t *testing.T) {
+	err := runInitMeta([]string{"--vault", t.TempDir()})
+	if err == nil || !strings.Contains(err.Error(), "--preset or --scan") {
+		t.Errorf("expected preset/scan required error, got: %v", err)
+	}
+}
+
+func TestRunInitMeta_ScanStdout(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_init_meta")
+
+	out := captureStdout(t, func() error {
+		return runInitMeta([]string{
+			"--vault", vault,
+			"--scan",
+			"--no-comment",
+		})
+	})
+
+	if !strings.Contains(out, "meta:") {
+		t.Errorf("missing meta: section in output:\n%s", out)
+	}
+	if !strings.Contains(out, "types:") {
+		t.Errorf("missing types: section in output:\n%s", out)
+	}
+	// priority is a number in all fixture notes → inferred as number.
+	if !strings.Contains(out, "priority: number") {
+		t.Errorf("missing inferred priority type in output:\n%s", out)
+	}
+
+	// Without --write, mdhop.yaml must not be created.
+	if _, err := os.Stat(filepath.Join(vault, "mdhop.yaml")); !os.IsNotExist(err) {
+		t.Errorf("mdhop.yaml should not be created without --write (stat err: %v)", err)
+	}
+}
