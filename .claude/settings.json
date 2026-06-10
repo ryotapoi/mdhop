@@ -6,7 +6,6 @@
       "Read(./secrets/**)"
     ]
   },
-  "showClearContextOnPlanAccept": true,
   "hooks": {
     "PostToolUse": [
       {

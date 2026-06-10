@@ -12,9 +12,9 @@
   - 1 回の実装 workflow は 1 commit 単位に限る。Goal が複数 commit を必要とする場合は、`default.md` の workflow を commit ごとに繰り返す。
   - 各 commit は、Goal 全体の途中でも、その commit 単位では review / revert / bisect できる完了状態にする。
   - Goal 全体を 1 plan / 1 commit に押し込まない。次に扱う 1 commit 分を毎回明確に切り出す。
-  - plan mode（`EnterPlanMode` / `ExitPlanMode`）は使わない。承認待ちが自動進行と噛み合わないため。計画が必要な場合は内部で立ててそのまま実装する。詳細は `plan.md`。
   - Goal 中に設計判断が発生したら、指定がない限り画面出力で残す。ユーザーがファイル出力を指定した場合だけ、指定先へ書く。後から制約になる判断は `decisions/` に ADR として残す（基準は `commit` skill の ADR 判断基準に従う）。
   - Goal 完了報告では、設計判断がない場合も `設計判断: なし` と明示する。
+  - 進捗・完了の報告は、このセッションのツール結果で裏取りできる事実だけを書く。テストが失敗していれば出力ごと報告し、未検証の項目は未検証と明示する。
   - 後から制約になる判断、仕様変更、未着手作業は、画面出力だけで終わらせず `rules/` / `specs/`（あれば） / `decisions/` / `backlog/backlog.md` の適切な情報源へ同期する。
   - workflow の review とは別に、commit 済み内容への Claude review を Goal 完了条件に含める。
 - **Acceptance**:
