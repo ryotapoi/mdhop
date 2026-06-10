@@ -10,13 +10,16 @@ import (
 // whose target resolves to a vault path (and therefore participates in
 // rewrite/move/disambiguate operations). Embed via fmt or string concatenation,
 // not as a parameterized argument.
+// frontmatter_path is intentionally absent: raw path values are not link
+// syntax and cannot be rewritten.
 const pathLinkTypeSQLList = `'wikilink', 'markdown', 'frontmatter_wikilink'`
 
-// isPathLinkType reports whether linkType is one of the path-resolving link
-// types tracked in pathLinkTypeSQLList.
+// isPathLinkType reports whether linkType resolves to a vault path and is
+// subject to escape/ambiguity validation. Unlike pathLinkTypeSQLList, this
+// includes frontmatter_path (validated but not rewritable).
 func isPathLinkType(linkType LinkType) bool {
 	switch linkType {
-	case LinkTypeWikilink, LinkTypeMarkdown, LinkTypeFrontmatterWikilink:
+	case LinkTypeWikilink, LinkTypeMarkdown, LinkTypeFrontmatterWikilink, LinkTypeFrontmatterPath:
 		return true
 	}
 	return false

@@ -128,24 +128,11 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		pr := parseLinks(string(content))
+		pr := parseLinksWithLinkKeys(string(content), cfg.Meta.LinkKeys)
 		links := pr.Links
 
-		// Check for ambiguous links and vault escape (same logic as build's inline validation).
-		for _, link := range links {
-			if !isPathLinkType(link.linkType) {
-				continue
-			}
-			if link.isRelative && escapesVault(cf.path, link.target) {
-				return nil, fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, cf.path)
-			}
-			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
-				return nil, fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, cf.path)
-			}
-			if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
-				candidates := ambiguousCandidates(link.target, rm)
-				return nil, fmt.Errorf("%w: %s in %s (candidates: %s)", ErrAmbiguousLink, link.target, cf.path, strings.Join(candidates, ", "))
-			}
+		if err := validateParsedLinks(cf.path, links, rm); err != nil {
+			return nil, err
 		}
 
 		toUpdate = append(toUpdate, parsedFile{cf: cf, links: links, meta: pr.Meta})

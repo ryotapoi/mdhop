@@ -30,6 +30,11 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	}
 	defer db.Close()
 
+	cfg, err := LoadConfig(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+
 	from := NormalizePath(opts.From)
 	to := NormalizePath(opts.To)
 
@@ -145,6 +150,13 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		rm.pathToID[to] = nodeID
 		rm.addNote(to)
 		rm.rebuildBasenameToPath(nil)
+	}
+
+	// Frontmatter_path raw values (incoming, third-party, and the moved
+	// file's own) must keep resolving to the same target after the move
+	// (they cannot be rewritten).
+	if err := validateFrontmatterPathEdges(db, rm, map[string]string{from: to}); err != nil {
+		return nil, err
 	}
 
 	// Phase 2: incoming link rewrite.
@@ -438,7 +450,10 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 
 		// 5.3: re-parse moved file content and create new edges (using new path).
-		newLinks := parseLinks(string(movedContent)).Links
+		newLinks := parseLinksWithLinkKeys(string(movedContent), cfg.Meta.LinkKeys).Links
+		if err := validateParsedLinks(to, newLinks, rm); err != nil {
+			return nil, err
+		}
 		for _, link := range newLinks {
 			targetID, subpath, err := resolveLink(tx, to, link, rm)
 			if err != nil {
@@ -476,7 +491,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 	} else {
 		phantomName = basename(to)
 	}
-	if err := promotePhantom(tx, phantomName, nodeID); err != nil {
+	if _, err := promotePhantom(tx, phantomName, nodeID, to, rm); err != nil {
 		return nil, err
 	}
 

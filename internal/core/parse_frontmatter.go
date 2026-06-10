@@ -1,6 +1,7 @@
 package core
 
 import (
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -274,6 +275,52 @@ func expandFrontmatterTag(normalized string, fileLine int, out []linkOccur) []li
 		})
 	}
 	return out
+}
+
+// frontmatterPathLinks converts raw path values of the configured link keys
+// into linkOccur entries with link type "frontmatter_path". Path classification
+// follows markdown link semantics: "./" / "../" prefixes are note-relative,
+// values containing "/" are vault-relative paths, and bare names resolve by
+// basename. Skipped values: empty, URLs (containing "://"), and wikilinks
+// (already parsed as frontmatter_wikilink). The whole value is treated as the
+// path; "#" fragments are not split off.
+func frontmatterPathLinks(meta []FrontmatterEntry, linkKeys []string) []linkOccur {
+	if len(linkKeys) == 0 {
+		return nil
+	}
+	var out []linkOccur
+	for _, m := range meta {
+		if !slices.Contains(linkKeys, m.Key) {
+			continue
+		}
+		if occ, ok := frontmatterPathOccur(m.Value, m.Line); ok {
+			out = append(out, occ)
+		}
+	}
+	return out
+}
+
+// frontmatterPathOccur classifies a single link-key value as a
+// frontmatter_path linkOccur. ok is false for skipped values: empty, URLs
+// (containing "://"), and values containing "[[" (well-formed wikilinks are
+// already parsed as frontmatter_wikilink; broken ones are not paths either).
+func frontmatterPathOccur(value string, line int) (linkOccur, bool) {
+	v := strings.TrimSpace(value)
+	if v == "" || strings.Contains(v, "://") || strings.Contains(v, "[[") {
+		return linkOccur{}, false
+	}
+	// normalizeBasename only strips a ".md" suffix, never a leading "./" or
+	// "../", so isRelative classification (computed from v) stays valid for
+	// the normalized target.
+	return linkOccur{
+		target:     normalizeBasename(v),
+		isBasename: isBasenameLink(v),
+		isRelative: isRelativePath(v),
+		linkType:   LinkTypeFrontmatterPath,
+		rawLink:    value,
+		lineStart:  line,
+		lineEnd:    line,
+	}, true
 }
 
 // collectMeta appends FrontmatterEntry items for non-tags keys.

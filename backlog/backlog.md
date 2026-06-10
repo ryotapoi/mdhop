@@ -6,7 +6,7 @@
 
 - [x] `diagnose --path` で対象範囲を絞る（最優先。vault 全体の phantom ノイズ解消）
 - [x] path filter（`--path` / `--exclude`。search の既存名を正とする）をコマンド間で統一
-- [ ] frontmatter key の raw path 値を graph edge にする設定（`meta.link_keys`。`related:` / `sources:` を backlinks / reachable に反映）
+- [x] frontmatter key の raw path 値を graph edge にする設定（`meta.link_keys`。`related:` / `sources:` を backlinks / reachable に反映）
 - [ ] `reachable --from <entry> --path <glob>` 到達性チェック（`meta.link_keys` の後に実装。raw path edge がないと false positive が出る）
 - [ ] reachable 設計時に ADR 0002（map ベースと DB ベースの解決ロジック二重化の許容）を再評価する（root 優先ルールが map 側 / DB 側に分散している現状を踏まえ、グラフ走査が増えるタイミングで interface 抽象へ進むか判断。2026-06-10 audit 由来）
 - [ ] subgraph export（`graph --path` で node / edge を JSON dump。類似判定等は呼び出し側）

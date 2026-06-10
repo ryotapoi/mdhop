@@ -45,6 +45,9 @@ meta:
     version: semver      # スカラー形式
     status:              # ordered 形式
       ordered: [backlog, todo, doing, done]
+  link_keys:             # raw path 値を graph edge にする frontmatter key
+    - related
+    - sources
 ```
 
 ## コマンドと挙動（厳密モード前提）
@@ -340,6 +343,14 @@ meta:
   - ネストタグは祖先に展開される: `#a/b/c` → `#a`, `#a/b`, `#a/b/c` の各タグが resolve 可能
 - url: `https://...`（将来拡張）
 - frontmatter 内 wikilink: `tags` キー以外の全キーを対象に `[[...]]` を解析する（quoted/bare/array いずれの YAML 形式も対応）
+- frontmatter の raw path 値（`meta.link_keys` 設定時のみ）: 宣言した key の値を `frontmatter_path` の edge として解析する
+  - 解決規則は markdown link と同じ（`./` `../` は note 起点、`/` を含めば vault 相対パス、含まなければ basename 解決）
+  - URL 値（`://` を含む）と wikilink 値（`[[...]]`、frontmatter_wikilink として解析済み）はスキップ
+  - 値全体を path とみなす（`#` fragment の分離はしない）
+  - 厳密モードの検証対象（vault escape・曖昧 basename は build / update / add / move / move 配下の再解析でエラー）。解決できない値は phantom になる
+  - `link_keys` 未設定なら従来挙動（raw path 値は edge にならない）
+  - `tags` は `link_keys` に指定できない（設定エラー）
+  - 制約: raw path 値はリンク構文ではないため、`move` / `disambiguate` / `simplify` / `repair` / `convert` の書き換え対象外。raw path 値の解決先が変わってしまう `add` / `move` は操作前にエラーになる（frontmatter 値を手で直してから再実行する）
 - frontmatter の `aliases` は初期バージョンでは解析しない
 
 ## resolve のルール（要点）

@@ -47,6 +47,7 @@ const (
 	LinkTypeTag                 LinkType = "tag"
 	LinkTypeFrontmatter         LinkType = "frontmatter"
 	LinkTypeFrontmatterWikilink LinkType = "frontmatter_wikilink"
+	LinkTypeFrontmatterPath     LinkType = "frontmatter_path"
 )
 
 var tagLinkTypes = []LinkType{LinkTypeTag, LinkTypeFrontmatter}

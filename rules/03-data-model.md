@@ -123,8 +123,9 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 ### 3.1 基本
 
 - 有向: `source(note) -> target(node)`
-- `link_type`: `wikilink | markdown | tag | frontmatter | frontmatter_wikilink | url`
+- `link_type`: `wikilink | markdown | tag | frontmatter | frontmatter_wikilink | frontmatter_path | url`
   - `frontmatter_wikilink`: frontmatter の値として現れた `[[...]]`（`tags` キー以外）
+  - `frontmatter_path`: `meta.link_keys` で宣言された key の raw path 値（URL・wikilink 値は除く）
 
 ### 3.2 occurrence（同一ターゲットの複数出現）
 

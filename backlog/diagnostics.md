@@ -124,9 +124,14 @@ meta:
 - **URL 値（`https://...` 等）は edge にしない。** link_keys は vault 内ナビゲーション・到達性に絞り、URL はスキップする。
 - **link_type は新設する**（例: `frontmatter_path`）。既存の `frontmatter_wikilink` と区別し、raw path 由来の edge をフィルタ・診断で識別できるようにする。query / graph の JSON 出力に出るため外部仕様。
 
+決定（v0.10.0 実装時、詳細は ADR 0014 / rules/overview.md）:
+
+- 解決規則は markdown link と同一（`./` `../` は note 起点、`/` 含みは vault 相対、なしは basename 解決）。タスク 4（meta-check）もこの規則を共有する。
+- raw path 値は厳密モードの検証対象（vault escape・曖昧 basename は build / update / add / move でエラー）。
+- raw path 値はリンク構文ではないため rewrite 系（move / disambiguate / simplify / repair / convert）の対象外。raw path の解決先が変わる add / move は操作前にエラーで止める（rebuild との不整合を残さない）。
+
 検討点:
 
-- path の解決規則を決める。note 起点の相対 path（`../topics/foo.md`）と vault-relative path（`docs/foo.md`）が混在し得る。タスク 4（meta-check）と解決規則を共有する。
 - query backlinks / twohop / `--no-incoming` / reachable のすべてに効く。edge 種別でのフィルタ（本文リンクのみ等）が必要になるかも検討する。
 
 受け入れ条件:

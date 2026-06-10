@@ -55,6 +55,9 @@ func (m *MetaTypeInfo) UnmarshalYAML(value *yaml.Node) error {
 // MetaConfig holds frontmatter metadata type declarations.
 type MetaConfig struct {
 	Types map[string]MetaTypeInfo `yaml:"types"`
+	// LinkKeys lists frontmatter keys whose raw path values become graph
+	// edges with link type "frontmatter_path". URL values are skipped.
+	LinkKeys []string `yaml:"link_keys"`
 }
 
 // LookupType returns the MetaTypeInfo for a given frontmatter key.
@@ -139,6 +142,14 @@ func validateMetaConfig(mc MetaConfig) error {
 				}
 				seen[v] = true
 			}
+		}
+	}
+	for _, key := range mc.LinkKeys {
+		if key == "tags" {
+			return fmt.Errorf("meta.link_keys: %q is not allowed (tags are always parsed as tag links)", key)
+		}
+		if key == "" {
+			return fmt.Errorf("meta.link_keys: empty key is not allowed")
 		}
 	}
 	return nil

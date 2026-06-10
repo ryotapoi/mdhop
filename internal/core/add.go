@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // AddOptions controls which files to add to the index.
@@ -230,6 +229,12 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	}
 	rm.rebuildBasenameToPath(extraPaths)
 
+	// Existing frontmatter_path raw values must keep resolving to the same
+	// target after the add (they cannot be rewritten).
+	if err := validateFrontmatterPathEdges(db, rm, nil); err != nil {
+		return nil, err
+	}
+
 	// Parse all new files and check for ambiguous links.
 	type parsedFile struct {
 		file  addFile
@@ -242,23 +247,11 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		pr := parseLinks(string(content))
+		pr := parseLinksWithLinkKeys(string(content), cfg.Meta.LinkKeys)
 		links := pr.Links
 
-		for _, link := range links {
-			if !isPathLinkType(link.linkType) {
-				continue
-			}
-			if link.isRelative && escapesVault(f.path, link.target) {
-				return nil, fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, f.path)
-			}
-			if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
-				return nil, fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, f.path)
-			}
-			if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
-				candidates := ambiguousCandidates(link.target, rm)
-				return nil, fmt.Errorf("%w: %s in %s (candidates: %s)", ErrAmbiguousLink, link.target, f.path, strings.Join(candidates, ", "))
-			}
+		if err := validateParsedLinks(f.path, links, rm); err != nil {
+			return nil, err
 		}
 
 		parsed = append(parsed, parsedFile{file: f, links: links, meta: pr.Meta})
@@ -330,28 +323,13 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			continue
 		}
 
-		pk := phantomKey(basename(pf.file.path))
-		var phantomID int64
-		err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
-		if errors.Is(err, sql.ErrNoRows) {
-			continue // no phantom to promote
-		}
+		promoted, err := promotePhantom(tx, basename(pf.file.path), rm.pathToID[pf.file.path], pf.file.path, rm)
 		if err != nil {
 			return nil, err
 		}
-
-		noteID := rm.pathToID[pf.file.path]
-
-		// Reassign incoming edges from phantom to note.
-		if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE target_id = ?", noteID, phantomID); err != nil {
-			return nil, err
+		if !promoted {
+			continue
 		}
-
-		// Delete phantom node.
-		if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", phantomID); err != nil {
-			return nil, err
-		}
-
 		promotedBasenames[bk] = true
 		result.Promoted = append(result.Promoted, pf.file.path)
 	}

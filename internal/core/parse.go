@@ -61,6 +61,16 @@ func parseLinks(content string) parseResult {
 	return result
 }
 
+// parseLinksWithLinkKeys parses links like parseLinks and additionally turns
+// raw path values of the configured meta.link_keys into frontmatter_path
+// links. Use this at edge-generation sites (build/update/add/move) so the
+// graph reflects link-key values; plain parseLinks never emits them.
+func parseLinksWithLinkKeys(content string, linkKeys []string) parseResult {
+	pr := parseLinks(content)
+	pr.Links = append(pr.Links, frontmatterPathLinks(pr.Meta, linkKeys)...)
+	return pr
+}
+
 func stripInlineCode(line string) string {
 	var out strings.Builder
 	inCode := false

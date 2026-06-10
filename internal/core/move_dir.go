@@ -32,6 +32,11 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	}
 	defer db.Close()
 
+	cfg, err := LoadConfig(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+
 	// Phase 0: validation and load.
 	fromDir, toDir, err := validateMoveDirOptions(opts)
 	if err != nil {
@@ -59,6 +64,12 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	// Phase 1: build maps and adjust for post-move state.
 	dm, err := adjustMapsForDirMove(db, moves)
 	if err != nil {
+		return nil, err
+	}
+
+	// Frontmatter_path raw values must keep resolving to the same target
+	// after the move (they cannot be rewritten).
+	if err := validateFrontmatterPathEdges(db, dm.rm, dm.movedFromTo); err != nil {
 		return nil, err
 	}
 
@@ -225,7 +236,10 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", m.nodeID); err != nil {
 			return nil, err
 		}
-		newLinks := parseLinks(string(movedFileRewrites[i].content)).Links
+		newLinks := parseLinksWithLinkKeys(string(movedFileRewrites[i].content), cfg.Meta.LinkKeys).Links
+		if err := validateParsedLinks(m.to, newLinks, dm.rm); err != nil {
+			return nil, err
+		}
 		for _, link := range newLinks {
 			targetID, subpath, err := resolveLink(tx, m.to, link, dm.rm)
 			if err != nil {
@@ -274,7 +288,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		} else {
 			phantomName = basename(m.to)
 		}
-		if err := promotePhantom(tx, phantomName, m.nodeID); err != nil {
+		if _, err := promotePhantom(tx, phantomName, m.nodeID, m.to, dm.rm); err != nil {
 			return nil, err
 		}
 	}

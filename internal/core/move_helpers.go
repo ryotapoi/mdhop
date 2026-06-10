@@ -788,24 +788,88 @@ func updateExternalEdgesAndMtimes(tx dbExecer, rewrites []rewriteEntry, mtimes m
 }
 
 // promotePhantom replaces a phantom node with a real node by reassigning edges.
-// If no phantom exists for the given name, this is a no-op.
-func promotePhantom(tx dbExecer, phantomName string, realNodeID int64) error {
+// If no phantom exists for the given name, this is a no-op (returns false).
+//
+// Frontmatter_path raw values re-resolve by path, not basename, on a full
+// build (ADR 0014): edges whose raw value does not resolve to realPath stay
+// on the phantom, which is then kept alive instead of deleted. The returned
+// bool reports whether the real node took over at least one edge — a partial
+// promotion (phantom surviving for unresolvable raws) still counts.
+func promotePhantom(tx dbExecer, phantomName string, realNodeID int64, realPath string, rm *resolveMaps) (bool, error) {
 	pk := phantomKey(phantomName)
 	var phantomID int64
 	err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
-	if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE target_id = ?", realNodeID, phantomID); err != nil {
-		return err
+
+	rows, err := tx.Query(`SELECT e.id, e.raw_link, sn.path
+		FROM edges e JOIN nodes sn ON sn.id = e.source_id
+		WHERE e.target_id = ? AND e.link_type = ?`, phantomID, LinkTypeFrontmatterPath)
+	if err != nil {
+		return false, err
 	}
-	if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", phantomID); err != nil {
-		return err
+	type fmEdge struct {
+		id         int64
+		rawLink    string
+		sourcePath string
 	}
-	return nil
+	var fmEdges []fmEdge
+	for rows.Next() {
+		var e fmEdge
+		if err := rows.Scan(&e.id, &e.rawLink, &e.sourcePath); err != nil {
+			rows.Close()
+			return false, err
+		}
+		fmEdges = append(fmEdges, e)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+
+	var keep []int64
+	for _, e := range fmEdges {
+		occ, ok := frontmatterPathOccur(e.rawLink, 0)
+		if !ok {
+			continue
+		}
+		resolved, err := resolveFrontmatterPathDry(e.sourcePath, occ, rm)
+		if err != nil || resolved != realPath {
+			keep = append(keep, e.id)
+		}
+	}
+
+	if len(keep) == 0 {
+		if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE target_id = ?", realNodeID, phantomID); err != nil {
+			return false, err
+		}
+		if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", phantomID); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	placeholders := make([]string, len(keep))
+	args := []any{realNodeID, phantomID}
+	for i, id := range keep {
+		placeholders[i] = "?"
+		args = append(args, id)
+	}
+	res, err := tx.Exec(fmt.Sprintf(
+		"UPDATE edges SET target_id = ? WHERE target_id = ? AND id NOT IN (%s)",
+		strings.Join(placeholders, ",")), args...)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 // fileExists checks if a file exists at the given path.
