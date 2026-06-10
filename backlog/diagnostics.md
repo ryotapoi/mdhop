@@ -1,8 +1,8 @@
-# 汎用診断機能改善（v0.9.0 / v0.10.0）
+# 汎用診断機能改善（v0.10.0 / v0.11.0）
 
 mdhop に追加したい診断・検査系の機能群。LLM Wiki の lint 点検中に見えた不足を、特定フォルダ・特定運用名に依存しない**汎用機能**として整理する。
 
-v0.9.0（path filter とグラフ到達性）と v0.10.0（frontmatter 検査と search 強化）の 2 リリースに分ける。境界は判断ポイントを兼ねる: v0.9.0 を実 vault に当てた結果（残る phantom、`link_keys` の効き方）を v0.10.0 の設計判断（meta-check / meta-validate の統合可否、changed の要否、anchor 検査のコスト）の材料にする。タスク番号は通し番号のまま維持する（節内の相互参照に使用）。
+v0.10.0（path filter とグラフ到達性）と v0.11.0（frontmatter 検査と search 強化）の 2 リリースに分ける。境界は判断ポイントを兼ねる: v0.10.0 を実 vault に当てた結果（残る phantom、`link_keys` の効き方）を v0.11.0 の設計判断（meta-check / meta-validate の統合可否、changed の要否、anchor 検査のコスト）の材料にする。タスク番号は通し番号のまま維持する（節内の相互参照に使用）。
 
 ## 背景
 
@@ -45,7 +45,7 @@ LLM Wiki 側の要求 → mdhop の汎用機能への翻訳:
 
 この分離により、mdhop は `llm-wiki/` だけでなく任意の project docs、Obsidian MOC、README 起点のドキュメント群にも使える。
 
-## v0.9.0 タスク — path filter とグラフ到達性
+## v0.10.0 タスク — path filter とグラフ到達性
 
 「範囲を絞って診て、辿れる」を 1 つの capability として出す。実装順は記載順: タスク 8（link_keys）をタスク 3（reachable）より先に入れる。`related:` の raw path が edge にならないまま reachable を出すと false positive だらけになるため。
 
@@ -181,9 +181,9 @@ mdhop graph --path "docs/**" --format dot
 - path filter（include / exclude）が使える。
 - JSON schema が明文化されている。
 
-### 12. examples skill と README を v0.9.0 追加分に同期する
+### 12. examples skill と README を v0.10.0 追加分に同期する
 
-目的: README は `examples/skills/mdhop` を up-to-date な skill として案内している。リリース時点で v0.9.0 の新コマンド・新オプションが反映されている状態にする。
+目的: README は `examples/skills/mdhop` を up-to-date な skill として案内している。リリース時点で v0.10.0 の新コマンド・新オプションが反映されている状態にする。
 
 対象:
 
@@ -192,12 +192,12 @@ mdhop graph --path "docs/**" --format dot
 
 受け入れ条件:
 
-- v0.9.0 で追加した全コマンド・オプションが skill の references から引ける。
+- v0.10.0 で追加した全コマンド・オプションが skill の references から引ける。
 - README の Commands 表が実装と一致する。
 
-## v0.10.0 タスク — frontmatter 検査と search 強化
+## v0.11.0 タスク — frontmatter 検査と search 強化
 
-frontmatter の品質検査と search の強化。設計前に v0.9.0 の実運用結果を見る: meta-check / meta-validate の統合可否（タスク 4・6）、changed の要否（タスク 5）、anchor 検査のコスト判断（タスク 11）はここで決める。うち **10（`--where` 相対日付）は実施決定**、**11（anchor 検査）は実装コストが軽い場合のみ**実施する。
+frontmatter の品質検査と search の強化。設計前に v0.10.0 の実運用結果を見る: meta-check / meta-validate の統合可否（タスク 4・6）、changed の要否（タスク 5）、anchor 検査のコスト判断（タスク 11）はここで決める。うち **10（`--where` 相対日付）は実施決定**、**11（anchor 検査）は実装コストが軽い場合のみ**実施する。
 
 ### 4. frontmatter の任意 key を path-like value として検査する
 
@@ -349,9 +349,9 @@ mdhop diagnose --path "docs/**" --fields anchors --format json
 - 対象 note は存在するが fragment が見つからないケースを、note ごと存在しない（phantom）ケースと区別して報告する。
 - `--path` で対象範囲を絞れる。
 
-### 13. examples skill と README を v0.10.0 追加分に同期する
+### 13. examples skill と README を v0.11.0 追加分に同期する
 
-目的: タスク 12 と同じ。v0.10.0 の新コマンド・新オプションをリリース時点で反映する。
+目的: タスク 12 と同じ。v0.11.0 の新コマンド・新オプションをリリース時点で反映する。
 
 対象:
 
@@ -360,7 +360,7 @@ mdhop diagnose --path "docs/**" --fields anchors --format json
 
 受け入れ条件:
 
-- v0.10.0 で追加した全コマンド・オプションが skill の references から引ける。
+- v0.11.0 で追加した全コマンド・オプションが skill の references から引ける。
 - README の Commands 表が実装と一致する。
 
 ## Non-goals
