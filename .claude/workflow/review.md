@@ -28,6 +28,8 @@ L3 はレビュー回数の数え方ではない。節目で呼ぶもの（久�
 
 `review-code-all` は内部でリスクに応じた skill を呼ぶ司令塔。詳細は当該スキル参照。
 
+Goal 全体の commit range に対する `codex-review` と `/code-review` は、各 commit のここでの review とは別に Goal 完了条件として `goal.md` の Goal Review で実施する。
+
 ## Acceptance
 
 - 選んだ review depth と理由が説明できる

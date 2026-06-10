@@ -6,7 +6,6 @@
       "Read(./secrets/**)"
     ]
   },
-  "plansDirectory": "./backlog/plans",
   "showClearContextOnPlanAccept": true,
   "hooks": {
     "PostToolUse": [

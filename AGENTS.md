@@ -6,17 +6,24 @@ mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdo
 
 ## Entry Point
 
-最初に `.agents/workflow/default.md` を読む。各 phase に入るときだけ、対応する workflow ファイルを読む。`AGENTS.md` の要約だけで進めない。
+入口は依頼の形で 2 通り。
+
+- **Goal（`/goal` または `goal-workflow` を明示指定）**: `goal-workflow` skill を入口にする。Goal は作業全体を 1 commit 単位へ分割し、各 commit で `.agents/workflow/default.md` 以下の phase workflow を回す。Goal 手順の正本は `.agents/workflow/goal.md`。
+- **単発依頼**: 最初に `.agents/workflow/default.md` を読み、Intake から必要な phase ファイルへ進む。
+
+各 phase に入るときだけ、対応する workflow ファイルを読む。`AGENTS.md` の要約だけで進めない。
 
 ```text
-.agents/workflow/default.md
-├── investigate.md
-├── plan.md
-├── implement.md
-├── verify.md
-├── review.md
-├── finish.md
-└── maintenance.md
+goal-workflow skill（Goal の入口）
+└── .agents/workflow/goal.md（正本: commit slicing / Claude review / 完了条件）
+    └── default.md（各 commit / 単発依頼の Intake・Routing）
+        ├── investigate.md
+        ├── plan.md
+        ├── implement.md
+        ├── verify.md
+        ├── review.md
+        ├── finish.md
+        └── maintenance.md
 ```
 
 Claude Code 由来の `.claude/` は参考資料であり、Codex の入口ではない。
@@ -41,7 +48,8 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 - 技術的知見は `references/knowledge.md` に集約する。workflow / skill 本体を肥大化させない。
 - 後から制約になる判断は `decisions/` に残す。
 - 広い構造改善は必要に応じて `backlog/backlog.md` または `maintenance.md` の対象へ切り出す。
-- コミットまで終えたら止まる。次のタスクはユーザーの指示を待つ。
+- workflow は 1 つの commit 単位で回す。Goal が複数 commit に分かれる場合は `goal-workflow` skill に従って commit 単位へ分けて繰り返す。
+- 単発依頼はコミットまで終えたら止まる（次のタスクはユーザー指示待ち）。Goal は完了したら止まる。
 
 ## Skills
 
@@ -49,6 +57,7 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 
 主に使うスキル:
 
+- `goal-workflow`: `/goal` または明示指定時だけ使う。Goal を 1 commit 単位へ分割して完了まで進める
 - `investigate`: 計画前の不明点を調査する
 - `design-decision`: 設計判断の価値基準を当てる
 - `mdhop-risk-check`: mdhop 固有の制約に照らして確認する

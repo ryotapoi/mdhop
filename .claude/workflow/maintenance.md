@@ -23,9 +23,9 @@
 
 ## Tools
 
-- 全体の健康診断（テスト・カバレッジ・行数・依存方向）: `healthcheck` スキル
-- モジュール構造の見直し: `restructure` スキル
-- 個別のリファクタ判定: `refactor-guard` スキル
+- 軽い棚卸し（goal / マイルストーン区切りの整合性・負債・backlog 鮮度）: `maintenance-review` スキル
+- 重い健康診断 + 構造見直し（テスト・カバレッジ・行数・依存方向・凝集度・分割）: `maintenance-audit` スキル
+- module / 配置 / 依存方向の境界判断: `module-boundary` スキル
 
 ## Decision Criteria
 

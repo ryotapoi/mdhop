@@ -50,9 +50,8 @@ Co-Authored-By: Codex <noreply@openai.com>
 3. `git status` と `git diff`（staged + unstaged）で変更内容を把握する
 4. `git log --oneline -5` で直近のコミットスタイルを確認する
 5. `backlog/backlog.md` に今回のコミットで完了した項目があれば `[x]` に更新する
-6. `backlog/plans/` にこの実装に対応する plan ファイルがあれば削除する
-7. ファイルを stage してコミットする
-8. コミット後 `git status` で結果を確認する
+6. ファイルを stage してコミットする
+7. コミット後 `git status` で結果を確認する
 
 ## ADR 判断基準
 

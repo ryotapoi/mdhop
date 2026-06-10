@@ -1,8 +1,11 @@
 # Default Workflow
 
+この workflow は、単発依頼、または Goal 内で切り出された 1 commit 分の作業を完了させるための手順。
+Goal を使う作業全体の入口は `goal-workflow` skill とし、この workflow は Goal 内の各 commit で繰り返す。
+
 ## Intent
 
-ユーザーの依頼を、必要十分な調査・計画・実装・検証・記録で完了させる。手続きの重さは、作業の大きさとリスクに合わせる。
+単発依頼、または Goal 内で切り出された 1 commit 分の作業を、必要十分な調査・計画・実装・検証・記録で完了させる。手続きの重さは、作業の大きさとリスクに合わせる。
 
 ## Inputs
 
@@ -29,7 +32,7 @@
 ## Routing
 
 - Exploratory → `investigate.md` で事実を揃えてから判断し直す
-- Plan が必要な変更 → `EnterPlanMode` してから `plan.md`（plan mode 中に計画を提示し、`ExitPlanMode` でユーザー承認を取ってから `implement.md` へ）
+- Plan が必要な変更 → `plan.md`（plan mode は使わず、内部で計画を立ててそのまま `implement.md` へ進む。詳細は `plan.md`）
 - Plan 省略可な変更 → そのまま `implement.md`
 - 検証 → `verify.md`
 - レビュー → `review.md`
@@ -38,6 +41,7 @@
 
 ## Decision Criteria
 
+- workflow は 1 つの commit 単位で回す。実行中に 1 commit を超えると分かったら、作業を広げず（Goal 実行中は）`goal-workflow` skill に戻って commit 単位を切り直す。
 - Small は plan を省略してよい。作業内容と検証だけ簡潔に示す。
 - 仕様・データモデル・複数ファイル変更・設計判断を伴うなら plan を作る。
 - High-risk は plan・検証・必要なレビューを明示する。
@@ -62,11 +66,11 @@
 - 必要な情報源が同期されている（`backlog/backlog.md`, `decisions/`, `references/knowledge.md`、必要なら `specs/`）
 - 選んだ検証とレビューの深さを説明できる
 - コミット済み、またはユーザーが明示的にコミット不要とした状態
-- コミット完了後は次のタスクに進まない（ユーザー指示待ち）
+- コミット後の進み方は `finish.md` に従う（Goal 実行中は次の 1 commit workflow へ、Goal 外の単発依頼はユーザー指示待ち）
 
 ## Stop Conditions
 
-- 仕様・CLI 挙動・データ保持・削除方針に複数の妥当な選択肢がある（即停止して確認）
+- 仕様・CLI 挙動・データ保持・削除方針に複数の妥当な選択肢がある（`design-decision` で結論が出る範囲なら止まらず採否を決める。即停止して確認）
 - 要求と `rules/` / `specs/` / `decisions/` が矛盾している
 - High-risk 変更で検証手段が確保できない
 - レビュー周回が 3 周目に入る前 → 状況報告して指示待ち（選択肢提示しない）
@@ -75,5 +79,5 @@
 ## Subagent / Skill
 
 - 複数ファイル横断・キーワードのファンアウト調査は Explore subagent に委譲する（CLAUDE.md の Constraints / サブエージェント活用に従う）
-- skill は判断プロトコル（`design-principles`, `tdd`, `refactor-guard` など）として呼ぶ
+- skill は判断プロトコル（`design-decision`, `module-boundary`, `tdd` など）として呼ぶ。mdhop 固有のレビューは `review-plan-all` / `review-code-all` 経由で `review-*-mdhop` を使う
 - 詳細は各 phase のファイル参照

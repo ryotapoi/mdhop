@@ -1,19 +1,24 @@
 # Default Workflow
 
+この workflow は、単発依頼、または Goal 内で切り出された 1 commit 分の作業を完了させるための手順。
+Goal を使う作業全体の入口は `goal-workflow` skill とし、この workflow は Goal 内の各 commit で繰り返す。
+
 ## ICAR
 
-- **Intent**: ユーザーの依頼を、必要十分な調査・計画・実装・検証・記録で完了させる。
+- **Intent**: 単発依頼、または Goal 内で切り出された 1 commit 分の作業を、必要十分な調査・計画・実装・検証・記録で完了させる。
 - **Constraints**:
   - 手続きの重さは作業の大きさとリスクに合わせる。
+  - workflow は 1 つの commit 単位で回す。Goal 実行中に 1 commit を超えると分かったら、作業を広げず `goal-workflow` skill に戻って commit 単位を切り直す。
   - 判断に影響する `rules/`, `decisions/`, `backlog/backlog.md`, `references/knowledge.md`, `specs/`（あれば）は推測で済ませず実物を確認する。
   - 仕様・CLI 挙動・データ保持・削除方針に関わる判断は、実装で決めず必要ならユーザー確認に回す。
-  - コミット完了後は次のタスクに進まない。
+  - コミット後の進み方は Goal 実行中か単発依頼かで分かれる（Goal 実行中は次の 1 commit workflow へ、単発依頼はユーザー指示待ち）。
 - **Acceptance**:
   - ユーザーの要求が満たされている。
   - 必要な情報源が同期されている。
   - 選んだ検証とレビューの深さを説明できる。
   - コミット済み、またはユーザーが明示的にコミット不要とした状態。
 - **Relevant**:
+  - `.agents/workflow/goal.md`（Goal 実行時の正本）
   - `.agents/workflow/investigate.md`
   - `.agents/workflow/plan.md`
   - `.agents/workflow/implement.md`

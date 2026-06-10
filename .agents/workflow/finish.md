@@ -6,12 +6,15 @@
 - **Constraints**:
   - コミットは `commit` スキルで作成する。
   - 文書同期（backlog / decisions / references / specs）、ADR 作成、コミットメッセージ規約は `commit` スキル側が判断する。
+  - Goal 実行中の場合、commit 後に Goal 全体が完了したか、次の 1 commit workflow に進むかを `goal.md` で確認する。
+  - Goal 完了報告では、設計判断がない場合も `設計判断: なし` と明示する。
   - ユーザーがコミット前確認を求めている場合は止まる。
 - **Acceptance**:
   - コミット済みで、作業ツリーの残差分が意図したものだけ。
-  - コミット完了後は次のタスクに進まない。
+  - Goal 実行中は次の 1 commit workflow に進むか Goal 完了かを `goal.md` で判断する。Goal 外の単発依頼の場合はコミット完了後に次のタスクへ進まない（ユーザー指示待ち）。
 - **Relevant**:
   - 変更差分
   - 検証結果
   - review 結果
+  - `.agents/workflow/goal.md`
   - `.agents/skills/commit/SKILL.md`

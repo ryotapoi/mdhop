@@ -25,6 +25,8 @@
 - **External**: 大きい、曖昧、High-risk、または設計判断が重い変更。`change-review` などの別視点を入れる。
 - **Maintenance**: 今回の差分ではなく、複数タスク後の全体構造・負債を見る。`maintenance.md` を使う。
 
+Goal 全体の commit range に対する Claude review は、各 commit のここでの review とは別に Goal 完了条件として `goal.md` の Claude Review で実施する。
+
 ## Stop Conditions
 
 - 指摘対応が仕様・CLI 挙動・設計方針を変える。
