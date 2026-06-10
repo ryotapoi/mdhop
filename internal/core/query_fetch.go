@@ -423,10 +423,10 @@ func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines in
 func checkStale(fullPath string, dbMtime int64) error {
 	info, err := os.Stat(fullPath)
 	if err != nil {
-		return fmt.Errorf("file not found: %s", fullPath)
+		return fmt.Errorf("%w: %s", ErrFileNotFound, fullPath)
 	}
 	if info.ModTime().Unix() != dbMtime {
-		return fmt.Errorf("stale index: %s has been modified since last build", filepath.Base(fullPath))
+		return fmt.Errorf("%w: %s has been modified since last build", ErrSourceStale, filepath.Base(fullPath))
 	}
 	return nil
 }

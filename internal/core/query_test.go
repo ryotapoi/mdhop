@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -190,8 +191,8 @@ func TestQueryErrorFileNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "not in index") {
-		t.Errorf("error = %q, want containing 'not in index'", err.Error())
+	if !errors.Is(err, ErrFileNotRegistered) {
+		t.Errorf("error = %q, want ErrFileNotRegistered", err.Error())
 	}
 }
 

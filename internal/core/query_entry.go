@@ -41,11 +41,11 @@ func findEntryNode(db dbExecer, spec EntrySpec) (int64, NodeInfo, error) {
 	return findEntryByName(db, spec.Name)
 }
 
-func findEntryByKey(db dbExecer, key, errMsg string) (int64, NodeInfo, error) {
+func findEntryByKey(db dbExecer, key string, notFound error) (int64, NodeInfo, error) {
 	id, err := getNodeID(db, key)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, NodeInfo{}, errors.New(errMsg)
+			return 0, NodeInfo{}, notFound
 		}
 		return 0, NodeInfo{}, err
 	}
@@ -70,18 +70,18 @@ func findEntryByFile(db dbExecer, file string) (int64, NodeInfo, error) {
 	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, NodeInfo{}, err
 	}
-	return findEntryByKey(db, assetKey(path), fmt.Sprintf("file not in index: %s", path))
+	return findEntryByKey(db, assetKey(path), fmt.Errorf("%w: %s", ErrFileNotRegistered, path))
 }
 
 func findEntryByTag(db dbExecer, tag string) (int64, NodeInfo, error) {
 	if !strings.HasPrefix(tag, "#") {
 		tag = "#" + tag
 	}
-	return findEntryByKey(db, tagKey(tag), fmt.Sprintf("tag not in index: %s", tag))
+	return findEntryByKey(db, tagKey(tag), fmt.Errorf("tag not in index: %s", tag))
 }
 
 func findEntryByPhantom(db dbExecer, name string) (int64, NodeInfo, error) {
-	return findEntryByKey(db, phantomKey(name), fmt.Sprintf("phantom not in index: %s", name))
+	return findEntryByKey(db, phantomKey(name), fmt.Errorf("phantom not in index: %s", name))
 }
 
 func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
@@ -123,7 +123,7 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 	}
 
 	// Try phantom.
-	return findEntryByKey(db, phantomKey(name), fmt.Sprintf("name not found: %s", name))
+	return findEntryByKey(db, phantomKey(name), fmt.Errorf("name not found: %s", name))
 }
 
 // fetchNodeInfo retrieves NodeInfo for a node by ID.
