@@ -13,7 +13,7 @@ paths:
 
 ## 共通ヘルパー
 
-- `normalizePath` (`util.go`): パス正規化。`filepath.ToSlash` + `filepath.Clean` + 先頭 `./` 除去
+- `NormalizePath` (`util.go`): パス正規化。`filepath.ToSlash` + `filepath.Clean` + 先頭 `./` 除去
 - `basenameKey` (`util.go`): `.md` を除いた小文字 basename を返す
 - `isFieldActive` (`util.go`): format 文字列中にフィールドプレースホルダが含まれるかチェック。query/stats/diagnose 共通
 - `rewriteRawLink`, `applyFileRewrites`, `isBasenameRawLink`, `replaceOutsideInlineCode` (`rewrite.go`): リンク書き換え共通ロジック
@@ -25,10 +25,12 @@ paths:
 
 ## CLI テスト規約
 
-- CLI テスト（`cmd/mdhop/*_test.go`）は `exec.Command` でバイナリを起動する方式
-- テスト前に `go build` でバイナリをビルドし、`t.TempDir()` に配置する
-- 正常系: stdout の内容と exit code 0 を検証
-- エラー系: stderr のメッセージと非ゼロ exit code を検証
+- CLI テスト（`cmd/mdhop/cli_test.go`）はバイナリを起動せず、`runQuery` / `runSearch` 等の run 関数を直接呼び出す方式
+- vault が必要なテストは `setupVaultForCLI(t, name)` で `testdata/vault_<name>` を `t.TempDir()` にコピーし、`core.Build` でインデックスを構築する
+- stdout の検証は `os.Stdout` を `os.Pipe` に差し替えてキャプチャする（`captureStdout` ヘルパー）。この方式のため `t.Parallel()` は使わない（直列実行前提）
+- 正常系: run 関数が nil error を返し、stdout の JSON / text 出力の中身を検証
+- エラー系: run 関数の戻り値 error のメッセージを検証
+- 出力フォーマッタ単体のテストは `format_test.go` で、結果構造体を直接作って `bytes.Buffer` に書き出して検証する
 
 ## アサーション規約
 
