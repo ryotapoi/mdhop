@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, wc *WhereClause) ([]NodeInfo, error) {
+func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, wc *WhereClause, include []string) ([]NodeInfo, error) {
 	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.source_id
 		 WHERE e.target_id = ?`
@@ -20,6 +20,10 @@ func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, w
 		q += pathSQL
 		args = append(args, pathArgs...)
 	}
+
+	inclSQL, inclArgs := pathIncludeNullSafeSQL("n.path", include)
+	q += inclSQL
+	args = append(args, inclArgs...)
 
 	if wc != nil {
 		metaSQL, metaArgs := wc.MetaFilterSQL("n.id")
@@ -47,7 +51,7 @@ func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, w
 	return result, rows.Err()
 }
 
-func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClause) ([]NodeInfo, error) {
+func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClause, include []string) ([]NodeInfo, error) {
 	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.target_id
 		 WHERE e.source_id = ? AND e.target_id != ? AND n.type IN ('note','phantom','asset')`
@@ -58,6 +62,10 @@ func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClau
 		q += pathSQL
 		args = append(args, pathArgs...)
 	}
+
+	inclSQL, inclArgs := pathIncludeNullSafeSQL("n.path", include)
+	q += inclSQL
+	args = append(args, inclArgs...)
 
 	if wc != nil {
 		metaSQL, metaArgs := wc.MetaFilterSQL("n.id")
@@ -186,7 +194,7 @@ func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
 	return result, nil
 }
 
-func queryTwoHop(db dbExecer, entryID int64, entryType NodeType, maxTwoHop, maxViaPerTarget int, ef *ExcludeFilter, wc *WhereClause) ([]TwoHopEntry, error) {
+func queryTwoHop(db dbExecer, entryID int64, entryType NodeType, maxTwoHop, maxViaPerTarget int, ef *ExcludeFilter, wc *WhereClause, include []string) ([]TwoHopEntry, error) {
 	var seedQuery string
 	var seedIsOutbound bool
 
@@ -265,6 +273,12 @@ func queryTwoHop(db dbExecer, entryID int64, entryType NodeType, maxTwoHop, maxV
 			targetArgs = append(targetArgs, pathArgs...)
 		}
 
+		// Include filter applies to targets only; via nodes are kept as
+		// connectors even when outside the included paths.
+		inclSQL, inclArgs := pathIncludeNullSafeSQL("n.path", include)
+		targetQuery += inclSQL
+		targetArgs = append(targetArgs, inclArgs...)
+
 		if wcSQL != "" {
 			targetQuery += wcSQL
 			targetArgs = append(targetArgs, wcArgs...)
@@ -341,7 +355,7 @@ func readHead(db dbExecer, vaultPath string, nodeID int64, n int) ([]string, err
 	return lines[start:end], nil
 }
 
-func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines int, ef *ExcludeFilter) ([]SnippetEntry, error) {
+func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines int, ef *ExcludeFilter, include []string) ([]SnippetEntry, error) {
 	q := `SELECT n.path, n.mtime, e.line_start, e.line_end
 		 FROM edges e JOIN nodes n ON n.id = e.source_id
 		 WHERE e.target_id = ?`
@@ -352,6 +366,10 @@ func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines in
 		q += pathSQL
 		args = append(args, pathArgs...)
 	}
+
+	inclSQL, inclArgs := pathIncludeNullSafeSQL("n.path", include)
+	q += inclSQL
+	args = append(args, inclArgs...)
 
 	q += ` ORDER BY n.path, e.line_start`
 

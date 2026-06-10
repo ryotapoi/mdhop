@@ -15,19 +15,36 @@ func validateGlobPatterns(patterns []string) error {
 	return nil
 }
 
-// pathIncludeSQL generates a SQL fragment for path inclusion filtering.
-// Returns ("", nil) for empty patterns.
-func pathIncludeSQL(alias string, patterns []string) (string, []any) {
-	if len(patterns) == 0 {
-		return "", nil
-	}
+// globOrSQL builds "alias GLOB ? OR alias GLOB ? ..." and its args.
+func globOrSQL(alias string, patterns []string) (string, []any) {
 	var parts []string
 	var args []any
 	for _, p := range patterns {
 		parts = append(parts, alias+" GLOB ?")
 		args = append(args, p)
 	}
-	return " AND (" + strings.Join(parts, " OR ") + ")", args
+	return strings.Join(parts, " OR "), args
+}
+
+// pathIncludeSQL generates a SQL fragment for path inclusion filtering.
+// Returns ("", nil) for empty patterns.
+func pathIncludeSQL(alias string, patterns []string) (string, []any) {
+	if len(patterns) == 0 {
+		return "", nil
+	}
+	globs, args := globOrSQL(alias, patterns)
+	return " AND (" + globs + ")", args
+}
+
+// pathIncludeNullSafeSQL generates a SQL fragment for path inclusion filtering
+// that keeps NULL-path nodes (phantom/tag), mirroring the NULL protection of
+// PathExcludeSQL. Returns ("", nil) for empty patterns.
+func pathIncludeNullSafeSQL(alias string, patterns []string) (string, []any) {
+	if len(patterns) == 0 {
+		return "", nil
+	}
+	globs, args := globOrSQL(alias, patterns)
+	return " AND (" + alias + " IS NULL OR " + globs + ")", args
 }
 
 // PathExcludeSQL returns a SQL fragment and args for excluding paths.
@@ -36,14 +53,9 @@ func (ef *ExcludeFilter) PathExcludeSQL(alias string) (string, []any) {
 	if ef == nil || len(ef.PathGlobs) == 0 {
 		return "", nil
 	}
-	var parts []string
-	var args []any
-	for _, g := range ef.PathGlobs {
-		parts = append(parts, alias+" GLOB ?")
-		args = append(args, g)
-	}
+	globs, args := globOrSQL(alias, ef.PathGlobs)
 	// path IS NULL protects phantom/tag nodes (NOT (NULL GLOB ?) → NULL → false in WHERE).
-	return fmt.Sprintf(" AND (%s IS NULL OR NOT (%s))", alias, strings.Join(parts, " OR ")), args
+	return fmt.Sprintf(" AND (%s IS NULL OR NOT (%s))", alias, globs), args
 }
 
 // globMatch implements SQLite GLOB semantics in Go.

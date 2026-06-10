@@ -20,6 +20,10 @@ type QueryOptions struct {
 	MaxViaPerTarget int            // default 10
 	Exclude         *ExcludeFilter // nil = no exclusion
 	Where           *WhereClause   // nil = no filtering
+	// Path restricts result nodes (backlinks, outgoing, twohop targets,
+	// snippet sources) to paths matching the globs. NULL-path nodes
+	// (phantom/tag) are kept, and twohop via nodes are not filtered.
+	Path []string
 }
 
 // NodeInfo describes a node in the graph.
@@ -82,6 +86,10 @@ type QueryResult struct {
 
 // Query returns related information for the given entry node.
 func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, error) {
+	if err := validateGlobPatterns(opts.Path); err != nil {
+		return nil, err
+	}
+
 	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
@@ -109,7 +117,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	wc := opts.Where
 
 	if isFieldActive("backlinks", opts.Fields) {
-		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef, wc)
+		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef, wc, opts.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +126,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 
 	if isFieldActive("outgoing", opts.Fields) {
 		if info.Type == NodeTypeNote {
-			og, err := queryOutgoing(db, nodeID, ef, wc)
+			og, err := queryOutgoing(db, nodeID, ef, wc, opts.Path)
 			if err != nil {
 				return nil, err
 			}
@@ -137,7 +145,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive("twohop", opts.Fields) {
-		th, err := queryTwoHop(db, nodeID, info.Type, opts.MaxTwoHop, opts.MaxViaPerTarget, ef, wc)
+		th, err := queryTwoHop(db, nodeID, info.Type, opts.MaxTwoHop, opts.MaxViaPerTarget, ef, wc, opts.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +163,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive("snippet", opts.Fields) && opts.IncludeSnippet > 0 {
-		snippets, err := readSnippets(db, vaultPath, nodeID, opts.IncludeSnippet, ef)
+		snippets, err := readSnippets(db, vaultPath, nodeID, opts.IncludeSnippet, ef, opts.Path)
 		if err != nil {
 			return nil, err
 		}

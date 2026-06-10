@@ -21,9 +21,11 @@ func runQuery(args []string) error {
 	maxBacklinks := fs.Int("max-backlinks", 100, "max backlinks")
 	maxTwoHop := fs.Int("max-twohop", 100, "max twohop entries")
 	maxViaPerTarget := fs.Int("max-via-per-target", 10, "max via entries per twohop target")
+	var pathPatterns multiString
 	var excludePaths multiString
 	var excludeTags multiString
 	var whereExprs multiString
+	fs.Var(&pathPatterns, "path", "include result paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude paths matching glob (repeatable)")
 	fs.Var(&excludeTags, "exclude-tag", "exclude tag (repeatable)")
 	fs.Var(&whereExprs, "where", "frontmatter filter (repeatable)")
@@ -79,6 +81,7 @@ func runQuery(args []string) error {
 		MaxViaPerTarget: *maxViaPerTarget,
 		Exclude:         ef,
 		Where:           wc,
+		Path:            pathPatterns,
 	}
 
 	result, err := core.Query(*vault, entry, opts)

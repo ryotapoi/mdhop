@@ -89,10 +89,14 @@ mdhop query --file docs/index.md --path "docs/**" --fields outgoing --format jso
 mdhop diagnose --path "docs/**" --exclude "docs/archive/**" --format json
 ```
 
+決定（v0.10.0 実装時）:
+
+- query の `--path` は結果ノード（backlinks / outgoing / twohop targets / snippet）に適用し、twohop の via には適用しない（範囲外 via 経由の到達を保つ）。phantom / tag のような path なし node は `--exclude` と同じ NULL 保護で除外しない。
+
 検討点:
 
 - 除外指定は `docs/archive/**` のような意図的に診断対象から外したい領域に使える。
-- path glob の仕様を Go 側と SQL 側で揃える。特に `[` を含むパス、大小文字、ディレクトリ末尾 `/` の扱いに注意（v0.9.0 で同値性テストを先行追加済みの想定）。
+- path glob の仕様を Go 側と SQL 側で揃える。特に `[` を含むパス、大小文字、ディレクトリ末尾 `/` の扱いに注意（v0.9.0 で同値性テストを先行追加済み: `TestGlobMatchSQLiteEquivalence`）。
 
 受け入れ条件:
 

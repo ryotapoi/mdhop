@@ -146,6 +146,9 @@ meta:
 - `--max-backlinks <N>` : Backlinks の上限（default: 100）
 - `--max-twohop <N>` : two-hop の上限（default: 100）
 - `--max-via-per-target <N>` : two-hop の共通ターゲットごとの上限（default: 10）
+- `--path <glob>` : 結果ノード（backlinks / outgoing / twohop の targets / snippet）を一致するパスに絞る（複数回指定可、OR 結合）
+  - path を持たない node（phantom / tag）は除外されない（`--exclude` と同じ NULL 保護）
+  - twohop の via には適用しない（範囲外の via 経由で範囲内の targets に届くケースを保つ）
 - `--exclude <glob>` : 指定パターンに一致するパスを結果から除外する（複数回指定可）
 - `--exclude-tag <tag>` : 指定タグを結果から除外する（複数回指定可、`#` 付き推奨）
 - `--no-exclude` : `mdhop.yaml` の除外設定を無視する
@@ -277,7 +280,7 @@ meta:
   - 必須: `--file` または `--tag` または `--phantom` または `--name`
   - 任意: `--vault`, `--format`, `--fields`, `--include-head`, `--include-snippet`,
     `--max-backlinks`, `--max-twohop`, `--max-via-per-target`,
-    `--exclude`, `--exclude-tag`, `--no-exclude`, `--where`
+    `--path`, `--exclude`, `--exclude-tag`, `--no-exclude`, `--where`
 - `search`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`, `--where`, `--path`, `--exclude`, `--no-exclude`,

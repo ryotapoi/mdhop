@@ -576,6 +576,36 @@ func TestRunDiagnose_JSONOutput(t *testing.T) {
 	}
 }
 
+func TestRunQuery_PathFilter(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_exclude")
+
+	out := captureStdout(t, func() error {
+		return runQuery([]string{"--vault", vault, "--file", "A.md", "--path", "daily/*", "--fields", "outgoing", "--format", "json"})
+	})
+
+	var m struct {
+		Outgoing []struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+			Path string `json:"path"`
+		} `json:"outgoing"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	var names []string
+	for _, og := range m.Outgoing {
+		names = append(names, og.Name)
+		if og.Path == "B.md" || og.Path == "C.md" {
+			t.Errorf("outgoing should not contain %s with --path daily/*", og.Path)
+		}
+	}
+	if len(names) != 2 || names[0] != "Missing" || names[1] != "D" {
+		// Order: phantom (empty path) sorts first by path.
+		t.Errorf("outgoing names = %v, want [Missing D]", names)
+	}
+}
+
 func TestRunDiagnose_PathFilter(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_diagnose_path")
 
