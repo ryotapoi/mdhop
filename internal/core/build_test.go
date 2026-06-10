@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1561,5 +1562,51 @@ func TestBuildMeta_Idempotent(t *testing.T) {
 
 	if firstCount != secondCount {
 		t.Errorf("meta count changed: %d → %d", firstCount, secondCount)
+	}
+}
+
+func TestBuildRelativeVaultPathCollectsAssets(t *testing.T) {
+	vault := copyVault(t, "vault_graph")
+
+	// Regression: with vaultPath "." the asset walk used to skip the root
+	// itself as a hidden directory and index zero assets.
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(vault); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(wd); err != nil {
+			t.Fatalf("chdir back: %v", err)
+		}
+	})
+
+	if _, err := Build("."); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	db := openTestDB(t, dbPath("."))
+	defer db.Close()
+	rows, err := db.Query("SELECT path FROM nodes WHERE type='asset' ORDER BY path")
+	if err != nil {
+		t.Fatalf("query assets: %v", err)
+	}
+	defer rows.Close()
+	var paths []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		paths = append(paths, p)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+	want := []string{"img/pic.png", "mdhop.yaml"}
+	if !reflect.DeepEqual(paths, want) {
+		t.Errorf("asset paths = %v, want %v", paths, want)
 	}
 }

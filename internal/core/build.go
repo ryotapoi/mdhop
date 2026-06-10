@@ -406,6 +406,11 @@ func collectAssetFiles(vaultPath string) ([]string, error) {
 		}
 		name := d.Name()
 		if d.IsDir() {
+			// Never skip the walk root: with vaultPath "." its entry name
+			// is "." and would match the hidden-directory check.
+			if path == vaultPath {
+				return nil
+			}
 			if name == dataDirName || strings.HasPrefix(name, ".") {
 				return filepath.SkipDir
 			}
