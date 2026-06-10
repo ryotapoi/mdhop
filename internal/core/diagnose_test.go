@@ -99,6 +99,118 @@ func TestDiagnose_Empty(t *testing.T) {
 	}
 }
 
+func TestDiagnose_PathFilter_NoFilterReportsAll(t *testing.T) {
+	vault := setupVaultForDiagnose(t, "vault_diagnose_path")
+
+	result, err := Diagnose(vault, DiagnoseOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.BasenameConflicts) != 1 {
+		t.Fatalf("basename_conflicts count = %d, want 1", len(result.BasenameConflicts))
+	}
+	if got := result.BasenameConflicts[0].Paths; len(got) != 2 || got[0] != "Conflict.md" || got[1] != "docs/Conflict.md" {
+		t.Errorf("conflict paths = %v, want [Conflict.md docs/Conflict.md]", got)
+	}
+	if len(result.AssetBasenameConflicts) != 1 {
+		t.Fatalf("asset_basename_conflicts count = %d, want 1", len(result.AssetBasenameConflicts))
+	}
+	if got := result.AssetBasenameConflicts[0].Paths; len(got) != 2 || got[0] != "img/logo.png" || got[1] != "pics/logo.png" {
+		t.Errorf("asset conflict paths = %v, want [img/logo.png pics/logo.png]", got)
+	}
+	if len(result.Phantoms) != 2 || result.Phantoms[0] != "MissingDoc" || result.Phantoms[1] != "MissingOther" {
+		t.Errorf("phantoms = %v, want [MissingDoc MissingOther]", result.Phantoms)
+	}
+}
+
+func TestDiagnose_PathFilter_BasenameLinkSource(t *testing.T) {
+	vault := setupVaultForDiagnose(t, "vault_diagnose_path")
+
+	// docs/a.md links [[Conflict]] (basename) and [[MissingDoc]].
+	result, err := Diagnose(vault, DiagnoseOptions{Path: []string{"docs/*"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.BasenameConflicts) != 1 {
+		t.Fatalf("basename_conflicts count = %d, want 1", len(result.BasenameConflicts))
+	}
+	if got := result.BasenameConflicts[0].Name; !strings.EqualFold(got, "Conflict") {
+		t.Errorf("conflict name = %q, want Conflict", got)
+	}
+	// No basename links to assets from docs/*.
+	if len(result.AssetBasenameConflicts) != 0 {
+		t.Errorf("asset_basename_conflicts count = %d, want 0", len(result.AssetBasenameConflicts))
+	}
+	if len(result.Phantoms) != 1 || result.Phantoms[0] != "MissingDoc" {
+		t.Errorf("phantoms = %v, want [MissingDoc]", result.Phantoms)
+	}
+}
+
+func TestDiagnose_PathFilter_PathLinkIsNotConflictRisk(t *testing.T) {
+	vault := setupVaultForDiagnose(t, "vault_diagnose_path")
+
+	// other/b.md links [[docs/Conflict]] (path link, no resolution risk) and [[MissingOther]].
+	result, err := Diagnose(vault, DiagnoseOptions{Path: []string{"other/*"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.BasenameConflicts) != 0 {
+		t.Errorf("basename_conflicts count = %d, want 0", len(result.BasenameConflicts))
+	}
+	if len(result.Phantoms) != 1 || result.Phantoms[0] != "MissingOther" {
+		t.Errorf("phantoms = %v, want [MissingOther]", result.Phantoms)
+	}
+}
+
+func TestDiagnose_PathFilter_Exclude(t *testing.T) {
+	vault := setupVaultForDiagnose(t, "vault_diagnose_path")
+
+	result, err := Diagnose(vault, DiagnoseOptions{Exclude: []string{"docs/*"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.BasenameConflicts) != 0 {
+		t.Errorf("basename_conflicts count = %d, want 0", len(result.BasenameConflicts))
+	}
+	if len(result.Phantoms) != 1 || result.Phantoms[0] != "MissingOther" {
+		t.Errorf("phantoms = %v, want [MissingOther]", result.Phantoms)
+	}
+}
+
+func TestDiagnose_PathFilter_IncludeAndExclude(t *testing.T) {
+	vault := setupVaultForDiagnose(t, "vault_diagnose_path")
+
+	result, err := Diagnose(vault, DiagnoseOptions{Path: []string{"*"}, Exclude: []string{"other/*"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.BasenameConflicts) != 1 {
+		t.Errorf("basename_conflicts count = %d, want 1", len(result.BasenameConflicts))
+	}
+	if len(result.Phantoms) != 1 || result.Phantoms[0] != "MissingDoc" {
+		t.Errorf("phantoms = %v, want [MissingDoc]", result.Phantoms)
+	}
+}
+
+func TestDiagnose_PathFilter_InvalidGlob(t *testing.T) {
+	vault := setupVaultForDiagnose(t, "vault_diagnose_path")
+
+	_, err := Diagnose(vault, DiagnoseOptions{Path: []string{"[abc]/*"}})
+	if err == nil || !strings.Contains(err.Error(), "unsupported glob pattern") {
+		t.Errorf("error = %v, want unsupported glob pattern", err)
+	}
+
+	_, err = Diagnose(vault, DiagnoseOptions{Exclude: []string{"[abc]/*"}})
+	if err == nil || !strings.Contains(err.Error(), "unsupported glob pattern") {
+		t.Errorf("error = %v, want unsupported glob pattern", err)
+	}
+}
+
 func TestDiagnose_NoDB(t *testing.T) {
 	vault := t.TempDir()
 

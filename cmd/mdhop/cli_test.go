@@ -576,6 +576,58 @@ func TestRunDiagnose_JSONOutput(t *testing.T) {
 	}
 }
 
+func TestRunDiagnose_PathFilter(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_diagnose_path")
+
+	out := captureStdout(t, func() error {
+		return runDiagnose([]string{"--vault", vault, "--path", "docs/*", "--format", "json"})
+	})
+
+	var m struct {
+		BasenameConflicts []struct {
+			Name  string   `json:"name"`
+			Paths []string `json:"paths"`
+		} `json:"basename_conflicts"`
+		Phantoms []string `json:"phantoms"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if len(m.BasenameConflicts) != 1 || m.BasenameConflicts[0].Name != "Conflict" {
+		t.Errorf("basename_conflicts = %+v, want single Conflict group", m.BasenameConflicts)
+	}
+	if len(m.Phantoms) != 1 || m.Phantoms[0] != "MissingDoc" {
+		t.Errorf("phantoms = %v, want [MissingDoc]", m.Phantoms)
+	}
+}
+
+func TestRunDiagnose_ExcludeFilter(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_diagnose_path")
+
+	out := captureStdout(t, func() error {
+		return runDiagnose([]string{"--vault", vault, "--exclude", "docs/*", "--format", "json"})
+	})
+
+	var m struct {
+		Phantoms []string `json:"phantoms"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if len(m.Phantoms) != 1 || m.Phantoms[0] != "MissingOther" {
+		t.Errorf("phantoms = %v, want [MissingOther]", m.Phantoms)
+	}
+}
+
+func TestRunDiagnose_InvalidGlob(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_diagnose_path")
+
+	err := runDiagnose([]string{"--vault", vault, "--path", "[abc]/*"})
+	if err == nil || !strings.Contains(err.Error(), "unsupported glob pattern") {
+		t.Errorf("expected unsupported glob pattern error, got: %v", err)
+	}
+}
+
 func TestPrintDiagnoseText_FieldsFilter(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_build_full")
 

@@ -4,7 +4,7 @@
 
 特定領域だけを path filter で絞れる汎用診断機能群の前半。「範囲を絞って診て、辿れる」を 1 つの capability として出す。特定フォルダ・特定運用名に依存する専用機能は作らない。詳細・設計方針・受け入れ条件は [diagnostics.md](diagnostics.md)。
 
-- [ ] `diagnose --path` で対象範囲を絞る（最優先。vault 全体の phantom ノイズ解消）
+- [x] `diagnose --path` で対象範囲を絞る（最優先。vault 全体の phantom ノイズ解消）
 - [ ] path filter（`--path` / `--exclude`。search の既存名を正とする）をコマンド間で統一
 - [ ] frontmatter key の raw path 値を graph edge にする設定（`meta.link_keys`。`related:` / `sources:` を backlinks / reachable に反映）
 - [ ] `reachable --from <entry> --path <glob>` 到達性チェック（`meta.link_keys` の後に実装。raw path edge がないと false positive が出る）

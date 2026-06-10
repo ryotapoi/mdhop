@@ -295,7 +295,10 @@ meta:
   - 補足: `--exclude`, `--no-exclude` は query と同じ挙動（config の除外 + CLI 除外）
 - `diagnose`
   - 必須: なし
-  - 任意: `--vault`, `--format`, `--fields`
+  - 任意: `--vault`, `--format`, `--fields`, `--path`, `--exclude`
+  - 補足: `--path` / `--exclude` は source note（リンクを書いている側の note）を path glob で絞る（複数回指定可、glob 仕様は除外フィルタと同じ）
+  - 補足: フィルタ指定時、`phantoms` は対象 note から参照されている phantom のみ、`basename_conflicts` / `asset_basename_conflicts` は対象 note からの basename 形式リンクが指す衝突グループのみ（リンク解決リスクがあるもの）を返す
+  - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は diagnose に適用されない。フィルタ未指定時の挙動は従来どおり
 - `stats`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`

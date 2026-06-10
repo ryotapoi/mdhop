@@ -12,6 +12,10 @@ func runDiagnose(args []string) error {
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output")
+	var pathPatterns multiString
+	var excludePaths multiString
+	fs.Var(&pathPatterns, "path", "restrict source notes to paths matching glob (repeatable)")
+	fs.Var(&excludePaths, "exclude", "exclude source notes matching glob (repeatable)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -25,7 +29,11 @@ func runDiagnose(args []string) error {
 		return err
 	}
 
-	result, err := core.Diagnose(*vault, core.DiagnoseOptions{Fields: fieldList})
+	result, err := core.Diagnose(*vault, core.DiagnoseOptions{
+		Fields:  fieldList,
+		Path:    pathPatterns,
+		Exclude: excludePaths,
+	})
 	if err != nil {
 		return err
 	}

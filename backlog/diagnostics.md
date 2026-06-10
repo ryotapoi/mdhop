@@ -64,9 +64,10 @@ mdhop diagnose --path "project/foo/**" --format json
 
 - **`--path` は source note を絞る。**「指定 path 配下の note から出ているリンクの問題」を見る。範囲外への参照や phantom も拾う（phantom は実在 path を持たないため source 側で絞るのが唯一成立する定義でもある）。
 
-検討点:
+決定（v0.10.0 実装時）:
 
-- basename conflict は candidate path 側の問題でもある。source 側で絞る原則のもと、対象範囲の note から参照しているリンクの解決リスクとして見せる形を設計時に詰める。
+- フィルタ指定時の basename conflict は「対象 note からの basename 形式リンク（wikilink / markdown でパス区切りなし）が衝突グループのメンバーを指すグループのみ」を返す。パスリンクは解決リスクがないため対象外。
+- `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は diagnose に適用しない（フィルタ未指定時の互換維持を優先）。
 
 受け入れ条件:
 
