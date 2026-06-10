@@ -1,6 +1,6 @@
 ---
 name: mdhop
-description: Use mdhop for Markdown vault search, link queries, metadata filters, diagnostics, and link-safe file operations.
+description: Use mdhop for Markdown vault search, link queries, metadata filters, reachability checks, graph export, diagnostics, and link-safe file operations.
 ---
 
 # mdhop
@@ -60,6 +60,23 @@ mdhop query --phantom MissingConcept --fields backlinks --format json
 
 # Shared-target discovery.
 mdhop query --file Notes/Design.md --fields twohop --format json
+```
+
+### Check Reachability and Structure
+
+```bash
+# Notes reachable / unreachable from an entry note via links.
+mdhop reachable --from index.md --path "docs/*" --format json
+
+# Shortest route to each reachable note.
+mdhop reachable --from index.md --path "docs/*" --route --format json
+
+# Export the link graph (induced subgraph) for analysis or visualization.
+mdhop graph --path "docs/*" --format json
+mdhop graph --path "docs/*" --format dot
+
+# Diagnose only a subtree: phantoms and conflicts referenced from it.
+mdhop diagnose --path "projects/*" --format json
 ```
 
 ### Read Context

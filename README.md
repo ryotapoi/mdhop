@@ -55,6 +55,8 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `resolve` | Resolve a link to its target |
 | `query` | Return Backlinks / Two-Hop / Tags etc. for a node |
 | `search` | Find notes vault-wide by frontmatter metadata, path, or isolation filters |
+| `reachable` | List notes reachable / unreachable from an entry note via links |
+| `graph` | Export the link graph as JSON or Graphviz dot |
 | `stats` | Show vault statistics (note count, link count, etc.) |
 | `diagnose` | Detect basename conflicts and phantom nodes |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.yaml` |
@@ -67,25 +69,25 @@ Run `mdhop <command> --help` for command-specific details.
 
 An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdhop`](examples/skills/mdhop). It covers structural note navigation, metadata filtering, vault-wide search, and file operation workflows.
 
-Recent search/filter examples:
+Recent examples (path filters, reachability, graph export):
 
 ```bash
 # Notes missing a frontmatter key
 mdhop search --where "priority NOT EXISTS" --format json
 
-# Notes with no tags
-mdhop search --no-tags --format json
+# Diagnose only a subtree (phantoms and conflicts referenced from it)
+mdhop diagnose --path "projects/*" --format json
 
-# Notes with no outgoing edges, including tag edges
-mdhop search --no-outgoing --format json
+# Notes reachable / unreachable from an entry note, with shortest routes
+mdhop reachable --from index.md --path "docs/*" --route --format json
 
-# Notes with no incoming edges
-mdhop search --no-incoming --format json
+# Export the link graph for visualization
+mdhop graph --path "docs/*" --format dot
 ```
 
 ## Configuration (mdhop.yaml)
 
-Place `mdhop.yaml` at the vault root to configure exclusion patterns for build and query.
+Place `mdhop.yaml` at the vault root to configure exclusion patterns for build and query, and frontmatter handling.
 
 ```yaml
 build:
@@ -98,6 +100,11 @@ exclude:
     - "daily/*"
   tags:
     - "#daily"
+
+meta:
+  link_keys:        # frontmatter keys whose raw path values become link edges
+    - related
+    - sources
 ```
 
 ## Documentation

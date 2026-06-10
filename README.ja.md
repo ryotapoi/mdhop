@@ -53,6 +53,8 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `resolve` | リンクの解決先を返す |
 | `query` | 起点ノートの Backlinks / Two-Hop / Tags 等を返す |
 | `search` | frontmatter メタデータ・パス・孤立検出条件で Vault 全体からノートを検索 |
+| `reachable` | 入口 note からリンクで到達できる / できない note を列挙 |
+| `graph` | リンクグラフを JSON / Graphviz dot で出力 |
 | `stats` | ノート数・リンク数などの統計情報 |
 | `diagnose` | basename 衝突・phantom ノードの検出 |
 | `init-meta` | `mdhop.yaml` の frontmatter 型定義を生成 |
@@ -65,25 +67,25 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 
 最新の Codex / Claude 形式の skill 例は [`examples/skills/mdhop`](examples/skills/mdhop) にある。構造的なノート探索、メタデータフィルタ、Vault 全体検索、ファイル操作 workflow をまとめている。
 
-最近追加された検索・フィルタ例:
+最近追加された例（path filter、到達性チェック、グラフ出力）:
 
 ```bash
 # frontmatter key を持たないノート
 mdhop search --where "priority NOT EXISTS" --format json
 
-# タグがないノート
-mdhop search --no-tags --format json
+# 特定サブツリーだけを診断（そこから参照される phantom・衝突のみ）
+mdhop diagnose --path "projects/*" --format json
 
-# outgoing edge がないノート（タグ edge を含む）
-mdhop search --no-outgoing --format json
+# 入口 note から到達できる / できない note と最短経路
+mdhop reachable --from index.md --path "docs/*" --route --format json
 
-# incoming edge がないノート
-mdhop search --no-incoming --format json
+# 可視化用にリンクグラフを出力
+mdhop graph --path "docs/*" --format dot
 ```
 
 ## 設定（mdhop.yaml）
 
-Vault 直下に `mdhop.yaml` を置くと、build 時・query 時の除外パターンを指定できる。
+Vault 直下に `mdhop.yaml` を置くと、build 時・query 時の除外パターンと frontmatter の扱いを指定できる。
 
 ```yaml
 build:
@@ -96,6 +98,11 @@ exclude:
     - "daily/*"
   tags:
     - "#daily"
+
+meta:
+  link_keys:        # raw path 値をリンク edge にする frontmatter key
+    - related
+    - sources
 ```
 
 ## ドキュメント

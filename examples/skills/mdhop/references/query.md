@@ -1,6 +1,6 @@
 # mdhop Query Reference
 
-Detailed reference for read-only commands: `query`, `search`, `resolve`, `stats`, `diagnose`.
+Detailed reference for read-only commands: `query`, `search`, `resolve`, `reachable`, `graph`, `stats`, `diagnose`.
 
 ## Common Options
 
@@ -84,15 +84,21 @@ Operators:
 
 **Type-safe comparisons:** When keys are declared in `mdhop.yaml`'s `meta.types` (e.g., `date`, `number`, `semver`), comparison operators (>, <, >=, <=) use normalized sort values. Without type declarations, comparisons are lexicographic.
 
-### Exclude Options
+### Path Filter and Exclude Options
 
 | Flag | Description |
 |------|-------------|
+| `--path <glob>` | Include only result nodes matching the glob (repeatable, OR-joined) |
 | `--exclude <glob>` | Exclude paths matching the glob pattern (repeatable) |
 | `--exclude-tag <tag>` | Exclude a specific tag (repeatable, `#` prefix recommended) |
 | `--no-exclude` | Ignore exclusions defined in `mdhop.yaml` |
 
 CLI `--exclude`/`--exclude-tag` flags are merged with `mdhop.yaml` `exclude` settings.
+
+`--path` behavior:
+- Applies to: backlinks, outgoing, twohop targets, snippet
+- Nodes without a path (phantom, tag) are never filtered out
+- Not applied to twohop via nodes (so targets inside the range stay reachable through via nodes outside it)
 
 #### Exclude Behavior
 
@@ -311,6 +317,94 @@ mdhop resolve --from Notes/Design.md --link '[[Spec]]' --format json
 }
 ```
 
+## reachable
+
+List notes reachable / unreachable from an entry note by following links (BFS over the index).
+
+### Flags
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--from <path>` | Yes | Entry note (vault-relative path). Assets or unregistered paths are errors |
+| `--path <glob>` | No | Restrict the target note set to matching paths (repeatable, OR-joined). Default: all notes |
+| `--exclude <glob>` | No | Exclude notes from the target set (repeatable) |
+| `--route` | No | Also output the shortest route to each reachable note |
+| `--fields <list>` | No | Available: `reachable`, `unreachable` |
+| `--format json\|text` | No | Output format |
+
+### Behavior
+
+- Traverses outgoing links only: `wikilink`, `markdown`, `frontmatter_wikilink`, `frontmatter_path`. Tag edges are not traversed (sharing a tag does not count as reachable)
+- The entry note itself is reachable at 0 hops when it is inside the target set
+- Notes outside the target set still relay traversal but appear in neither list
+- `from` is always included in JSON output regardless of `--fields`; `routes` appears only with `--route` (route connectors may lie outside the target set)
+- `--path` / `--exclude` are CLI-only; `mdhop.yaml` `exclude` settings do not apply
+
+### Examples
+
+```bash
+# Which docs notes are orphaned from the index page?
+mdhop reachable --from docs/index.md --path "docs/*" --format json
+
+# Show how each note is reached.
+mdhop reachable --from docs/index.md --path "docs/*" --route --format json
+```
+
+### JSON Output Example
+
+```json
+{
+  "from": "docs/index.md",
+  "reachable": ["docs/index.md", "docs/sub.md", "docs/leaf.md"],
+  "unreachable": ["docs/orphan.md"],
+  "routes": {
+    "docs/leaf.md": ["docs/index.md", "docs/sub.md", "docs/leaf.md"]
+  }
+}
+```
+
+## graph
+
+Export the link graph as an induced subgraph for external visualization or analysis (similarity, clustering, etc. are left to the consumer).
+
+### Flags
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--path <glob>` | No | Restrict the node set to matching paths (repeatable, OR-joined). Default: all |
+| `--exclude <glob>` | No | Exclude nodes from the node set (repeatable) |
+| `--include-phantoms` | No | Include phantom nodes referenced from in-set notes (default: excluded) |
+| `--format json\|dot` | No | Output format (default: json). No `text`, no `--fields` |
+
+### Behavior
+
+- Nodes are existing notes and assets matching the filters; tag nodes are never exported (tag edges drop out too)
+- Edges are link occurrences whose both endpoints are in the node set (induced subgraph), one edge per occurrence — aggregate weights on the consumer side
+- Node `id` is an export-scoped reference key used by `edges[].source/target`; it is not stable across builds
+- dot labels: path for notes/assets, `(phantom) <name>` for phantoms
+- `--path` / `--exclude` are CLI-only; `mdhop.yaml` `exclude` settings do not apply
+
+### Examples
+
+```bash
+mdhop graph --path "docs/*" --format json
+mdhop graph --format dot --include-phantoms > vault.dot
+```
+
+### JSON Output Example
+
+```json
+{
+  "nodes": [
+    {"id": 1, "type": "note", "name": "a", "path": "docs/a.md"},
+    {"id": 7, "type": "phantom", "name": "Ghost", "path": ""}
+  ],
+  "edges": [
+    {"source": 1, "target": 7, "link_type": "wikilink"}
+  ]
+}
+```
+
 ## stats
 
 Show vault statistics.
@@ -359,10 +453,22 @@ Available fields for `--fields`: `basename_conflicts`, `asset_basename_conflicts
 | `asset_basename_conflicts` | Asset files sharing the same basename |
 | `phantoms` | Nodes referenced by links but not present on disk |
 
+### Path Filter
+
+| Flag | Description |
+|------|-------------|
+| `--path <glob>` | Restrict to source notes matching the glob (repeatable, OR-joined) |
+| `--exclude <glob>` | Exclude source notes matching the glob (repeatable) |
+
+With filters, `phantoms` returns only phantoms referenced from the filtered notes, and the conflict fields return only conflict groups targeted by basename-style links written in the filtered notes (i.e., actual resolution risks). CLI-only; `mdhop.yaml` `exclude` settings do not apply to diagnose.
+
 ### Example
 
 ```bash
 mdhop diagnose --format json
+
+# Diagnose only one subtree.
+mdhop diagnose --path "projects/*" --format json
 ```
 
 ```json

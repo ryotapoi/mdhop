@@ -20,7 +20,8 @@ mdhop build
 - Creates `.mdhop/index.sqlite`
 - Registers `.md` files as notes and non-`.md` files as assets (hidden files/directories excluded)
 - Stores frontmatter metadata in the `meta` table (type-aware normalization if `meta.types` is configured)
-- Errors if ambiguous links exist (strict mode)
+- With `meta.link_keys` configured, raw path values of the declared frontmatter keys (e.g., `related: docs/spec.md`) are indexed as `frontmatter_path` link edges — they appear in backlinks, reachable, and graph. Resolution follows markdown-link rules; URL values and wikilink values are skipped; unresolvable values become phantoms
+- Errors if ambiguous links exist (strict mode); `link_keys` raw path values are validated too (vault escape / ambiguous basename)
 - Respects `mdhop.yaml` `build.exclude_paths` — excluded files are not indexed; links to them become phantom nodes
 
 ## add
@@ -43,6 +44,7 @@ mdhop add --file A.md --file B.md
 - Errors if the new file contains ambiguous links
 - When adding causes a basename conflict, existing basename links in other files are automatically rewritten to full paths (auto-disambiguate). Use `--no-auto-disambiguate` to disable
 - If existing basename links reference a phantom and the new file creates multiple candidates for that basename, it errors even with auto-disambiguate on (cannot safely determine rewrite target)
+- With `meta.link_keys` configured: raw path values in frontmatter are not link syntax and cannot be rewritten, so `add` errors before changing anything when it would change what an existing raw path value resolves to (fix the frontmatter value manually, then retry)
 
 **Output fields:** `added`, `promoted`, `rewritten`
 
@@ -120,6 +122,7 @@ mdhop move --from OldDir/ --to NewDir/
   - Path-based links (`[[path/to/a]]`) are always rewritten
   - Relative links in the moved file are adjusted for the new location
   - Wikilinks inside frontmatter values are rewritten the same way; quoted vs bare YAML style is preserved
+  - With `meta.link_keys` configured: raw path values in frontmatter are not rewritable, so `move` errors before changing anything when it would change what a raw path value resolves to (fix the frontmatter value manually, then retry)
 - Errors if source file or affected files have stale mtime (mtime mismatch with DB)
 
 **Output fields (single file):** `from`, `to`, `rewritten`
