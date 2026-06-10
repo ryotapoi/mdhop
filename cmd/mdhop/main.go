@@ -47,6 +47,8 @@ func main() {
 		err = runConvert(os.Args[2:])
 	case "search":
 		err = runSearch(os.Args[2:])
+	case "reachable":
+		err = runReachable(os.Args[2:])
 	case "init-meta":
 		err = runInitMeta(os.Args[2:])
 	case "--version":
@@ -97,6 +99,7 @@ Query Commands:
   resolve    Resolve a link from a source file
   query      Query related information for a node
   search     Search notes by metadata and path conditions
+  reachable  Check link reachability from an entry note
   stats      Show vault statistics
   diagnose   Show basename conflicts and phantom nodes
 

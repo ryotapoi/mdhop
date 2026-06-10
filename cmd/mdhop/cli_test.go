@@ -1342,3 +1342,102 @@ func TestRunInitMeta_ScanStdout(t *testing.T) {
 		t.Errorf("mdhop.yaml should not be created without --write (stat err: %v)", err)
 	}
 }
+
+// --- Reachable CLI tests ---
+
+func TestRunReachable_JSONOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_reachable")
+
+	out := captureStdout(t, func() error {
+		return runReachable([]string{
+			"--vault", vault,
+			"--from", "docs/index.md",
+			"--path", "docs/*",
+			"--format", "json",
+		})
+	})
+
+	var m struct {
+		From        string   `json:"from"`
+		Reachable   []string `json:"reachable"`
+		Unreachable []string `json:"unreachable"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if m.From != "docs/index.md" {
+		t.Errorf("from = %q, want docs/index.md", m.From)
+	}
+	if len(m.Reachable) != 6 {
+		t.Errorf("reachable = %v, want 6 notes", m.Reachable)
+	}
+	if len(m.Unreachable) != 1 || m.Unreachable[0] != "docs/orphan.md" {
+		t.Errorf("unreachable = %v, want [docs/orphan.md]", m.Unreachable)
+	}
+	if strings.Contains(out, "routes") {
+		t.Errorf("routes must not appear without --route:\n%s", out)
+	}
+}
+
+func TestRunReachable_TextRouteOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_reachable")
+
+	out := captureStdout(t, func() error {
+		return runReachable([]string{
+			"--vault", vault,
+			"--from", "docs/index.md",
+			"--path", "docs/*",
+			"--route",
+		})
+	})
+
+	if !strings.Contains(out, "unreachable:") || !strings.Contains(out, "- docs/orphan.md") {
+		t.Errorf("missing unreachable section:\n%s", out)
+	}
+	if !strings.Contains(out, "- docs/leaf.md: docs/index.md -> docs/sub.md -> docs/leaf.md") {
+		t.Errorf("missing leaf route:\n%s", out)
+	}
+}
+
+func TestRunReachable_FieldsFilter(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_reachable")
+
+	out := captureStdout(t, func() error {
+		return runReachable([]string{
+			"--vault", vault,
+			"--from", "docs/index.md",
+			"--fields", "unreachable",
+			"--format", "json",
+		})
+	})
+
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if _, ok := m["reachable"]; ok {
+		t.Errorf("reachable must be omitted with --fields unreachable:\n%s", out)
+	}
+	if _, ok := m["unreachable"]; !ok {
+		t.Errorf("unreachable missing:\n%s", out)
+	}
+	// from is always included regardless of --fields (overview.md).
+	if string(m["from"]) != `"docs/index.md"` {
+		t.Errorf("from = %s, want \"docs/index.md\" even with --fields:\n%s", m["from"], out)
+	}
+}
+
+func TestRunReachable_InvalidField(t *testing.T) {
+	err := runReachable([]string{"--from", "a.md", "--fields", "invalid"})
+	if err == nil || !strings.Contains(err.Error(), "invalid") {
+		t.Errorf("error = %v, want invalid field error", err)
+	}
+}
+
+func TestRunReachable_MissingFrom(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_reachable")
+	err := runReachable([]string{"--vault", vault})
+	if err == nil || !strings.Contains(err.Error(), "--from") {
+		t.Errorf("error = %v, want missing --from error", err)
+	}
+}

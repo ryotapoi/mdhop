@@ -70,6 +70,7 @@ meta:
 - `mdhop query --phantom name` : phantom 起点の関連情報を返す
 - `mdhop query --name name` : note/phantom/tag を意識せず関連情報を返す
 - `mdhop diagnose` : basename 衝突、phantom 一覧を検出する
+- `mdhop reachable --from A.md --path "docs/*"` : 入口 note からリンクで到達できる / できない note を列挙する
 - `mdhop stats` : ノート数・リンク数などの統計情報を返す
 - `mdhop init-meta` : frontmatter 型定義の scaffold を生成する
 
@@ -93,7 +94,7 @@ meta:
 
 - `--vault <path>` : Vault ルートを指定（省略時はカレントディレクトリ）
 
-### resolve/query/diagnose/stats の出力
+### resolve/query/diagnose/stats/reachable の出力
 
 - `--format json|text` : 出力形式を指定する（default: text）
 - `--fields <comma-separated>` : 出力フィールドを制限する
@@ -102,6 +103,8 @@ meta:
   - diagnose: `basename_conflicts,asset_basename_conflicts,phantoms`
   - stats: `notes_total,notes_exists,edges_total,tags_total,phantoms_total,assets_total`
     - `edges_total` は出現回数ベースの総数
+  - reachable: `reachable,unreachable`
+    - `from`（正規化済み entry path）は `--fields` に関係なく JSON に常に含まれる。`routes` は `--route` 指定時のみ含まれる
 
 ### フィールド定義
 
@@ -305,6 +308,14 @@ meta:
   - 補足: `--path` / `--exclude` は source note（リンクを書いている側の note）を path glob で絞る（複数回指定可、glob 仕様は除外フィルタと同じ）
   - 補足: フィルタ指定時、`phantoms` は対象 note から参照されている phantom のみ、`basename_conflicts` / `asset_basename_conflicts` は対象 note からの basename 形式リンクが指す衝突グループのみ（リンク解決リスクがあるもの）を返す
   - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は diagnose に適用されない。フィルタ未指定時の挙動は従来どおり
+- `reachable`
+  - 必須: `--from`（vault 相対の note path。asset / 未登録 path はエラー）
+  - 任意: `--vault`, `--format`, `--fields`, `--path`, `--exclude`, `--route`
+  - 補足: `--from` の note から outgoing リンクを BFS で辿り、対象 note 集合（`type='note' AND exists_flag=1` に `--path` / `--exclude` glob を適用。`--path` 未指定は全 note）を reachable / unreachable に分けて返す
+  - 補足: 辿る link_type は `wikilink` / `markdown` / `frontmatter_wikilink` / `frontmatter_path`。tag 系（`tag` / `frontmatter`）は辿らない（tag を共有するだけでは到達扱いにしない）
+  - 補足: `--from` 自身は対象集合内なら reachable に含まれる（0 hop）。対象集合外の note は走査の中継にはなるが、reachable / unreachable のどちらにも出ない
+  - 補足: `--route` で reachable な各 note への最短経路を `routes` として追加出力する（中継 note は対象集合外でも経路に現れる）
+  - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は適用されない
 - `stats`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`
