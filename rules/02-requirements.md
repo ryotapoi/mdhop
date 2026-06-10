@@ -67,9 +67,9 @@
   - `Tags`
   - `2 Hop Links`（共通ターゲット方式）
 - phantom をクエリ対象に含める
-  - phantom クエリ時の 2hop seed は inbound/auto をサポート
+  - phantom クエリ時の two-hop seed は inbound/auto をサポート
 - 出力順/ノイズ対策:
-  - priority（backlink > tags > 2hop(link) > 2hop(tag deep) > 2hop(tag shallow)）
+  - priority（backlink > tags > two-hop(link) > two-hop(tag deep) > two-hop(tag shallow)）
   - 上限 (`max_backlinks`, `max_twohop`, `max_via_per_target`) で切る
   - ハブ via を避けるオプション（via_max_degree）
 

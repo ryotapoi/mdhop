@@ -144,8 +144,8 @@ meta:
 - `--include-head <N>` : ノート冒頭 N 行を返す（frontmatterを除外し、先頭の空行を全て省く）
 - `--include-snippet <N>` : リンク周辺の前後 N 行ずつを返す（合計 2N+1 行）
 - `--max-backlinks <N>` : Backlinks の上限（default: 100）
-- `--max-twohop <N>` : 2hop の上限（default: 100）
-- `--max-via-per-target <N>` : 2hop の共通ターゲットごとの上限（default: 10）
+- `--max-twohop <N>` : two-hop の上限（default: 100）
+- `--max-via-per-target <N>` : two-hop の共通ターゲットごとの上限（default: 10）
 - `--exclude <glob>` : 指定パターンに一致するパスを結果から除外する（複数回指定可）
 - `--exclude-tag <tag>` : 指定タグを結果から除外する（複数回指定可、`#` 付き推奨）
 - `--no-exclude` : `mdhop.yaml` の除外設定を無視する
@@ -363,9 +363,9 @@ meta:
 
 ## query のルール（要点）
 
-- Backlinks, Tags, TwoHop, Outgoing を返す
+- Backlinks, Tags, Two-Hop, Outgoing を返す
 - 2 Hop は「共通ターゲット方式（A->X かつ B->X）」
-- TwoHop は **経由対象（via）を必ず返す**（例: `A <-via- X -> B` の X）
+- Two-Hop は **経由対象（via）を必ず返す**（例: `A <-via- X -> B` の X）
 - Outgoing は起点ノートからの外向きリンク一覧
 - phantom をクエリ対象に含める
 - 出力は priority と上限指定でノイズを抑える

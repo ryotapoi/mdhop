@@ -29,7 +29,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 - `--fields` / `--include-content` / `--include-context` により
   - 必要なフィールドだけ返す
   - ノート冒頭やリンク周辺の **最小スニペット**を返す
-- phantom/tag をノードとして扱い、存在しないノートでも関連探索（2hop含む）が可能
+- phantom/tag をノードとして扱い、存在しないノートでも関連探索（two-hop 含む）が可能
 
 ---
 
@@ -71,7 +71,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 ### 4.1 参照系（普段のワークフロー）
 
 - あるファイルの `[[link]]` を解決して、ノート本文へ飛ぶ
-- Backlink / 2hop / tag によって、関連の強いノートを少ないコンテキストで集める
+- Backlink / two-hop / tag によって、関連の強いノートを少ないコンテキストで集める
 - phantom ノートの backlinks を取り、「まだ存在しないが参照されている概念」を見つける
 
 ### 4.2 書き換え系（イベント時だけ）
@@ -87,7 +87,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 - `mdhop build` : Vault 全量を解析してDB作成
 - `mdhop update --file ...` : 指定ファイルのみ差分更新（ファイル削除も反映）
 - `mdhop resolve --from A.md --link '[[X]]'` : リンク解決（曖昧なら候補返却）
-- `mdhop query --file A.md` : backlinks/tags/2hop を返す（fields で絞る）
+- `mdhop query --file A.md` : backlinks/tags/twohop を返す（fields で絞る）
 - `mdhop diagnose` : basename衝突、phantom一覧、パース失敗等を検出
 
 （任意・mutate）
@@ -100,4 +100,4 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 
 - Coding Agent が「次に読むべきノート」を DB から取得できる
 - `[[basename]]` を最大限使いながら、曖昧性が出るケースだけ path によって一意解決できる
-- phantom/tag/2hop により、grep とは異なる観点で「関連が強いノート」を取り出せる
+- phantom/tag/two-hop により、grep とは異なる観点で「関連が強いノート」を取り出せる

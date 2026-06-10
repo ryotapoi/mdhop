@@ -18,7 +18,7 @@ v0.10.0 / v0.11.0 の大型機能追加の前に、コード全体とドキュ�
 - [x] util.go の責務整理（`noteResolveMaps` / `assetResolveMaps` を resolve_maps 系ファイルへ移動し、ファイル名と中身を一致させる。移動のみ）
 - [x] sentinel error の統一（`checkStale` の素の fmt.Errorf → `ErrSourceStale`、query_entry.go の file-not-in-index → `ErrFileNotRegistered`。errors.go の宣言方針に合わせる）
 - [x] `parseFrontmatter` の戻り値構造化 + parse.go / parse_frontmatter.go のファイル分割（本文パースと frontmatter パースは変更理由が異なる 2 責務。戻り値 2 値返しを構造体ベースへ。API 変更なし）
-- [ ] ドキュメント用語統一: two-hop 表記（two-hop / 2hop / twohop / 2-Hop が rules/ / README / README.ja / examples skill で混在 → 1 表記に統一）
+- [x] ドキュメント用語統一: two-hop 表記（two-hop / 2hop / twohop / 2-Hop が rules/ / README / README.ja / examples skill で混在 → 1 表記に統一）
 
 ## v0.10.0 — path filter とグラフ到達性
 

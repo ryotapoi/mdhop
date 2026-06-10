@@ -100,7 +100,7 @@ CLI `--exclude`/`--exclude-tag` flags are merged with `mdhop.yaml` `exclude` set
 - Entry node itself is never excluded
 - Path glob: `*` matches any character including `/`. `?` matches a single character. Case-sensitive. `[...]` character classes are not supported (causes error)
 - Tag exclude: exact match, case-insensitive
-- Twohop: if a via node matches an excluded tag/path, the entire via entry is removed
+- twohop: if a via node matches an excluded tag/path, the entire via entry is removed
 
 ### Examples
 

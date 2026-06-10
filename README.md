@@ -9,7 +9,7 @@ A CLI tool that indexes link relationships in Markdown repositories into SQLite.
 ## Features
 
 - **Pre-indexed, instant responses** — Indexes the entire vault into SQLite. Queries return in milliseconds
-- **Backlinks / 2-Hop Links / Tags** — Retrieve related information from any starting note in a single call
+- **Backlinks / Two-Hop Links / Tags** — Retrieve related information from any starting note in a single call
 - **Wikilink / Markdown link / Tag / Frontmatter support** — Obsidian-compatible link parsing
 - **Fully local** — No external services required. Pure Go + SQLite
 - **Optimized for Coding Agents** — `--fields` and `--include-snippet` return only the minimal context needed
@@ -53,7 +53,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `convert` | Convert link format between wikilink and markdown |
 | `repair` | Rewrite broken or vault-escaping path links to basename form |
 | `resolve` | Resolve a link to its target |
-| `query` | Return Backlinks / 2-Hop / Tags etc. for a node |
+| `query` | Return Backlinks / Two-Hop / Tags etc. for a node |
 | `search` | Find notes vault-wide by frontmatter metadata, path, or isolation filters |
 | `stats` | Show vault statistics (note count, link count, etc.) |
 | `diagnose` | Detect basename conflicts and phantom nodes |

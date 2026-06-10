@@ -7,7 +7,7 @@ Markdown リポジトリ内のリンク関係を SQLite にインデックス化
 ## 特徴
 
 - **事前解析・即応答** — Vault 全体を SQLite にインデックス化。クエリは数ミリ秒で返る
-- **Backlinks / 2-Hop Links / Tags** — 起点ノートから関連情報を一発取得
+- **Backlinks / Two-Hop Links / Tags** — 起点ノートから関連情報を一発取得
 - **wikilink / markdown link / tag / frontmatter 対応** — Obsidian 互換のリンク解釈
 - **ローカル完結** — 外部サービス不要。pure Go + SQLite
 - **Coding Agent 向け最適化** — `--fields` や `--include-snippet` で必要最小限のコンテキストだけ返す
@@ -51,7 +51,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `convert` | リンク形式を wikilink ↔ markdown で変換 |
 | `repair` | 壊れた・vault 外を指すパスリンクを basename 形式に修復 |
 | `resolve` | リンクの解決先を返す |
-| `query` | 起点ノートの Backlinks / 2-Hop / Tags 等を返す |
+| `query` | 起点ノートの Backlinks / Two-Hop / Tags 等を返す |
 | `search` | frontmatter メタデータ・パス・孤立検出条件で Vault 全体からノートを検索 |
 | `stats` | ノート数・リンク数などの統計情報 |
 | `diagnose` | basename 衝突・phantom ノードの検出 |

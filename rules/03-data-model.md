@@ -172,7 +172,7 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 ### 4.3 2 Hop Links（共通ターゲット方式）
 
 定義:
-- `A -> X` かつ `B -> X` を満たす B を 2hop とする
+- `A -> X` かつ `B -> X` を満たす B を two-hop とする
 - X は `note|phantom|tag|url(任意)` を含む
 - A/B は原則 note（sourceになれるのは実ファイルのみ）
 
