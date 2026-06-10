@@ -1441,3 +1441,117 @@ func TestRunReachable_MissingFrom(t *testing.T) {
 		t.Errorf("error = %v, want missing --from error", err)
 	}
 }
+
+// --- Graph CLI tests ---
+
+func TestRunGraph_JSONOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_graph")
+
+	out := captureStdout(t, func() error {
+		return runGraph([]string{"--vault", vault, "--path", "docs/*"})
+	})
+
+	var m struct {
+		Nodes []struct {
+			ID   int64  `json:"id"`
+			Type string `json:"type"`
+			Name string `json:"name"`
+			Path string `json:"path"`
+		} `json:"nodes"`
+		Edges []struct {
+			Source   int64  `json:"source"`
+			Target   int64  `json:"target"`
+			LinkType string `json:"link_type"`
+		} `json:"edges"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if len(m.Nodes) != 3 {
+		t.Fatalf("nodes = %v, want 3 docs notes", m.Nodes)
+	}
+	paths := make(map[int64]string)
+	for _, n := range m.Nodes {
+		if n.Type != "note" {
+			t.Errorf("node type = %q, want note", n.Type)
+		}
+		paths[n.ID] = n.Path
+	}
+	gotEdges := make(map[string]bool)
+	for _, e := range m.Edges {
+		gotEdges[paths[e.Source]+" -> "+paths[e.Target]+" ("+e.LinkType+")"] = true
+	}
+	for _, w := range []string{
+		"docs/a.md -> docs/b.md (wikilink)",
+		"docs/a.md -> docs/c.md (frontmatter_path)",
+	} {
+		if !gotEdges[w] {
+			t.Errorf("missing edge %q in %v", w, gotEdges)
+		}
+	}
+	if len(m.Edges) != 2 {
+		t.Errorf("edges = %v, want 2 induced edges", m.Edges)
+	}
+}
+
+func TestRunGraph_JSONPhantomPathEmpty(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_graph")
+
+	out := captureStdout(t, func() error {
+		return runGraph([]string{"--vault", vault, "--include-phantoms"})
+	})
+
+	var m struct {
+		Nodes []struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+			Path string `json:"path"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	found := false
+	for _, n := range m.Nodes {
+		if n.Type == "phantom" {
+			found = true
+			if n.Name != "Ghost" {
+				t.Errorf("phantom name = %q, want Ghost", n.Name)
+			}
+			if n.Path != "" {
+				t.Errorf("phantom path = %q, want empty string", n.Path)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("no phantom node in JSON output:\n%s", out)
+	}
+}
+
+func TestRunGraph_DotOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_graph")
+
+	out := captureStdout(t, func() error {
+		return runGraph([]string{"--vault", vault, "--format", "dot", "--include-phantoms"})
+	})
+
+	if !strings.HasPrefix(out, "digraph mdhop {") || !strings.HasSuffix(strings.TrimRight(out, "\n"), "}") {
+		t.Errorf("not a digraph block:\n%s", out)
+	}
+	if !strings.Contains(out, `[label="docs/a.md"]`) {
+		t.Errorf("missing node label for docs/a.md:\n%s", out)
+	}
+	if !strings.Contains(out, `[label="(phantom) Ghost"]`) {
+		t.Errorf("missing phantom label:\n%s", out)
+	}
+	if !strings.Contains(out, " -> ") {
+		t.Errorf("missing edges:\n%s", out)
+	}
+}
+
+func TestRunGraph_InvalidFormat(t *testing.T) {
+	err := runGraph([]string{"--format", "text"})
+	if err == nil || !strings.Contains(err.Error(), "invalid format") {
+		t.Errorf("error = %v, want invalid format error", err)
+	}
+}

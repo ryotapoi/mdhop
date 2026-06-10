@@ -71,6 +71,7 @@ meta:
 - `mdhop query --name name` : note/phantom/tag を意識せず関連情報を返す
 - `mdhop diagnose` : basename 衝突、phantom 一覧を検出する
 - `mdhop reachable --from A.md --path "docs/*"` : 入口 note からリンクで到達できる / できない note を列挙する
+- `mdhop graph --path "docs/*"` : リンクグラフを誘導部分グラフとして JSON / Graphviz dot で出力する
 - `mdhop stats` : ノート数・リンク数などの統計情報を返す
 - `mdhop init-meta` : frontmatter 型定義の scaffold を生成する
 
@@ -105,6 +106,7 @@ meta:
     - `edges_total` は出現回数ベースの総数
   - reachable: `reachable,unreachable`
     - `from`（正規化済み entry path）は `--fields` に関係なく JSON に常に含まれる。`routes` は `--route` 指定時のみ含まれる
+- graph はこのグループに含まれない: `--format json|dot`（default: json）で、`text` と `--fields` は持たない（出力は機械処理・可視化ツール向けの全量）
 
 ### フィールド定義
 
@@ -316,6 +318,15 @@ meta:
   - 補足: `--from` 自身は対象集合内なら reachable に含まれる（0 hop）。対象集合外の note は走査の中継にはなるが、reachable / unreachable のどちらにも出ない
   - 補足: `--route` で reachable な各 note への最短経路を `routes` として追加出力する（中継 note は対象集合外でも経路に現れる）
   - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は適用されない
+- `graph`
+  - 必須: なし
+  - 任意: `--vault`, `--format`（`json|dot`, default: json）, `--path`, `--exclude`, `--include-phantoms`
+  - 補足: node 集合は実在する note / asset（`--path` / `--exclude` glob を適用。`--path` 未指定は全件）。edge はその誘導部分グラフ（両端が node 集合内の link 出現のみ。同一ペアでも出現ごとに 1 edge）
+  - 補足: tag node は出力しない（tag edge も出力されない）。tag を含めた可視化が必要になったら将来拡張する（ADR 0016）
+  - 補足: `--include-phantoms` で node 集合内の note から参照されている phantom を node / edge に含める（default は除外）
+  - 補足: node の `id` は出力スコープの参照キー（edge の `source` / `target` が指す）。build をまたいだ安定性は保証しない
+  - 補足: dot のラベルは note / asset が path、phantom が `(phantom) <name>`
+  - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は適用されない
 - `stats`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`
@@ -460,6 +471,34 @@ json:
       "targets":[{"type":"note","name":"Spec","path":"Notes/Spec.md","exists":true}]
     }
   ]
+}
+```
+
+### graph 出力例
+
+json:
+```
+{
+  "nodes":[
+    {"id":1,"type":"note","name":"a","path":"docs/a.md"},
+    {"id":2,"type":"note","name":"b","path":"docs/b.md"},
+    {"id":7,"type":"phantom","name":"Ghost","path":""}
+  ],
+  "edges":[
+    {"source":1,"target":2,"link_type":"wikilink"},
+    {"source":1,"target":7,"link_type":"wikilink"}
+  ]
+}
+```
+
+dot:
+```
+digraph mdhop {
+  n1 [label="docs/a.md"];
+  n2 [label="docs/b.md"];
+  n7 [label="(phantom) Ghost"];
+  n1 -> n2;
+  n1 -> n7;
 }
 ```
 
