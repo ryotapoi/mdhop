@@ -23,7 +23,7 @@ v0.10.0（path filter とグラフ到達性）と v0.11.0（frontmatter 検査�
 
 - **`llm-wiki/` 専用機能を作らない。** mdhop は Markdown vault のリンク・メタデータ・到達性を扱う汎用ツールとして保つ。LLM Wiki としての意味づけは wiki-lint skill や運用側で行う。
 - mdhop 本体に入れる機能は、特定フォルダ・特定運用名を知らない汎用機能にする。
-- `--path` / `--include-path` / `--exclude-path` などの path filter で対象範囲を絞れるようにする。
+- `--path` / `--exclude` の path filter で対象範囲を絞れるようにする（フラグ名は 2026-06-10 決定。タスク 2 参照）。
 - mdhop は「グラフ・frontmatter・リンク解決・到達性・変更ファイル列挙」までを提供する。結果の解釈（log に書くべきか、source summary を作るべきか等）は Skill / 運用 / ユーザー判断に残す。
 
 LLM Wiki 側の要求 → mdhop の汎用機能への翻訳:
@@ -60,11 +60,13 @@ mdhop diagnose --path "docs/**" --format json
 mdhop diagnose --path "project/foo/**" --format json
 ```
 
+決定（2026-06-10）:
+
+- **`--path` は source note を絞る。**「指定 path 配下の note から出ているリンクの問題」を見る。範囲外への参照や phantom も拾う（phantom は実在 path を持たないため source 側で絞るのが唯一成立する定義でもある）。
+
 検討点:
 
-- `--path` は診断対象の source note を絞るのか、診断結果の target も絞るのかを明確にする。
-- phantom は実在 path を持たないので、source 側の path filter で絞るのが基本になりそう。
-- basename conflict は candidate path 側の問題でもある。`--path` 指定時に、対象範囲内だけの conflict を見るのか、対象範囲から参照している link resolution risk を見るのかを分ける。
+- basename conflict は candidate path 側の問題でもある。source 側で絞る原則のもと、対象範囲の note から参照しているリンクの解決リスクとして見せる形を設計時に詰める。
 
 受け入れ条件:
 
@@ -76,19 +78,20 @@ mdhop diagnose --path "project/foo/**" --format json
 
 目的: `search`, `query`, `diagnose`, 将来の検査コマンドで、同じ感覚で対象範囲を絞れるようにする。
 
-候補:
+決定（2026-06-10）:
+
+- **フラグ名は search の既存名 `--path`（include）/ `--exclude` を正として全コマンドに展開する。** `--include-path` / `--exclude-path` への改名はしない（リリース済みの search と互換を保ち、名前も短い）。
 
 ```bash
 mdhop search --path "docs/**" --format json
 mdhop query --file docs/index.md --path "docs/**" --fields outgoing --format json
-mdhop diagnose --include-path "docs/**" --exclude-path "docs/archive/**" --format json
+mdhop diagnose --path "docs/**" --exclude "docs/archive/**" --format json
 ```
 
 検討点:
 
-- 既存の `--path` と互換を保つ。
 - 除外指定は `docs/archive/**` のような意図的に診断対象から外したい領域に使える。
-- path glob の仕様を Go 側と SQL 側で揃える。特に `[` を含むパス、大小文字、ディレクトリ末尾 `/` の扱いに注意。
+- path glob の仕様を Go 側と SQL 側で揃える。特に `[` を含むパス、大小文字、ディレクトリ末尾 `/` の扱いに注意（v0.9.0 で同値性テストを先行追加済みの想定）。
 
 受け入れ条件:
 
@@ -111,11 +114,14 @@ meta:
     - sources
 ```
 
+決定（2026-06-10）:
+
+- **URL 値（`https://...` 等）は edge にしない。** link_keys は vault 内ナビゲーション・到達性に絞り、URL はスキップする。
+- **link_type は新設する**（例: `frontmatter_path`）。既存の `frontmatter_wikilink` と区別し、raw path 由来の edge をフィルタ・診断で識別できるようにする。query / graph の JSON 出力に出るため外部仕様。
+
 検討点:
 
 - path の解決規則を決める。note 起点の相対 path（`../topics/foo.md`）と vault-relative path（`docs/foo.md`）が混在し得る。タスク 4（meta-check）と解決規則を共有する。
-- URL 値（`https://...`）は edge にしない（または `url` link_type を流用）。
-- link_type を新設するか、既存 `frontmatter` を流用するか。
 - query backlinks / twohop / `--no-incoming` / reachable のすべてに効く。edge 種別でのフィルタ（本文リンクのみ等）が必要になるかも検討する。
 
 受け入れ条件:
@@ -311,7 +317,7 @@ mdhop search --path "docs/**" --where "reviewed<today-1y" --format json
 
 ```bash
 mdhop changed --since HEAD --path "docs/**" --format json
-mdhop changed --since main --exclude-path "docs/archive/**" --format json
+mdhop changed --since main --exclude "docs/archive/**" --format json
 ```
 
 log 整合チェックではない。mdhop は「何が変わったか」を出すだけ。
