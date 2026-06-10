@@ -10,7 +10,7 @@ v0.10.0 / v0.11.0 の大型機能追加の前に、コード全体とドキュ�
 - [x] ドキュメント全体の見直し → 整合監査実施済み。実装との不一致・SSoT 違反・陳腐化なし。用語揺れ 1 件のみ（下記タスク）
 - [x] `parseFrontmatter` の責務分離の要否判断 → **v0.9.0 で実施**と判断（Later から昇格。v0.10.0 タスク 8 の `meta.link_keys` で 3 系統目 + 設定注入が入り、条件が実質発火するため。整理を先行させ v0.10.0 の diff を純粋な機能追加にする）
 - [x] convert / repair / simplify / init-meta / search(text) の CLI・format テスト追加（`format_repair.go` / `format_simplify.go` / `format_convert.go` / `printSearchText` が 0% カバレッジ。v0.10.0 受け入れ条件「既存出力の互換性を壊さない」の検証基盤。既存 cli_test.go / format_test.go の規約に乗せる。1〜2 commit）
-- [ ] path filter 部品の集約: `pathIncludeSQL`（search.go）/ `PathExcludeSQL` / `globMatch` / `validateGlobPatterns`（config.go）を `internal/core/pathfilter.go` へ移動（挙動変更なしの移動のみ。v0.10.0 で diagnose / query / graph / reachable に広げる前の置き場所確定）
+- [x] path filter 部品の集約: `pathIncludeSQL`（search.go）/ `PathExcludeSQL` / `globMatch` / `validateGlobPatterns`（config.go）を `internal/core/pathfilter.go` へ移動（挙動変更なしの移動のみ。v0.10.0 で diagnose / query / graph / reachable に広げる前の置き場所確定）
 - [ ] path glob の Go 実装と SQLite GLOB の同値性テスト追加（`pathfilter_test.go`。同一入力を両実装に通して突き合わせるテーブル駆動テスト。SQL 一本化の要否は v0.10.0 タスク 2 の設計時に判断）
 - [ ] diagnose.go の note / asset conflict 集計の重複ブロック共通化（diagnose.go:36-82 と 84-123 が型名以外ほぼ同一。v0.10.0 タスク 1 の `diagnose --path` で触る箇所）
 - [ ] NodeInfo 行スキャンの共通化（query_fetch.go / query_entry.go / search.go に 7 回出現 → `scanNodeInfo(rows)` ヘルパー）

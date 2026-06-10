@@ -219,18 +219,3 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 		Total: total,
 	}, nil
 }
-
-// pathIncludeSQL generates a SQL fragment for path inclusion filtering.
-// Returns ("", nil) for empty patterns.
-func pathIncludeSQL(alias string, patterns []string) (string, []any) {
-	if len(patterns) == 0 {
-		return "", nil
-	}
-	var parts []string
-	var args []any
-	for _, p := range patterns {
-		parts = append(parts, alias+" GLOB ?")
-		args = append(args, p)
-	}
-	return " AND (" + strings.Join(parts, " OR ") + ")", args
-}
