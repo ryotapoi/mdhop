@@ -89,85 +89,36 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 		return findEntryByTag(db, name)
 	}
 
-	// Try note by basename (case-insensitive).
+	// Try note by basename (case-insensitive), with root-priority (ADR 0004).
 	lower := strings.ToLower(name)
-	rows, err := db.Query(
-		`SELECT id, type, name, COALESCE(path,''), exists_flag FROM nodes WHERE type='note' AND LOWER(name)=?`,
-		lower,
-	)
+	noteMatches, err := queryBasenameMatches(db, NodeTypeNote, lower)
 	if err != nil {
 		return 0, NodeInfo{}, err
 	}
-	defer rows.Close()
-
-	var matches []struct {
-		id   int64
-		info NodeInfo
-	}
-	for rows.Next() {
-		id, info, err := scanNodeInfoWithID(rows)
+	if m, ok := pickBasenameMatch(noteMatches); ok {
+		info, err := fetchNodeInfo(db, m.id)
 		if err != nil {
 			return 0, NodeInfo{}, err
 		}
-		matches = append(matches, struct {
-			id   int64
-			info NodeInfo
-		}{id, info})
+		return m.id, info, nil
 	}
-	if err := rows.Err(); err != nil {
-		return 0, NodeInfo{}, err
-	}
-
-	if len(matches) == 1 {
-		return matches[0].id, matches[0].info, nil
-	}
-	if len(matches) > 1 {
-		// Root-priority: if one match is at vault root, resolve to it.
-		for _, m := range matches {
-			if isRootFile(m.info.Path) {
-				return m.id, m.info, nil
-			}
-		}
-		return 0, NodeInfo{}, fmt.Errorf("%w: %s matches %d notes", ErrAmbiguousName, name, len(matches))
+	if len(noteMatches) > 1 {
+		return 0, NodeInfo{}, fmt.Errorf("%w: %s matches %d notes", ErrAmbiguousName, name, len(noteMatches))
 	}
 
 	// Try asset by basename (case-insensitive).
-	assetRows, err := db.Query(
-		`SELECT id, type, name, COALESCE(path,''), exists_flag FROM nodes WHERE type='asset' AND LOWER(name)=?`,
-		lower,
-	)
+	assetMatches, err := queryBasenameMatches(db, NodeTypeAsset, lower)
 	if err != nil {
 		return 0, NodeInfo{}, err
 	}
-	defer assetRows.Close()
-
-	var assetMatches []struct {
-		id   int64
-		info NodeInfo
-	}
-	for assetRows.Next() {
-		id, info, err := scanNodeInfoWithID(assetRows)
+	if m, ok := pickBasenameMatch(assetMatches); ok {
+		info, err := fetchNodeInfo(db, m.id)
 		if err != nil {
 			return 0, NodeInfo{}, err
 		}
-		assetMatches = append(assetMatches, struct {
-			id   int64
-			info NodeInfo
-		}{id, info})
-	}
-	if err := assetRows.Err(); err != nil {
-		return 0, NodeInfo{}, err
-	}
-
-	if len(assetMatches) == 1 {
-		return assetMatches[0].id, assetMatches[0].info, nil
+		return m.id, info, nil
 	}
 	if len(assetMatches) > 1 {
-		for _, m := range assetMatches {
-			if isRootFile(m.info.Path) {
-				return m.id, m.info, nil
-			}
-		}
 		return 0, NodeInfo{}, fmt.Errorf("%w: %s matches %d assets", ErrAmbiguousName, name, len(assetMatches))
 	}
 

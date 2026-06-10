@@ -195,25 +195,14 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 	lower := strings.ToLower(target)
 
 	// Try note by basename.
-	type match struct {
-		id   int64
-		path string
-	}
-
 	noteMatches, err := queryBasenameMatches(db, NodeTypeNote, lower)
 	if err != nil {
 		return 0, "", err
 	}
-
-	if len(noteMatches) == 1 {
-		return noteMatches[0].id, link.subpath, nil
+	if m, ok := pickBasenameMatch(noteMatches); ok {
+		return m.id, link.subpath, nil
 	}
 	if len(noteMatches) > 1 {
-		for _, m := range noteMatches {
-			if isRootFile(m.path) {
-				return m.id, link.subpath, nil
-			}
-		}
 		return 0, "", fmt.Errorf("%w: %s resolves to %d notes", ErrAmbiguousLink, target, len(noteMatches))
 	}
 
@@ -222,16 +211,10 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 	if err != nil {
 		return 0, "", err
 	}
-
-	if len(assetMatches) == 1 {
-		return assetMatches[0].id, link.subpath, nil
+	if m, ok := pickBasenameMatch(assetMatches); ok {
+		return m.id, link.subpath, nil
 	}
 	if len(assetMatches) > 1 {
-		for _, m := range assetMatches {
-			if isRootFile(m.path) {
-				return m.id, link.subpath, nil
-			}
-		}
 		return 0, "", fmt.Errorf("%w: %s resolves to %d assets", ErrAmbiguousLink, target, len(assetMatches))
 	}
 
@@ -249,11 +232,14 @@ func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, s
 	return 0, "", fmt.Errorf("%w: %s", ErrLinkNotFound, target)
 }
 
-// queryBasenameMatches queries nodes of the given type matching a lowercase name.
-func queryBasenameMatches(db dbExecer, nodeType NodeType, lowerName string) ([]struct {
+// basenameMatch is a node matched by case-insensitive basename lookup.
+type basenameMatch struct {
 	id   int64
 	path string
-}, error) {
+}
+
+// queryBasenameMatches queries nodes of the given type matching a lowercase name.
+func queryBasenameMatches(db dbExecer, nodeType NodeType, lowerName string) ([]basenameMatch, error) {
 	rows, err := db.Query(
 		`SELECT id, path FROM nodes WHERE type=? AND LOWER(name) = ?`,
 		nodeType, lowerName,
@@ -263,21 +249,31 @@ func queryBasenameMatches(db dbExecer, nodeType NodeType, lowerName string) ([]s
 	}
 	defer rows.Close()
 
-	var matches []struct {
-		id   int64
-		path string
-	}
+	var matches []basenameMatch
 	for rows.Next() {
-		var m struct {
-			id   int64
-			path string
-		}
+		var m basenameMatch
 		if err := rows.Scan(&m.id, &m.path); err != nil {
 			return nil, err
 		}
 		matches = append(matches, m)
 	}
 	return matches, rows.Err()
+}
+
+// pickBasenameMatch selects a single match from basename lookup results.
+// A unique match wins; among multiple matches the vault-root file wins
+// (root-priority rule, ADR 0004). Returns false when no unambiguous choice
+// exists (zero matches, or multiple matches none of which is at the root).
+func pickBasenameMatch(matches []basenameMatch) (basenameMatch, bool) {
+	if len(matches) == 1 {
+		return matches[0], true
+	}
+	for _, m := range matches {
+		if isRootFile(m.path) {
+			return m, true
+		}
+	}
+	return basenameMatch{}, false
 }
 
 // edgeExists checks if an edge from source to target with matching subpath exists.
