@@ -1,6 +1,8 @@
-# v0.9.0 汎用診断機能改善
+# 汎用診断機能改善（v0.9.0 / v0.10.0）
 
 mdhop に追加したい診断・検査系の機能群。LLM Wiki の lint 点検中に見えた不足を、特定フォルダ・特定運用名に依存しない**汎用機能**として整理する。
+
+v0.9.0（path filter とグラフ到達性）と v0.10.0（frontmatter 検査と search 強化）の 2 リリースに分ける。境界は判断ポイントを兼ねる: v0.9.0 を実 vault に当てた結果（残る phantom、`link_keys` の効き方）を v0.10.0 の設計判断（meta-check / meta-validate の統合可否、changed の要否、anchor 検査のコスト）の材料にする。タスク番号は通し番号のまま維持する（節内の相互参照に使用）。
 
 ## 背景
 
@@ -43,11 +45,9 @@ LLM Wiki 側の要求 → mdhop の汎用機能への翻訳:
 
 この分離により、mdhop は `llm-wiki/` だけでなく任意の project docs、Obsidian MOC、README 起点のドキュメント群にも使える。
 
-## タスク（優先順位順）
+## v0.9.0 タスク — path filter とグラフ到達性
 
-最初にやるなら **1. `diagnose --path` のみ**でよい。今回の問題はこれで解消する。frontmatter 検査や reachable は同じ設計思想だが別タスク。
-
-タスク 6〜11 は 2026-06-10 の追加分。うち **10（`--where` 相対日付）は実施決定**、**11（anchor 検査）は実装コストが軽い場合のみ**実施する。
+「範囲を絞って診て、辿れる」を 1 つの capability として出す。実装順は記載順: タスク 8（link_keys）をタスク 3（reachable）より先に入れる。`related:` の raw path が edge にならないまま reachable を出すと false positive だらけになるため。
 
 ### 1. diagnose に path filter を追加する
 
@@ -96,6 +96,34 @@ mdhop diagnose --include-path "docs/**" --exclude-path "docs/archive/**" --forma
 - phantom のような path を持たない node を、source note の path で絞れる。
 - 既存コマンドに同じフィルタを追加しても意味が破綻しない。
 
+### 8. frontmatter key の path 値を graph edge にする設定
+
+目的: `related:` / `sources:` のような frontmatter key に書かれた **raw path 値**を graph edge として扱いたい。
+
+現状: frontmatter 値内の `[[...]]` は `frontmatter_wikilink` として既に edge になる（v0.7.0）。しかし `related: [../topics/foo.md]` のような raw path 文字列は edge にならず、グラフから見えない。実vault（LLM Wiki 等）では related / sources を raw path で書く運用が普通にあり、ここが edge にならないと reachable（タスク 3）の false positive、孤立検出の見落としが起きる。
+
+想定設定（mdhop.yaml）:
+
+```yaml
+meta:
+  link_keys:
+    - related
+    - sources
+```
+
+検討点:
+
+- path の解決規則を決める。note 起点の相対 path（`../topics/foo.md`）と vault-relative path（`docs/foo.md`）が混在し得る。タスク 4（meta-check）と解決規則を共有する。
+- URL 値（`https://...`）は edge にしない（または `url` link_type を流用）。
+- link_type を新設するか、既存 `frontmatter` を流用するか。
+- query backlinks / twohop / `--no-incoming` / reachable のすべてに効く。edge 種別でのフィルタ（本文リンクのみ等）が必要になるかも検討する。
+
+受け入れ条件:
+
+- `link_keys` 未設定なら現状の挙動を完全維持。
+- 設定した key の path 値が backlinks / reachable / 孤立検出に反映される。
+- 解決できない path 値は phantom 相当として diagnose で見える。
+
 ### 3. 到達性チェックを追加する
 
 目的: 入口ページから、指定 path 配下のページへリンクで辿れるか確認したい。
@@ -115,7 +143,7 @@ mdhop reachable --from project/foo/index.md --path "project/foo/**" --format jso
 
 検討点:
 
-- frontmatter `related:` を graph edge として扱うか。
+- frontmatter `related:` を graph edge として扱うか（タスク 8 で対応。本タスクより先に入れる）。
 - 本文 wikilink のみか、markdown link も対象にするか。
 - 最大深さを指定できるようにするか。
 
@@ -124,6 +152,52 @@ mdhop reachable --from project/foo/index.md --path "project/foo/**" --format jso
 - 到達できない note の一覧を出せる。
 - 到達経路をオプションで出せる。
 - index から直リンクされていないが sub-index から辿れるページを false positive にしない。
+
+### 9. subgraph export
+
+目的: 指定範囲の node / edge をそのまま機械可読形式で出力し、mdhop に入れない分析（類似ページ検出、クラスタ分析、中心性など）を呼び出し側でできるようにする。
+
+想定コマンド:
+
+```bash
+mdhop graph --path "docs/**" --format json
+mdhop graph --path "docs/**" --format dot
+```
+
+用途:
+
+- 「似たページの重複」「同じ概念の分裂」のような意味判断を伴う lint を、skill 側が outgoing-link 重複度などから機械的に絞り込む材料にする。
+- 設計方針「mdhop はグラフ提供まで、解釈は呼び出し側」の escape hatch。個別の分析コマンドを mdhop に増やさずに済む。
+
+検討点:
+
+- edge に link_type を含める。
+- phantom node を含めるか（オプション化が自然）。
+- `--format dot` は可視化用の おまけ。json を先に決める。
+
+受け入れ条件:
+
+- node / edge の列挙のみで、解釈ロジック（類似度計算等）を mdhop に入れない。
+- path filter（include / exclude）が使える。
+- JSON schema が明文化されている。
+
+### 12. examples skill と README を v0.9.0 追加分に同期する
+
+目的: README は `examples/skills/mdhop` を up-to-date な skill として案内している。リリース時点で v0.9.0 の新コマンド・新オプションが反映されている状態にする。
+
+対象:
+
+- `examples/skills/mdhop/SKILL.md` と `references/`（path filter の使い分け、`reachable`、`graph`、`meta.link_keys` の使用例）
+- `README.md` / `README.ja.md` の Commands 表と使用例
+
+受け入れ条件:
+
+- v0.9.0 で追加した全コマンド・オプションが skill の references から引ける。
+- README の Commands 表が実装と一致する。
+
+## v0.10.0 タスク — frontmatter 検査と search 強化
+
+frontmatter の品質検査と search の強化。設計前に v0.9.0 の実運用結果を見る: meta-check / meta-validate の統合可否（タスク 4・6）、changed の要否（タスク 5）、anchor 検査のコスト判断（タスク 11）はここで決める。うち **10（`--where` 相対日付）は実施決定**、**11（anchor 検査）は実装コストが軽い場合のみ**実施する。
 
 ### 4. frontmatter の任意 key を path-like value として検査する
 
@@ -151,31 +225,6 @@ mdhop meta-check --path "project/**" --key related --kind wikilink-list --format
 - key 名を mdhop 本体が固定しない。
 - 存在しない path、曖昧な wikilink、許可外 URL scheme を区別して報告できる。
 - `--format json` で agent が扱いやすい構造を返す。
-
-### 5. 変更ファイル列挙を汎用コマンドとして提供する（要検討）
-
-目的: 特定 path 配下で、git の基準点以降に変わった Markdown note を機械的に列挙したい。
-
-想定コマンド:
-
-```bash
-mdhop changed --since HEAD --path "docs/**" --format json
-mdhop changed --since main --exclude-path "docs/archive/**" --format json
-```
-
-log 整合チェックではない。mdhop は「何が変わったか」を出すだけ。
-
-検討点:
-
-- すでに git コマンドで簡単に取れるなら、mdhop に入れず Skill / script でよい可能性がある。**git コマンドとの差分を見てから判断する。**
-- untracked file を含めるか。
-- deleted / renamed / moved をどう表現するか。
-
-受け入れ条件:
-
-- `llm-wiki` 専用、`log.md` 専用、daily report 専用の意味づけを持たない。
-- path include / exclude が使える。
-- `--format json` で changed file、status、old path / new path を返せる。
 
 ### 6. frontmatter schema validation（meta-validate）
 
@@ -231,62 +280,6 @@ mdhop search --path "docs/**" --fields path,meta.type,meta.status --format json
 - 既存の `--fields` 指定の出力互換性を壊さない。
 - 計算値の定義（lines に frontmatter を含むか等）が明文化されている。
 
-### 8. frontmatter key の path 値を graph edge にする設定
-
-目的: `related:` / `sources:` のような frontmatter key に書かれた **raw path 値**を graph edge として扱いたい。
-
-現状: frontmatter 値内の `[[...]]` は `frontmatter_wikilink` として既に edge になる（v0.7.0）。しかし `related: [../topics/foo.md]` のような raw path 文字列は edge にならず、グラフから見えない。実vault（LLM Wiki 等）では related / sources を raw path で書く運用が普通にあり、ここが edge にならないと reachable（タスク 3）の false positive、孤立検出の見落としが起きる。
-
-想定設定（mdhop.yaml）:
-
-```yaml
-meta:
-  link_keys:
-    - related
-    - sources
-```
-
-検討点:
-
-- path の解決規則を決める。note 起点の相対 path（`../topics/foo.md`）と vault-relative path（`docs/foo.md`）が混在し得る。タスク 4（meta-check）と解決規則を共有する。
-- URL 値（`https://...`）は edge にしない（または `url` link_type を流用）。
-- link_type を新設するか、既存 `frontmatter` を流用するか。
-- query backlinks / twohop / `--no-incoming` / reachable のすべてに効く。edge 種別でのフィルタ（本文リンクのみ等）が必要になるかも検討する。
-
-受け入れ条件:
-
-- `link_keys` 未設定なら現状の挙動を完全維持。
-- 設定した key の path 値が backlinks / reachable / 孤立検出に反映される。
-- 解決できない path 値は phantom 相当として diagnose で見える。
-
-### 9. subgraph export
-
-目的: 指定範囲の node / edge をそのまま機械可読形式で出力し、mdhop に入れない分析（類似ページ検出、クラスタ分析、中心性など）を呼び出し側でできるようにする。
-
-想定コマンド:
-
-```bash
-mdhop graph --path "docs/**" --format json
-mdhop graph --path "docs/**" --format dot
-```
-
-用途:
-
-- 「似たページの重複」「同じ概念の分裂」のような意味判断を伴う lint を、skill 側が outgoing-link 重複度などから機械的に絞り込む材料にする。
-- 設計方針「mdhop はグラフ提供まで、解釈は呼び出し側」の escape hatch。個別の分析コマンドを mdhop に増やさずに済む。
-
-検討点:
-
-- edge に link_type を含める。
-- phantom node を含めるか（オプション化が自然）。
-- `--format dot` は可視化用の おまけ。json を先に決める。
-
-受け入れ条件:
-
-- node / edge の列挙のみで、解釈ロジック（類似度計算等）を mdhop に入れない。
-- path filter（include / exclude）が使える。
-- JSON schema が明文化されている。
-
 ### 10. `--where` の相対日付比較【実施決定】
 
 目的: 「更新が古いページ」（stale 候補）を、日付を外部で計算せずに検出したい。
@@ -310,6 +303,31 @@ mdhop search --path "docs/**" --where "reviewed<today-1y" --format json
 - 絶対日付比較の既存挙動を壊さない。
 - 相対日付の評価基準日が明文化されている（実行時のローカル日付）。
 
+### 5. 変更ファイル列挙を汎用コマンドとして提供する（要検討）
+
+目的: 特定 path 配下で、git の基準点以降に変わった Markdown note を機械的に列挙したい。
+
+想定コマンド:
+
+```bash
+mdhop changed --since HEAD --path "docs/**" --format json
+mdhop changed --since main --exclude-path "docs/archive/**" --format json
+```
+
+log 整合チェックではない。mdhop は「何が変わったか」を出すだけ。
+
+検討点:
+
+- すでに git コマンドで簡単に取れるなら、mdhop に入れず Skill / script でよい可能性がある。**git コマンドとの差分を見てから判断する。**
+- untracked file を含めるか。
+- deleted / renamed / moved をどう表現するか。
+
+受け入れ条件:
+
+- `llm-wiki` 専用、`log.md` 専用、daily report 専用の意味づけを持たない。
+- path include / exclude が使える。
+- `--format json` で changed file、status、old path / new path を返せる。
+
 ### 11. anchor 切れ検出【実装が軽い場合のみ】
 
 目的: `[[note#見出し]]` / `[text](note.md#fragment)` の fragment が、対象 note の見出しとして実在するか検査したい。
@@ -330,6 +348,20 @@ mdhop diagnose --path "docs/**" --fields anchors --format json
 
 - 対象 note は存在するが fragment が見つからないケースを、note ごと存在しない（phantom）ケースと区別して報告する。
 - `--path` で対象範囲を絞れる。
+
+### 13. examples skill と README を v0.10.0 追加分に同期する
+
+目的: タスク 12 と同じ。v0.10.0 の新コマンド・新オプションをリリース時点で反映する。
+
+対象:
+
+- `examples/skills/mdhop/SKILL.md` と `references/`（`meta-check` / `meta-validate`、computed fields、相対日付比較の使用例。`changed` / anchor 検査は実施した場合のみ）
+- `README.md` / `README.ja.md` の Commands 表と使用例
+
+受け入れ条件:
+
+- v0.10.0 で追加した全コマンド・オプションが skill の references から引ける。
+- README の Commands 表が実装と一致する。
 
 ## Non-goals
 
