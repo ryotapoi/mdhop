@@ -264,6 +264,13 @@ func isBasenameRawLink(rawLink string, linkType LinkType) bool {
 			return false
 		}
 		return !strings.Contains(url, "/")
+	case LinkTypeFrontmatterPath:
+		// raw_link is the raw frontmatter value; reuse the parser's
+		// classification so both stay in sync. Only diagnose reaches this
+		// case: rewrite-side callers filter edges by pathLinkTypeSQLList,
+		// which excludes frontmatter_path (raw values are not rewritable).
+		occ, ok := frontmatterPathOccur(rawLink, 0)
+		return ok && occ.isBasename
 	}
 	return false
 }

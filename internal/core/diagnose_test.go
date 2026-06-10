@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -238,5 +240,32 @@ func TestDiagnose_FieldsFilter(t *testing.T) {
 	// basename_conflicts should be nil (not requested)
 	if result.BasenameConflicts != nil {
 		t.Errorf("basename_conflicts = %v, want nil (not requested)", result.BasenameConflicts)
+	}
+}
+
+func TestDiagnose_PathFilter_FrontmatterPathBasenameSource(t *testing.T) {
+	vault := copyVaultForQuery(t, "vault_diagnose_path")
+	// link_keys raw basename value referencing the Conflict group
+	// (root-priority resolves it to Conflict.md, so build succeeds).
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  link_keys:\n    - related\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(vault, "topics"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "topics", "ref.md"), []byte("---\nrelated: Conflict\n---\n\n# Ref\n"), 0o644); err != nil {
+		t.Fatalf("write note: %v", err)
+	}
+	buildForQuery(t, vault)
+
+	result, err := Diagnose(vault, DiagnoseOptions{Path: []string{"topics/*"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.BasenameConflicts) != 1 {
+		t.Fatalf("basename_conflicts = %v, want the Conflict group referenced via frontmatter_path", result.BasenameConflicts)
+	}
+	if got := result.BasenameConflicts[0].Paths; len(got) != 2 || got[0] != "Conflict.md" || got[1] != "docs/Conflict.md" {
+		t.Errorf("conflict paths = %v, want [Conflict.md docs/Conflict.md]", got)
 	}
 }
