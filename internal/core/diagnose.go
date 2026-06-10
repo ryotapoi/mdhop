@@ -23,6 +23,58 @@ type DiagnoseResult struct {
 	Phantoms               []string           // sorted by name
 }
 
+// basenameConflicts returns groups of existing nodes of the given type that
+// share the same case-insensitive basename.
+func basenameConflicts(db dbExecer, nodeType NodeType) ([]BasenameConflict, error) {
+	rows, err := db.Query(`SELECT name, path FROM nodes WHERE type=? AND exists_flag=1 ORDER BY LOWER(name), path`, nodeType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type entry struct {
+		name string
+		path string
+	}
+
+	// Group by lowercase name
+	groups := make(map[string][]entry)
+	var order []string
+	for rows.Next() {
+		var name, path string
+		if err := rows.Scan(&name, &path); err != nil {
+			return nil, err
+		}
+		key := strings.ToLower(name)
+		if _, exists := groups[key]; !exists {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], entry{name: name, path: path})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	sort.Strings(order)
+	var conflicts []BasenameConflict
+	for _, key := range order {
+		entries := groups[key]
+		if len(entries) < 2 {
+			continue
+		}
+		paths := make([]string, len(entries))
+		for i, e := range entries {
+			paths[i] = e.path
+		}
+		// Name is from the first entry (paths are already sorted by SQL ORDER BY)
+		conflicts = append(conflicts, BasenameConflict{
+			Name:  entries[0].name,
+			Paths: paths,
+		})
+	}
+	return conflicts, nil
+}
+
 // Diagnose returns diagnostic information for the indexed vault.
 func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
 	db, err := openDBChecked(vaultPath)
@@ -34,91 +86,16 @@ func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
 	result := &DiagnoseResult{}
 
 	if isFieldActive("basename_conflicts", opts.Fields) {
-		rows, err := db.Query(`SELECT name, path FROM nodes WHERE type='note' AND exists_flag=1 ORDER BY LOWER(name), path`)
+		result.BasenameConflicts, err = basenameConflicts(db, NodeTypeNote)
 		if err != nil {
 			return nil, err
-		}
-		defer rows.Close()
-
-		type noteEntry struct {
-			name string
-			path string
-		}
-
-		// Group by lowercase name
-		groups := make(map[string][]noteEntry)
-		var order []string
-		for rows.Next() {
-			var name, path string
-			if err := rows.Scan(&name, &path); err != nil {
-				return nil, err
-			}
-			key := strings.ToLower(name)
-			if _, exists := groups[key]; !exists {
-				order = append(order, key)
-			}
-			groups[key] = append(groups[key], noteEntry{name: name, path: path})
-		}
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
-
-		sort.Strings(order)
-		for _, key := range order {
-			entries := groups[key]
-			if len(entries) < 2 {
-				continue
-			}
-			paths := make([]string, len(entries))
-			for i, e := range entries {
-				paths[i] = e.path
-			}
-			// Name is from the first entry (paths are already sorted by SQL ORDER BY)
-			result.BasenameConflicts = append(result.BasenameConflicts, BasenameConflict{
-				Name:  entries[0].name,
-				Paths: paths,
-			})
 		}
 	}
 
 	if isFieldActive("asset_basename_conflicts", opts.Fields) {
-		rows, err := db.Query(`SELECT name, path FROM nodes WHERE type='asset' AND exists_flag=1 ORDER BY LOWER(name), path`)
+		result.AssetBasenameConflicts, err = basenameConflicts(db, NodeTypeAsset)
 		if err != nil {
 			return nil, err
-		}
-		defer rows.Close()
-
-		groups := make(map[string][]struct{ name, path string })
-		var order []string
-		for rows.Next() {
-			var name, path string
-			if err := rows.Scan(&name, &path); err != nil {
-				return nil, err
-			}
-			key := strings.ToLower(name)
-			if _, exists := groups[key]; !exists {
-				order = append(order, key)
-			}
-			groups[key] = append(groups[key], struct{ name, path string }{name: name, path: path})
-		}
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
-
-		sort.Strings(order)
-		for _, key := range order {
-			entries := groups[key]
-			if len(entries) < 2 {
-				continue
-			}
-			paths := make([]string, len(entries))
-			for i, e := range entries {
-				paths[i] = e.path
-			}
-			result.AssetBasenameConflicts = append(result.AssetBasenameConflicts, BasenameConflict{
-				Name:  entries[0].name,
-				Paths: paths,
-			})
 		}
 	}
 
