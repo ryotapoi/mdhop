@@ -38,13 +38,11 @@ func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, w
 
 	var result []NodeInfo
 	for rows.Next() {
-		var typ NodeType
-		var name, path string
-		var exists int
-		if err := rows.Scan(&typ, &name, &path, &exists); err != nil {
+		info, err := scanNodeInfo(rows)
+		if err != nil {
 			return nil, err
 		}
-		result = append(result, NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1})
+		result = append(result, info)
 	}
 	return result, rows.Err()
 }
@@ -77,13 +75,11 @@ func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClau
 
 	var result []NodeInfo
 	for rows.Next() {
-		var typ NodeType
-		var name, path string
-		var exists int
-		if err := rows.Scan(&typ, &name, &path, &exists); err != nil {
+		info, err := scanNodeInfo(rows)
+		if err != nil {
 			return nil, err
 		}
-		result = append(result, NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1})
+		result = append(result, info)
 	}
 	return result, rows.Err()
 }
@@ -174,15 +170,12 @@ func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
 		}
 
 		for rows.Next() {
-			var id int64
-			var typ NodeType
-			var name, path string
-			var exists int
-			if err := rows.Scan(&id, &typ, &name, &path, &exists); err != nil {
+			id, info, err := scanNodeInfoWithID(rows)
+			if err != nil {
 				rows.Close()
 				return nil, err
 			}
-			result[id] = NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}
+			result[id] = info
 		}
 		rows.Close()
 		if err := rows.Err(); err != nil {
@@ -287,14 +280,12 @@ func queryTwoHop(db dbExecer, entryID int64, entryType NodeType, maxTwoHop, maxV
 
 		var targets []NodeInfo
 		for targetRows.Next() {
-			var typ NodeType
-			var name, path string
-			var exists int
-			if err := targetRows.Scan(&typ, &name, &path, &exists); err != nil {
+			info, err := scanNodeInfo(targetRows)
+			if err != nil {
 				targetRows.Close()
 				return nil, err
 			}
-			targets = append(targets, NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1})
+			targets = append(targets, info)
 		}
 		targetRows.Close()
 		if err := targetRows.Err(); err != nil {

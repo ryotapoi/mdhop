@@ -1,5 +1,7 @@
 package core
 
+import "database/sql"
+
 // EntrySpec specifies the entry node for a query.
 type EntrySpec struct {
 	File    string // vault-relative path
@@ -26,6 +28,30 @@ type NodeInfo struct {
 	Name   string
 	Path   string // note/asset only
 	Exists bool
+}
+
+// scanNodeInfo scans a (type, name, path, exists_flag) row into a NodeInfo.
+func scanNodeInfo(rows *sql.Rows) (NodeInfo, error) {
+	var typ NodeType
+	var name, path string
+	var exists int
+	if err := rows.Scan(&typ, &name, &path, &exists); err != nil {
+		return NodeInfo{}, err
+	}
+	return NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}, nil
+}
+
+// scanNodeInfoWithID scans an (id, type, name, path, exists_flag) row into a
+// node id and a NodeInfo.
+func scanNodeInfoWithID(rows *sql.Rows) (int64, NodeInfo, error) {
+	var id int64
+	var typ NodeType
+	var name, path string
+	var exists int
+	if err := rows.Scan(&id, &typ, &name, &path, &exists); err != nil {
+		return 0, NodeInfo{}, err
+	}
+	return id, NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}, nil
 }
 
 // TwoHopEntry represents a via node and the targets reachable through it.

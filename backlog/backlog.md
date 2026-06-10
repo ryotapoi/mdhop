@@ -13,7 +13,7 @@ v0.10.0 / v0.11.0 の大型機能追加の前に、コード全体とドキュ�
 - [x] path filter 部品の集約: `pathIncludeSQL`（search.go）/ `PathExcludeSQL` / `globMatch` / `validateGlobPatterns`（config.go）を `internal/core/pathfilter.go` へ移動（挙動変更なしの移動のみ。v0.10.0 で diagnose / query / graph / reachable に広げる前の置き場所確定）
 - [x] path glob の Go 実装と SQLite GLOB の同値性テスト追加（`pathfilter_test.go`。同一入力を両実装に通して突き合わせるテーブル駆動テスト。SQL 一本化の要否は v0.10.0 タスク 2 の設計時に判断）
 - [x] diagnose.go の note / asset conflict 集計の重複ブロック共通化（diagnose.go:36-82 と 84-123 が型名以外ほぼ同一。v0.10.0 タスク 1 の `diagnose --path` で触る箇所）
-- [ ] NodeInfo 行スキャンの共通化（query_fetch.go / query_entry.go / search.go に 7 回出現 → `scanNodeInfo(rows)` ヘルパー）
+- [x] NodeInfo 行スキャンの共通化（query_fetch.go / query_entry.go / search.go に 7 回出現 → `scanNodeInfo(rows)` ヘルパー）
 - [ ] basename 一致 + root 優先の DB 側二重実装の統合（`resolveBasenameFromDB` と `findEntryByName` は同一ビジネスルールの別実装。ADR 0004 ルールの実装箇所を削減）
 - [ ] util.go の責務整理（`noteResolveMaps` / `assetResolveMaps` を resolve_maps 系ファイルへ移動し、ファイル名と中身を一致させる。移動のみ）
 - [ ] sentinel error の統一（`checkStale` の素の fmt.Errorf → `ErrSourceStale`、query_entry.go の file-not-in-index → `ErrFileNotRegistered`。errors.go の宣言方針に合わせる）

@@ -105,17 +105,14 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 		info NodeInfo
 	}
 	for rows.Next() {
-		var id int64
-		var typ NodeType
-		var n, p string
-		var exists int
-		if err := rows.Scan(&id, &typ, &n, &p, &exists); err != nil {
+		id, info, err := scanNodeInfoWithID(rows)
+		if err != nil {
 			return 0, NodeInfo{}, err
 		}
 		matches = append(matches, struct {
 			id   int64
 			info NodeInfo
-		}{id, NodeInfo{Type: typ, Name: n, Path: p, Exists: exists == 1}})
+		}{id, info})
 	}
 	if err := rows.Err(); err != nil {
 		return 0, NodeInfo{}, err
@@ -149,17 +146,14 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 		info NodeInfo
 	}
 	for assetRows.Next() {
-		var id int64
-		var typ NodeType
-		var n, p string
-		var exists int
-		if err := assetRows.Scan(&id, &typ, &n, &p, &exists); err != nil {
+		id, info, err := scanNodeInfoWithID(assetRows)
+		if err != nil {
 			return 0, NodeInfo{}, err
 		}
 		assetMatches = append(assetMatches, struct {
 			id   int64
 			info NodeInfo
-		}{id, NodeInfo{Type: typ, Name: n, Path: p, Exists: exists == 1}})
+		}{id, info})
 	}
 	if err := assetRows.Err(); err != nil {
 		return 0, NodeInfo{}, err

@@ -173,15 +173,11 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	}
 	var rowItems []rowData
 	for rows.Next() {
-		var rd rowData
-		var typ NodeType
-		var name, path string
-		var exists int
-		if err := rows.Scan(&rd.id, &typ, &name, &path, &exists); err != nil {
+		id, info, err := scanNodeInfoWithID(rows)
+		if err != nil {
 			return nil, err
 		}
-		rd.node = NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}
-		rowItems = append(rowItems, rd)
+		rowItems = append(rowItems, rowData{id: id, node: info})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
