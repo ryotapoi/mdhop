@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1368,8 +1369,9 @@ func TestRunReachable_JSONOutput(t *testing.T) {
 	if m.From != "docs/index.md" {
 		t.Errorf("from = %q, want docs/index.md", m.From)
 	}
-	if len(m.Reachable) != 6 {
-		t.Errorf("reachable = %v, want 6 notes", m.Reachable)
+	wantReachable := []string{"docs/fp.md", "docs/fw.md", "docs/index.md", "docs/leaf.md", "docs/md.md", "docs/sub.md"}
+	if !reflect.DeepEqual(m.Reachable, wantReachable) {
+		t.Errorf("reachable = %v, want %v", m.Reachable, wantReachable)
 	}
 	if len(m.Unreachable) != 1 || m.Unreachable[0] != "docs/orphan.md" {
 		t.Errorf("unreachable = %v, want [docs/orphan.md]", m.Unreachable)
