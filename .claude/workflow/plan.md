@@ -56,9 +56,9 @@ CLI 出力に関わる変更なら、Before / After / 操作手順を 1 つの�
 - 設計判断の前に `design-decision` スキルを呼ぶ
 - ルールに当てはめても決まらないときだけユーザー確認
 - モジュール配置（`cmd/mdhop` と `internal/core` の依存方向）、共通化方針、型選択を判断する。配置・責務・依存方向そのものを問う場合は `module-boundary` を使う
-- mdhop 固有制約に触れるなら `review-plan-mdhop`（`review-plan-all` 経由）の観点で確認（依存方向、SQL 安全性、`modernc.org/sqlite` の罠、リンク解決ルール、ルート優先ルール、CLI 仕様、vault escape）
+- mdhop 固有制約に触れるなら `mdhop-risk-check` で確認（依存方向、SQL 安全性、`modernc.org/sqlite` の罠、リンク解決ルール、ルート優先ルール、CLI 仕様、vault escape）
 
-L1 にトリガする領域: SQLite スキーマ・マイグレーション、SQL（プレースホルダ・`GROUP BY`・集約関数・NULL 三値論理・exists_flag フィルタ）、リンク解決・ルート優先ルール（ADR 0004）、`cmd/mdhop → internal/core` の依存方向、CLI 破壊的変更、vault escape、`build` の `delete --rm` 等破壊的処理。
+`mdhop-risk-check` にトリガする領域: SQLite スキーマ・マイグレーション、SQL（プレースホルダ・`GROUP BY`・集約関数・NULL 三値論理・exists_flag フィルタ）、リンク解決・ルート優先ルール（ADR 0004）、`cmd/mdhop → internal/core` の依存方向、CLI 破壊的変更、vault escape、`build` の `delete --rm` 等破壊的処理。
 
 ## 先行リファクタ判定
 
@@ -75,13 +75,10 @@ L1 にトリガする領域: SQLite スキーマ・マイグレーション、SQ
 
 ## Plan Review
 
-リスクに応じて選ぶ。
-
-- **L0 (Small/Normal の単純なケース)**: self-check のみ。plan を省略する Small は plan review 自体スキップ
-- **L1 (領域固有リスクあり)**: `review-plan-all` を呼ぶ。中で mdhop 制約 / split を選別
-- **L2 (High-risk / 設計判断が重い / 曖昧)**: L1 に加えて Codex 観点を入れる
-
-`review-plan-all` は内部でリスクに応じた skill を呼ぶ司令塔。詳細は当該スキル参照。
+- 通常は実装後レビュー（`review.md`）を標準とし、plan review は self-check でよい。
+- 実装差分レビューでは Small 以外を原則 `/code-review xhigh` に通すため、plan 時点でもレビュー深度と追加 skill の要否を明記する。
+- 領域固有リスクがあれば `mdhop-risk-check` を plan に当てる。
+- High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`codex-review` でプランファイルを別系統レビューに回す。
 
 ## Acceptance
 
