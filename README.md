@@ -83,7 +83,7 @@ mdhop search --where "updated<today-90d" --format json
 # Biggest notes by line count, with computed fields and a meta key
 mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
 
-# Diagnose only a subtree (phantoms, conflicts, and broken heading anchors)
+# Opt in to broken heading anchor detection (only anchors with --fields anchors)
 mdhop diagnose --path "projects/*" --fields anchors --format json
 
 # Check that frontmatter reference values resolve, and conform to the schema

@@ -81,7 +81,7 @@ mdhop search --where "updated<today-90d" --format json
 # 行数が多い順。computed fields と meta key を出力
 mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
 
-# 特定サブツリーだけを診断（phantom・衝突・見出し anchor 切れ）
+# 見出し anchor 切れ検出を有効化（--fields anchors は anchors のみ出力）
 mdhop diagnose --path "projects/*" --fields anchors --format json
 
 # frontmatter の参照値が解決するか、schema に準拠するかを検査

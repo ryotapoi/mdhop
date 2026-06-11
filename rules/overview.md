@@ -174,7 +174,7 @@ meta:
   - `mdhop.yaml` の `meta.types` で型宣言されたキーは比較演算子で型安全な比較が可能
   - 相対日付: 比較演算子の右辺に `today` / `today-90d` / `today+1d` / `today-2w` / `today-3m` / `today-1y` を書ける（単位 `d`=日, `w`=週, `m`=月, `y`=年）。実行時のローカル日付を基準に絶対日付へ展開する
     - 例: `--where "updated<today-90d"` → 90 日以上更新されていない note
-    - 相対日付は構文自体が date 比較を示すため、左辺キーの `meta.types` 宣言の有無に関わらず date 型として比較する（date 宣言がなくても効く）
+    - 相対日付は date として比較する。比較は保存済み `sort_value` に対し `value_type='date'` ガード付きで行うため、左辺キーは `meta.types` で `date` 宣言されている必要がある。未宣言キーは `value_type='string'`・文字列正規化された `sort_value` で保存されており、ガードに弾かれてマッチしない
 
 ### 除外フィルタの仕様
 

@@ -124,10 +124,11 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 		}
 
 		// Relative date tokens (today, today-90d, ...) are sugar for an absolute
-		// date literal on the right-hand side. The syntax itself signals date
-		// intent, so we expand the token and force the date type regardless of
-		// the left-hand key's declaration — otherwise a key whose date type was
-		// not declared would silently match nothing.
+		// date literal on the right-hand side. We expand the token and compare as
+		// a date. The comparison runs against the stored sort_value with a
+		// value_type="date" guard, so the left-hand key must be declared `date`
+		// in meta.types — an undeclared key is stored with value_type="string"
+		// and a string-normalized sort_value, which the guard (correctly) skips.
 		typeInfo, _ := metaCfg.LookupType(key)
 		if expanded, ok := expandRelativeDate(value, time.Now()); ok {
 			typeInfo = MetaTypeInfo{Name: MetaTypeDate}
