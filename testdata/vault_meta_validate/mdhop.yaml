@@ -1,0 +1,6 @@
+meta:
+  types:
+    updated: date
+    priority: number
+    severity:
+      ordered: [low, medium, high, critical]

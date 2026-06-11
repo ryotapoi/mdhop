@@ -31,6 +31,8 @@ func main() {
 		err = runDiagnose(os.Args[2:])
 	case "meta-check":
 		err = runMetaCheck(os.Args[2:])
+	case "meta-validate":
+		err = runMetaValidate(os.Args[2:])
 	case "delete":
 		err = runDelete(os.Args[2:])
 	case "update":
@@ -108,6 +110,7 @@ Query Commands:
   stats      Show vault statistics
   diagnose   Show basename conflicts and phantom nodes
   meta-check Check that frontmatter path/wikilink values resolve
+  meta-validate Check frontmatter against required keys and declared types
 
 Setup Commands:
   init-meta  Generate meta type definitions from preset and/or vault scan

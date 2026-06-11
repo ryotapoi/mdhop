@@ -1591,6 +1591,92 @@ func TestRunMetaCheck_InvalidKind(t *testing.T) {
 	}
 }
 
+func TestRunMetaValidate_TypeAndEnum(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_meta_validate")
+
+	out := captureStdout(t, func() error {
+		return runMetaValidate([]string{"--vault", vault, "--format", "json"})
+	})
+
+	type violation struct {
+		SourcePath string `json:"source_path"`
+		Key        string `json:"key"`
+		Value      string `json:"value"`
+		Reason     string `json:"reason"`
+	}
+	var m struct {
+		Violations []violation `json:"violations"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if len(m.Violations) != 2 {
+		t.Fatalf("violations = %+v, want 2", m.Violations)
+	}
+	byReason := map[string]violation{}
+	for _, v := range m.Violations {
+		byReason[v.Reason] = v
+	}
+	tv, ok := byReason["type"]
+	if !ok {
+		t.Fatalf("no type violation in %+v", m.Violations)
+	}
+	if tv.SourcePath != "bad_date.md" || tv.Key != "updated" || tv.Value != "someday" {
+		t.Errorf("type violation = %+v, want bad_date.md/updated/someday", tv)
+	}
+	ev, ok := byReason["enum"]
+	if !ok {
+		t.Fatalf("no enum violation in %+v", m.Violations)
+	}
+	if ev.SourcePath != "bad_enum.md" || ev.Key != "severity" || ev.Value != "urgent" {
+		t.Errorf("enum violation = %+v, want bad_enum.md/severity/urgent", ev)
+	}
+}
+
+func TestRunMetaValidate_Required(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_meta_validate")
+
+	out := captureStdout(t, func() error {
+		return runMetaValidate([]string{"--vault", vault, "--require", "status", "--format", "json"})
+	})
+
+	var m struct {
+		Violations []struct {
+			SourcePath string `json:"source_path"`
+			Key        string `json:"key"`
+			Value      string `json:"value"`
+			Reason     string `json:"reason"`
+		} `json:"violations"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	var missing []string
+	for _, v := range m.Violations {
+		if v.Reason != "missing" {
+			continue
+		}
+		if v.Key != "status" {
+			t.Errorf("missing key = %s, want status", v.Key)
+		}
+		if v.Value != "" {
+			t.Errorf("missing value = %q, want empty", v.Value)
+		}
+		missing = append(missing, v.SourcePath)
+	}
+	if len(missing) != 1 || missing[0] != "missing.md" {
+		t.Errorf("missing = %v, want [missing.md]", missing)
+	}
+}
+
+func TestRunMetaValidate_NothingToCheck(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_build_basic")
+	err := runMetaValidate([]string{"--vault", vault})
+	if err == nil || !strings.Contains(err.Error(), "nothing to check") {
+		t.Fatalf("expected nothing-to-check error, got: %v", err)
+	}
+}
+
 // --- Graph CLI tests ---
 
 func TestRunGraph_JSONOutput(t *testing.T) {

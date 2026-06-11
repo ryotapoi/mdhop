@@ -325,6 +325,14 @@ meta:
   - 補足: 値はリスト・スカラーを問わず meta テーブルで値ごとに展開済みのため、`--kind` に list / scalar の区別はない
   - 補足: URL 値（`://` を含む）と空値は許可（issue にしない）。`reason` は `not_found` / `ambiguous`（basename 多重解決）/ `vault_escape` / `not_wikilink`（`--kind wikilink` で `[[...]]` でない）
   - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ。`mdhop.yaml` の `exclude` 設定は適用されない）
+- `meta-validate`
+  - 必須: なし（ただし `--require` も `mdhop.yaml` の `meta.types`（string 以外の宣言）もどちらも無い場合はエラー。検査対象が存在しない）
+  - 任意: `--vault`, `--format`, `--require`（複数回指定可）, `--path`, `--exclude`
+  - 補足: frontmatter が宣言済み schema に準拠するかを検査し、違反を `violations` として返す。meta-check（値の参照先が実在するか）とは別コマンド（ADR 0019）
+  - 補足: `--require <key>` は対象 note に当該 key の非空値が無い場合 `missing` を報告する。空値・null の frontmatter 値は index 時に落ちるため、`key:`（値なし）も `missing` 扱い（key 欠落と同じ欠陥）
+  - 補足: `mdhop.yaml` の `meta.types` で `date` / `number` / `semver` 宣言された key の値が型として解釈できない場合 `type` を、`ordered` 宣言の key の値が一覧外の場合 `enum` を報告する。`string` / 未宣言の key は型・enum 制約を持たないため対象外
+  - 補足: 型／enum 検査は `--require` の有無に関わらず常に走る（`meta.types` 宣言が根拠）。`--require` は欠落検査を追加するだけ
+  - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ。`mdhop.yaml` の `exclude` 設定は適用されない）
 - `reachable`
   - 必須: `--from`（vault 相対の note path。asset / 未登録 path はエラー）
   - 任意: `--vault`, `--format`, `--fields`, `--path`, `--exclude`, `--route`
