@@ -125,6 +125,46 @@ func TestSearch_WhereGt(t *testing.T) {
 	}
 }
 
+func TestSearch_WhereRelativeDate(t *testing.T) {
+	vault := setupSearchVault(t)
+	meta := searchVaultConfig(t, vault)
+
+	// All created dates in the fixture are in 2025, well before today, so
+	// created<today matches every note that has a created date (A, B, C, E).
+	// D has no frontmatter. The result is stable regardless of the run date.
+	wc, err := ParseWhere([]string{"created<today"}, meta)
+	if err != nil {
+		t.Fatalf("parse where: %v", err)
+	}
+	result, err := Search(vault, SearchOptions{Where: wc})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := searchPaths(result.Items)
+	want := []string{"A.md", "B.md", "C.md", "E.md"}
+	if len(got) != len(want) {
+		t.Fatalf("created<today paths = %v, want %v", got, want)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Fatalf("created<today paths = %v, want %v", got, want)
+		}
+	}
+
+	// created>today matches nothing (no future-dated notes).
+	wcFuture, err := ParseWhere([]string{"created>today"}, meta)
+	if err != nil {
+		t.Fatalf("parse where: %v", err)
+	}
+	resultFuture, err := Search(vault, SearchOptions{Where: wcFuture})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resultFuture.Total != 0 {
+		t.Errorf("created>today total = %d, want 0", resultFuture.Total)
+	}
+}
+
 func TestSearch_SortAsc(t *testing.T) {
 	vault := setupSearchVault(t)
 

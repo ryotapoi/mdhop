@@ -4,7 +4,78 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestExpandRelativeDate(t *testing.T) {
+	now := time.Date(2026, 6, 11, 9, 30, 0, 0, time.Local)
+	tests := []struct {
+		token string
+		want  string
+		ok    bool
+	}{
+		{"today", "2026-06-11", true},
+		{"today-90d", "2026-03-13", true},
+		{"today+1d", "2026-06-12", true},
+		{"today-1w", "2026-06-04", true},
+		{"today-3m", "2026-03-11", true},
+		{"today-1y", "2025-06-11", true},
+		{"today+2w", "2026-06-25", true},
+		// Non-relative inputs are left to the caller.
+		{"2026-03-01", "", false},
+		{"yesterday", "", false},
+		{"today-", "", false},
+		{"today-5", "", false},
+		{"today-5x", "", false},
+		{"todayx", "", false},
+		{"today-90days", "", false},
+	}
+	for _, tt := range tests {
+		got, ok := expandRelativeDate(tt.token, now)
+		if ok != tt.ok {
+			t.Errorf("%s: ok = %v, want %v", tt.token, ok, tt.ok)
+			continue
+		}
+		if ok && got != tt.want {
+			t.Errorf("%s: got %q, want %q", tt.token, got, tt.want)
+		}
+	}
+}
+
+func TestParseWhere_RelativeDate(t *testing.T) {
+	// updated is not declared as date; relative date must still force date type.
+	wc, err := ParseWhere([]string{"updated<today-90d"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := wc.Conditions[0]
+	if c.Key != "updated" || c.Op != WhereOpLt {
+		t.Fatalf("got {%q, %d}, want {updated, Lt}", c.Key, c.Op)
+	}
+	if c.valueType != string(MetaTypeDate) {
+		t.Errorf("valueType = %q, want %q", c.valueType, MetaTypeDate)
+	}
+	// Value must be a normalized date string (YYYY-MM-DD), not the raw token.
+	if _, err := time.Parse("2006-01-02", c.Value); err != nil {
+		t.Errorf("value = %q is not a normalized date: %v", c.Value, err)
+	}
+}
+
+func TestParseWhere_RelativeDate_EqRejected(t *testing.T) {
+	// Relative dates only make sense for range comparisons, but = / != still
+	// expand the token (point-in-time match on that day's normalized value).
+	wc, err := ParseWhere([]string{"updated=today"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := wc.Conditions[0]
+	if _, err := time.Parse("2006-01-02", c.Value); err != nil {
+		t.Errorf("value = %q is not a normalized date: %v", c.Value, err)
+	}
+	if c.valueType != string(MetaTypeDate) {
+		t.Errorf("valueType = %q, want date", c.valueType)
+	}
+}
 
 func TestParseWhere_Eq(t *testing.T) {
 	wc, err := ParseWhere([]string{"priority=1"}, MetaConfig{})

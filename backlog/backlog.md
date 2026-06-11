@@ -7,7 +7,7 @@ frontmatter の品質検査と search の強化。v0.10.0 を実 vault に当て
 - [ ] frontmatter 任意 key の path-like value 検査（`meta-check`）
 - [ ] frontmatter schema validation（`meta-validate`: 必須 key・enum・型・空値。mdhop.yaml の `meta.types` を検査側でも使う）
 - [ ] search の computed fields（行数・リンク数を `--fields` / `--sort` で）+ `--fields` の meta key 出力対応
-- [ ] `--where` の相対日付比較（`updated<today-90d`。**実施決定**）
+- [x] `--where` の相対日付比較（`updated<today-90d`。**実施決定**）
 - [ ] `changed --since` 変更ファイル列挙（git との差分を見てから要否判断）
 - [ ] `[[note#見出し]]` の anchor 切れ検出（**実装が軽い場合のみ**。Obsidian 互換の fragment 正規化が重ければ見送り）
 - [ ] anchor 検査の設計前に convert.go のパース骨格重複（`parseLinksForConvert` / `parseMarkdownSelfLinks` が parseLinks 系の走査ループを再実装）を畳むか判断する（本文走査をもう 1 種類足すと三重化するため。2026-06-10 audit 由来）
