@@ -19,7 +19,8 @@
 - 領域固有 supplement の対象:
   - SQLite スキーマ・マイグレーション、SQL（プレースホルダ・`GROUP BY`・集約関数・NULL 三値論理・exists_flag フィルタ）、リンク解決・ルート優先ルール（ADR 0004）、`cmd/mdhop → internal/core` の依存方向、CLI 破壊的変更（stdout JSON）、vault escape、破壊的処理（`delete --rm`, `move`, rewrite 系） → `mdhop-risk-check`
   - 永続化 / マイグレーション / 削除 / 外部連携 / 並行性 / 公開 API → `mdhop-risk-check` に加え、必要なら `codex-review`
-- **テスト可能な振る舞い変更や bug fix に unit / regression test がない場合は、原則 blocker として扱う**（`verify.md` で未完了。理由がある例外のみ許容）。
+- diff が 1000 行を超える場合は、`codex-review` を実行する前にレート制限リスクをユーザーに確認する。
+- **テスト可能な振る舞い変更や bug fix に unit / regression test がない場合は、原則 blocker として扱う**（理由がある例外のみ許容）。
 - review は粗探しではなく、実害・仕様逸脱・テスト不足・設計劣化を探す。
 - 指摘に対応しない場合は、理由を plan / commit body / 該当ドキュメントに記録する。
 - レビュー周回が 3 周目以降に入っても止まらない。超過の事実（周回数・要因となった指摘・収束結果）を記録し、タスク完了報告（Goal なら Goal 完了報告）で `レビュー上限超過` として通知する。

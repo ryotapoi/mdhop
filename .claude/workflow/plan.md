@@ -56,9 +56,7 @@ CLI 出力に関わる変更なら、Before / After / 操作手順を 1 つの�
 - 設計判断の前に `design-decision` スキルを呼ぶ
 - ルールに当てはめても決まらないときだけユーザー確認
 - モジュール配置（`cmd/mdhop` と `internal/core` の依存方向）、共通化方針、型選択を判断する。配置・責務・依存方向そのものを問う場合は `module-boundary` を使う
-- mdhop 固有制約に触れるなら `mdhop-risk-check` で確認（依存方向、SQL 安全性、`modernc.org/sqlite` の罠、リンク解決ルール、ルート優先ルール、CLI 仕様、vault escape）
-
-`mdhop-risk-check` にトリガする領域: SQLite スキーマ・マイグレーション、SQL（プレースホルダ・`GROUP BY`・集約関数・NULL 三値論理・exists_flag フィルタ）、リンク解決・ルート優先ルール（ADR 0004）、`cmd/mdhop → internal/core` の依存方向、CLI 破壊的変更、vault escape、`build` の `delete --rm` 等破壊的処理。
+- mdhop 固有制約に触れるなら `mdhop-risk-check` で確認する（対象領域の一覧は `review.md` の領域固有 supplement を参照）
 
 ## 先行リファクタ判定
 
@@ -93,4 +91,4 @@ CLI 出力に関わる変更なら、Before / After / 操作手順を 1 つの�
 - 仕様・CLI 挙動・設計方針に複数の妥当な選択肢がある（即停止して確認。ただし `design-decision` で結論が出る範囲なら止まらず採否を決める）
 - 1 commit に収まらない（plan を分ける）
 - High-risk なのに検証方針がない
-- レビュー周回を重ねても対応必須の指摘が解消も却下もできず収束しない（3 周目以降に入ること自体では止まらず、超過を記録して完了報告の `レビュー上限超過` で通知する。`review.md` 参照）
+- レビュー周回を重ねても対応必須の指摘が解消も却下もできず収束しない（3 周目以降に入ること自体では止まらない。超過の扱いは `review.md` 参照）
