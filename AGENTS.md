@@ -61,7 +61,7 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 - `investigate`: 計画前の不明点を調査する
 - `design-decision`: 設計判断の価値基準を当てる
 - `mdhop-risk-check`: mdhop 固有の制約に照らして plan / 実装を確認する
-- `maintenance-review`: 複数タスク後の構造・負債を棚卸しする
+- `maintenance-audit`: 複数タスク後の構造・負債を棚卸しする（light / deep を scope で指定）
 - `commit`: Conventional Commits 形式でコミットする
 
 独立した調査・レビュー・実装は subagent で並列化してよい。1 subagent = 1 タスクに絞る。

@@ -63,9 +63,9 @@ Small（`default.md` の Intake 分類）は plan を省略してよい。
 
 - **Intent**: 実装前に plan の事実誤認・設計劣化・検証不足を見つける。
 - **Constraints**:
-  - Small / Normal の単純なケースは self-check でよい。
-  - 領域固有リスクがあれば `mdhop-risk-check` で確認する。
-  - High-risk / 設計判断が重い / 曖昧な場合は `change-review` などの別視点を入れる。
+  - 通常は実装後レビュー（`review.md`）を標準とし、plan review は self-check でよい。
+  - 領域固有リスクがあれば `mdhop-risk-check` を plan に当てる。
+  - High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`change-review` などの別視点を入れる。
 - **Acceptance**: 指摘が plan に反映済み、または対応しない理由が事実と理由で残っている。
 - **Relevant**: plan、関連 rules、レビュー観点 skill。
 
