@@ -379,8 +379,9 @@ func removeOrPhantomize(tx dbExecer, nodeID int64, name string) (phantomized boo
 			}
 		} else if errors.Is(err, sql.ErrNoRows) {
 			// No existing phantom: convert note to phantom in-place.
+			// Clear lines too: phantoms have no line count.
 			if _, err := tx.Exec(
-				"UPDATE nodes SET type='phantom', node_key=?, path=NULL, exists_flag=0, mtime=NULL WHERE id=?",
+				"UPDATE nodes SET type='phantom', node_key=?, path=NULL, exists_flag=0, mtime=NULL, lines=NULL WHERE id=?",
 				pk, nodeID,
 			); err != nil {
 				return false, err

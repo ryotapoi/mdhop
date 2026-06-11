@@ -1,6 +1,7 @@
 package core
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"sort"
@@ -127,6 +128,15 @@ func TestDeleteReferencedFileBecomesPhantom(t *testing.T) {
 	}
 	if outCount != 0 {
 		t.Errorf("phantom B should have 0 outgoing edges, got %d", outCount)
+	}
+
+	// Phantom B must not retain the note's line count.
+	var bLines sql.NullInt64
+	if err := db.QueryRow("SELECT lines FROM nodes WHERE id = ?", bNodeID).Scan(&bLines); err != nil {
+		t.Fatalf("query phantom B lines: %v", err)
+	}
+	if bLines.Valid {
+		t.Errorf("phantom B lines should be NULL, got %d", bLines.Int64)
 	}
 
 	// A→B edge should still exist (pointing to phantom B).
