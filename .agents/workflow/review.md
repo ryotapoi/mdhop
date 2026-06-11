@@ -25,7 +25,7 @@
 - **Self-check**: Small 変更。main で `git diff` を読み、要求と検証結果を照合する。
 - **Standard**: Small 以外の実装差分。`change-review` を通し、指摘を採否判断して反映する。
 - **Targeted**: 領域固有リスクがある変更。Standard に加えて `mdhop-risk-check` で確認する。
-- **External**: 大きい、曖昧、High-risk、または設計判断が重い変更。Standard に加えて別系統レビューを入れる（Goal では `goal.md` の Claude review、単発では `claude-review-request`）。
+- **External**: 大きい、曖昧、High-risk、または設計判断が重い変更。Standard に加えて別系統レビューを入れる（Goal では `goal.md` の Claude review。単発で Claude review が必要ならユーザーに確認してから `claude-review-request` を使う）。
 - **Maintenance**: 今回の差分ではなく、複数タスク後の全体構造・負債を見る。`maintenance.md` を使う。
 
 Goal 全体の commit range に対する Claude review は、各 commit のここでの review とは別に Goal 完了条件として `goal.md` の Claude Review で実施する。
