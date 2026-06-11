@@ -35,7 +35,7 @@ func parseLinks(content string) parseResult {
 		result.Meta = fm.meta
 	}
 
-	walkBodyLines(lines, fmEnd, func(lineNum int, clean string) {
+	walkBodyLines(lines, fmEnd, func(lineNum int, _, clean string) {
 		out = append(out, parseWikiLinks(clean, lineNum)...)
 		out = append(out, parseMarkdownLinks(clean, lineNum)...)
 		// Parse tags on a line with wikilinks/markdown links removed.
@@ -48,12 +48,13 @@ func parseLinks(content string) parseResult {
 
 // walkBodyLines iterates the body lines of a Markdown document, skipping the
 // frontmatter block and fenced code blocks. fmEnd is the index of the closing
-// "---" of frontmatter (0 if none), as returned by frontmatterEnd. For each
-// body line it calls fn with the 1-based line number and the line with inline
-// code spans stripped. This is the shared scan skeleton used by link parsing,
-// convert self-link parsing, and heading collection so fence/frontmatter
-// handling stays in one place.
-func walkBodyLines(lines []string, fmEnd int, fn func(lineNum int, clean string)) {
+// "---" of frontmatter (-1 or 0 if none), as returned by frontmatterEnd. For
+// each body line it calls fn with the 1-based line number, the raw line, and
+// the line with inline code spans stripped. Link/tag parsing uses clean (so
+// backticked text is ignored); heading collection uses raw (so backticked text
+// inside a heading is preserved). This is the shared scan skeleton so
+// fence/frontmatter handling stays in one place.
+func walkBodyLines(lines []string, fmEnd int, fn func(lineNum int, raw, clean string)) {
 	inFence := false
 	startLine := 0
 	if fmEnd > 0 {
@@ -69,8 +70,7 @@ func walkBodyLines(lines []string, fmEnd int, fn func(lineNum int, clean string)
 		if inFence {
 			continue
 		}
-		clean := stripInlineCode(lines[i])
-		fn(lineNum, clean)
+		fn(lineNum, lines[i], stripInlineCode(lines[i]))
 	}
 }
 

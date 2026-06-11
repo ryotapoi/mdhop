@@ -8,15 +8,16 @@ import (
 // collectHeadings extracts ATX heading texts (lines starting with 1-6 '#'
 // followed by a space) from a Markdown document, skipping frontmatter and
 // fenced code blocks. The returned slice preserves document order and holds
-// the raw heading text (without the leading '#'s), trimmed. Inline-code
-// stripping by walkBodyLines does not affect the leading '#' that marks a
-// heading, so it is reused as the scan skeleton.
+// the raw heading text (without the leading '#'s), trimmed. It scans the raw
+// line, not walkBodyLines' inline-code-stripped form, so backticked text
+// inside a heading (e.g. "## API `v2` Reference") is kept — Obsidian builds
+// the anchor from the heading's full text.
 func collectHeadings(content string) []string {
 	lines := strings.Split(content, "\n")
 	fmEnd := frontmatterEnd(lines)
 	var headings []string
-	walkBodyLines(lines, fmEnd, func(_ int, clean string) {
-		if h, ok := atxHeadingText(clean); ok {
+	walkBodyLines(lines, fmEnd, func(_ int, raw, _ string) {
+		if h, ok := atxHeadingText(raw); ok {
 			headings = append(headings, h)
 		}
 	})

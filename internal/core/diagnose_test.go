@@ -81,6 +81,38 @@ func TestDiagnose_BrokenAnchors(t *testing.T) {
 	}
 }
 
+func TestDiagnose_BrokenAnchors_StaleTargetDeleted(t *testing.T) {
+	vault := setupVaultForDiagnose(t, "vault_anchor_check")
+
+	// Delete the target note from disk after the index was built (stale index).
+	// The edge still points at it as an existing note, so brokenAnchors will
+	// try to read it. A missing file must not abort the whole diagnose; the
+	// anchors targeting it are simply reported broken.
+	if err := os.Remove(filepath.Join(vault, "target.md")); err != nil {
+		t.Fatalf("remove target: %v", err)
+	}
+
+	result, err := Diagnose(vault, DiagnoseOptions{Fields: []string{"anchors"}})
+	if err != nil {
+		t.Fatalf("diagnose must not fail on a stale (deleted) target: %v", err)
+	}
+
+	// Every non-block-ref anchor into the deleted target is now broken.
+	// source.md links #Missing, #Nonexistent, #Setup, #Usage Tips into target.
+	frags := make(map[string]bool)
+	for _, a := range result.BrokenAnchors {
+		if a.TargetPath != "target.md" {
+			t.Errorf("unexpected target path %q", a.TargetPath)
+		}
+		frags[a.Fragment] = true
+	}
+	for _, want := range []string{"Missing", "Nonexistent", "Setup", "Usage Tips"} {
+		if !frags[want] {
+			t.Errorf("fragment %q should be reported broken against the deleted target, got %+v", want, result.BrokenAnchors)
+		}
+	}
+}
+
 func TestDiagnose_Phantoms(t *testing.T) {
 	vault := setupVaultForDiagnose(t, "vault_build_phantom")
 

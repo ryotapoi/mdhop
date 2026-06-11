@@ -215,7 +215,13 @@ func brokenAnchors(db dbExecer, vaultPath string, opts DiagnoseOptions) ([]Broke
 		if !cached {
 			set, err = readNoteHeadingSet(vaultPath, tgtPath)
 			if err != nil {
-				return nil, err
+				if !os.IsNotExist(err) {
+					return nil, err
+				}
+				// Target note is in the index but gone from disk (stale
+				// index). Treat it as having no headings so the anchor is
+				// reported broken instead of aborting the whole diagnose.
+				set = map[string]bool{}
 			}
 			headingCache[tgtPath] = set
 		}

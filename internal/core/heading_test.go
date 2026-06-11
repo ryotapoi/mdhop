@@ -12,10 +12,13 @@ func TestCollectHeadings(t *testing.T) {
 		"## Sub Section\n" +
 		"```\n# Not a heading (in fence)\n```\n" +
 		"### Deep\n" +
+		"## API `v2` Reference\n" +
 		"#NoSpace is not a heading\n" +
 		"####### Too many hashes\n"
 	got := collectHeadings(content)
-	want := []string{"Top", "Sub Section", "Deep"}
+	// Backticked text inside a heading must be preserved (Obsidian builds the
+	// anchor from the full heading text, not the inline-code-stripped form).
+	want := []string{"Top", "Sub Section", "Deep", "API `v2` Reference"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("collectHeadings = %v, want %v", got, want)
 	}
@@ -80,5 +83,12 @@ func TestNormalizeAnchor_HeadingMatchesFragment(t *testing.T) {
 	f2, _ := normalizeAnchor("#Setup Config")
 	if h2 != f2 {
 		t.Errorf("expected punctuation-only difference to match: %q vs %q", h2, f2)
+	}
+	// A heading with inline code matches a link fragment with the same words:
+	// the backticks drop out but the code text ("v2") is preserved on both sides.
+	hc, _ := normalizeAnchor("API `v2` Reference")
+	fc, _ := normalizeAnchor("#API v2 Reference")
+	if hc != fc {
+		t.Errorf("expected inline-code heading to match fragment: %q vs %q", hc, fc)
 	}
 }
