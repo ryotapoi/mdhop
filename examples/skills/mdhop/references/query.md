@@ -84,7 +84,7 @@ Operators:
 
 **Type-safe comparisons:** When keys are declared in `mdhop.yaml`'s `meta.types` (e.g., `date`, `number`, `semver`), comparison operators (>, <, >=, <=) use normalized sort values. Without type declarations, comparisons are lexicographic.
 
-**Relative dates:** comparison values may use `today` or `today±Nd/w/m/y` (e.g., `updated<today-90d`, `reviewed>today-1y`). They expand to an absolute date at run time using the local date, and force date-typed comparison regardless of the key's declared type. Example: `--where "updated<today-90d"` finds notes not updated in the last 90 days.
+**Relative dates:** comparison values may use `today` or `today±Nd/w/m/y` (e.g., `updated<today-90d`, `reviewed>today-1y`). They expand to an absolute date at run time using the local date and compare as dates. The left-hand key must be declared `date` in `meta.types`; an undeclared key is stored as a string and the date guard skips it, so it never matches. Example: `--where "updated<today-90d"` finds notes not updated in the last 90 days (with `updated: date` declared).
 
 ### Path Filter and Exclude Options
 
