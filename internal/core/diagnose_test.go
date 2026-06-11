@@ -42,6 +42,45 @@ func TestDiagnose_BasenameConflicts(t *testing.T) {
 	}
 }
 
+func TestDiagnose_BrokenAnchors(t *testing.T) {
+	vault := setupVaultForDiagnose(t, "vault_anchor_check")
+
+	// Without "anchors" in fields, broken anchors must not be computed.
+	def, err := Diagnose(vault, DiagnoseOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if def.BrokenAnchors != nil {
+		t.Errorf("BrokenAnchors should be nil when not requested, got %v", def.BrokenAnchors)
+	}
+
+	// With "anchors", broken heading fragments are reported.
+	result, err := Diagnose(vault, DiagnoseOptions{Fields: []string{"anchors"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := make(map[string]string) // fragment -> target path
+	for _, a := range result.BrokenAnchors {
+		if a.SourcePath != "source.md" {
+			t.Errorf("unexpected source path %q", a.SourcePath)
+		}
+		got[a.Fragment] = a.TargetPath
+	}
+
+	// "Missing" (wikilink) and "Nonexistent" (markdown) are broken.
+	// "Setup" and "Usage Tips" resolve; "^abc123" (block ref) is skipped.
+	if len(result.BrokenAnchors) != 2 {
+		t.Fatalf("broken anchors = %d (%+v), want 2", len(result.BrokenAnchors), result.BrokenAnchors)
+	}
+	if got["Missing"] != "target.md" {
+		t.Errorf("expected broken fragment Missing → target.md, got %v", got)
+	}
+	if got["Nonexistent"] != "target.md" {
+		t.Errorf("expected broken fragment Nonexistent → target.md, got %v", got)
+	}
+}
+
 func TestDiagnose_Phantoms(t *testing.T) {
 	vault := setupVaultForDiagnose(t, "vault_build_phantom")
 

@@ -315,6 +315,8 @@ meta:
   - 補足: `--path` / `--exclude` は source note（リンクを書いている側の note）を path glob で絞る（複数回指定可、glob 仕様は除外フィルタと同じ）
   - 補足: フィルタ指定時、`phantoms` は対象 note から参照されている phantom のみ、`basename_conflicts` / `asset_basename_conflicts` は対象 note からの basename 形式リンクが指す衝突グループのみ（リンク解決リスクがあるもの）を返す
   - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は diagnose に適用されない。フィルタ未指定時の挙動は従来どおり
+  - 補足: `--fields anchors` で anchor 切れ検出（`broken_anchors`）を有効化する。これは **opt-in**（`--fields` 未指定時は他フィールドと違って出力されない。対象 note をディスクから読むため）。`[[note#見出し]]` / `[text](note.md#fragment)` の fragment が target note（実在 note）の見出しに存在しないものを報告する
+  - 補足: anchor 一致は Obsidian 互換正規化（`#` 除去・句読点／記号除去・空白畳み込み、大小文字とアクセントは保持）。block reference（`#^id`）は対象外。target が phantom / asset のものは対象外（note 切れは phantom 検出側の領分）
 - `reachable`
   - 必須: `--from`（vault 相対の note path。asset / 未登録 path はエラー）
   - 任意: `--vault`, `--format`, `--fields`, `--path`, `--exclude`, `--route`

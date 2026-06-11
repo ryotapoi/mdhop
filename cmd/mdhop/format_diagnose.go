@@ -11,11 +11,31 @@ var validDiagnoseFieldsCLI = map[string]bool{
 	"basename_conflicts":       true,
 	"asset_basename_conflicts": true,
 	"phantoms":                 true,
+	"anchors":                  true,
+}
+
+// anchorsRequested reports whether anchor checking was explicitly requested.
+// Unlike the other fields, anchors is opt-in (not shown when --fields is
+// omitted) because it reads target notes from disk.
+func anchorsRequested(fields []string) bool {
+	for _, f := range fields {
+		if f == "anchors" {
+			return true
+		}
+	}
+	return false
 }
 
 type diagnoseJSONConflict struct {
 	Name  string   `json:"name"`
 	Paths []string `json:"paths"`
+}
+
+type diagnoseJSONBrokenAnchor struct {
+	SourcePath string `json:"source_path"`
+	RawLink    string `json:"raw_link"`
+	TargetPath string `json:"target_path"`
+	Fragment   string `json:"fragment"`
 }
 
 func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) error {
@@ -41,6 +61,18 @@ func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) err
 		} else {
 			m["phantoms"] = []string{}
 		}
+	}
+	if anchorsRequested(fields) {
+		anchors := make([]diagnoseJSONBrokenAnchor, len(r.BrokenAnchors))
+		for i, a := range r.BrokenAnchors {
+			anchors[i] = diagnoseJSONBrokenAnchor{
+				SourcePath: a.SourcePath,
+				RawLink:    a.RawLink,
+				TargetPath: a.TargetPath,
+				Fragment:   a.Fragment,
+			}
+		}
+		m["broken_anchors"] = anchors
 	}
 	return encodeJSON(w, m)
 }
@@ -71,6 +103,15 @@ func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) err
 		fmt.Fprintln(w, "phantoms:")
 		for _, name := range r.Phantoms {
 			fmt.Fprintf(w, "- %s\n", name)
+		}
+	}
+	if anchorsRequested(fields) && len(r.BrokenAnchors) > 0 {
+		fmt.Fprintln(w, "broken_anchors:")
+		for _, a := range r.BrokenAnchors {
+			fmt.Fprintf(w, "- source_path: %s\n", a.SourcePath)
+			fmt.Fprintf(w, "  raw_link: %q\n", a.RawLink)
+			fmt.Fprintf(w, "  target_path: %s\n", a.TargetPath)
+			fmt.Fprintf(w, "  fragment: %s\n", a.Fragment)
 		}
 	}
 	return nil

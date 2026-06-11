@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -26,11 +28,21 @@ type BasenameConflict struct {
 	Paths []string // vault-relative paths (sorted)
 }
 
+// BrokenAnchor represents a link whose heading fragment does not exist in the
+// target note.
+type BrokenAnchor struct {
+	SourcePath string // note containing the link
+	RawLink    string // the link as written
+	TargetPath string // resolved target note path
+	Fragment   string // the heading fragment that was not found (without '#')
+}
+
 // DiagnoseResult contains diagnostic information about the indexed vault.
 type DiagnoseResult struct {
 	BasenameConflicts      []BasenameConflict // sorted by name (notes)
 	AssetBasenameConflicts []BasenameConflict // sorted by name (assets)
 	Phantoms               []string           // sorted by name
+	BrokenAnchors          []BrokenAnchor     // sorted by source path, then raw link
 }
 
 // sourceNoteFilterSQL returns a SQL fragment (starting with " AND") and args
@@ -168,6 +180,73 @@ func phantomNames(db dbExecer, opts DiagnoseOptions) ([]string, error) {
 	return names, rows.Err()
 }
 
+// brokenAnchors finds links whose heading fragment does not exist in the
+// resolved target note. Only edges with a heading fragment (subpath) pointing
+// to an existing note are checked; block references (#^id) are skipped. Target
+// note headings are read from disk and cached per target path.
+func brokenAnchors(db dbExecer, vaultPath string, opts DiagnoseOptions) ([]BrokenAnchor, error) {
+	filterSQL, filterArgs := opts.sourceNoteFilterSQL()
+	rows, err := db.Query(`SELECT src.path, e.raw_link, e.subpath, tgt.path
+		FROM edges e
+		JOIN nodes src ON src.id = e.source_id
+		JOIN nodes tgt ON tgt.id = e.target_id
+		WHERE src.type='note' AND src.exists_flag=1
+		  AND tgt.type='note' AND tgt.exists_flag=1
+		  AND e.subpath IS NOT NULL AND e.subpath != ''`+filterSQL+`
+		ORDER BY src.path, e.raw_link`, filterArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Cache normalized heading sets per target path (read from disk once).
+	headingCache := make(map[string]map[string]bool)
+	var broken []BrokenAnchor
+	for rows.Next() {
+		var srcPath, rawLink, subpath, tgtPath string
+		if err := rows.Scan(&srcPath, &rawLink, &subpath, &tgtPath); err != nil {
+			return nil, err
+		}
+		wantAnchor, ok := normalizeAnchor(subpath)
+		if !ok || wantAnchor == "" {
+			continue // block reference or empty fragment
+		}
+		set, cached := headingCache[tgtPath]
+		if !cached {
+			set, err = readNoteHeadingSet(vaultPath, tgtPath)
+			if err != nil {
+				return nil, err
+			}
+			headingCache[tgtPath] = set
+		}
+		if !set[wantAnchor] {
+			broken = append(broken, BrokenAnchor{
+				SourcePath: srcPath,
+				RawLink:    rawLink,
+				TargetPath: tgtPath,
+				Fragment:   strings.TrimPrefix(subpath, "#"),
+			})
+		}
+	}
+	return broken, rows.Err()
+}
+
+// readNoteHeadingSet reads a note from disk and returns the set of its
+// normalized heading anchors.
+func readNoteHeadingSet(vaultPath, notePath string) (map[string]bool, error) {
+	content, err := os.ReadFile(filepath.Join(vaultPath, notePath))
+	if err != nil {
+		return nil, err
+	}
+	set := make(map[string]bool)
+	for _, h := range collectHeadings(string(content)) {
+		if norm, ok := normalizeAnchor(h); ok && norm != "" {
+			set[norm] = true
+		}
+	}
+	return set, nil
+}
+
 // Diagnose returns diagnostic information for the indexed vault.
 func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
 	if err := validateGlobPatterns(opts.Path); err != nil {
@@ -213,6 +292,14 @@ func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
 
 	if isFieldActive("phantoms", opts.Fields) {
 		result.Phantoms, err = phantomNames(db, opts)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Anchor checking is opt-in: only when "anchors" is explicitly requested.
+	if isFieldActive("anchors", opts.Fields) && len(opts.Fields) > 0 {
+		result.BrokenAnchors, err = brokenAnchors(db, vaultPath, opts)
 		if err != nil {
 			return nil, err
 		}

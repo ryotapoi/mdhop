@@ -607,6 +607,48 @@ func TestRunQuery_PathFilter(t *testing.T) {
 	}
 }
 
+func TestRunDiagnose_BrokenAnchors(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_anchor_check")
+
+	out := captureStdout(t, func() error {
+		return runDiagnose([]string{"--vault", vault, "--fields", "anchors", "--format", "json"})
+	})
+
+	var m struct {
+		BrokenAnchors []struct {
+			SourcePath string `json:"source_path"`
+			RawLink    string `json:"raw_link"`
+			TargetPath string `json:"target_path"`
+			Fragment   string `json:"fragment"`
+		} `json:"broken_anchors"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if len(m.BrokenAnchors) != 2 {
+		t.Fatalf("broken_anchors = %+v, want 2", m.BrokenAnchors)
+	}
+	frags := map[string]bool{}
+	for _, a := range m.BrokenAnchors {
+		frags[a.Fragment] = true
+	}
+	if !frags["Missing"] || !frags["Nonexistent"] {
+		t.Errorf("expected Missing and Nonexistent broken, got %v", frags)
+	}
+}
+
+func TestRunDiagnose_AnchorsOptIn(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_anchor_check")
+
+	// Without --fields anchors, broken_anchors must be absent from JSON.
+	out := captureStdout(t, func() error {
+		return runDiagnose([]string{"--vault", vault, "--format", "json"})
+	})
+	if strings.Contains(out, "broken_anchors") {
+		t.Errorf("broken_anchors should not appear without --fields anchors: %s", out)
+	}
+}
+
 func TestRunDiagnose_PathFilter(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_diagnose_path")
 
