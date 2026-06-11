@@ -4,7 +4,7 @@
 
 frontmatter の品質検査と search の強化。v0.10.0 を実 vault に当てた結果（残る phantom、`link_keys` の効き方）を設計判断の材料にする。詳細は [diagnostics.md](diagnostics.md)。
 
-- [ ] frontmatter 任意 key の path-like value 検査（`meta-check`）
+- [x] frontmatter 任意 key の path-like value 検査（`meta-check`）。`--key` + `--kind path|wikilink`。URL / 空値は許可、not_found / ambiguous / vault_escape / not_wikilink を区別報告。meta-validate とは別コマンド（ADR 0019）
 - [ ] frontmatter schema validation（`meta-validate`: 必須 key・enum・型・空値。mdhop.yaml の `meta.types` を検査側でも使う）
 - [x] search の computed fields（行数・リンク数を `--fields` / `--sort` で）+ `--fields` の meta key 出力対応（ADR 0017）
 - [x] `--where` の相対日付比較（`updated<today-90d`。**実施決定**）

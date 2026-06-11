@@ -1,0 +1,70 @@
+package core
+
+import (
+	"testing"
+)
+
+func setupMetaCheckVault(t *testing.T) string {
+	t.Helper()
+	vault := copyVaultForQuery(t, "vault_meta_check")
+	buildForQuery(t, vault)
+	return vault
+}
+
+func TestMetaCheck_PathKind(t *testing.T) {
+	vault := setupMetaCheckVault(t)
+
+	result, err := MetaCheck(vault, MetaCheckOptions{
+		Keys: []string{"sources"},
+		Kind: MetaKindPath,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// ./guide.md resolves, https URL is allowed → only ./missing.md is an issue.
+	if len(result.Issues) != 1 {
+		t.Fatalf("issues = %+v, want 1", result.Issues)
+	}
+	is := result.Issues[0]
+	if is.Value != "./missing.md" || is.Reason != ReasonNotFound {
+		t.Errorf("issue = %+v, want ./missing.md not_found", is)
+	}
+	if is.SourcePath != "docs/index.md" || is.Key != "sources" {
+		t.Errorf("issue source/key = %s/%s, want docs/index.md/sources", is.SourcePath, is.Key)
+	}
+}
+
+func TestMetaCheck_WikilinkKind(t *testing.T) {
+	vault := setupMetaCheckVault(t)
+
+	result, err := MetaCheck(vault, MetaCheckOptions{
+		Keys: []string{"related"},
+		Kind: MetaKindWikilink,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// [[guide]] resolves → only [[Nonexistent]] is an issue.
+	if len(result.Issues) != 1 {
+		t.Fatalf("issues = %+v, want 1", result.Issues)
+	}
+	if result.Issues[0].Value != "[[Nonexistent]]" || result.Issues[0].Reason != ReasonNotFound {
+		t.Errorf("issue = %+v, want [[Nonexistent]] not_found", result.Issues[0])
+	}
+}
+
+func TestMetaCheck_RequiresKey(t *testing.T) {
+	vault := setupMetaCheckVault(t)
+	if _, err := MetaCheck(vault, MetaCheckOptions{Kind: MetaKindPath}); err == nil {
+		t.Fatal("expected error when no --key given")
+	}
+}
+
+func TestMetaCheck_InvalidKind(t *testing.T) {
+	vault := setupMetaCheckVault(t)
+	if _, err := MetaCheck(vault, MetaCheckOptions{Keys: []string{"sources"}, Kind: "bogus"}); err == nil {
+		t.Fatal("expected error for invalid kind")
+	}
+}

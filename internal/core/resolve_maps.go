@@ -121,6 +121,27 @@ type noteResolveMaps struct {
 	pathSetLower       map[string]string // lower path → actual path
 }
 
+// newResolveMaps assembles a resolveMaps from note and asset file lists. The
+// pathToID / assetPathToID maps are initialized empty; callers that need node
+// IDs (build/add) fill them as they insert nodes. Read-only resolvers
+// (meta-check) leave them empty.
+func newResolveMaps(files, assetFiles []string) *resolveMaps {
+	nm := buildNoteResolveMaps(files)
+	am := buildAssetResolveMaps(assetFiles)
+	return &resolveMaps{
+		pathSet:                 nm.pathSetLower,
+		basenameToPath:          nm.basenameToPath,
+		rootBasenameToPath:      nm.rootBasenameToPath,
+		pathToID:                make(map[string]int64),
+		basenameCounts:          nm.basenameCounts,
+		assetPathSet:            am.pathSetLower,
+		assetBasenameToPath:     am.basenameToPath,
+		assetRootBasenameToPath: am.rootBasenameToPath,
+		assetPathToID:           make(map[string]int64),
+		assetBasenameCounts:     am.basenameCounts,
+	}
+}
+
 // buildNoteResolveMaps builds note resolve maps from a list of vault-relative .md file paths.
 func buildNoteResolveMaps(files []string) noteResolveMaps {
 	counts := countBasenames(files)

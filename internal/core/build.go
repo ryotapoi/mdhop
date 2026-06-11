@@ -44,21 +44,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
 
 	// Build resolve maps for notes and assets.
-	nm := buildNoteResolveMaps(files)
-	am := buildAssetResolveMaps(assetFiles)
-
-	rm := &resolveMaps{
-		pathSet:                 nm.pathSetLower,
-		basenameToPath:          nm.basenameToPath,
-		rootBasenameToPath:      nm.rootBasenameToPath,
-		pathToID:                make(map[string]int64),
-		basenameCounts:          nm.basenameCounts,
-		assetPathSet:            am.pathSetLower,
-		assetBasenameToPath:     am.basenameToPath,
-		assetRootBasenameToPath: am.rootBasenameToPath,
-		assetPathToID:           make(map[string]int64),
-		assetBasenameCounts:     am.basenameCounts,
-	}
+	rm := newResolveMaps(files, assetFiles)
 
 	// Read all files, parse links, stat for mtime, and validate.
 	// Done before DB creation so failures leave no temp file behind.

@@ -1555,6 +1555,42 @@ func TestRunReachable_MissingFrom(t *testing.T) {
 	}
 }
 
+// --- meta-check CLI tests ---
+
+func TestRunMetaCheck_PathKind(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_meta_check")
+
+	out := captureStdout(t, func() error {
+		return runMetaCheck([]string{"--vault", vault, "--key", "sources", "--kind", "path", "--format", "json"})
+	})
+
+	var m struct {
+		Issues []struct {
+			SourcePath string `json:"source_path"`
+			Key        string `json:"key"`
+			Value      string `json:"value"`
+			Reason     string `json:"reason"`
+		} `json:"issues"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if len(m.Issues) != 1 {
+		t.Fatalf("issues = %+v, want 1", m.Issues)
+	}
+	if m.Issues[0].Value != "./missing.md" || m.Issues[0].Reason != "not_found" {
+		t.Errorf("issue = %+v, want ./missing.md not_found", m.Issues[0])
+	}
+}
+
+func TestRunMetaCheck_InvalidKind(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_meta_check")
+	err := runMetaCheck([]string{"--vault", vault, "--key", "sources", "--kind", "bogus"})
+	if err == nil || !strings.Contains(err.Error(), "invalid kind") {
+		t.Fatalf("expected invalid kind error, got: %v", err)
+	}
+}
+
 // --- Graph CLI tests ---
 
 func TestRunGraph_JSONOutput(t *testing.T) {

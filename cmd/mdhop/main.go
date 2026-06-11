@@ -29,6 +29,8 @@ func main() {
 		err = runStats(os.Args[2:])
 	case "diagnose":
 		err = runDiagnose(os.Args[2:])
+	case "meta-check":
+		err = runMetaCheck(os.Args[2:])
 	case "delete":
 		err = runDelete(os.Args[2:])
 	case "update":
@@ -105,6 +107,7 @@ Query Commands:
   graph      Export the link graph as JSON or Graphviz dot
   stats      Show vault statistics
   diagnose   Show basename conflicts and phantom nodes
+  meta-check Check that frontmatter path/wikilink values resolve
 
 Setup Commands:
   init-meta  Generate meta type definitions from preset and/or vault scan

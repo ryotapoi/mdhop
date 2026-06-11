@@ -317,6 +317,14 @@ meta:
   - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は diagnose に適用されない。フィルタ未指定時の挙動は従来どおり
   - 補足: `--fields anchors` で anchor 切れ検出（`broken_anchors`）を有効化する。これは **opt-in**（`--fields` 未指定時は他フィールドと違って出力されない。対象 note をディスクから読むため）。`[[note#見出し]]` / `[text](note.md#fragment)` の fragment が target note（実在 note）の見出しに存在しないものを報告する
   - 補足: anchor 一致は Obsidian 互換正規化（`#` 除去・句読点／記号除去・空白畳み込み、大小文字とアクセントは保持）。block reference（`#^id`）は対象外。target が phantom / asset のものは対象外（note 切れは phantom 検出側の領分）
+- `meta-check`
+  - 必須: `--key`（検査する frontmatter key。複数回指定可）
+  - 任意: `--vault`, `--format`, `--kind`, `--path`, `--exclude`
+  - 補足: 指定 key の frontmatter 値が vault 内 path / wikilink として実在するかを検査し、解決できない値を `issues` として返す
+  - 補足: `--kind path`（既定）は値を raw path として解釈（markdown link と同じ解決規則: `./` `../` は note 起点、`/` 含みは vault 相対、なしは basename 解決）。`--kind wikilink` は `[[...]]` として解釈する
+  - 補足: 値はリスト・スカラーを問わず meta テーブルで値ごとに展開済みのため、`--kind` に list / scalar の区別はない
+  - 補足: URL 値（`://` を含む）と空値は許可（issue にしない）。`reason` は `not_found` / `ambiguous`（basename 多重解決）/ `vault_escape` / `not_wikilink`（`--kind wikilink` で `[[...]]` でない）
+  - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ。`mdhop.yaml` の `exclude` 設定は適用されない）
 - `reachable`
   - 必須: `--from`（vault 相対の note path。asset / 未登録 path はエラー）
   - 任意: `--vault`, `--format`, `--fields`, `--path`, `--exclude`, `--route`
