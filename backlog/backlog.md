@@ -2,6 +2,14 @@
 
 v0.11.0 リリース済み（tag + GitHub Release, 2026-06-11）。完了項目は v0.11.0 タグのコミット履歴に残る。次バージョンのスコープは未定。実 vault 当ての所見は [diagnostics.md](diagnostics.md)。
 
+## Next 候補（2026-06-11 LLM Wiki lint 所見、実装前提）
+
+詳細は [diagnostics.md](diagnostics.md) のタスク 14〜16。
+
+- [ ] 14. index 登録パスの Unicode 正規化（NFC 統一）— NFD ファイル名で二重ノード登録・delete 不能になる。データ整合性の問題なので優先度高め
+- [ ] 15. meta-check のディレクトリ参照対応 — 末尾 `/` の値をディレクトリとして存在チェック
+- [ ] 16. repair に path filter — `--path` / `--exclude` を他コマンドと揃える
+
 ## Later
 
 - [ ] Obsidian 互換モード（曖昧リンクを暗黙解決。全コマンドに横断影響あり、要望が出たら再検討）

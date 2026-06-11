@@ -381,6 +381,67 @@ mdhop diagnose --path "docs/**" --fields anchors --format json
 - v0.11.0 で追加した全コマンド・オプションが skill の references から引ける。
 - README の Commands 表が実装と一致する。
 
+## 次バージョン候補タスク — 2026-06-11 LLM Wiki lint 所見
+
+2026-06-11 に Knowledge vault の `/wiki-lint`（v0.11.0 適用後の初回フル lint）で踏んだ不足。いずれも特定運用に依存しない汎用機能として整理する。
+
+### 14. index 登録パスの Unicode 正規化（NFC 統一）
+
+目的: NFD ファイル名と NFC 参照の不一致による二重ノード登録・偽 not_found を防ぐ。
+
+経緯（2026-06-11）:
+
+- `03-Notes/tech/ai/coding-agent/AIエージェント開発の情報管理-原則.md` がディスク上 NFD 名で保存されており、frontmatter の NFC 参照が `meta-check` で not_found になった。
+- NFC パスで `mdhop add` すると、既存の NFD ノードと**同一ファイルが 2 ノードとして二重登録**された。
+- NFD 側を `mdhop delete` しようとすると「ファイルがまだ存在する」と拒否された（APFS は正規化非区別のため NFD パスの stat が NFC 実体に当たる）。
+- 復旧は `mdhop build` の全再構築でしかできなかった。
+
+対応案:
+
+- index 登録時（build / add / update / move）にパスを NFC へ正規化して保存する。
+- パス比較系（meta-check / resolve / delete / move の重複検査）も比較前に NFC 正規化する。
+- 既存 index の NFD エントリは build で移行される（マイグレーション不要）。
+
+受け入れ条件:
+
+- NFD 名のファイルを add しても 1 ノード（NFC）として登録される。
+- NFC / NFD どちらの表記の参照でも resolve / meta-check が当たる。
+- 既存の NFC-only vault で挙動が変わらない。
+
+### 15. meta-check のディレクトリ参照対応
+
+目的: frontmatter の path 値がディレクトリを指す場合の偽 not_found を解消する。
+
+経緯（2026-06-11）: `sources:` にディレクトリ参照（例: `03-Notes/hobbies/スプラトゥーン/`）を書く運用があり、実在するのに meta-check が not_found を返す。lint のたびに 8 件の誤検出を目視で除外する必要があった。ディレクトリ参照は LLM Wiki 固有ではなく、一般の docs / MOC でも普通にあり得る。
+
+対応案:
+
+- 値が `/` で終わる場合はディレクトリとして存在チェックする。
+- 実在すれば issue にしない。実在しなければ従来どおり not_found。
+- ディレクトリをどう扱ったか分かるよう、`--format json` に種別（note / directory）を出してもよい。
+
+受け入れ条件:
+
+- 実在ディレクトリへの参照が issue にならない。
+- 存在しないディレクトリ参照は not_found のまま検出される。
+- 末尾 `/` なしの既存挙動は変わらない。
+
+### 16. repair に path filter を追加する
+
+目的: 特定領域だけリンク修復したい。
+
+経緯（2026-06-11）: `llm-wiki/` の lint で `repair` を使うと、対象が vault 全体固定のため scope 外（`03-Notes/`, `Dashboard.md`）の書き換えが混ざり、`git checkout` で戻す運用になった。`meta-check` / `reachable` / `diagnose` には `--path` があり、repair だけ非対称。
+
+対応案:
+
+- タスク 2 で決めた `--path` / `--exclude` の表現（source note を絞る）を repair にも適用する。
+- `--dry-run` との組み合わせで「範囲内の修復案だけ」を確認できるようにする。
+
+受け入れ条件:
+
+- `repair --path "llm-wiki/**"` で指定範囲の note のみ書き換わる。
+- `--path` なしの挙動は現状維持。
+
 ## Non-goals
 
 mdhop 本体ではやらないこと。
