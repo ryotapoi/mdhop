@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/ryotapoi/mdhop/internal/core"
@@ -45,15 +46,6 @@ func searchMetaKeys(fields []string) (keys []string, all bool) {
 	return keys, all
 }
 
-func fieldRequested(fields []string, name string) bool {
-	for _, f := range fields {
-		if f == name {
-			return true
-		}
-	}
-	return false
-}
-
 type searchJSONItem struct {
 	jsonNodeInfo
 	Lines         *int                `json:"lines,omitempty"`
@@ -70,9 +62,9 @@ type searchJSONOutput struct {
 
 func printSearchJSON(w io.Writer, r *core.SearchResult, fields []string) error {
 	metaKeys, metaAll := searchMetaKeys(fields)
-	wantLines := fieldRequested(fields, core.FieldLines)
-	wantOut := fieldRequested(fields, core.FieldOutgoingCount)
-	wantIn := fieldRequested(fields, core.FieldIncomingCount)
+	wantLines := slices.Contains(fields, core.FieldLines)
+	wantOut := slices.Contains(fields, core.FieldOutgoingCount)
+	wantIn := slices.Contains(fields, core.FieldIncomingCount)
 
 	items := make([]searchJSONItem, len(r.Items))
 	for i, item := range r.Items {
@@ -92,7 +84,7 @@ func printSearchJSON(w io.Writer, r *core.SearchResult, fields []string) error {
 		if item.Meta != nil {
 			m := make(map[string][]string)
 			for _, mr := range item.Meta {
-				if metaAll || containsString(metaKeys, mr.Key) {
+				if metaAll || slices.Contains(metaKeys, mr.Key) {
 					m[mr.Key] = append(m[mr.Key], mr.Value)
 				}
 			}
@@ -111,9 +103,9 @@ func printSearchJSON(w io.Writer, r *core.SearchResult, fields []string) error {
 
 func printSearchText(w io.Writer, r *core.SearchResult, fields []string) error {
 	metaKeys, metaAll := searchMetaKeys(fields)
-	wantLines := fieldRequested(fields, core.FieldLines)
-	wantOut := fieldRequested(fields, core.FieldOutgoingCount)
-	wantIn := fieldRequested(fields, core.FieldIncomingCount)
+	wantLines := slices.Contains(fields, core.FieldLines)
+	wantOut := slices.Contains(fields, core.FieldOutgoingCount)
+	wantIn := slices.Contains(fields, core.FieldIncomingCount)
 
 	fmt.Fprintf(w, "total: %d\n", r.Total)
 	if len(r.Items) > 0 {
@@ -132,7 +124,7 @@ func printSearchText(w io.Writer, r *core.SearchResult, fields []string) error {
 			if item.Meta != nil && len(item.Meta) > 0 {
 				printed := false
 				for _, m := range item.Meta {
-					if !metaAll && !containsString(metaKeys, m.Key) {
+					if !metaAll && !slices.Contains(metaKeys, m.Key) {
 						continue
 					}
 					if !printed {
@@ -151,13 +143,4 @@ func printSearchText(w io.Writer, r *core.SearchResult, fields []string) error {
 		}
 	}
 	return nil
-}
-
-func containsString(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
 }

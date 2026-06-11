@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
@@ -18,12 +19,7 @@ var validDiagnoseFieldsCLI = map[string]bool{
 // Unlike the other fields, anchors is opt-in (not shown when --fields is
 // omitted) because it reads target notes from disk.
 func anchorsRequested(fields []string) bool {
-	for _, f := range fields {
-		if f == "anchors" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(fields, "anchors")
 }
 
 type diagnoseJSONConflict struct {
