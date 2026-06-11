@@ -58,7 +58,9 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `reachable` | List notes reachable / unreachable from an entry note via links |
 | `graph` | Export the link graph as JSON or Graphviz dot |
 | `stats` | Show vault statistics (note count, link count, etc.) |
-| `diagnose` | Detect basename conflicts and phantom nodes |
+| `diagnose` | Detect basename conflicts, phantom nodes, and broken heading anchors |
+| `meta-check` | Check that frontmatter path/wikilink values resolve to real targets |
+| `meta-validate` | Check frontmatter against required keys and declared `meta.types` |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.yaml` |
 
 Common options: `--vault <path>` (defaults to current directory), `--format json|text`, `--fields <comma-separated>`
@@ -69,14 +71,24 @@ Run `mdhop <command> --help` for command-specific details.
 
 An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdhop`](examples/skills/mdhop). It covers structural note navigation, metadata filtering, vault-wide search, and file operation workflows.
 
-Recent examples (path filters, reachability, graph export):
+Recent examples (path filters, reachability, graph export, frontmatter checks):
 
 ```bash
 # Notes missing a frontmatter key
 mdhop search --where "priority NOT EXISTS" --format json
 
-# Diagnose only a subtree (phantoms and conflicts referenced from it)
-mdhop diagnose --path "projects/*" --format json
+# Stale notes via relative date comparison
+mdhop search --where "updated<today-90d" --format json
+
+# Biggest notes by line count, with computed fields and a meta key
+mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
+
+# Diagnose only a subtree (phantoms, conflicts, and broken heading anchors)
+mdhop diagnose --path "projects/*" --fields anchors --format json
+
+# Check that frontmatter reference values resolve, and conform to the schema
+mdhop meta-check --key sources --kind path --format json
+mdhop meta-validate --require status --require updated --format json
 
 # Notes reachable / unreachable from an entry note, with shortest routes
 mdhop reachable --from index.md --path "docs/*" --route --format json

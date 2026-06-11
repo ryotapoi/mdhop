@@ -1,6 +1,6 @@
 # mdhop Query Reference
 
-Detailed reference for read-only commands: `query`, `search`, `resolve`, `reachable`, `graph`, `stats`, `diagnose`.
+Detailed reference for read-only commands: `query`, `search`, `resolve`, `reachable`, `graph`, `stats`, `diagnose`, `meta-check`, `meta-validate`.
 
 ## Common Options
 
@@ -83,6 +83,8 @@ Operators:
 **Values must not be quoted** — write `created>=2025-02-01`, not `created>='2025-02-01'`. Embedded quotes cause silent zero-match.
 
 **Type-safe comparisons:** When keys are declared in `mdhop.yaml`'s `meta.types` (e.g., `date`, `number`, `semver`), comparison operators (>, <, >=, <=) use normalized sort values. Without type declarations, comparisons are lexicographic.
+
+**Relative dates:** comparison values may use `today` or `today±Nd/w/m/y` (e.g., `updated<today-90d`, `reviewed>today-1y`). They expand to an absolute date at run time using the local date, and force date-typed comparison regardless of the key's declared type. Example: `--where "updated<today-90d"` finds notes not updated in the last 90 days.
 
 ### Path Filter and Exclude Options
 
@@ -176,15 +178,15 @@ Entry-point-free vault-wide note search. Returns notes matching metadata conditi
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--where <expr>` | string (repeatable) | — | Frontmatter filter (same syntax as query `--where`) |
-| `--sort <key>` | string | — | Sort by meta key: `key` (ascending) or `-key` (descending). Default: path order |
+| `--where <expr>` | string (repeatable) | — | Frontmatter filter (same syntax as query `--where`, including relative dates) |
+| `--sort <key>` | string | — | Sort by meta key or computed field: `key` (ascending) or `-key` (descending). Default: path order |
 | `--limit <N>` | int | 0 | Maximum results (0 = unlimited) |
 | `--offset <N>` | int | 0 | Skip first N results |
 | `--path <glob>` | string (repeatable) | — | Include only paths matching glob (OR-joined) |
 | `--exclude <glob>` | string (repeatable) | — | Exclude paths matching glob |
 | `--no-exclude` | bool | false | Disable config file exclusions |
 | `--include-head <N>` | int | 0 | Include first N lines of each note |
-| `--fields <list>` | string | — | Available: `meta` (opt-in) |
+| `--fields <list>` | string | — | Available: `meta` (all meta), `meta.<key>` (a single key), `lines`, `outgoing_count`, `incoming_count` (computed, opt-in) |
 | `--no-tags` | bool | false | Include only notes with no tag edges |
 | `--no-outgoing` | bool | false | Include only notes with no outgoing edges, including tag edges |
 | `--no-incoming` | bool | false | Include only notes with no incoming edges |
@@ -195,8 +197,24 @@ Entry-point-free vault-wide note search. Returns notes matching metadata conditi
 - No `--sort`: results ordered by path (ascending)
 - `--sort priority`: ascending by meta key `priority`
 - `--sort -priority`: descending by meta key `priority`
-- Uses normalized `sort_value` column — type-safe when key is declared in `mdhop.yaml`
+- `--sort -lines` / `--sort outgoing_count` / `--sort incoming_count`: sort by a computed field
+- Meta-key sorting uses the normalized `sort_value` column — type-safe when key is declared in `mdhop.yaml`
 - Notes without the sort key appear last (nulls last)
+
+### Computed Fields and Meta Keys
+
+`--fields` and `--sort` accept computed fields in addition to `meta`:
+
+| Field | Description |
+|-------|-------------|
+| `lines` | Note line count (persisted at index time; counts the whole file including frontmatter) |
+| `outgoing_count` | Number of outgoing link edges (including tag edges) |
+| `incoming_count` | Number of incoming link edges |
+| `meta.<key>` | Output only the given frontmatter key (e.g., `meta.status`); `meta` alone outputs all keys |
+
+- Computed fields are opt-in: they appear in output only when listed in `--fields`
+- `--fields` only adds these opt-in fields; `type` / `name` / `path` / `exists` are always in the output and must not be passed to `--fields` (unknown field error)
+- `lines` is persisted, so it is available for `--sort` without recomputation; the edge counts are aggregated at query time
 
 ### Path Filter
 
@@ -241,6 +259,12 @@ mdhop search --no-outgoing --format json
 
 # Notes with no incoming edges
 mdhop search --no-incoming --format json
+
+# Stale notes: not updated in the last 90 days
+mdhop search --where "updated<today-90d" --format json
+
+# Biggest notes with computed fields and a single meta key
+mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
 ```
 
 ### JSON Output Example
@@ -254,9 +278,11 @@ mdhop search --no-incoming --format json
       "name": "ProjectAlpha",
       "path": "projects/ProjectAlpha.md",
       "exists": true,
+      "lines": 320,
+      "outgoing_count": 12,
+      "incoming_count": 5,
       "meta": {
-        "status": ["active"],
-        "priority": ["3"]
+        "status": ["active"]
       },
       "head": ["# Project Alpha", "High-priority project for Q1."]
     }
@@ -265,7 +291,8 @@ mdhop search --no-incoming --format json
 ```
 
 - `total`: count of all matching notes before `--limit`/`--offset` (for pagination)
-- `meta`: only present when `--fields meta` is specified
+- `meta`: present when `--fields meta` (all keys) or `--fields meta.<key>` (only the listed keys) is specified
+- `lines` / `outgoing_count` / `incoming_count`: present only when the matching computed field is listed in `--fields`
 - `head`: only present when `--include-head N` is specified
 
 ## resolve
@@ -445,13 +472,16 @@ Detect issues in the vault index.
 
 ### Fields
 
-Available fields for `--fields`: `basename_conflicts`, `asset_basename_conflicts`, `phantoms`
+Available fields for `--fields`: `basename_conflicts`, `asset_basename_conflicts`, `phantoms`, `anchors`
 
 | Field | Description |
 |-------|-------------|
 | `basename_conflicts` | Note files sharing the same basename (potential ambiguity source) |
 | `asset_basename_conflicts` | Asset files sharing the same basename |
 | `phantoms` | Nodes referenced by links but not present on disk |
+| `anchors` | Broken heading anchors: `[[note#heading]]` / `[text](note.md#fragment)` whose fragment is not a heading in the (existing) target note. **Opt-in** — unlike other fields, an empty `--fields` does not enable it (it reads target notes from disk). Reported as `broken_anchors` |
+
+Anchor matching uses Obsidian-compatible normalization (strip `#`, drop punctuation/symbols, collapse whitespace; case and accents preserved). Block references (`#^id`) are not checked. Targets that are phantoms or assets are out of scope (a missing note is the phantom detector's job).
 
 ### Path Filter
 
@@ -469,6 +499,9 @@ mdhop diagnose --format json
 
 # Diagnose only one subtree.
 mdhop diagnose --path "projects/*" --format json
+
+# Opt in to broken heading anchor detection.
+mdhop diagnose --fields anchors --format json
 ```
 
 ```json
@@ -482,6 +515,115 @@ mdhop diagnose --path "projects/*" --format json
   "phantoms": [
     {"name": "FutureIdea"},
     {"name": "MissingRef"}
+  ]
+}
+```
+
+With `--fields anchors`:
+
+```json
+{
+  "broken_anchors": [
+    {
+      "source_path": "docs/guide.md",
+      "raw_link": "[[spec#Old Section]]",
+      "target_path": "docs/spec.md",
+      "fragment": "Old Section"
+    }
+  ]
+}
+```
+
+## meta-check
+
+Check that the values of given frontmatter keys resolve to a real path or wikilink target in the vault. This checks *reference existence* (whether the value points at something real), complementing `meta-validate` (schema conformance).
+
+### Flags
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--key <name>` | Yes | Frontmatter key to check (repeatable) |
+| `--kind path\|wikilink` | No | How to interpret values (default: `path`) |
+| `--path <glob>` | No | Restrict source notes to matching paths (repeatable, OR-joined) |
+| `--exclude <glob>` | No | Exclude source notes matching the glob (repeatable) |
+| `--format json\|text` | No | Output format |
+
+### Behavior
+
+- `--kind path` (default) interprets values as raw paths, using markdown-link resolution: `./` / `../` note-relative, a value containing `/` vault-relative, a bare name basename-resolved
+- `--kind wikilink` interprets values as `[[...]]`
+- List and scalar values are already expanded per value in the `meta` table, so there is no list/scalar distinction
+- URL values (containing `://`) and empty values are allowed (not reported)
+- `reason` is one of: `not_found`, `ambiguous` (basename resolves to multiple notes), `vault_escape`, `not_wikilink` (`--kind wikilink` but the value is not `[[...]]`)
+- `--path` / `--exclude` are CLI-only; `mdhop.yaml` `exclude` settings do not apply
+
+### Examples
+
+```bash
+# Do the sources: paths in docs/ all resolve?
+mdhop meta-check --key sources --kind path --path "docs/*" --format json
+
+# Are the related: wikilinks real?
+mdhop meta-check --key related --kind wikilink --format json
+```
+
+### JSON Output Example
+
+```json
+{
+  "issues": [
+    {
+      "source_path": "docs/index.md",
+      "key": "sources",
+      "value": "./missing.md",
+      "reason": "not_found"
+    }
+  ]
+}
+```
+
+## meta-validate
+
+Check that frontmatter conforms to the declared schema: required keys are present, and keys typed in `mdhop.yaml`'s `meta.types` hold values that parse as their type or belong to their ordered list. This checks *schema conformance*, complementing `meta-check` (reference existence).
+
+### Flags
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--require <key>` | No | Key that must hold a non-empty value (repeatable) |
+| `--path <glob>` | No | Restrict source notes to matching paths (repeatable, OR-joined) |
+| `--exclude <glob>` | No | Exclude source notes matching the glob (repeatable) |
+| `--format json\|text` | No | Output format |
+
+At least one of `--require` or a non-string `meta.types` declaration must be present; otherwise there is nothing to check and the command errors.
+
+### Behavior
+
+- `--require <key>` reports `missing` for every note lacking a non-empty value for the key. Empty / null frontmatter values are dropped at index time, so `key:` with no value is reported as `missing` (same defect as an absent key)
+- Keys declared `date` / `number` / `semver` in `meta.types` whose values fail to parse are reported as `type`; keys declared `ordered` whose values fall outside the list are reported as `enum`
+- Type/enum checks always run (driven by `meta.types`), with or without `--require`; `--require` only adds the missing-key check
+- `string` and undeclared keys carry no type/enum constraint and are not checked
+- Type/enum detection reads the `value_type` stored at index time, so rebuild after changing `meta.types` (the same "rebuild the DB on change" assumption every read command relies on)
+- `--path` / `--exclude` are CLI-only; `mdhop.yaml` `exclude` settings do not apply
+
+### Examples
+
+```bash
+# Every doc must declare type, status, updated.
+mdhop meta-validate --require type --require status --require updated --path "docs/*" --format json
+
+# Just type/enum conformance from meta.types (no required keys).
+mdhop meta-validate --format json
+```
+
+### JSON Output Example
+
+```json
+{
+  "violations": [
+    {"source_path": "docs/a.md", "key": "status", "value": "", "reason": "missing"},
+    {"source_path": "docs/b.md", "key": "updated", "value": "someday", "reason": "type"},
+    {"source_path": "docs/c.md", "key": "severity", "value": "urgent", "reason": "enum"}
   ]
 }
 ```

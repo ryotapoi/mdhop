@@ -1,6 +1,6 @@
 ---
 name: mdhop
-description: Use mdhop for Markdown vault search, link queries, metadata filters, reachability checks, graph export, diagnostics, and link-safe file operations.
+description: Use mdhop for Markdown vault search, link queries, metadata filters, reachability checks, graph export, diagnostics, frontmatter checks, and link-safe file operations.
 ---
 
 # mdhop
@@ -36,6 +36,12 @@ mdhop search --where "status=active" --sort "-priority" --fields meta --format j
 
 # Find notes missing a metadata key.
 mdhop search --where "priority NOT EXISTS" --format json
+
+# Find stale notes (relative date comparison).
+mdhop search --where "updated<today-90d" --format json
+
+# Rank by computed fields (line count, link counts) and output a single meta key.
+mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
 
 # Find notes by path.
 mdhop search --path "projects/*" --format json
@@ -77,6 +83,20 @@ mdhop graph --path "docs/*" --format dot
 
 # Diagnose only a subtree: phantoms and conflicts referenced from it.
 mdhop diagnose --path "projects/*" --format json
+
+# Opt in to broken heading anchor detection ([[note#heading]] fragments).
+mdhop diagnose --fields anchors --format json
+```
+
+### Validate Frontmatter
+
+```bash
+# Do frontmatter reference values resolve to real targets?
+mdhop meta-check --key sources --kind path --format json
+mdhop meta-check --key related --kind wikilink --format json
+
+# Does frontmatter conform to the schema (required keys, meta.types)?
+mdhop meta-validate --require type --require status --require updated --format json
 ```
 
 ### Read Context

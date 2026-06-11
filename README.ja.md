@@ -56,7 +56,9 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `reachable` | 入口 note からリンクで到達できる / できない note を列挙 |
 | `graph` | リンクグラフを JSON / Graphviz dot で出力 |
 | `stats` | ノート数・リンク数などの統計情報 |
-| `diagnose` | basename 衝突・phantom ノードの検出 |
+| `diagnose` | basename 衝突・phantom ノード・見出し anchor 切れの検出 |
+| `meta-check` | frontmatter の path / wikilink 値が実在する対象に解決するか検査 |
+| `meta-validate` | frontmatter を必須 key と `meta.types` 宣言に照らして検査 |
 | `init-meta` | `mdhop.yaml` の frontmatter 型定義を生成 |
 
 共通オプション: `--vault <path>`（省略時はカレントディレクトリ）、`--format json|text`、`--fields <comma-separated>`
@@ -67,14 +69,24 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 
 最新の Codex / Claude 形式の skill 例は [`examples/skills/mdhop`](examples/skills/mdhop) にある。構造的なノート探索、メタデータフィルタ、Vault 全体検索、ファイル操作 workflow をまとめている。
 
-最近追加された例（path filter、到達性チェック、グラフ出力）:
+最近追加された例（path filter、到達性チェック、グラフ出力、frontmatter 検査）:
 
 ```bash
 # frontmatter key を持たないノート
 mdhop search --where "priority NOT EXISTS" --format json
 
-# 特定サブツリーだけを診断（そこから参照される phantom・衝突のみ）
-mdhop diagnose --path "projects/*" --format json
+# 相対日付比較で更新の古いノート（stale 候補）
+mdhop search --where "updated<today-90d" --format json
+
+# 行数が多い順。computed fields と meta key を出力
+mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
+
+# 特定サブツリーだけを診断（phantom・衝突・見出し anchor 切れ）
+mdhop diagnose --path "projects/*" --fields anchors --format json
+
+# frontmatter の参照値が解決するか、schema に準拠するかを検査
+mdhop meta-check --key sources --kind path --format json
+mdhop meta-validate --require status --require updated --format json
 
 # 入口 note から到達できる / できない note と最短経路
 mdhop reachable --from index.md --path "docs/*" --route --format json
