@@ -8,7 +8,7 @@ frontmatter の品質検査と search の強化。v0.10.0 を実 vault に当て
 - [x] frontmatter schema validation（`meta-validate`: `--require` 必須 key・enum 外・型 parse 不可。空値は index 時に落ちるため missing に吸収。mdhop.yaml の `meta.types` を検査側でも使う。型/enum 違反は index 時の value_type フォールバックで検出）
 - [x] search の computed fields（行数・リンク数を `--fields` / `--sort` で）+ `--fields` の meta key 出力対応（ADR 0017）
 - [x] `--where` の相対日付比較（`updated<today-90d`。**実施決定**）
-- [ ] `changed --since` 変更ファイル列挙（git との差分を見てから要否判断）
+- [x] `changed --since` 変更ファイル列挙（git との差分を見てから要否判断）→ **見送り**。`git diff --name-status -M <since> -- <pathspec>` で status・old/new path（rename 含む）・path filter がすべて取れ、untracked は `git ls-files --others --exclude-standard`、JSON 整形は jq で可能。mdhop の SQLite インデックス（nodes/edges/meta）を一切使わないため、入れても git の薄いラッパーにしかならず mdhop の意味境界（リンクグラフ・解決・到達性）に属さない。変更ファイルと backlinks/reachability を結合した要求が出たら再検討（YAGNI）。2026-06-11 判断
 - [x] `[[note#見出し]]` の anchor 切れ検出（**実装が軽い場合のみ**） → **実施**。Obsidian の anchor 正規化は句読点除去＋空白畳み込みのみ（kebab-case 不要）で軽量と確認し実装。`diagnose --fields anchors`（opt-in、heading は検査時にディスクから抽出）。ADR 0018
 - [x] anchor 検査の設計前に convert.go のパース骨格重複を畳むか判断する → **畳んだ**。本文走査骨格（frontmatter/fence スキップ + stripInlineCode）を `walkBodyLines` に抽出し、parseLinks / parseLinksForConvert を載せ替えた。anchor 検査の heading 走査もこれに載せる（三重化回避）。2026-06-11
 - [x] computed fields の設計時に search.go の count / main クエリの WHERE 二重適用を query builder 化するか検討する → **query builder 化は見送り**。computed fields は main クエリの SELECT 句／JOIN にのみ影響し、count クエリは `COUNT(*)` 固定で崩れない。whereSQL は文字列共有のまま維持で十分（YAGNI）。2026-06-11 判断

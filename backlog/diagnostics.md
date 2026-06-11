@@ -319,7 +319,9 @@ mdhop search --path "docs/**" --where "reviewed<today-1y" --format json
 - 絶対日付比較の既存挙動を壊さない。
 - 相対日付の評価基準日が明文化されている（実行時のローカル日付）。
 
-### 5. 変更ファイル列挙を汎用コマンドとして提供する（要検討）
+### 5. 変更ファイル列挙を汎用コマンドとして提供する（要検討）→ 見送り（2026-06-11）
+
+判断: **実装しない。** `git diff --name-status -M <since> -- <pathspec>` で status・old/new path（rename 含む）・path filter が取れ、untracked は `git ls-files --others --exclude-standard`、JSON 整形は jq でできる。この機能は mdhop の SQLite インデックス（nodes/edges/meta）を一切使わず、git を shell out するだけのラッパーになる。mdhop の意味境界（事前解析したリンクグラフ・解決・到達性を引く）に属さないため見送る。変更ファイルとその backlinks / reachability を結合して出したい要求が将来出たら、その時点で mdhop インデックス側に意味が寄るので再検討する（YAGNI）。
 
 目的: 特定 path 配下で、git の基準点以降に変わった Markdown note を機械的に列挙したい。
 
