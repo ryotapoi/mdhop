@@ -8,7 +8,7 @@ mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdo
 
 入口は依頼の形で 2 通り。
 
-- **Goal（`/goal` または `goal-workflow` を明示指定）**: `goal-workflow` skill を入口にする。Goal は作業全体を 1 commit 単位へ分割し、各 commit で `.agents/workflow/default.md` 以下の phase workflow を回す。Goal 手順の正本は `.agents/workflow/goal.md`。
+- **Goal（`/goal` または `goal-workflow` を明示指定）**: グローバルの `goal-workflow` skill（`~/.agents/skills/goal-workflow/`）を入口にする。Goal は作業全体を 1 commit 単位へ分割し、各 commit で `.agents/workflow/default.md` 以下の phase workflow を回す。Goal 手順の正本は `.agents/workflow/goal.md`。
 - **単発依頼**: 最初に `.agents/workflow/default.md` を読み、Intake から必要な phase ファイルへ進む。
 
 各 phase に入るときだけ、対応する workflow ファイルを読む。`AGENTS.md` の要約だけで進めない。
@@ -57,7 +57,7 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 
 主に使うスキル:
 
-- `goal-workflow`: `/goal` または明示指定時だけ使う。Goal を 1 commit 単位へ分割して完了まで進める
+- `goal-workflow`: `/goal` または明示指定時だけグローバル skill（`~/.agents/skills/goal-workflow/`）を使う。Goal を 1 commit 単位へ分割して完了まで進める
 - `investigate`: 計画前の不明点を調査する
 - `design-decision`: 設計判断の価値基準を当てる
 - `mdhop-risk-check`: mdhop 固有の制約に照らして plan / 実装を確認する
@@ -65,6 +65,10 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 - `commit`: Conventional Commits 形式でコミットする
 
 独立した調査・レビュー・実装は subagent で並列化してよい。1 subagent = 1 タスクに絞る。
+
+## Synchronization
+
+- `.claude/`・`CLAUDE.md`（Claude 側）と `.agents/`・`AGENTS.md`（Codex 側）は、方針・ルールの内容を一致させる。形式は各側の流儀（`.agents/` は ICAR）に合わせてよいが、`skills/mdhop-risk-check/SKILL.md` は同一内容を保つ。片方を変更したら、同じコミットで他方にも反映する。
 
 ## mdhop Constraints
 

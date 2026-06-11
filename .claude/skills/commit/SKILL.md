@@ -13,6 +13,7 @@ disable-model-invocation: false
   - **Conventional Commits 形式に従う**（type は `feat` / `fix` / `docs` / `test` / `refactor` / `chore` / `perf` から選ぶ。scope は Conventional Commits の規約に従って必要なら使う）
   - メッセージ言語は英語、summary は小文字始まり・末尾ピリオドなし・70 文字以内
   - `.env` や credentials を含むファイルはコミット対象から除外する
+  - `--no-verify` で hooks をスキップしない
 - **Acceptance**:
   - 該当があれば ADR 作成・`references/knowledge.md` 追記・`backlog/backlog.md` の `[x]` 更新が済んでいる
   - コミットが作成され、`git status` でクリーンな状態を確認済み
