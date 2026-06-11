@@ -1,8 +1,8 @@
 # Backlog
 
-v0.11.0 リリース済み（tag + GitHub Release, 2026-06-11）。完了項目は v0.11.0 タグのコミット履歴に残る。次バージョンのスコープは未定。実 vault 当ての所見は [diagnostics.md](diagnostics.md)。
+v0.11.0 リリース済み（tag + GitHub Release, 2026-06-11）。完了項目は v0.11.0 タグのコミット履歴に残る。次は v0.12.0（スコープ: タスク 14〜16）。実 vault 当ての所見は [diagnostics.md](diagnostics.md)。
 
-## Next 候補（2026-06-11 LLM Wiki lint 所見、実装前提）
+## v0.12.0（2026-06-11 LLM Wiki lint 所見、実装前提）
 
 詳細は [diagnostics.md](diagnostics.md) のタスク 14〜16。
 

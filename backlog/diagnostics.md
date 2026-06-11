@@ -1,4 +1,4 @@
-# 汎用診断機能改善（v0.10.0 / v0.11.0）
+# 汎用診断機能改善（v0.10.0 / v0.11.0 / v0.12.0）
 
 mdhop に追加したい診断・検査系の機能群。LLM Wiki の lint 点検中に見えた不足を、特定フォルダ・特定運用名に依存しない**汎用機能**として整理する。
 
@@ -381,7 +381,7 @@ mdhop diagnose --path "docs/**" --fields anchors --format json
 - v0.11.0 で追加した全コマンド・オプションが skill の references から引ける。
 - README の Commands 表が実装と一致する。
 
-## 次バージョン候補タスク — 2026-06-11 LLM Wiki lint 所見
+## v0.12.0 タスク — 2026-06-11 LLM Wiki lint 所見
 
 2026-06-11 に Knowledge vault の `/wiki-lint`（v0.11.0 適用後の初回フル lint）で踏んだ不足。いずれも特定運用に依存しない汎用機能として整理する。
 
