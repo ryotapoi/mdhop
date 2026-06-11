@@ -290,24 +290,9 @@ func parseLinksForConvert(content string) parseResult {
 	// Additional pass: collect markdown self-links.
 	lines := strings.Split(content, "\n")
 	fmEnd := frontmatterEnd(lines)
-	inFence := false
-	startLine := 0
-	if fmEnd > 0 {
-		startLine = fmEnd + 1
-	}
-	for i := startLine; i < len(lines); i++ {
-		lineNum := i + 1
-		trim := strings.TrimSpace(lines[i])
-		if strings.HasPrefix(trim, "```") {
-			inFence = !inFence
-			continue
-		}
-		if inFence {
-			continue
-		}
-		clean := stripInlineCode(lines[i])
+	walkBodyLines(lines, fmEnd, func(lineNum int, clean string) {
 		pr.Links = append(pr.Links, parseMarkdownSelfLinks(clean, lineNum)...)
-	}
+	})
 	return pr
 }
 
