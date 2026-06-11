@@ -994,6 +994,75 @@ func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
 	}
 }
 
+func TestRunSearch_ComputedFieldsAndMetaKey(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_where")
+
+	out := captureStdout(t, func() error {
+		return runSearch([]string{
+			"--vault", vault,
+			"--format", "json",
+			"--no-exclude",
+			"--fields", "lines,outgoing_count,incoming_count,meta.status",
+		})
+	})
+
+	var m struct {
+		Items []struct {
+			Path          string              `json:"path"`
+			Lines         *int                `json:"lines"`
+			OutgoingCount *int                `json:"outgoing_count"`
+			IncomingCount *int                `json:"incoming_count"`
+			Meta          map[string][]string `json:"meta"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+
+	byPath := map[string]struct {
+		Path          string              `json:"path"`
+		Lines         *int                `json:"lines"`
+		OutgoingCount *int                `json:"outgoing_count"`
+		IncomingCount *int                `json:"incoming_count"`
+		Meta          map[string][]string `json:"meta"`
+	}{}
+	for _, it := range m.Items {
+		byPath[it.Path] = it
+	}
+
+	a := byPath["A.md"]
+	if a.OutgoingCount == nil || *a.OutgoingCount != 4 {
+		t.Errorf("A outgoing_count = %v, want 4", a.OutgoingCount)
+	}
+	if a.IncomingCount == nil || *a.IncomingCount != 4 {
+		t.Errorf("A incoming_count = %v, want 4", a.IncomingCount)
+	}
+	if a.Lines == nil || *a.Lines <= 0 {
+		t.Errorf("A lines = %v, want > 0", a.Lines)
+	}
+	// Only meta.status was requested, so meta must contain status and not priority.
+	if got := a.Meta["status"]; len(got) != 1 || got[0] != "active" {
+		t.Errorf("A meta.status = %v, want [active]", got)
+	}
+	if _, ok := a.Meta["priority"]; ok {
+		t.Errorf("meta.priority should not be present when only meta.status requested: %v", a.Meta)
+	}
+
+	// D has no frontmatter → no meta map.
+	d := byPath["D.md"]
+	if len(d.Meta) != 0 {
+		t.Errorf("D meta = %v, want empty", d.Meta)
+	}
+}
+
+func TestRunSearch_UnknownField(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_where")
+	err := runSearch([]string{"--vault", vault, "--fields", "bogus"})
+	if err == nil || !strings.Contains(err.Error(), "unknown search field") {
+		t.Fatalf("expected unknown search field error, got: %v", err)
+	}
+}
+
 func TestRunSearch_IsolationFlags(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_search_isolation")
 

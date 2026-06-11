@@ -104,7 +104,8 @@ func initSchema(db *sql.DB) error {
 			name        TEXT NOT NULL,
 			path        TEXT,
 			exists_flag INTEGER NOT NULL DEFAULT 1,
-			mtime       INTEGER
+			mtime       INTEGER,
+			lines       INTEGER
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_nodes_type_name ON nodes(type, name);`,
 		`CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path);`,
@@ -143,16 +144,19 @@ func initSchema(db *sql.DB) error {
 	return nil
 }
 
-func upsertNode(db dbExecer, key string, typ NodeType, name, path string, mtime int64) (int64, error) {
+// upsertNode inserts or updates a node. lines holds the note line count for
+// note nodes; it is nil for assets and phantoms, which have no line count.
+func upsertNode(db dbExecer, key string, typ NodeType, name, path string, mtime int64, lines *int) (int64, error) {
 	res, err := db.Exec(
-		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime)
-		 VALUES (?, ?, ?, ?, 1, ?)
+		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime, lines)
+		 VALUES (?, ?, ?, ?, 1, ?, ?)
 		 ON CONFLICT(node_key) DO UPDATE SET
 		   name=excluded.name,
 		   path=excluded.path,
 		   exists_flag=excluded.exists_flag,
-		   mtime=excluded.mtime`,
-		key, typ, name, path, mtime,
+		   mtime=excluded.mtime,
+		   lines=excluded.lines`,
+		key, typ, name, path, mtime, lines,
 	)
 	if err != nil {
 		return 0, err
@@ -171,12 +175,12 @@ func upsertNode(db dbExecer, key string, typ NodeType, name, path string, mtime 
 	return id, nil
 }
 
-func upsertNote(db dbExecer, path, name string, mtime int64) (int64, error) {
-	return upsertNode(db, noteKey(path), NodeTypeNote, name, path, mtime)
+func upsertNote(db dbExecer, path, name string, mtime int64, lines int) (int64, error) {
+	return upsertNode(db, noteKey(path), NodeTypeNote, name, path, mtime, &lines)
 }
 
 func upsertAsset(db dbExecer, path, name string, mtime int64) (int64, error) {
-	return upsertNode(db, assetKey(path), NodeTypeAsset, name, path, mtime)
+	return upsertNode(db, assetKey(path), NodeTypeAsset, name, path, mtime, nil)
 }
 
 func noteKey(path string) string {

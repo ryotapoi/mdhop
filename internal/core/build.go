@@ -65,6 +65,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 	type parsedFile struct {
 		path  string
 		mtime int64
+		lines int
 		links []linkOccur
 		meta  []FrontmatterEntry
 	}
@@ -108,6 +109,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 		parsed = append(parsed, parsedFile{
 			path:  rel,
 			mtime: info.ModTime().Unix(),
+			lines: countLines(string(content)),
 			links: pr.Links,
 			meta:  pr.Meta,
 		})
@@ -155,7 +157,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 	// Pass 1: insert all note nodes.
 	for _, pf := range parsed {
 		name := basename(pf.path)
-		id, err := upsertNote(tx, pf.path, name, pf.mtime)
+		id, err := upsertNote(tx, pf.path, name, pf.mtime, pf.lines)
 		if err != nil {
 			return nil, err
 		}

@@ -4,6 +4,28 @@ import (
 	"testing"
 )
 
+func TestCountLines(t *testing.T) {
+	tests := []struct {
+		content string
+		want    int
+	}{
+		{"", 0},
+		{"a", 1},
+		{"a\n", 1},
+		{"a\nb", 2},
+		{"a\nb\n", 2},
+		{"a\nb\nc\n", 3},
+		{"\n", 1},
+		{"\n\n", 2},
+		{"---\ntitle: x\n---\n# h\n", 4},
+	}
+	for _, tt := range tests {
+		if got := countLines(tt.content); got != tt.want {
+			t.Errorf("countLines(%q) = %d, want %d", tt.content, got, tt.want)
+		}
+	}
+}
+
 func TestIsRootFile(t *testing.T) {
 	tests := []struct {
 		path string

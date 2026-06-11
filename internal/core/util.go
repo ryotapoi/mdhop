@@ -19,6 +19,20 @@ func basename(path string) string {
 	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
+// countLines returns the number of lines in content, counting the whole file
+// (frontmatter included). An empty file is 0 lines; a non-empty final line
+// without a trailing newline still counts as a line.
+func countLines(content string) int {
+	if content == "" {
+		return 0
+	}
+	n := strings.Count(content, "\n")
+	if !strings.HasSuffix(content, "\n") {
+		n++
+	}
+	return n
+}
+
 func basenameKey(path string) string {
 	return strings.ToLower(basename(path))
 }

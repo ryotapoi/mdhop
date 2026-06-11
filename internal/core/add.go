@@ -238,6 +238,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	// Parse all new files and check for ambiguous links.
 	type parsedFile struct {
 		file  addFile
+		lines int
 		links []linkOccur
 		meta  []FrontmatterEntry
 	}
@@ -254,7 +255,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			return nil, err
 		}
 
-		parsed = append(parsed, parsedFile{file: f, links: links, meta: pr.Meta})
+		parsed = append(parsed, parsedFile{file: f, lines: countLines(string(content)), links: links, meta: pr.Meta})
 	}
 
 	// Apply disk rewrites before transaction (so DB rollback is safe).
@@ -295,7 +296,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	// Insert all note nodes.
 	for _, pf := range parsed {
 		name := basename(pf.file.path)
-		id, err := upsertNote(tx, pf.file.path, name, pf.file.mtime)
+		id, err := upsertNote(tx, pf.file.path, name, pf.file.mtime, pf.lines)
 		if err != nil {
 			return nil, err
 		}

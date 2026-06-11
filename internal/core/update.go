@@ -116,6 +116,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	// Pre-mutation: read and validate disk-present files.
 	type parsedFile struct {
 		cf    classifiedFile
+		lines int
 		links []linkOccur
 		meta  []FrontmatterEntry
 	}
@@ -135,7 +136,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 			return nil, err
 		}
 
-		toUpdate = append(toUpdate, parsedFile{cf: cf, links: links, meta: pr.Meta})
+		toUpdate = append(toUpdate, parsedFile{cf: cf, lines: countLines(string(content)), links: links, meta: pr.Meta})
 	}
 
 	// Begin transaction.
@@ -159,8 +160,8 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 			return nil, err
 		}
 
-		// Update mtime and exists_flag.
-		if _, err := tx.Exec("UPDATE nodes SET exists_flag=1, mtime=? WHERE id=?", pf.cf.diskMtime, pf.cf.id); err != nil {
+		// Update mtime, exists_flag and line count.
+		if _, err := tx.Exec("UPDATE nodes SET exists_flag=1, mtime=?, lines=? WHERE id=?", pf.cf.diskMtime, pf.lines, pf.cf.id); err != nil {
 			return nil, err
 		}
 

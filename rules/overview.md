@@ -302,9 +302,11 @@ meta:
   - 補足: `--no-tags` でタグ edge を持たない note のみに絞る
   - 補足: `--no-outgoing` で outgoing edge（タグ edge を含む）を持たない note のみに絞る
   - 補足: `--no-incoming` で incoming edge を持たない note のみに絞る
-  - 補足: `--sort key` で昇順、`--sort -key` で降順。未指定時は path 順
+  - 補足: `--sort key` で昇順、`--sort -key` で降順。未指定時は path 順。key には meta key と computed field（`lines` / `outgoing_count` / `incoming_count`）を指定できる
   - 補足: `--limit` / `--offset` でページング。total フィールドに limit/offset 適用前の総件数を返す
-  - 補足: `--fields meta` で frontmatter メタデータを追加出力（opt-in）
+  - 補足: `--fields meta` で frontmatter メタデータを全 key 追加出力（opt-in）
+  - 補足: `--fields meta.<key>` で特定 frontmatter key のみ追加出力（複数指定可）。`meta` と併用すると全 key を出力
+  - 補足: `--fields lines` / `outgoing_count` / `incoming_count` で computed field を追加出力（opt-in）。`lines` は build/update 時に確定したファイル全体の行数（frontmatter 含む）、`outgoing_count` / `incoming_count` は edges の集計値（tag edge を含む）
   - 補足: `--include-head N` でノート先頭N行を追加出力
   - 補足: `--exclude`, `--no-exclude` は query と同じ挙動（config の除外 + CLI 除外）
 - `diagnose`

@@ -99,6 +99,67 @@ func TestValidateFields_QueryMeta(t *testing.T) {
 	}
 }
 
+func TestValidateSearchFields(t *testing.T) {
+	valid := [][]string{
+		{"meta"},
+		{"meta.type"},
+		{"meta.type", "meta.status"},
+		{"lines"},
+		{"outgoing_count", "incoming_count"},
+		{"meta", "lines", "meta.type"},
+	}
+	for _, fields := range valid {
+		if err := validateSearchFields(fields); err != nil {
+			t.Errorf("validateSearchFields(%v) = %v, want nil", fields, err)
+		}
+	}
+	invalid := [][]string{
+		{"bogus"},
+		{"meta."}, // empty key after prefix
+		{"line"},  // typo
+	}
+	for _, fields := range invalid {
+		if err := validateSearchFields(fields); err == nil {
+			t.Errorf("validateSearchFields(%v) = nil, want error", fields)
+		}
+	}
+}
+
+func TestPrintSearchText_ComputedAndMetaKey(t *testing.T) {
+	r := &core.SearchResult{
+		Total: 1,
+		Items: []core.SearchResultItem{
+			{
+				Node:          core.NodeInfo{Type: core.NodeTypeNote, Name: "A", Path: "A.md", Exists: true},
+				Lines:         15,
+				OutgoingCount: 4,
+				IncomingCount: 2,
+				Meta: []core.MetaRow{
+					{Key: "type", Value: "note"},
+					{Key: "status", Value: "active"},
+				},
+			},
+		},
+	}
+	var buf bytes.Buffer
+	// Request lines, outgoing_count, and only meta.type.
+	if err := printSearchText(&buf, r, []string{"lines", "outgoing_count", "meta.type"}); err != nil {
+		t.Fatal(err)
+	}
+	got := buf.String()
+	want := `total: 1
+items:
+- note: A.md
+  lines: 15
+  outgoing_count: 4
+  meta:
+  - type: note
+`
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestPrintResolveText_Note(t *testing.T) {
 	r := &core.ResolveResult{
 		Type: "note", Name: "Design", Path: "Notes/Design.md",
@@ -924,7 +985,7 @@ func TestPrintSearchText_Full(t *testing.T) {
 		},
 	}
 	var buf bytes.Buffer
-	if err := printSearchText(&buf, r); err != nil {
+	if err := printSearchText(&buf, r, []string{"meta"}); err != nil {
 		t.Fatal(err)
 	}
 	got := buf.String()
@@ -947,7 +1008,7 @@ items:
 func TestPrintSearchText_Empty(t *testing.T) {
 	r := &core.SearchResult{Total: 0}
 	var buf bytes.Buffer
-	if err := printSearchText(&buf, r); err != nil {
+	if err := printSearchText(&buf, r, nil); err != nil {
 		t.Fatal(err)
 	}
 	want := "total: 0\n"

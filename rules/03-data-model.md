@@ -23,7 +23,8 @@ CREATE TABLE nodes (
   name      TEXT NOT NULL,
   path      TEXT,
   exists    INTEGER NOT NULL DEFAULT 1,
-  mtime     INTEGER
+  mtime     INTEGER,
+  lines     INTEGER  -- note の行数（build/update 時に確定、frontmatter 含む全体）。asset/phantom は NULL
 );
 
 CREATE INDEX idx_nodes_type_name ON nodes(type, name);

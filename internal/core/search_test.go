@@ -125,6 +125,64 @@ func TestSearch_WhereGt(t *testing.T) {
 	}
 }
 
+func TestSearch_ComputedFields(t *testing.T) {
+	vault := setupSearchVault(t)
+
+	result, err := Search(vault, SearchOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	byPath := make(map[string]SearchResultItem)
+	for _, item := range result.Items {
+		byPath[item.Node.Path] = item
+	}
+
+	// A links to B, C, D, E → outgoing 4. B/C/D/E each link back to A.
+	a := byPath["A.md"]
+	if a.OutgoingCount != 4 {
+		t.Errorf("A outgoing_count = %d, want 4", a.OutgoingCount)
+	}
+	// A is the target of B, C, D, E → incoming 4.
+	if a.IncomingCount != 4 {
+		t.Errorf("A incoming_count = %d, want 4", a.IncomingCount)
+	}
+	// Every note has a positive line count; D is the smallest (no frontmatter).
+	for _, p := range []string{"A.md", "B.md", "C.md", "D.md", "E.md"} {
+		if byPath[p].Lines <= 0 {
+			t.Errorf("%s lines = %d, want > 0", p, byPath[p].Lines)
+		}
+	}
+	if byPath["D.md"].Lines >= byPath["A.md"].Lines {
+		t.Errorf("D lines (%d) should be smaller than A lines (%d)", byPath["D.md"].Lines, byPath["A.md"].Lines)
+	}
+}
+
+func TestSearch_SortByComputedField(t *testing.T) {
+	vault := setupSearchVault(t)
+
+	// Sort by incoming_count descending: A (4 incoming) must come first.
+	result, err := Search(vault, SearchOptions{Sort: "-incoming_count"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Items) == 0 {
+		t.Fatal("no items")
+	}
+	if result.Items[0].Node.Path != "A.md" {
+		t.Errorf("first by -incoming_count = %q, want A.md", result.Items[0].Node.Path)
+	}
+
+	// Sort by lines ascending: D (smallest) must come first.
+	resultLines, err := Search(vault, SearchOptions{Sort: "lines"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resultLines.Items[0].Node.Path != "D.md" {
+		t.Errorf("first by lines = %q, want D.md", resultLines.Items[0].Node.Path)
+	}
+}
+
 func TestSearch_WhereRelativeDate(t *testing.T) {
 	vault := setupSearchVault(t)
 	meta := searchVaultConfig(t, vault)

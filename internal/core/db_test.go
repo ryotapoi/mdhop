@@ -64,7 +64,7 @@ func TestUpsertNote_ConflictUpdate(t *testing.T) {
 	db := newTestDB(t)
 
 	// First insert.
-	id1, err := upsertNote(db, "docs/hello.md", "hello", 100)
+	id1, err := upsertNote(db, "docs/hello.md", "hello", 100, 0)
 	if err != nil {
 		t.Fatalf("first upsertNote: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestUpsertNote_ConflictUpdate(t *testing.T) {
 	}
 
 	// Second upsert with updated name and mtime — should return same id.
-	id2, err := upsertNote(db, "docs/hello.md", "hello-updated", 200)
+	id2, err := upsertNote(db, "docs/hello.md", "hello-updated", 200, 0)
 	if err != nil {
 		t.Fatalf("second upsertNote: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestUpsertAsset_ConflictUpdate(t *testing.T) {
 func TestInsertMeta(t *testing.T) {
 	db := newTestDB(t)
 
-	nodeID, err := upsertNote(db, "docs/hello.md", "hello", 100)
+	nodeID, err := upsertNote(db, "docs/hello.md", "hello", 100, 0)
 	if err != nil {
 		t.Fatalf("upsertNote: %v", err)
 	}
@@ -166,11 +166,11 @@ func TestInsertMeta(t *testing.T) {
 func TestDeleteMetaByNode(t *testing.T) {
 	db := newTestDB(t)
 
-	node1, err := upsertNote(db, "a.md", "a", 100)
+	node1, err := upsertNote(db, "a.md", "a", 100, 0)
 	if err != nil {
 		t.Fatalf("upsertNote 1: %v", err)
 	}
-	node2, err := upsertNote(db, "b.md", "b", 100)
+	node2, err := upsertNote(db, "b.md", "b", 100, 0)
 	if err != nil {
 		t.Fatalf("upsertNote 2: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestDeleteMetaByNode(t *testing.T) {
 func TestQueryMetaByNode(t *testing.T) {
 	db := newTestDB(t)
 
-	nodeID, err := upsertNote(db, "docs/hello.md", "hello", 100)
+	nodeID, err := upsertNote(db, "docs/hello.md", "hello", 100, 0)
 	if err != nil {
 		t.Fatalf("upsertNote: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestQueryMetaByNode(t *testing.T) {
 	}
 
 	// Empty result for node with no meta.
-	node2, err := upsertNote(db, "empty.md", "empty", 100)
+	node2, err := upsertNote(db, "empty.md", "empty", 100, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

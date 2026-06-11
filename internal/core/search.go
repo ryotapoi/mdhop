@@ -22,15 +22,52 @@ type SearchOptions struct {
 
 // SearchResultItem represents a single matched node.
 type SearchResultItem struct {
-	Node NodeInfo
-	Meta []MetaRow // nil if not requested
-	Head []string  // nil if not requested
+	Node          NodeInfo
+	Lines         int       // note line count (whole file, frontmatter included)
+	OutgoingCount int       // number of outgoing edges
+	IncomingCount int       // number of incoming edges
+	Meta          []MetaRow // nil if not requested
+	Head          []string  // nil if not requested
 }
 
 // SearchResult contains the search results.
 type SearchResult struct {
 	Items []SearchResultItem
 	Total int // total count before limit/offset
+}
+
+// Computed search field names. These are derived at query time and are valid
+// in both --fields and --sort.
+const (
+	FieldLines         = "lines"
+	FieldOutgoingCount = "outgoing_count"
+	FieldIncomingCount = "incoming_count"
+)
+
+// wantMetaFields reports whether any meta output was requested via "meta"
+// (all keys) or "meta.<key>" (a specific key).
+func wantMetaFields(fields []string) bool {
+	for _, f := range fields {
+		if f == "meta" || strings.HasPrefix(f, "meta.") {
+			return true
+		}
+	}
+	return false
+}
+
+// computedSortColumn maps a computed sort key to its SQL expression in the main
+// search query. Returns ("", false) for non-computed keys (handled as meta).
+func computedSortColumn(key string) (string, bool) {
+	switch key {
+	case FieldLines:
+		return "COALESCE(n.lines,0)", true
+	case FieldOutgoingCount:
+		return "(SELECT COUNT(*) FROM edges e_sort WHERE e_sort.source_id = n.id)", true
+	case FieldIncomingCount:
+		return "(SELECT COUNT(*) FROM edges e_sort WHERE e_sort.target_id = n.id)", true
+	default:
+		return "", false
+	}
 }
 
 // parseSortKey parses a sort string into key and direction.
@@ -114,30 +151,45 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 		return nil, fmt.Errorf("search count: %w", err)
 	}
 
-	// Build main query.
+	// Build main query. Computed fields (lines, outgoing/incoming edge counts)
+	// are always selected: lines comes straight from nodes, and the edge counts
+	// are SQL aggregates over edges (the source of truth), so they never go out
+	// of sync with the graph.
+	const computedSelect = ", COALESCE(n.lines,0)," +
+		" (SELECT COUNT(*) FROM edges e_out WHERE e_out.source_id = n.id)," +
+		" (SELECT COUNT(*) FROM edges e_in WHERE e_in.target_id = n.id)"
+
 	var joinSQL string
 	var joinArgs []any
 	var orderSQL string
 
 	if sortKey != "" {
-		aggFunc := "MIN"
-		if sortDesc {
-			aggFunc = "MAX"
-		}
-		joinSQL = fmt.Sprintf(
-			" LEFT JOIN (SELECT node_id, %s(sort_value) AS sort_value FROM meta WHERE key = ? GROUP BY node_id) m_sort ON m_sort.node_id = n.id",
-			aggFunc,
-		)
-		joinArgs = []any{sortKey}
+		if col, ok := computedSortColumn(sortKey); ok {
+			dir := "ASC"
+			if sortDesc {
+				dir = "DESC"
+			}
+			orderSQL = fmt.Sprintf(" ORDER BY %s %s, n.path ASC", col, dir)
+		} else {
+			aggFunc := "MIN"
+			if sortDesc {
+				aggFunc = "MAX"
+			}
+			joinSQL = fmt.Sprintf(
+				" LEFT JOIN (SELECT node_id, %s(sort_value) AS sort_value FROM meta WHERE key = ? GROUP BY node_id) m_sort ON m_sort.node_id = n.id",
+				aggFunc,
+			)
+			joinArgs = []any{sortKey}
 
-		dir := "ASC"
-		if sortDesc {
-			dir = "DESC"
+			dir := "ASC"
+			if sortDesc {
+				dir = "DESC"
+			}
+			orderSQL = fmt.Sprintf(
+				" ORDER BY CASE WHEN m_sort.sort_value IS NULL THEN 1 ELSE 0 END ASC, m_sort.sort_value %s, n.path ASC",
+				dir,
+			)
 		}
-		orderSQL = fmt.Sprintf(
-			" ORDER BY CASE WHEN m_sort.sort_value IS NULL THEN 1 ELSE 0 END ASC, m_sort.sort_value %s, n.path ASC",
-			dir,
-		)
 	} else {
 		orderSQL = " ORDER BY n.path ASC"
 	}
@@ -153,7 +205,7 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 		limitArgs = []any{opts.Offset}
 	}
 
-	mainQuery := "SELECT n.id, n.type, n.name, COALESCE(n.path,''), n.exists_flag FROM nodes n" + joinSQL + " " + whereSQL + orderSQL + limitSQL
+	mainQuery := "SELECT n.id, n.type, n.name, COALESCE(n.path,''), n.exists_flag" + computedSelect + " FROM nodes n" + joinSQL + " " + whereSQL + orderSQL + limitSQL
 
 	// Combine args: joinArgs + whereArgs + limitArgs
 	var mainArgs []any
@@ -168,27 +220,37 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	defer rows.Close()
 
 	type rowData struct {
-		id   int64
-		node NodeInfo
+		id            int64
+		node          NodeInfo
+		lines         int
+		outgoingCount int
+		incomingCount int
 	}
 	var rowItems []rowData
 	for rows.Next() {
-		id, info, err := scanNodeInfoWithID(rows)
-		if err != nil {
+		var rd rowData
+		var typ NodeType
+		var name, path string
+		var exists int
+		if err := rows.Scan(&rd.id, &typ, &name, &path, &exists, &rd.lines, &rd.outgoingCount, &rd.incomingCount); err != nil {
 			return nil, err
 		}
-		rowItems = append(rowItems, rowData{id: id, node: info})
+		rd.node = NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}
+		rowItems = append(rowItems, rd)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	wantMeta := isFieldActive("meta", opts.Fields) && len(opts.Fields) > 0
+	wantMeta := wantMetaFields(opts.Fields)
 	wantHead := opts.IncludeHead > 0
 
 	items := make([]SearchResultItem, len(rowItems))
 	for i, rd := range rowItems {
 		items[i].Node = rd.node
+		items[i].Lines = rd.lines
+		items[i].OutgoingCount = rd.outgoingCount
+		items[i].IncomingCount = rd.incomingCount
 
 		if wantMeta {
 			meta, err := queryMetaByNode(db, rd.id)
