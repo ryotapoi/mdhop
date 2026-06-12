@@ -9,7 +9,9 @@ import (
 
 // RepairOptions controls the repair operation.
 type RepairOptions struct {
-	DryRun bool
+	DryRun  bool
+	Path    []string // include globs for source notes (empty = all)
+	Exclude []string // exclude globs for source notes
 }
 
 // RepairResult reports the outcome of the repair operation.
@@ -31,6 +33,13 @@ type SkippedLink struct {
 // Vault-escape links are always converted to basename (escape resolution is top priority).
 // Broken path links are converted when 0-1 candidates exist; 2+ candidates are skipped.
 func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
+	if err := validateGlobPatterns(opts.Path); err != nil {
+		return nil, err
+	}
+	if err := validateGlobPatterns(opts.Exclude); err != nil {
+		return nil, err
+	}
+
 	// Collect all .md files.
 	files, err := collectMarkdownFiles(vaultPath)
 	if err != nil {
@@ -67,6 +76,9 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 	skippedSet := make(map[string]bool) // "file\x00rawLink" dedup
 
 	for _, sourcePath := range files {
+		if !pathMatchesFilters(sourcePath, opts.Path, opts.Exclude) {
+			continue
+		}
 		fullPath := filepath.Join(vaultPath, sourcePath)
 		content, err := os.ReadFile(fullPath)
 		if err != nil {

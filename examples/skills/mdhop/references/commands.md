@@ -187,15 +187,19 @@ Fix broken path links and vault-escape links by rewriting them to basename links
 ```bash
 mdhop repair
 mdhop repair --dry-run --format json
+mdhop repair --path "docs/**" --exclude "docs/archive/**" --dry-run --format json
 ```
 
 | Flag | Required | Description |
 |------|----------|-------------|
 | `--dry-run` | No | Show what would be repaired without making changes |
 | `--format json\|text` | No | Output format |
+| `--path <glob>` | No | Restrict source notes to paths matching the glob (repeatable) |
+| `--exclude <glob>` | No | Exclude source notes matching the glob (repeatable) |
 
 **Behavior:**
 - DB not required (file-scan based). Can be run before `build`
+- `--path` / `--exclude` filter source notes only; candidate lookup still uses the whole scanned vault after `build.exclude_paths`
 - Finds broken path links (target does not exist) and vault-escape links
 - Vault-escape links are always basename-ified regardless of candidate count
 - Broken path links are rewritten to basename if the basename has 0 or 1 candidate note

@@ -1347,6 +1347,36 @@ func TestRunRepair_DryRunJSON(t *testing.T) {
 	}
 }
 
+func TestRunRepair_PathFilterDryRunJSON(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_repair")
+
+	out := captureStdout(t, func() error {
+		return runRepair([]string{
+			"--vault", vault,
+			"--path", "sub/*",
+			"--dry-run",
+			"--format", "json",
+		})
+	})
+
+	var m map[string]any
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	rewritten, ok := m["rewritten"].([]any)
+	if !ok || len(rewritten) != 1 {
+		t.Fatalf("rewritten len = %d, want 1; output: %s", len(rewritten), out)
+	}
+	rw := rewritten[0].(map[string]any)
+	if rw["file"] != "sub/B.md" || rw["old"] != "[[broken/path/X#Heading]]" || rw["new"] != "[[X#Heading]]" {
+		t.Fatalf("rewrite = %v, want sub/B.md broken/path/X#Heading repair", rw)
+	}
+	skipped, ok := m["skipped"].([]any)
+	if !ok || len(skipped) != 0 {
+		t.Fatalf("skipped = %v, want none", m["skipped"])
+	}
+}
+
 // --- Simplify CLI tests ---
 
 func TestRunSimplify_InvalidFormat(t *testing.T) {

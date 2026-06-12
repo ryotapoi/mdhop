@@ -13,6 +13,10 @@ func runRepair(args []string) error {
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	dryRun := fs.Bool("dry-run", false, "show what would be repaired without making changes")
+	var pathPatterns multiString
+	var excludePaths multiString
+	fs.Var(&pathPatterns, "path", "restrict source notes to paths matching glob (repeatable)")
+	fs.Var(&excludePaths, "exclude", "exclude source notes matching glob (repeatable)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -21,7 +25,9 @@ func runRepair(args []string) error {
 	}
 
 	result, err := core.Repair(*vault, core.RepairOptions{
-		DryRun: *dryRun,
+		DryRun:  *dryRun,
+		Path:    pathPatterns,
+		Exclude: excludePaths,
 	})
 	if err != nil {
 		return err

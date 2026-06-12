@@ -99,6 +99,59 @@ func TestRepairDryRun(t *testing.T) {
 	}
 }
 
+func TestRepairPathFilterDryRun(t *testing.T) {
+	vault := copyVault(t, "vault_repair")
+
+	result, err := Repair(vault, RepairOptions{DryRun: true, Path: []string{"sub/*"}})
+	if err != nil {
+		t.Fatalf("repair dry-run: %v", err)
+	}
+	if len(result.Rewritten) != 1 {
+		t.Fatalf("Rewritten count = %d, want 1: %+v", len(result.Rewritten), result.Rewritten)
+	}
+	if result.Rewritten[0].File != "sub/B.md" {
+		t.Fatalf("rewritten file = %q, want sub/B.md", result.Rewritten[0].File)
+	}
+	if len(result.Skipped) != 0 {
+		t.Fatalf("Skipped = %+v, want none outside filtered source notes", result.Skipped)
+	}
+}
+
+func TestRepairExcludeFilterLeavesSourceUntouched(t *testing.T) {
+	vault := copyVault(t, "vault_repair")
+	origA, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md: %v", err)
+	}
+
+	result, err := Repair(vault, RepairOptions{Exclude: []string{"A.md"}})
+	if err != nil {
+		t.Fatalf("repair: %v", err)
+	}
+	if len(result.Rewritten) != 1 {
+		t.Fatalf("Rewritten count = %d, want 1: %+v", len(result.Rewritten), result.Rewritten)
+	}
+	if result.Rewritten[0].File != "sub/B.md" {
+		t.Fatalf("rewritten file = %q, want sub/B.md", result.Rewritten[0].File)
+	}
+
+	afterA, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatalf("read A.md after repair: %v", err)
+	}
+	if string(afterA) != string(origA) {
+		t.Fatalf("A.md changed despite exclude filter:\n%s", afterA)
+	}
+
+	contentB, err := os.ReadFile(filepath.Join(vault, "sub/B.md"))
+	if err != nil {
+		t.Fatalf("read sub/B.md: %v", err)
+	}
+	if !strings.Contains(string(contentB), "[[X#Heading]]") {
+		t.Fatalf("sub/B.md was not repaired:\n%s", contentB)
+	}
+}
+
 func TestRepairNoBrokenLinks(t *testing.T) {
 	vault := copyVault(t, "vault_build_basic")
 

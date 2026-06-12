@@ -8,7 +8,7 @@ v0.11.0 リリース済み（tag + GitHub Release, 2026-06-11）。完了項目�
 
 - [x] 14. index 登録パスの Unicode 正規化（NFC 統一）— NFD ファイル名で二重ノード登録・delete 不能になる。データ整合性の問題なので優先度高め
 - [x] 15. meta-check のディレクトリ参照対応 — 末尾 `/` の値をディレクトリとして存在チェック
-- [ ] 16. repair に path filter — `--path` / `--exclude` を他コマンドと揃える
+- [x] 16. repair に path filter — `--path` / `--exclude` を他コマンドと揃える
 
 ## Later
 

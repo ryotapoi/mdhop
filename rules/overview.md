@@ -250,8 +250,9 @@ meta:
   - 補足: phantom を指す壊れたパスリンクも `--name` の対象に含める（`repair` の後の個別解決用）
 - `repair`
   - 必須: なし
-  - 任意: `--vault`, `--format`, `--dry-run`
+  - 任意: `--vault`, `--format`, `--dry-run`, `--path`, `--exclude`
   - 補足: DB 不要（ファイル走査ベース）。build 前に実行可能
+  - 補足: `--path` / `--exclude` は source note を path glob で絞る。候補探索は対象外 note も含む vault 全体（`build.exclude_paths` 適用後）で行う
   - 補足: 壊れたパスリンク（target が存在しない wikilink/markdown）と vault-escape リンクを basename リンクに自動書き換え
   - 補足: vault-escape リンクは候補数に関係なく常に basename 化（escape 解消が最優先。その後 ambiguous になるなら `disambiguate` で対応）
   - 補足: 壊れたパスリンクは basename の候補が 0-1 個のみ修復。2 個以上はスキップ（`disambiguate` で個別解決する）

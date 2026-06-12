@@ -130,6 +130,7 @@ mdhop delete --file Notes/Obsolete.md --rm --format json
 
 # Preview and apply repair.
 mdhop repair --dry-run --format json
+mdhop repair --path "docs/**" --dry-run --format json
 mdhop repair
 mdhop build
 ```

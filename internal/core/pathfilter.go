@@ -66,6 +66,28 @@ func globMatch(pattern, s string) bool {
 	return globMatchImpl([]rune(pattern), []rune(s))
 }
 
+func pathMatchesFilters(path string, include, exclude []string) bool {
+	path = NormalizePath(path)
+	if len(include) > 0 {
+		matched := false
+		for _, pattern := range include {
+			if globMatch(NormalizePath(pattern), path) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	for _, pattern := range exclude {
+		if globMatch(NormalizePath(pattern), path) {
+			return false
+		}
+	}
+	return true
+}
+
 func globMatchImpl(pattern, s []rune) bool {
 	for len(pattern) > 0 {
 		switch pattern[0] {
