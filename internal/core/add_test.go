@@ -72,6 +72,80 @@ func TestAddNewFile(t *testing.T) {
 	}
 }
 
+func TestAddNormalizesUnicodePathToExistingPhantom(t *testing.T) {
+	vault := t.TempDir()
+	nfdPath := "Cafe\u0301.md"
+	nfcPath := "Caf\u00e9.md"
+	if err := os.WriteFile(filepath.Join(vault, "Ref.md"), []byte("[[Caf\u00e9]]\n"), 0o644); err != nil {
+		t.Fatalf("write ref: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, nfdPath), []byte("# Cafe\n"), 0o644); err != nil {
+		t.Fatalf("write NFD note: %v", err)
+	}
+
+	result, err := Add(vault, AddOptions{Files: []string{nfdPath}})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if len(result.Added) != 1 || result.Added[0] != nfcPath {
+		t.Fatalf("Added = %v, want [%s]", result.Added, nfcPath)
+	}
+	if len(result.Promoted) != 1 || result.Promoted[0] != nfcPath {
+		t.Fatalf("Promoted = %v, want [%s]", result.Promoted, nfcPath)
+	}
+
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	var noteCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM nodes WHERE type='note' AND path = ?", nfcPath).Scan(&noteCount); err != nil {
+		t.Fatalf("count NFC note: %v", err)
+	}
+	if noteCount != 1 {
+		t.Fatalf("NFC note count = %d, want 1", noteCount)
+	}
+	var nfdCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM nodes WHERE type='note' AND path = ?", nfdPath).Scan(&nfdCount); err != nil {
+		t.Fatalf("count NFD note: %v", err)
+	}
+	if nfdCount != 0 {
+		t.Fatalf("NFD note count = %d, want 0", nfdCount)
+	}
+}
+
+func TestAddRejectsUnicodeEquivalentExistingIndexPath(t *testing.T) {
+	vault := t.TempDir()
+	nfdPath := "Cafe\u0301.md"
+	nfcPath := "Caf\u00e9.md"
+	if err := os.WriteFile(filepath.Join(vault, nfdPath), []byte("# Cafe\n"), 0o644); err != nil {
+		t.Fatalf("write NFD note: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	db := openTestDB(t, dbPath(vault))
+	_, err := db.Exec(
+		"UPDATE nodes SET node_key = ?, path = ?, name = ? WHERE node_key = ?",
+		"note:path:"+nfdPath, nfdPath, "Cafe\u0301", noteKey(nfcPath),
+	)
+	if err != nil {
+		db.Close()
+		t.Fatalf("simulate pre-v0.12 NFD row: %v", err)
+	}
+	db.Close()
+
+	_, err = Add(vault, AddOptions{Files: []string{nfcPath}})
+	if err == nil {
+		t.Fatal("add succeeded, want already registered error")
+	}
+	if !strings.Contains(err.Error(), ErrFileAlreadyRegistered.Error()) {
+		t.Fatalf("error = %v, want %v", err, ErrFileAlreadyRegistered)
+	}
+}
+
 func TestAddMultipleFiles(t *testing.T) {
 	vault := copyVault(t, "vault_add")
 	// Build with only A.md and B.md.

@@ -6,17 +6,23 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
 )
+
+func normalizeTextNFC(s string) string {
+	return norm.NFC.String(s)
+}
 
 // NormalizePath cleans a vault-relative path: forward slashes, no leading "./".
 func NormalizePath(path string) string {
 	clean := filepath.ToSlash(filepath.Clean(path))
-	return strings.TrimPrefix(clean, "./")
+	return normalizeTextNFC(strings.TrimPrefix(clean, "./"))
 }
 
 func basename(path string) string {
 	base := filepath.Base(path)
-	return strings.TrimSuffix(base, filepath.Ext(base))
+	return normalizeTextNFC(strings.TrimSuffix(base, filepath.Ext(base)))
 }
 
 // countLines returns the number of lines in content, counting the whole file
@@ -40,7 +46,7 @@ func basenameKey(path string) string {
 // assetBasenameKey returns the lowercase filename with extension for asset path matching.
 // Example: "sub/image.png" → "image.png"
 func assetBasenameKey(path string) string {
-	return strings.ToLower(filepath.Base(path))
+	return strings.ToLower(normalizeTextNFC(filepath.Base(path)))
 }
 
 // isRootFile returns true if the path has no directory component (root-level file).
@@ -59,7 +65,7 @@ func hasRootInPathSet(bk string, pathSet map[string]string) bool {
 // When a root-level file exists, the basename link resolves to it (root-priority rule).
 // Checks note basenames first, then asset basenames (separate key spaces).
 func isAmbiguousBasenameLink(target string, rm *resolveMaps) bool {
-	lower := strings.ToLower(target)
+	lower := strings.ToLower(normalizeTextNFC(target))
 	// Check note namespace.
 	if rm.basenameCounts[lower] > 1 {
 		return !hasRootInPathSet(lower, rm.pathSet)
@@ -78,7 +84,7 @@ func isAmbiguousBasenameLink(target string, rm *resolveMaps) bool {
 // Must only be called when isAmbiguousBasenameLink returns true.
 // Same collection pattern as simplify.go:collectNoteBasenameFiles but for resolveMaps.
 func ambiguousCandidates(target string, rm *resolveMaps) []string {
-	lower := strings.ToLower(target)
+	lower := strings.ToLower(normalizeTextNFC(target))
 	var paths []string
 	if rm.basenameCounts[lower] > 1 {
 		// Note namespace.
@@ -198,9 +204,9 @@ func resolveToVaultRelative(sourcePath string, lo linkOccur) string {
 		return NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
 	}
 	if strings.HasPrefix(target, "/") {
-		return strings.TrimPrefix(target, "/")
+		return NormalizePath(strings.TrimPrefix(target, "/"))
 	}
-	return target
+	return NormalizePath(target)
 }
 
 // isFieldActive returns true if the field is requested (or if fields is empty, meaning all).

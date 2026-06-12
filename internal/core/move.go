@@ -42,41 +42,37 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		return nil, fmt.Errorf("source and destination are the same: %s", from)
 	}
 
+	rm, err := buildMapsFromDB(db)
+	if err != nil {
+		return nil, err
+	}
+
 	// Check from is registered as a note or asset in DB.
 	var nodeID int64
 	var dbMtime int64
 	var isAsset bool
-	fromKey := noteKey(from)
-	err = db.QueryRow("SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'note'", fromKey).Scan(&nodeID, &dbMtime)
-	if errors.Is(err, sql.ErrNoRows) {
-		// Try asset.
-		fromKey = assetKey(from)
-		err = db.QueryRow("SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'asset'", fromKey).Scan(&nodeID, &dbMtime)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, from)
-		}
-		if err != nil {
-			return nil, err
-		}
+	if id, ok := rm.pathToID[from]; ok {
+		nodeID = id
+	} else if id, ok := rm.assetPathToID[from]; ok {
+		nodeID = id
 		isAsset = true
-	} else if err != nil {
+	} else {
+		return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, from)
+	}
+	err = db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", nodeID).Scan(&dbMtime)
+	if err != nil {
 		return nil, err
 	}
 
 	// Check to is not already registered in DB (note or asset).
-	var toKey string
 	if isAsset {
-		toKey = assetKey(to)
+		if _, ok := rm.assetPathToID[to]; ok {
+			return nil, fmt.Errorf("%w: %s", ErrAlreadyRegistered, to)
+		}
 	} else {
-		toKey = noteKey(to)
-	}
-	var existingID int64
-	err = db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", toKey).Scan(&existingID)
-	if err == nil {
-		return nil, fmt.Errorf("%w: %s", ErrAlreadyRegistered, to)
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
+		if _, ok := rm.pathToID[to]; ok {
+			return nil, fmt.Errorf("%w: %s", ErrAlreadyRegistered, to)
+		}
 	}
 
 	// Determine disk state: from present, to present.
@@ -119,12 +115,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 	}
 
-	// Phase 1: build maps and adjust for post-move state.
-	rm, err := buildMapsFromDB(db)
-	if err != nil {
-		return nil, err
-	}
-
+	// Phase 1: adjust maps for post-move state.
 	// Save pre-move pathSet for Phase 2/2.5 root-priority checks.
 	var preMovePathSet map[string]string
 	if isAsset {
@@ -436,6 +427,10 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		newName = filepath.Base(to)
 	} else {
 		newName = basename(to)
+	}
+	toKey := noteKey(to)
+	if isAsset {
+		toKey = assetKey(to)
 	}
 	if _, err := tx.Exec(
 		"UPDATE nodes SET node_key = ?, name = ?, path = ?, mtime = ? WHERE id = ?",

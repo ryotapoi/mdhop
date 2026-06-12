@@ -16,7 +16,7 @@ cmd/mdhop → internal/testutil (テストのみ)
 ```
 
 - `internal/core` は `cmd/mdhop` に依存しない
-- `internal/core` は外部ライブラリとして `modernc.org/sqlite` と `gopkg.in/yaml.v3` のみ使用
+- `internal/core` は外部ライブラリとして `modernc.org/sqlite`, `gopkg.in/yaml.v3`, `golang.org/x/text/unicode/norm` を使用
 - `cmd/mdhop` は stdlib `flag` のみ使用（外部 CLI フレームワーク不使用）
 
 ## 責務の境界

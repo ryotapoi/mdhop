@@ -192,7 +192,7 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 // Resolution order: note → asset → phantom.
 // When multiple nodes match within the same type, applies root-priority rule.
 func resolveBasenameFromDB(db dbExecer, target string, link linkOccur) (int64, string, error) {
-	lower := strings.ToLower(target)
+	lower := strings.ToLower(normalizeTextNFC(target))
 
 	// Try note by basename.
 	noteMatches, err := queryBasenameMatches(db, NodeTypeNote, lower)
@@ -238,11 +238,13 @@ type basenameMatch struct {
 	path string
 }
 
-// queryBasenameMatches queries nodes of the given type matching a lowercase name.
+// queryBasenameMatches queries nodes of the given type matching a lowercase
+// NFC name. The comparison is done in Go, not SQL, so pre-v0.12 NFD index rows
+// are still found by NFC input.
 func queryBasenameMatches(db dbExecer, nodeType NodeType, lowerName string) ([]basenameMatch, error) {
 	rows, err := db.Query(
-		`SELECT id, path FROM nodes WHERE type=? AND LOWER(name) = ?`,
-		nodeType, lowerName,
+		`SELECT id, name, path FROM nodes WHERE type=?`,
+		nodeType,
 	)
 	if err != nil {
 		return nil, err
@@ -252,9 +254,14 @@ func queryBasenameMatches(db dbExecer, nodeType NodeType, lowerName string) ([]b
 	var matches []basenameMatch
 	for rows.Next() {
 		var m basenameMatch
-		if err := rows.Scan(&m.id, &m.path); err != nil {
+		var name string
+		if err := rows.Scan(&m.id, &name, &m.path); err != nil {
 			return nil, err
 		}
+		if strings.ToLower(normalizeTextNFC(name)) != lowerName {
+			continue
+		}
+		m.path = NormalizePath(m.path)
 		matches = append(matches, m)
 	}
 	return matches, rows.Err()

@@ -249,7 +249,7 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps
 
 	// Basename resolution (wikilink and markdown)
 	if link.isBasename {
-		lower := strings.ToLower(target)
+		lower := strings.ToLower(normalizeTextNFC(target))
 		// 1. note unique
 		if path, ok := rm.basenameToPath[lower]; ok {
 			id := rm.pathToID[path]
@@ -284,7 +284,8 @@ func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps
 
 // resolvePathTarget tries to find a file by path in pathSet, falling back to asset then phantom.
 func resolvePathTarget(db dbExecer, resolved string, link linkOccur, rm *resolveMaps) (int64, string, error) {
-	lower := strings.ToLower(resolved)
+	normalized := NormalizePath(resolved)
+	lower := strings.ToLower(normalized)
 	// 1. note exact path
 	if actualPath, ok := rm.pathSet[lower]; ok {
 		id := rm.pathToID[actualPath]
@@ -301,7 +302,7 @@ func resolvePathTarget(db dbExecer, resolved string, link linkOccur, rm *resolve
 		return id, link.subpath, nil
 	}
 	// 4. phantom fallback (D10: only strip .md extension)
-	name := filepath.Base(resolved)
+	name := filepath.Base(normalized)
 	if strings.HasSuffix(strings.ToLower(name), ".md") {
 		name = name[:len(name)-3]
 	}

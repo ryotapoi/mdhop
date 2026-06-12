@@ -58,16 +58,17 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		files = append(files, addFile{path: np})
 	}
 
+	// Build maps from DB + save oldBasenameCounts copy. The maps normalize
+	// existing DB paths, so they also catch pre-v0.12 NFD index rows.
+	rm, err := buildMapsFromDB(db)
+	if err != nil {
+		return nil, err
+	}
+
 	// Check that no file is already registered.
 	for _, f := range files {
-		key := noteKey(f.path)
-		var id int64
-		err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'note'", key).Scan(&id)
-		if err == nil {
+		if _, ok := rm.pathToID[f.path]; ok {
 			return nil, fmt.Errorf("%w: %s", ErrFileAlreadyRegistered, f.path)
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
 		}
 	}
 
@@ -83,11 +84,6 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		files[i].mtime = info.ModTime().Unix()
 	}
 
-	// Build maps from DB + save oldBasenameCounts copy.
-	rm, err := buildMapsFromDB(db)
-	if err != nil {
-		return nil, err
-	}
 	oldBasenameCounts := make(map[string]int, len(rm.basenameCounts))
 	for k, v := range rm.basenameCounts {
 		oldBasenameCounts[k] = v

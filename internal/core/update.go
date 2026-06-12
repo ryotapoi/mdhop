@@ -1,8 +1,6 @@
 package core
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +30,11 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	}
 	defer db.Close()
 
+	rm, err := buildMapsFromDB(db)
+	if err != nil {
+		return nil, err
+	}
+
 	// Normalize and deduplicate input paths, collect node info for validation.
 	type fileInfo struct {
 		id   int64
@@ -47,17 +50,11 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		}
 		seen[np] = true
 
-		key := noteKey(np)
-		var id int64
-		var name, path string
-		err := db.QueryRow("SELECT id, name, path FROM nodes WHERE node_key = ? AND type = 'note'", key).Scan(&id, &name, &path)
-		if errors.Is(err, sql.ErrNoRows) {
+		id, ok := rm.pathToID[np]
+		if !ok {
 			return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, f)
 		}
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, fileInfo{id: id, name: name, path: np})
+		files = append(files, fileInfo{id: id, name: basename(np), path: np})
 	}
 
 	// Check disk existence for each file.
@@ -80,12 +77,6 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 				diskMtime:    info.ModTime().Unix(),
 			})
 		}
-	}
-
-	// Build in-memory maps from DB (mirrors build's Pass 1).
-	rm, err := buildMapsFromDB(db)
-	if err != nil {
-		return nil, err
 	}
 
 	// Adjust maps to reflect post-update vault state.
@@ -247,6 +238,7 @@ func buildMapsFromDB(db dbExecer) (*resolveMaps, error) {
 		if err := rows.Scan(&id, &path); err != nil {
 			return nil, err
 		}
+		path = NormalizePath(path)
 		rm.pathToID[path] = id
 
 		rel := strings.ToLower(path)
@@ -277,6 +269,7 @@ func buildMapsFromDB(db dbExecer) (*resolveMaps, error) {
 		if err := arows.Scan(&id, &path); err != nil {
 			return nil, err
 		}
+		path = NormalizePath(path)
 		rm.assetPathToID[path] = id
 		rm.assetPathSet[strings.ToLower(path)] = path
 

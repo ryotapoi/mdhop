@@ -90,7 +90,7 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 	}
 
 	// Try note by basename (case-insensitive), with root-priority (ADR 0004).
-	lower := strings.ToLower(name)
+	lower := strings.ToLower(normalizeTextNFC(name))
 	noteMatches, err := queryBasenameMatches(db, NodeTypeNote, lower)
 	if err != nil {
 		return 0, NodeInfo{}, err

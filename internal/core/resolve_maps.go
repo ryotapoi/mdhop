@@ -26,6 +26,7 @@ type resolveMaps struct {
 // pathToID is NOT modified — caller sets it after DB insert.
 // path must be NormalizePath'd. Maps must be initialized (non-nil).
 func (rm *resolveMaps) addNote(path string) {
+	path = NormalizePath(path)
 	rel := strings.ToLower(path)
 	rm.pathSet[rel] = path
 	noExt := strings.TrimSuffix(path, filepath.Ext(path))
@@ -42,6 +43,7 @@ func (rm *resolveMaps) addNote(path string) {
 // NOTE: removeNote deletes pathToID but addNote does NOT set it — this is intentional.
 // path must be NormalizePath'd. Maps must be initialized (non-nil).
 func (rm *resolveMaps) removeNote(path string) {
+	path = NormalizePath(path)
 	delete(rm.pathToID, path)
 	rel := strings.ToLower(path)
 	delete(rm.pathSet, rel)
@@ -61,6 +63,7 @@ func (rm *resolveMaps) removeNote(path string) {
 // increments assetBasenameCounts, and updates assetRootBasenameToPath if root file.
 // assetPathToID is NOT modified — caller sets it after DB insert.
 func (rm *resolveMaps) addAsset(path string) {
+	path = NormalizePath(path)
 	rm.assetPathSet[strings.ToLower(path)] = path
 	abk := assetBasenameKey(path)
 	rm.assetBasenameCounts[abk]++
@@ -72,6 +75,7 @@ func (rm *resolveMaps) addAsset(path string) {
 // removeAsset removes path from assetPathToID, assetPathSet,
 // decrements assetBasenameCounts (deletes entry if zero), and removes assetRootBasenameToPath if root file.
 func (rm *resolveMaps) removeAsset(path string) {
+	path = NormalizePath(path)
 	delete(rm.assetPathToID, path)
 	delete(rm.assetPathSet, strings.ToLower(path))
 	abk := assetBasenameKey(path)
@@ -148,6 +152,7 @@ func buildNoteResolveMaps(files []string) noteResolveMaps {
 	btp := make(map[string]string)
 	rbtp := make(map[string]string)
 	for _, rel := range files {
+		rel = NormalizePath(rel)
 		bk := basenameKey(rel)
 		if counts[bk] == 1 {
 			btp[bk] = rel
@@ -158,6 +163,7 @@ func buildNoteResolveMaps(files []string) noteResolveMaps {
 	}
 	ps := make(map[string]string)
 	for _, rel := range files {
+		rel = NormalizePath(rel)
 		ps[strings.ToLower(rel)] = rel
 		noExt := strings.TrimSuffix(rel, filepath.Ext(rel))
 		ps[strings.ToLower(noExt)] = rel
@@ -184,6 +190,7 @@ func buildAssetResolveMaps(assetFiles []string) assetResolveMaps {
 	btp := make(map[string]string)
 	rbtp := make(map[string]string)
 	for _, rel := range assetFiles {
+		rel = NormalizePath(rel)
 		abk := assetBasenameKey(rel)
 		if counts[abk] == 1 {
 			btp[abk] = rel
@@ -194,6 +201,7 @@ func buildAssetResolveMaps(assetFiles []string) assetResolveMaps {
 	}
 	ps := make(map[string]string)
 	for _, rel := range assetFiles {
+		rel = NormalizePath(rel)
 		ps[strings.ToLower(rel)] = rel
 	}
 	return assetResolveMaps{

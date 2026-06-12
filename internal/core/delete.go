@@ -1,8 +1,6 @@
 package core
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +29,11 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	}
 	defer db.Close()
 
+	rm, err := buildMapsFromDB(db)
+	if err != nil {
+		return nil, err
+	}
+
 	// Phase 1: Normalize, deduplicate input paths, and collect node info for validation.
 	type nodeInfo struct {
 		id      int64
@@ -47,27 +50,15 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 		}
 		seen[np] = true
 		// Try note first, then asset.
-		key := noteKey(np)
-		var id int64
-		var name, path string
-		err := db.QueryRow("SELECT id, name, path FROM nodes WHERE node_key = ? AND type = 'note'", key).Scan(&id, &name, &path)
-		if errors.Is(err, sql.ErrNoRows) {
-			// Fallback to asset.
-			key = assetKey(np)
-			err = db.QueryRow("SELECT id, name, path FROM nodes WHERE node_key = ? AND type = 'asset'", key).Scan(&id, &name, &path)
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, f)
-			}
-			if err != nil {
-				return nil, err
-			}
-			nodes = append(nodes, nodeInfo{id: id, name: name, path: np, isAsset: true})
+		if id, ok := rm.pathToID[np]; ok {
+			nodes = append(nodes, nodeInfo{id: id, name: basename(np), path: np})
 			continue
 		}
-		if err != nil {
-			return nil, err
+		if id, ok := rm.assetPathToID[np]; ok {
+			nodes = append(nodes, nodeInfo{id: id, name: filepath.Base(np), path: np, isAsset: true})
+			continue
 		}
-		nodes = append(nodes, nodeInfo{id: id, name: name, path: np})
+		return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, f)
 	}
 
 	// Phase 2: disk operations.

@@ -88,7 +88,7 @@ func validateFrontmatterPathEdges(db dbExecer, rm *resolveMaps, movedFromTo map[
 // the value would become a phantom). Mirrors the path branches of
 // resolveLink (build.go); keep the two in sync.
 func resolveFrontmatterPathDry(sourcePath string, link linkOccur, rm *resolveMaps) (string, error) {
-	target := link.target
+	target := normalizeTextNFC(link.target)
 	if link.isRelative {
 		if escapesVault(sourcePath, target) {
 			return "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
@@ -123,7 +123,7 @@ func resolveFrontmatterPathDry(sourcePath string, link linkOccur, rm *resolveMap
 // lookupPathDry resolves a normalized vault-relative path against the maps:
 // note exact, note + ".md", then asset exact. Returns "" if nothing matches.
 func lookupPathDry(resolved string, rm *resolveMaps) string {
-	lower := strings.ToLower(resolved)
+	lower := strings.ToLower(NormalizePath(resolved))
 	if p, ok := rm.pathSet[lower]; ok {
 		return p
 	}

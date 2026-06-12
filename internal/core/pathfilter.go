@@ -8,7 +8,7 @@ import (
 // validateGlobPatterns checks that none of the patterns use unsupported character classes.
 func validateGlobPatterns(patterns []string) error {
 	for _, p := range patterns {
-		if strings.Contains(p, "[") {
+		if strings.Contains(NormalizePath(p), "[") {
 			return fmt.Errorf("unsupported glob pattern (character class): %s", p)
 		}
 	}
@@ -21,7 +21,7 @@ func globOrSQL(alias string, patterns []string) (string, []any) {
 	var args []any
 	for _, p := range patterns {
 		parts = append(parts, alias+" GLOB ?")
-		args = append(args, p)
+		args = append(args, NormalizePath(p))
 	}
 	return strings.Join(parts, " OR "), args
 }

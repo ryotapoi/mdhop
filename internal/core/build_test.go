@@ -134,6 +134,46 @@ func TestBuildCreatesDB(t *testing.T) {
 	}
 }
 
+func TestBuildNormalizesUnicodePathsToNFC(t *testing.T) {
+	vault := t.TempDir()
+	// Disk path uses NFD: "Cafe" + combining acute accent.
+	nfdPath := "Cafe\u0301.md"
+	// Link text and expected DB path use NFC: precomposed "é".
+	nfcPath := "Caf\u00e9.md"
+	if err := os.WriteFile(filepath.Join(vault, nfdPath), []byte("# Cafe\n"), 0o644); err != nil {
+		t.Fatalf("write NFD note: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Ref.md"), []byte("[[Caf\u00e9]]\n"), 0o644); err != nil {
+		t.Fatalf("write ref: %v", err)
+	}
+
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	notes := queryNodes(t, dbPath(vault), NodeTypeNote)
+	var found bool
+	for _, n := range notes {
+		if n.path == nfcPath {
+			found = true
+		}
+		if n.path == nfdPath {
+			t.Fatalf("stored NFD path %q, want NFC", n.path)
+		}
+	}
+	if !found {
+		t.Fatalf("NFC path %q not stored; notes=%+v", nfcPath, notes)
+	}
+
+	edges := queryEdges(t, dbPath(vault), "Ref.md")
+	if len(edges) != 1 {
+		t.Fatalf("Ref.md edges = %+v, want one edge", edges)
+	}
+	if edges[0].targetType != NodeTypeNote || edges[0].targetKey != noteKey(nfcPath) {
+		t.Fatalf("edge target = %s/%s, want note %s", edges[0].targetType, edges[0].targetKey, noteKey(nfcPath))
+	}
+}
+
 func TestBuildEmptyVaultCreatesDB(t *testing.T) {
 	vault := copyVault(t, "vault_build_empty")
 	if _, err := Build(vault); err != nil {

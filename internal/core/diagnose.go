@@ -107,7 +107,7 @@ func basenameConflicts(db dbExecer, nodeType NodeType, allowed map[int64]bool) (
 		if err := rows.Scan(&id, &name, &path); err != nil {
 			return nil, err
 		}
-		key := strings.ToLower(name)
+		key := strings.ToLower(normalizeTextNFC(name))
 		if _, exists := groups[key]; !exists {
 			order = append(order, key)
 		}

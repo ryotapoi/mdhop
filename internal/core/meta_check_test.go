@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -32,6 +34,31 @@ func TestMetaCheck_PathKind(t *testing.T) {
 	}
 	if is.SourcePath != "docs/index.md" || is.Key != "sources" {
 		t.Errorf("issue source/key = %s/%s, want docs/index.md/sources", is.SourcePath, is.Key)
+	}
+}
+
+func TestMetaCheckResolvesNFCValueToNFDPath(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "Cafe\u0301.md"), []byte("# Cafe\n"), 0o644); err != nil {
+		t.Fatalf("write NFD note: %v", err)
+	}
+	note := "---\nsources:\n  - Caf\u00e9.md\n---\n"
+	if err := os.WriteFile(filepath.Join(vault, "Index.md"), []byte(note), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MetaCheck(vault, MetaCheckOptions{
+		Keys: []string{"sources"},
+		Kind: MetaKindPath,
+	})
+	if err != nil {
+		t.Fatalf("meta-check: %v", err)
+	}
+	if len(result.Issues) != 0 {
+		t.Fatalf("issues = %+v, want none", result.Issues)
 	}
 }
 

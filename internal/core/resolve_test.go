@@ -51,6 +51,40 @@ func TestResolveWikilinkBasename(t *testing.T) {
 	}
 }
 
+func TestResolveNFCLinkAgainstNFDIndexName(t *testing.T) {
+	vault := t.TempDir()
+	nfdPath := "Cafe\u0301.md"
+	nfcPath := "Caf\u00e9.md"
+	if err := os.WriteFile(filepath.Join(vault, nfdPath), []byte("# Cafe\n"), 0o644); err != nil {
+		t.Fatalf("write NFD note: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Ref.md"), []byte("[[Caf\u00e9]]\n"), 0o644); err != nil {
+		t.Fatalf("write ref: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	db := openTestDB(t, dbPath(vault))
+	_, err := db.Exec(
+		"UPDATE nodes SET node_key = ?, path = ?, name = ? WHERE node_key = ?",
+		"note:path:"+nfdPath, nfdPath, "Cafe\u0301", noteKey(nfcPath),
+	)
+	if err != nil {
+		db.Close()
+		t.Fatalf("simulate pre-v0.12 NFD row: %v", err)
+	}
+	db.Close()
+
+	res, err := Resolve(vault, "Ref.md", "[[Caf\u00e9]]")
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if res.Type != NodeTypeNote || normalizeTextNFC(res.Path) != nfcPath {
+		t.Fatalf("resolved = %+v, want note path %s", res, nfcPath)
+	}
+}
+
 func TestResolveWikilinkVaultRelative(t *testing.T) {
 	vault := copyVaultForResolve(t, "vault_build_full")
 	buildVault(t, vault)

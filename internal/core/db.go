@@ -184,19 +184,19 @@ func upsertAsset(db dbExecer, path, name string, mtime int64) (int64, error) {
 }
 
 func noteKey(path string) string {
-	return fmt.Sprintf("note:path:%s", path)
+	return fmt.Sprintf("note:path:%s", NormalizePath(path))
 }
 
 func assetKey(path string) string {
-	return fmt.Sprintf("asset:path:%s", path)
+	return fmt.Sprintf("asset:path:%s", NormalizePath(path))
 }
 
 func tagKey(name string) string {
-	return fmt.Sprintf("tag:name:%s", strings.ToLower(name))
+	return fmt.Sprintf("tag:name:%s", strings.ToLower(normalizeTextNFC(name)))
 }
 
 func phantomKey(name string) string {
-	return fmt.Sprintf("phantom:name:%s", strings.ToLower(name))
+	return fmt.Sprintf("phantom:name:%s", strings.ToLower(normalizeTextNFC(name)))
 }
 
 func upsertPhantom(db dbExecer, name string) (int64, error) {
