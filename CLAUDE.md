@@ -68,7 +68,7 @@ go build -o bin/mdhop ./cmd/mdhop      # CLI 動作確認用バイナリ
 ## ドキュメント管理
 
 - 同じ情報を複数のドキュメントに書かない。各情報の置き場所は1箇所に限定する（DRY / SSoT は `rules/information-management.md` 参照）
-- `.claude/`・`CLAUDE.md`（Claude 側）と `.agents/`・`AGENTS.md`（Codex 側）は、方針・ルールの内容を一致させる。形式は各側の流儀（`.agents/` は ICAR）に合わせてよいが、`skills/mdhop-risk-check/SKILL.md` は同一内容を保つ。片方を変更したら、同じコミットで他方にも反映する
+- `.claude/`・`CLAUDE.md`（Claude 側）と `.agents/`・`AGENTS.md`（Codex 側）は、目的・制約・判断基準の方向性を揃える。subagent、review delegation、tool 呼び出し、skill / workflow の実行手順は各エージェントの仕組みに合わせてよい。共有方針を片方で変更したら、同じコミットで他方にも反映する
 - 新しいスキルやファイルを作成したら、同じステップで `.claude/settings.json` 等への登録も行う
 - 技術的な知見・ハマりどころは `references/knowledge.md` に集約する
 

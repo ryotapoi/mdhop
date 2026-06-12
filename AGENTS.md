@@ -68,7 +68,7 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 
 ## Synchronization
 
-- `.claude/`・`CLAUDE.md`（Claude 側）と `.agents/`・`AGENTS.md`（Codex 側）は、方針・ルールの内容を一致させる。形式は各側の流儀（`.agents/` は ICAR）に合わせてよいが、`skills/mdhop-risk-check/SKILL.md` は同一内容を保つ。片方を変更したら、同じコミットで他方にも反映する。
+- `.claude/`・`CLAUDE.md`（Claude 側）と `.agents/`・`AGENTS.md`（Codex 側）は、目的・制約・判断基準の方向性を揃える。subagent、review delegation、tool 呼び出し、skill / workflow の実行手順は各エージェントの仕組みに合わせてよい。共有方針を片方で変更したら、同じコミットで他方にも反映する。
 
 ## mdhop Constraints
 
