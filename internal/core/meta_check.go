@@ -2,6 +2,8 @@ package core
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -117,7 +119,7 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 		if !keySet[key] {
 			continue
 		}
-		if issue, ok := checkMetaValue(srcPath, key, value, opts.Kind, rm); ok {
+		if issue, ok := checkMetaValue(vaultPath, srcPath, key, value, opts.Kind, rm); ok {
 			result.Issues = append(result.Issues, issue)
 		}
 	}
@@ -126,7 +128,7 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 
 // checkMetaValue resolves a single value and returns a MetaIssue if it fails.
 // ok is false when the value is valid or intentionally skipped (URL/empty).
-func checkMetaValue(srcPath, key, value string, kind MetaValueKind, rm *resolveMaps) (MetaIssue, bool) {
+func checkMetaValue(vaultPath, srcPath, key, value string, kind MetaValueKind, rm *resolveMaps) (MetaIssue, bool) {
 	v := strings.TrimSpace(value)
 	if v == "" || strings.Contains(v, "://") {
 		return MetaIssue{}, false // empty or URL: allowed
@@ -144,6 +146,16 @@ func checkMetaValue(srcPath, key, value string, kind MetaValueKind, rm *resolveM
 		}
 		occ = links[0]
 	default: // MetaKindPath
+		if strings.HasSuffix(v, "/") {
+			if ok, escaped := directoryMetaValueExists(vaultPath, srcPath, v); ok {
+				return MetaIssue{}, false
+			} else if escaped {
+				issue.Reason = ReasonVaultEscape
+				return issue, true
+			}
+			issue.Reason = ReasonNotFound
+			return issue, true
+		}
 		var ok bool
 		occ, ok = frontmatterPathOccur(v, 0)
 		if !ok {
@@ -169,4 +181,22 @@ func checkMetaValue(srcPath, key, value string, kind MetaValueKind, rm *resolveM
 		return issue, true
 	}
 	return MetaIssue{}, false
+}
+
+func directoryMetaValueExists(vaultPath, srcPath, value string) (exists bool, escaped bool) {
+	target := normalizeTextNFC(value)
+	var resolved string
+	if isRelativePath(target) {
+		if escapesVault(srcPath, target) {
+			return false, true
+		}
+		resolved = NormalizePath(filepath.Join(filepath.Dir(srcPath), target))
+	} else {
+		if pathEscapesVault(target) {
+			return false, true
+		}
+		resolved = NormalizePath(strings.TrimPrefix(target, "/"))
+	}
+	info, err := os.Stat(filepath.Join(vaultPath, resolved))
+	return err == nil && info.IsDir(), false
 }

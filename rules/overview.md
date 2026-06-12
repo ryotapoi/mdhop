@@ -322,6 +322,7 @@ meta:
   - 任意: `--vault`, `--format`, `--kind`, `--path`, `--exclude`
   - 補足: 指定 key の frontmatter 値が vault 内 path / wikilink として実在するかを検査し、解決できない値を `issues` として返す
   - 補足: `--kind path`（既定）は値を raw path として解釈（markdown link と同じ解決規則: `./` `../` は note 起点、`/` 含みは vault 相対、なしは basename 解決）。`--kind wikilink` は `[[...]]` として解釈する
+  - 補足: `--kind path` で値が末尾 `/` の場合はディレクトリ参照として扱い、ディスク上に実在するディレクトリなら issue にしない。存在しない場合は `not_found`
   - 補足: 値はリスト・スカラーを問わず meta テーブルで値ごとに展開済みのため、`--kind` に list / scalar の区別はない
   - 補足: URL 値（`://` を含む）と空値は許可（issue にしない）。`reason` は `not_found` / `ambiguous`（basename 多重解決）/ `vault_escape` / `not_wikilink`（`--kind wikilink` で `[[...]]` でない）
   - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ。`mdhop.yaml` の `exclude` 設定は適用されない）

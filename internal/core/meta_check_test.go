@@ -62,6 +62,45 @@ func TestMetaCheckResolvesNFCValueToNFDPath(t *testing.T) {
 	}
 }
 
+func TestMetaCheckPathKindDirectoryReferences(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "docs", "assets"), 0o755); err != nil {
+		t.Fatalf("mkdir assets: %v", err)
+	}
+	note := "---\nsources:\n  - ./assets/\n  - ./missing-dir/\n  - docs\n---\n"
+	if err := os.WriteFile(filepath.Join(vault, "docs", "Index.md"), []byte(note), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MetaCheck(vault, MetaCheckOptions{
+		Keys: []string{"sources"},
+		Kind: MetaKindPath,
+	})
+	if err != nil {
+		t.Fatalf("meta-check: %v", err)
+	}
+
+	if len(result.Issues) != 2 {
+		t.Fatalf("issues = %+v, want 2", result.Issues)
+	}
+	got := map[string]MetaIssueReason{}
+	for _, issue := range result.Issues {
+		got[issue.Value] = issue.Reason
+	}
+	if got["./missing-dir/"] != ReasonNotFound {
+		t.Fatalf("missing dir issue = %v, want not_found; issues=%+v", got["./missing-dir/"], result.Issues)
+	}
+	if got["docs"] != ReasonNotFound {
+		t.Fatalf("docs without slash issue = %v, want existing non-directory behavior not_found; issues=%+v", got["docs"], result.Issues)
+	}
+	if _, ok := got["./assets/"]; ok {
+		t.Fatalf("existing directory reported as issue: %+v", result.Issues)
+	}
+}
+
 func TestMetaCheck_WikilinkKind(t *testing.T) {
 	vault := setupMetaCheckVault(t)
 
