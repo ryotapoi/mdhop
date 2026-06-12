@@ -69,7 +69,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 
 最新の Codex / Claude 形式の skill 例は [`examples/skills/mdhop`](examples/skills/mdhop) にある。構造的なノート探索、メタデータフィルタ、Vault 全体検索、ファイル操作 workflow をまとめている。
 
-最近追加された例（path filter、到達性チェック、グラフ出力、frontmatter 検査）:
+最近追加された例（path filter、到達性チェック、グラフ出力、frontmatter 検査、範囲指定 repair）:
 
 ```bash
 # frontmatter key を持たないノート
@@ -84,8 +84,13 @@ mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status 
 # 見出し anchor 切れ検出を有効化（--fields anchors は anchors のみ出力）
 mdhop diagnose --path "projects/*" --fields anchors --format json
 
-# frontmatter の参照値が解決するか、schema に準拠するかを検査
+# frontmatter の参照値が解決するかを検査（末尾 / のディレクトリ参照も対応）
 mdhop meta-check --key sources --kind path --format json
+
+# 指定範囲の source note だけを repair 対象として preview
+mdhop repair --path "docs/*" --dry-run --format json
+
+# frontmatter が schema に準拠するかを検査
 mdhop meta-validate --require status --require updated --format json
 
 # 入口 note から到達できる / できない note と最短経路

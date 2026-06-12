@@ -92,6 +92,7 @@ mdhop diagnose --fields anchors --format json
 
 ```bash
 # Do frontmatter reference values resolve to real targets?
+# Path values ending in / are checked as directory references.
 mdhop meta-check --key sources --kind path --format json
 mdhop meta-check --key related --kind wikilink --format json
 

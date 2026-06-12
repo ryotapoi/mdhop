@@ -71,7 +71,7 @@ Run `mdhop <command> --help` for command-specific details.
 
 An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdhop`](examples/skills/mdhop). It covers structural note navigation, metadata filtering, vault-wide search, and file operation workflows.
 
-Recent examples (path filters, reachability, graph export, frontmatter checks):
+Recent examples (path filters, reachability, graph export, frontmatter checks, scoped repair):
 
 ```bash
 # Notes missing a frontmatter key
@@ -86,8 +86,13 @@ mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status 
 # Opt in to broken heading anchor detection (only anchors with --fields anchors)
 mdhop diagnose --path "projects/*" --fields anchors --format json
 
-# Check that frontmatter reference values resolve, and conform to the schema
+# Check that frontmatter reference values resolve, including directory values ending in /
 mdhop meta-check --key sources --kind path --format json
+
+# Preview repair only for a scoped source-note set
+mdhop repair --path "docs/*" --dry-run --format json
+
+# Check that frontmatter conforms to the schema
 mdhop meta-validate --require status --require updated --format json
 
 # Notes reachable / unreachable from an entry note, with shortest routes
