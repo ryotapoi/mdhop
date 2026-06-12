@@ -25,6 +25,6 @@ We will adopt Option A. `NormalizePath` を NFC 正規化の入口にし、DB no
 ## Consequences
 
 - 肯定的: NFD 実ファイル名と NFC 参照が混在しても、index 上は NFC path として 1 ノードに寄る。
-- 肯定的: `resolve` / `meta-check` / `add` / `update` / `delete` / `move` の path 比較が同じ正規化前提になる。
+- 肯定的: `resolve` / `meta-check` / `add` / `update` / `delete` / `move` の path 比較が同じ正規化前提になる。旧 index の NFD 行は incremental コマンドの resolve map 経由では救済されるが、source lookup や DB の path 直検索まで完全移行するには `build` 再実行が必要。
 - 否定的: `internal/core` の外部依存に `golang.org/x/text` が増える。
 - 中立的: 既存 DB の NFD 保存値はマイグレーションせず、`build` 再実行で NFC 保存値へ移行する。

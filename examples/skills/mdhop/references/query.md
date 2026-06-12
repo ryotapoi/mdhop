@@ -551,6 +551,7 @@ Check that the values of given frontmatter keys resolve to a real path or wikili
 ### Behavior
 
 - `--kind path` (default) interprets values as raw paths, using markdown-link resolution: `./` / `../` note-relative, a value containing `/` vault-relative, a bare name basename-resolved
+- With `--kind path`, values ending in `/` are treated as directory references; an existing directory is valid, and a missing directory is reported as `not_found`
 - `--kind wikilink` interprets values as `[[...]]`
 - List and scalar values are already expanded per value in the `meta` table, so there is no list/scalar distinction
 - URL values (containing `://`) and empty values are allowed (not reported)

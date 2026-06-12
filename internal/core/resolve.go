@@ -239,8 +239,9 @@ type basenameMatch struct {
 }
 
 // queryBasenameMatches queries nodes of the given type matching a lowercase
-// NFC name. The comparison is done in Go, not SQL, so pre-v0.12 NFD index rows
-// are still found by NFC input.
+// NFC basename. The comparison is done in Go, not SQL, so pre-v0.12 NFD index
+// rows are still found by basename input. Path/source lookups are migrated by
+// rebuilding the index.
 func queryBasenameMatches(db dbExecer, nodeType NodeType, lowerName string) ([]basenameMatch, error) {
 	rows, err := db.Query(
 		`SELECT id, name, path FROM nodes WHERE type=?`,

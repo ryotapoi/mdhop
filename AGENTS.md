@@ -74,7 +74,7 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 
 - `cmd/mdhop` は CLI 入出力とフラグ解析を担い、DB 操作・リンクパース・パス解決は `internal/core` に置く。
 - `internal/core` は `cmd/mdhop` に依存しない。
-- `internal/core` の外部ライブラリは `modernc.org/sqlite` と `gopkg.in/yaml.v3` を基本とする。
+- `internal/core` の外部ライブラリは `modernc.org/sqlite`、`gopkg.in/yaml.v3`、`golang.org/x/text/unicode/norm` を基本とする（NFC path 正規化は ADR 0020）。
 - DB に Markdown 本文 TEXT を保存しない。スニペットは query 時にファイルから切り出す。
 - 曖昧解決は静かに誤解決しない。厳密モードとルート優先ルールを守る。
 - stdout JSON は agent 向け安定インターフェースとして扱う。warnings 等の付加情報は stderr に出す。
