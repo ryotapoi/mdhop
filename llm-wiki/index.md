@@ -31,7 +31,7 @@ AI が編纂・保守する mdhop の作業の入口。**正本ではない** �
 | [05-output-contract.md](05-output-contract.md) | compiled | stdout JSON / stderr の出力契約ガイド | `cmd/mdhop/format*.go` |
 | [06-resolve-rewrite.md](06-resolve-rewrite.md) | compiled | リンク解決〜リライトの編纂ガイド（変更時の読む場所） | `internal/core/{parse,resolve,rewrite}.go` |
 
-外部知見（`regen: none`）の常設ファイルは現状ない。単一の `knowledge.md` には集約しない方針: 特定の関数/ファイルだけに効く罠はそのソースのコメントに置き、複数箇所にまたがる挙動・設計理解は上の地図へ統合する。どちらにも収まらない外部由来の知見（ライブラリ仕様の罠・実測ログ等）が出たら、その時はテーマ別の `regen: none` ページを個別に立てる。
+外部知見（`regen: none`）の常設ファイルは現状ない。単一ファイルに何でも集約はしない方針: 特定の関数/ファイルだけに効く罠はそのソースのコメントに置き、複数箇所にまたがる挙動・設計理解は上の地図へ統合する。どちらにも収まらない外部由来の知見（ライブラリ仕様の罠・実測ログ等）が出たら、その時はテーマ別の `regen: none` ページを個別に立てる。
 
 ## 使い方
 
