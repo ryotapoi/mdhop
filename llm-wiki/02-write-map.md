@@ -27,7 +27,7 @@ sources:
 # 書き込み系コマンドの破壊性・波及マップ
 
 ディスク / DB を変更するコマンドの「何を書き換えるか」「破壊的か」「波及範囲」の早見表。
-エッジケースの実測は `llm-wiki/knowledge.md` を参照。ルール原則は `docs/rules/information-management.md`。
+エッジケースの実測値・罠は、各コマンドの実装コード（`internal/core/`）のコメントに置く。ルール原則は `docs/rules/information-management.md`。
 
 ---
 

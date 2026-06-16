@@ -83,6 +83,10 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	for _, cf := range classified {
 		if !cf.existsOnDisk {
 			// Only adjust maps if the file was present in them.
+			// removeNote decrements basenameCounts for the deleted file; if a
+			// root-level file is removed and only one file with that basename
+			// remains, the basename becomes unambiguous and links that were
+			// previously rejected can now resolve.
 			if _, ok := rm.pathToID[cf.path]; ok {
 				rm.removeNote(cf.path)
 			}

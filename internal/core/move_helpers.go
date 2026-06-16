@@ -378,6 +378,9 @@ func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMap
 
 // collectCollateralRewritesForDir finds basename links to non-moved nodes whose
 // resolution flips because of root-priority changes after the directory move.
+// In a pure directory rename, file basenames are unchanged so basenameCounts stay
+// constant; collateral rewrites still fire when a file moves between a
+// subdirectory and the vault root (changing hasRootInPathSet).
 func collectCollateralRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMaps) ([]rewriteEntry, error) {
 	rm := dm.rm
 	var collateralRewrites []rewriteEntry
@@ -569,6 +572,8 @@ func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string) (string, 
 
 // queryCollateralRewrites finds basename links to non-moved nodes of the given type
 // that need rewriting due to root-priority changes.
+// The JOIN condition tn.exists_flag = 1 excludes phantom nodes (path=NULL), which
+// have no disk content to rewrite.
 func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
 	rows, err := db.Query(fmt.Sprintf(
 		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
@@ -627,7 +632,9 @@ func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to str
 		// Resolve from old location.
 		resolvedTarget := NormalizePath(filepath.Join(filepath.Dir(from), inner))
 
-		// Check if target is also being moved.
+		// Check if target is also being moved. movedFromTo keys are vault-relative
+		// paths with .md extension (as stored in DB), but wikilink targets resolve
+		// without .md, so check both forms and strip .md when matching the bare form.
 		if movedFromTo != nil {
 			if newTarget, ok := movedFromTo[resolvedTarget]; ok {
 				resolvedTarget = newTarget

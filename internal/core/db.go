@@ -83,6 +83,10 @@ func ensureDataDir(vaultPath string) (string, error) {
 	return dir, nil
 }
 
+// openDBAt opens the SQLite database at path. Do not append URI query
+// parameters (e.g. "?mode=ro") to path: the "file:%s" format embeds path
+// verbatim, so query parameters are treated as part of the filename rather
+// than SQLite URI options, silently opening (or creating) the wrong file.
 func openDBAt(path string) (*sql.DB, error) {
 	return sql.Open("sqlite", fmt.Sprintf("file:%s", path))
 }
@@ -166,7 +170,8 @@ func upsertNode(db dbExecer, key string, typ NodeType, name, path string, mtime 
 		return 0, err
 	}
 	if id == 0 {
-		// ON CONFLICT updated — fetch the existing ID.
+		// modernc.org/sqlite returns 0 from LastInsertId() on ON CONFLICT DO
+		// UPDATE (the row is updated, not inserted). Fall back to a SELECT.
 		row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", key)
 		if err := row.Scan(&id); err != nil {
 			return 0, err
@@ -210,6 +215,10 @@ func upsertPhantom(db dbExecer, name string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	// modernc.org/sqlite returns the previous INSERT's rowid (not 0) from
+	// LastInsertId() on ON CONFLICT DO NOTHING, so it cannot tell whether the
+	// row was actually inserted. Check RowsAffected() first; only trust
+	// LastInsertId() when exactly one row was inserted.
 	n, err := res.RowsAffected()
 	if err != nil {
 		return 0, err
@@ -230,6 +239,9 @@ func upsertPhantom(db dbExecer, name string) (int64, error) {
 	return id, nil
 }
 
+// upsertTag inserts a tag node. The name column keeps its original case; only
+// node_key is lowercased (via tagKey). Callers comparing n.name must use
+// LOWER(n.name) or strings.ToLower because the stored name retains case.
 func upsertTag(db dbExecer, name string) (int64, error) {
 	key := tagKey(name)
 	res, err := db.Exec(
@@ -241,6 +253,8 @@ func upsertTag(db dbExecer, name string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	// See upsertPhantom: modernc.org/sqlite returns the previous rowid (not 0)
+	// from LastInsertId() on ON CONFLICT DO NOTHING. Check RowsAffected() first.
 	n, err := res.RowsAffected()
 	if err != nil {
 		return 0, err

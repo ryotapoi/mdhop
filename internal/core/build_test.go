@@ -208,6 +208,9 @@ func TestBuildRebuildOverwritesDB(t *testing.T) {
 	}
 }
 
+// vault_build_conflict contains a note with [[A]] (an ambiguous basename link
+// to sub1/A.md and sub2/A.md), so Build intentionally fails here. To test a
+// basename collision *without* an ambiguous link, use a separate fixture.
 func TestBuildFailsOnAmbiguousLink(t *testing.T) {
 	vault := copyVault(t, "vault_build_conflict")
 	_, err := Build(vault)

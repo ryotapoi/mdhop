@@ -9,7 +9,7 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 - **Constraints**:
   - 手続きの重さは作業の大きさとリスクに合わせる。
   - workflow は 1 つの commit 単位で回す。Goal 実行中に 1 commit を超えると分かったら、作業を広げず `goal-workflow` skill に戻って commit 単位を切り直す。
-  - 判断に影響する `docs/rules/`, `docs/decisions/`, `backlog/backlog.md`, `llm-wiki/knowledge.md`, `docs/specs/`（あれば）は推測で済ませず実物を確認する。
+  - 判断に影響する `docs/rules/`, `docs/decisions/`, `backlog/backlog.md`, `llm-wiki/`（作業地図）, `docs/specs/`（あれば）は推測で済ませず実物を確認する。
   - 仕様・CLI 挙動・データ保持・削除方針に関わる判断は、実装で決めず必要ならユーザー確認に回す。
   - コミット後の進み方は Goal 実行中か単発依頼かで分かれる（Goal 実行中は次の 1 commit workflow へ、単発依頼はユーザー指示待ち）。
 - **Acceptance**:

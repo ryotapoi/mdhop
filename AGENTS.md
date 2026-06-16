@@ -34,7 +34,7 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 - `docs/specs/`: ユーザー視点の振る舞い仕様（`overview.md` / `stories.md` / `test-plan.md`）
 - `docs/decisions/`: 後から理由を問われる判断
 - `backlog/backlog.md`: 未着手・進行中の作業項目
-- `llm-wiki/`: AI が編纂・保守する作業の入口（正本ではない。ソース/正本と矛盾したらそちらが勝つ）。`knowledge.md` は技術的な知見・ハマりどころ（`regen: none`）
+- `llm-wiki/`: AI が編纂・保守する作業の入口（正本ではない。ソース/正本と矛盾したらそちらが勝つ）
 
 `docs/` が正本、`llm-wiki/` は正本に負ける作業の入口（各ファイルの `regen` で再生成可否を宣言）。権威による配置の詳細は `docs/rules/information-management.md`。必要な情報だけ読む。判断に影響する可能性がある情報源は、推測で済ませず実物を確認する。
 
@@ -44,7 +44,7 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 - 小さい変更に重い手続きを載せない。作業の大きさとリスクで plan / verify / review の深さを選ぶ。
 - 原則 1 plan = 1 commit。独立した成果が混ざるなら plan を分ける。
 - 仕様・CLI 挙動・データ保持・削除方針に複数の妥当な選択肢がある場合はユーザーに確認する。
-- 技術的知見は `llm-wiki/knowledge.md` に集約する。workflow / skill 本体を肥大化させない。
+- 技術的知見は特定ソースに紐づくものはそのコードのコメントへ、横断的な挙動は `llm-wiki/` の該当地図へ。単一の集約ファイルは作らない。workflow / skill 本体を肥大化させない。
 - 後から制約になる判断は `docs/decisions/` に残す。
 - 広い構造改善は必要に応じて `backlog/backlog.md` または `maintenance.md` の対象へ切り出す。
 - workflow は 1 つの commit 単位で回す。Goal が複数 commit に分かれる場合は `goal-workflow` skill に従って commit 単位へ分けて繰り返す。

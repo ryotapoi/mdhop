@@ -71,7 +71,7 @@ go build -o bin/mdhop ./cmd/mdhop      # CLI 動作確認用バイナリ
 - `.claude/`・`CLAUDE.md`（Claude 側）と `.agents/`・`AGENTS.md`（Codex 側）は、目的・制約・判断基準の方向性を揃える。subagent、review delegation、tool 呼び出し、skill / workflow の実行手順は各エージェントの仕組みに合わせてよい。共有方針を片方で変更したら、同じコミットで他方にも反映する
 - 新しいスキルやファイルを作成したら、同じステップで `.claude/settings.json` 等への登録も行う
 - `docs/` が正本、`llm-wiki/` は正本に負ける AI 編纂の作業入口（各ファイルの `regen` で再生成可否を宣言）。権威による配置は `docs/rules/information-management.md`
-- 技術的な知見・ハマりどころは `llm-wiki/knowledge.md`（`regen: none`）に集約する
+- 技術的な知見・ハマりどころは単一ファイルに集約しない。特定の関数/ファイルだけに効く罠はそのソースのコメントへ、複数箇所にまたがる挙動・設計理解は `llm-wiki/` の該当する地図へ統合する。どちらにも収まらない外部由来の知見が溜まったらテーマ別の `regen: none` ページを立てる
 
 ## 言語
 

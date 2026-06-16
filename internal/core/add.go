@@ -300,7 +300,9 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		result.Added = append(result.Added, pf.file.path)
 	}
 
-	// Phantom → note promotion (root-priority aware).
+	// Phantom → note promotion (root-priority aware). Must run after the note
+	// inserts above: promotePhantom reads rm.pathToID[path] for the realNodeID,
+	// so reordering would pass 0 and break edge reassignment.
 	// When multiple files share a basename, prefer root file for phantom promotion.
 	rootForBasename := make(map[string]string) // bk → root file path
 	for _, pf := range parsed {

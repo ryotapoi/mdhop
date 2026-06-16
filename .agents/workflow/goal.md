@@ -30,7 +30,7 @@
   - `.agents/workflow/default.md`
   - `claude-review-request` skill
   - `backlog/backlog.md`
-  - 関連する `docs/rules/`, `docs/specs/`（あれば）, `docs/decisions/`, `llm-wiki/knowledge.md`
+  - 関連する `docs/rules/`, `docs/specs/`（あれば）, `docs/decisions/`, `llm-wiki/`（作業地図）
 
 ## Flow
 

@@ -25,7 +25,7 @@ sources:
 
 # stdout 出力契約ガイド
 
-CLI の stdout / stderr 分離方針と、JSON 出力の構造的なポイントをまとめる。フィールド仕様の正本は `docs/specs/overview.md`。出力の罠の詳細は `llm-wiki/knowledge.md` の「CLI 出力 (format.go)」セクション参照。
+CLI の stdout / stderr 分離方針と、JSON 出力の構造的なポイントをまとめる。フィールド仕様の正本は `docs/specs/overview.md`。個々のフィールドの実装上の罠は `cmd/mdhop/format*.go` のコメントを参照。
 
 ---
 
@@ -99,7 +99,7 @@ diagnose の phantoms は例外的に map へ `[]string{}` を入れる（nil �
 `format.go:96-110` で定義（type / name / path / exists の 4 フィールド。定義本体は正本を読む）。
 
 - `Path` と `Exists` は `type == note || type == asset` のときのみセットされる
-- `Exists` は `*bool` + `omitempty` — **bool を直接使うと false が JSON から落ちる**（`llm-wiki/knowledge.md` の「CLI 出力」参照）
+- `Exists` は `*bool` + `omitempty` — **bool を直接使うと false が JSON から落ちる**
 - query の entry は常に pointer (`*jsonNodeInfo`) で出力される（nil 不可）
 
 ---

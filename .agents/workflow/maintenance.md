@@ -17,7 +17,7 @@
   - `backlog/backlog.md`
   - 変更が多かったモジュール
   - `docs/rules/architecture.md`
-  - `llm-wiki/knowledge.md`
+  - `llm-wiki/`（作業地図）
 
 ## Use When
 

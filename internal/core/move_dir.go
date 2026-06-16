@@ -82,6 +82,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Allocate a new slice to avoid aliasing incomingRewrites's backing array.
 	allExternalRewrites := make([]rewriteEntry, 0, len(incomingRewrites)+len(collateralRewrites))
 	allExternalRewrites = append(allExternalRewrites, incomingRewrites...)
 	allExternalRewrites = append(allExternalRewrites, collateralRewrites...)

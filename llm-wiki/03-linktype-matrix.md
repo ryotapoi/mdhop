@@ -44,6 +44,8 @@ sources:
 - `parseLinks()` (`parse.go:25`): wikilink / markdown / tag / frontmatter_wikilink / frontmatter を生成
 - `parseLinksWithLinkKeys()` (`parse.go:81`): `parseLinks()` の結果に `frontmatter_path` を追加。build / update / add / move の辺生成サイトで使用
 
+**タグ文字種の非対称**: `parseTags()` (`parse.go:259`) は `isTagRune` (`parse.go:235`) のブラックリストで句読点等を除外するが、`parseFrontmatterTags()` (`parse_frontmatter.go:229`) は YAML スカラー値をそのまま取り込むためブラックリスト対象の句読点も含み得る。`tag` と `frontmatter` で許容文字が揃わないが、実用上は問題にならない。
+
 ADR:
 - frontmatter_wikilink 導入経緯 → `docs/decisions/0013-frontmatter-wikilink-detection.md`
 - frontmatter_path (meta.link_keys) 導入経緯 → `docs/decisions/0014-frontmatter-link-keys.md`

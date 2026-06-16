@@ -15,7 +15,7 @@
 - **Relevant**:
   - ユーザー依頼
   - `backlog/backlog.md` の該当項目
-  - 関連する `docs/rules/`, `docs/decisions/`, `llm-wiki/knowledge.md`, `docs/specs/`（あれば）
+  - 関連する `docs/rules/`, `docs/decisions/`, `llm-wiki/`（作業地図）, `docs/specs/`（あれば）
   - 既存コード、ログ、再現手順
 
 ## Use When
@@ -27,7 +27,7 @@
 
 ## Recording
 
-- 調査結果が将来も効くなら `llm-wiki/knowledge.md` に残す。
+- 調査結果が将来も効くなら、特定ソースに紐づくものはそのコードのコメントへ、横断的な挙動は `llm-wiki/` の該当地図へ残す。
 - 要求や粒度が変わるなら `backlog/backlog.md` に残す。
 - ユーザーに聞いた方が早い GUI / 観察依存の挙動だけ確認する。
 

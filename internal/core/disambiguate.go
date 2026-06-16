@@ -355,6 +355,12 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 			if !isPathLinkType(lo.linkType) {
 				continue
 			}
+			// basenameKey strips any extension, not just .md. This is intentional:
+			// wikilink targets have no extension (e.g. "Note Name"), while path
+			// links like [text](sub/note.md) reduce to the stem ("note"), matching
+			// nameKey (built from opts.Name with .md stripped). Asset filenames
+			// (e.g. "image.png") never reach here because DisambiguateScan only
+			// processes .md sources and nameKey always comes from a note name.
 			if lo.isBasename {
 				// Basename link: check if it matches the target name.
 				if basenameKey(lo.target) != nameKey {

@@ -156,6 +156,11 @@ func restoreBackups(vaultPath string, backups []rewriteBackup) {
 // applyFileRewrites applies rewrite entries to source files on disk.
 // Returns a map of sourceID → new mtime after writing, and backups for rollback.
 // On error during write, restores already-written files (best-effort).
+//
+// When entries carry sourceID=0 (e.g. scan-mode callers with no DB node), all
+// their mtimes collapse onto key 0 in the returned map. This is safe only when
+// the caller discards the mtime map; callers that need per-file mtimes must set
+// sourceID to the real DB node ID.
 func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[int64]int64, []rewriteBackup, error) {
 	newMtimes := make(map[int64]int64)
 

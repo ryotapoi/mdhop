@@ -237,6 +237,7 @@ func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
 		}
 	}
 
+	// Allocate a new slice to avoid aliasing incomingRewrites's backing array.
 	allExternalRewrites := make([]rewriteEntry, 0, len(incomingRewrites)+len(collateralRewrites))
 	allExternalRewrites = append(allExternalRewrites, incomingRewrites...)
 	allExternalRewrites = append(allExternalRewrites, collateralRewrites...)

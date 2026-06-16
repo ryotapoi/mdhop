@@ -884,7 +884,10 @@ func TestAddAutoDisambiguateStaleMtimeErrors(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Tamper with A.md's mtime in DB to simulate stale state.
+	// Tamper with A.md's mtime in DB to simulate stale state. We edit the DB
+	// directly rather than rewriting the file because os.WriteFile within the
+	// same second yields the same Unix mtime, so a file write alone cannot
+	// simulate staleness.
 	db := openTestDB(t, dbPath(vault))
 	if _, err := db.Exec("UPDATE nodes SET mtime = mtime - 100 WHERE path = 'A.md'"); err != nil {
 		db.Close()

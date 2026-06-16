@@ -16,7 +16,7 @@
   - 余計なスコープ拡張がない。
 - **Relevant**:
   - 承認済み plan、または Small 変更の明確な要求
-  - 関連する `docs/rules/`, `llm-wiki/knowledge.md`, `docs/specs/`（あれば）
+  - 関連する `docs/rules/`, `llm-wiki/`（作業地図）, `docs/specs/`（あれば）
   - 変更対象と周辺コード
 
 ## Flow ICAR
@@ -34,10 +34,10 @@
 - **Constraints**:
   - CLI 表面仕様が変わったら `docs/specs/overview.md` と派生ドキュメントの要否を確認する。
   - 完了した backlog 項目があれば `backlog/backlog.md` を更新する。
-  - 技術的知見は `llm-wiki/knowledge.md` に残す。
+  - 技術的知見は特定ソースに紐づくものはそのコードのコメントへ、横断的な挙動は `llm-wiki/` の該当地図へ残す。
   - 後から制約になる判断は `docs/decisions/` に残す。
 - **Acceptance**: 実装差分と情報源が矛盾していない。
-- **Relevant**: `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/knowledge.md`。
+- **Relevant**: `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）。
 
 ## Go Tooling
 
