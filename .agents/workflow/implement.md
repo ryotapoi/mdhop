@@ -34,8 +34,11 @@
 - **Constraints**:
   - CLI 表面仕様が変わったら `docs/specs/overview.md` と派生ドキュメントの要否を確認する。
   - 完了した backlog 項目があれば `backlog/backlog.md` を更新する。
-  - 技術的知見は特定ソースに紐づくものはそのコードのコメントへ、横断的な挙動は `llm-wiki/` の該当地図へ残す。
-  - 後から制約になる判断は `docs/decisions/` に残す。
+  - 今回の変更で `llm-wiki/` が古くなっていないか見て、同じ差分の中で追従する（commit 待ちにしない。更新は review で差分の一部としてレビューされる）。「知見を書く」だけでなく構造そのものの追従を含む:
+    - 索引・地図（`regen: full`）— 例: コマンド追加で `01-command-index.md`、波及・型・helper 対応表。手で恒久編集せず、変わったソースの frontmatter `sources:` を読み直し、古くなった節だけ再生成する。
+    - 概念・ガイド（`regen: compiled`）— 例: リンク解決の経路を変えたら `06-resolve-rewrite.md` の地図を編み直す。同じく sources を読み直して該当箇所を再編纂する。
+    - 外部知見（`regen: none`）— ライブラリの罠・実測など。特定ソースに紐づく罠はそのコードのコメントへ寄せ、llm-wiki には横断的なものだけ手で書く。単一の集約ファイルは作らない。
+  - 後から制約になる判断は `docs/decisions/` に残す。判断基準の正本は `docs/rules/information-management.md`。
 - **Acceptance**: 実装差分と情報源が矛盾していない。
 - **Relevant**: `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）。
 
