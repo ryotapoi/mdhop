@@ -1,0 +1,9 @@
+# mdhop self-index config.
+# Lets `mdhop build` run from the repo root so docs/ and llm-wiki/ link
+# integrity can be checked with mdhop itself (diagnose / reachable).
+# testdata/ and examples/ are independent fixture vaults whose duplicate
+# basenames would otherwise raise ambiguous-link errors; exclude them.
+build:
+  exclude_paths:
+    - testdata/**
+    - examples/**
