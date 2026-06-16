@@ -9,6 +9,7 @@ sources:
   - internal/core/build.go
   - internal/core/disambiguate.go
   - internal/core/move.go
+  - internal/core/simplify.go
   - internal/core/repair.go
   - internal/core/util.go
   - internal/core/errors.go
@@ -150,7 +151,8 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 | `move.go` | move 後の被リンクを書き換え | `move.go:192` `isBasenameRawLink` / `move.go:196` `rewriteRawLink` |
 | `disambiguate.go` | basename → フルパスに書き換え | `disambiguate.go:115` / `disambiguate.go:150` |
 | `disambiguate.go` | scan モード（DB なし） | `disambiguate.go:355` / `disambiguate.go:374` |
-| `repair.go` | 壊れたリンクをパス付きに修正 | `repair.go:142` / `repair.go:175` |
+| `simplify.go` | 解決可能な path/relative リンクを basename リンクへ短縮 | `simplify.go:170` / `simplify.go:203` |
+| `repair.go` | broken / vault-escape の path リンクを basename リンクへ修正 | `repair.go:142` / `repair.go:175` |
 
 ---
 

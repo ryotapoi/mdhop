@@ -12,6 +12,9 @@ sources:
 `internal/core/` 内で定義され、複数のコマンド実装から参照される共有ヘルパーの一覧。
 実装内容の再掲は行わない。定義位置・1行役割・主な呼び出しサイトのみ記載。
 
+> `sources` フロントマターはヘルパーの**定義元ファイルのみ**を挙げる（再生成の起点）。
+> 本文の「呼び出しサイト」列は、定義元の各ヘルパー名を `internal/core/` 全体で grep して再生成する従属情報であり、呼び出し側ファイルは `sources` に含めない。
+
 ---
 
 ## rewrite.go 定義ヘルパー
@@ -31,7 +34,7 @@ sources:
 | `internal/core/move.go` | 196, 203, 210, 304 | 移動後の incoming / outgoing リンク書き換え |
 | `internal/core/move_helpers.go` | 362, 367, 507, 540, 602 | dir-move 向け incoming / collateral / moved-file リンク書き換え |
 | `internal/core/disambiguate.go` | 150, 374 | 曖昧リンク解消 |
-| `internal/core/simplify.go` | 170 | basename → フルパスリンク変換 |
+| `internal/core/simplify.go` | 170 | path/relative リンク → basename リンクへ短縮 |
 | `internal/core/repair.go` | 142 | 壊れたリンクの修復 |
 
 ---

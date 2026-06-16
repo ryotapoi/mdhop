@@ -8,6 +8,7 @@ sources:
   - internal/core/move.go
   - internal/core/move_dir.go
   - internal/core/disambiguate.go
+  - internal/core/simplify.go
   - internal/core/convert.go
   - internal/core/repair.go
   - internal/core/init_meta.go
@@ -43,6 +44,7 @@ sources:
 | `move-dir` | 複数 node 一括更新 | 複数 Rename ＋ リンク書き換え | なし（失敗時ロールバック） | ディスク先・DB 後 |
 | `disambiguate` | edges raw_link 更新、nodes mtime 更新 | リンク書き換え（basename → full path） | なし（ DB バックアップ+ロールバック） | ディスク先・DB 後 |
 | `disambiguate --scan` | なし（DB 不要） | リンク書き換えのみ | なし | ディスク のみ |
+| `simplify` | なし（DB 不要） | リンク書き換え（path/relative → basename。`--dry-run` 時は行わない） | なし | ディスク のみ |
 | `convert` | なし（DB 不要） | リンク書き換え（`--dry-run` 時は行わない） | なし | ディスク のみ |
 | `repair` | なし（DB 不要） | リンク書き換え（`--dry-run` 時は行わない） | なし | ディスク のみ |
 | `init-meta --write` | なし | `mdhop.yaml`（temp+rename で上書き） | 既存キー以外を追記 | ディスク のみ |
@@ -67,7 +69,7 @@ sources:
 
 - **phantom 変換**: 追加するファイルの basename に一致する phantom が存在すれば `promotePhantom`（`move_helpers.go:798`）で note に昇格 → `AddResult.Promoted`
 - **basename 再カウント**: `rm.addNote` で in-memory カウントを更新し、既存リンクが ambiguous になるか検査（`add.go:111–196`）
-- **auto-disambiguate**: `--auto-disambiguate` 指定時かつ pattern A（既存ユニーク note が重複になる場合）は、既存の basename リンクをフルパスに書き換える。pattern B（phantom が ambiguous になる場合）は `--auto-disambiguate` が効かずエラー（`add.go:185–195`）
+- **auto-disambiguate**: デフォルト ON（`--no-auto-disambiguate` で無効化。CLI フラグは `cmd/mdhop/add.go:17`、`AutoDisambiguate: !*noAutoDisambiguate` が `add.go:30`）。pattern A（既存ユニーク note が重複になる場合）は、既存の basename リンクをフルパスに書き換える。pattern B（phantom が ambiguous になる場合）は auto-disambiguate が効かずエラー（`add.go:185–195`）
 - **ルート優先ルール**: 追加ファイルがルート直下なら basename collision でもエラーにしない → ADR 0004
 
 ### 3-2. update
@@ -98,9 +100,10 @@ sources:
 - DB なし版（`DisambiguateScan`、`disambiguate.go:275`）: DB を使わず disk scan のみ。broken path リンクは `isLinkBrokenForScan`（`disambiguate.go:419`）で判定
 - どちらも書き換え対象は source ファイルのディスク上コンテンツのみ。DB の edge raw_link も更新（DB あり版のみ）
 
-### 3-6. convert / repair
+### 3-6. simplify / convert / repair
 
-- **DB 不要**: どちらもインデックスを使わず disk scan で動作
+- **DB 不要**: いずれもインデックスを使わず disk scan で動作（in-memory resolve maps を都度構築）
+- **simplify**: 解決可能な path/relative リンクを basename リンクに短縮する（`simplify.go:26`、書き換えは `basenameTarget` へ `rewriteRawLink`、`simplify.go:170`）。`--dry-run` 対応。ambiguous になるものは短縮しない
 - **convert**: wikilink ↔ markdown の形式変換（`convert.go:25`）。`--dry-run` で実際のファイル書き換えをスキップ
 - **repair**: vault 外逃げリンク（escaping）と broken path リンクをデフォルト basename 形式に書き換える（`repair.go:35`）。`--dry-run` 対応。body links のみ対象（frontmatter wikilink は除外、`repair.go:219–225`）。候補 2 件以上の broken path リンクはスキップ・`Skipped` に報告
 
