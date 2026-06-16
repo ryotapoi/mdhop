@@ -15,7 +15,7 @@
 
 - ユーザー依頼
 - `backlog/backlog.md` の該当項目
-- 関連する `docs/rules/`, `docs/specs/`（あれば）, `docs/decisions/`, `references/knowledge.md`
+- 関連する `docs/rules/`, `docs/specs/`（あれば）, `docs/decisions/`, `llm-wiki/knowledge.md`
 - 既存コード、ログ、再現手順
 
 ## Decision Criteria
@@ -24,7 +24,7 @@
 - 机上で分からない挙動はコード読みを続けず、`bin/mdhop <args>` を実行して挙動を見るか、ユーザーに再現手順を確認する
 - 複数ファイル横断や広域 grep は Explore subagent に委譲する。ファイル 1〜2 個で済むなら main で Read する
 - ユーザーに聞いた方が早い領域は遠慮せず聞く（CLI 出力フォーマット、引数の解釈、エラー時の振る舞い、再現コマンド）
-- 調査結果が将来も効くなら `references/knowledge.md`、要求や粒度が変わるなら `backlog/backlog.md` に記録する
+- 調査結果が将来も効くなら `llm-wiki/knowledge.md`、要求や粒度が変わるなら `backlog/backlog.md` に記録する
 - 調査用の一時コードは、残す理由がなければ最終成果に含めない
 
 ## Acceptance

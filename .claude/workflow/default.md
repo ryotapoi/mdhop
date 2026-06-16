@@ -10,7 +10,7 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 ## Inputs
 
 - ユーザー依頼
-- 関連する `docs/rules/`, `docs/specs/`（あれば）, `backlog/backlog.md`, `docs/decisions/`, `references/knowledge.md`
+- 関連する `docs/rules/`, `docs/specs/`（あれば）, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/knowledge.md`
 - 既存コードと git history
 
 ## Intake 分類
@@ -22,7 +22,7 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 - **High-risk**: 以下のいずれかに触れる変更
   - SQLite スキーマ変更、マイグレーション、`build` の挙動変更（`delete --rm` などの破壊的処理を含むもの）
   - SQL の意味的変更（プレースホルダの扱い、`GROUP BY`、`MAX`/`MIN` 等の集約関数、NULL 三値論理、exists_flag フィルタ）
-  - `modernc.org/sqlite` 固有の罠を踏みうる変更（`LastInsertId` の罠、`:memory:` 接続、`PRAGMA table_info` ベースの migration など。詳細は `references/knowledge.md`）
+  - `modernc.org/sqlite` 固有の罠を踏みうる変更（`LastInsertId` の罠、`:memory:` 接続、`PRAGMA table_info` ベースの migration など。詳細は `llm-wiki/knowledge.md`）
   - リンク解決ロジック・ルート優先ルール（ADR 0004）に触れる変更
   - CLI 仕様の破壊的変更（stdout JSON フィールド、--where フィルタの解釈変更など）
   - vault escape / パス安全性に関わる変更
@@ -63,7 +63,7 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 ## Acceptance
 
 - ユーザーの要求が満たされている
-- 必要な情報源が同期されている（`backlog/backlog.md`, `docs/decisions/`, `references/knowledge.md`、必要なら `docs/specs/`）
+- 必要な情報源が同期されている（`backlog/backlog.md`, `docs/decisions/`, `llm-wiki/knowledge.md`、必要なら `docs/specs/`）
 - 選んだ検証とレビューの深さを説明できる
 - コミット済み、またはユーザーが明示的にコミット不要とした状態
 - コミット後の進み方は `finish.md` に従う（Goal 実行中は次の 1 commit workflow へ、Goal 外の単発依頼はユーザー指示待ち）

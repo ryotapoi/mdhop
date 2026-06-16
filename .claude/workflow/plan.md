@@ -22,7 +22,7 @@ Small（typo、docs、テスト追加だけ、1 ファイルの明確なバグ�
 
 - ユーザー依頼
 - `backlog/backlog.md`
-- 関連する `docs/rules/`, `docs/specs/`（あれば）, `docs/decisions/`, `references/knowledge.md`
+- 関連する `docs/rules/`, `docs/specs/`（あれば）, `docs/decisions/`, `llm-wiki/knowledge.md`
 - 関連コードと既存パターン
 
 ## UX シナリオ

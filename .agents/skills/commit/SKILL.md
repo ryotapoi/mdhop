@@ -14,9 +14,9 @@ description: Conventional Commits 形式でコミットを作成する
   - `.env` や credentials を含むファイルはコミット対象から除外する
   - `--no-verify` で hooks をスキップしない
 - **Acceptance**:
-  - 該当があれば ADR 作成・`references/knowledge.md` 追記・`backlog/backlog.md` の `[x]` 更新が済んでいる
+  - 該当があれば ADR 作成・`llm-wiki/knowledge.md` 追記・`backlog/backlog.md` の `[x]` 更新が済んでいる
   - コミットが作成され、`git status` でクリーンな状態を確認済み
-- **Relevant**: 下記「コミットメッセージ形式」「Type 一覧」「ADR テンプレート」, `references/knowledge.md`, `backlog/backlog.md`
+- **Relevant**: 下記「コミットメッセージ形式」「Type 一覧」「ADR テンプレート」, `llm-wiki/knowledge.md`, `backlog/backlog.md`
 
 ## コミットメッセージ形式
 
@@ -47,7 +47,7 @@ Co-Authored-By: Codex <noreply@openai.com>
 ## 手順
 
 1. 判断記録（ADR）が必要か判断する（下記「ADR 判断基準」参照。不要ならスキップ）
-2. 実装中にハマった点・注意事項があれば `references/knowledge.md` に追記する（該当なければスキップ）
+2. 実装中にハマった点・注意事項があれば `llm-wiki/knowledge.md` に追記する（該当なければスキップ）
 3. `git status` と `git diff`（staged + unstaged）で変更内容を把握する
 4. `git log --oneline -5` で直近のコミットスタイルを確認する
 5. `backlog/backlog.md` に今回のコミットで完了した項目があれば `[x]` に更新する

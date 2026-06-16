@@ -19,7 +19,7 @@
 - 最近の git history
 - `backlog/backlog.md`
 - 変更が多かったモジュール（`internal/core/` 配下、`cmd/mdhop/` 等）
-- `docs/rules/architecture.md`, `references/knowledge.md`
+- `docs/rules/architecture.md`, `llm-wiki/knowledge.md`
 
 ## Tools
 

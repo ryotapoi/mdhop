@@ -7,7 +7,7 @@
 ## Inputs
 
 - 承認済み plan、または Small 変更（`default.md` の Intake 分類）の明確な要求
-- 関連する `docs/rules/`, `docs/specs/`（あれば）, `references/knowledge.md`
+- 関連する `docs/rules/`, `docs/specs/`（あれば）, `llm-wiki/knowledge.md`
 - 変更対象と周辺コード
 
 ## Decision Criteria

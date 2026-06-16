@@ -13,7 +13,7 @@ mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の�
 
 - 汎用レビューではなく、mdhop 固有の実害に絞る。一般的なコード品質・構造劣化は汎用レビュー側で見る（Claude では `/code-review` / `thermo-nuclear-code-quality-review`）。
 - 仕様・CLI 挙動の判断が必要なら、実装判断として決めずユーザー確認に回す。
-- 具体的な過去知見は `references/knowledge.md` を参照し、skill 本体には増やしすぎない。
+- 具体的な過去知見は `llm-wiki/knowledge.md` を参照し、skill 本体には増やしすぎない。
 - plan / 実装どちらのレビューでも使える。対象は plan ファイル、または未コミット差分 / commit range。
 - Checkpoints と対象を照合する際、必要に応じて `docs/rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を Read で読む。
 
@@ -21,7 +21,7 @@ mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の�
 
 - `LGTM` またはリスク一覧がある。
 - リスクには影響、根拠、推奨対応がある。
-- 必要な場合、更新すべき `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `references/knowledge.md`, `docs/specs/`（あれば）が明確。
+- 必要な場合、更新すべき `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/knowledge.md`, `docs/specs/`（あれば）が明確。
 
 ## Relevant
 
@@ -30,7 +30,7 @@ mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の�
 - `docs/specs/overview.md`
 - `docs/rules/architecture.md`
 - `docs/decisions/`
-- `references/knowledge.md`
+- `llm-wiki/knowledge.md`
 
 ## Checkpoints
 

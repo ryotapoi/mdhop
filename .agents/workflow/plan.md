@@ -10,13 +10,13 @@
   - 検証方針（自動 / CLI 動作確認 / ユーザー確認）を plan に明記する。
 - **Acceptance**:
   - 実装対象、非対象、検証方針が明確。
-  - 必要な `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `references/knowledge.md`, `docs/specs/` の更新方針が明確。
+  - 必要な `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/knowledge.md`, `docs/specs/` の更新方針が明確。
   - レビュー指摘への対応が済んでいる、または対応しない理由が plan に書かれている。
   - 未解決の不明点がない。ある場合はユーザー確認待ちとして止まっている。
 - **Relevant**:
   - ユーザー依頼
   - `backlog/backlog.md`
-  - 関連する `docs/rules/`, `docs/decisions/`, `references/knowledge.md`, `docs/specs/`（あれば）
+  - 関連する `docs/rules/`, `docs/decisions/`, `llm-wiki/knowledge.md`, `docs/specs/`（あれば）
   - 関連コードと既存パターン
 
 ## Use When
@@ -47,7 +47,7 @@ Small（`default.md` の Intake 分類）は plan を省略してよい。
   - モジュール配置は `docs/rules/architecture.md` の依存方向と既存責務で判断する。
   - 共通化は「片方だけ変更したくなったとき、もう片方に影響なく変更できるか？」で判断する。
 - **Acceptance**: 採用案・却下案・理由・残リスクが plan に残っている。
-- **Relevant**: `docs/rules/architecture.md`, `docs/rules/03-data-model.md`, `docs/specs/overview.md`, `references/knowledge.md`, 関連コード。
+- **Relevant**: `docs/rules/architecture.md`, `docs/rules/03-data-model.md`, `docs/specs/overview.md`, `llm-wiki/knowledge.md`, 関連コード。
 
 ### Refactor Scope
 
