@@ -143,7 +143,7 @@ diagnose の phantoms は例外的に map へ `[]string{}` を入れる（nil �
 
 ## フィールドバリデーションのタイミング
 
-`validateFields()` / `validateFormat()` は DB オープン **前** に実行する（`format.go:50-58`）。理由: index が存在しない状態でも unknown field エラーを即返せるようにするため。
+`validateFormat()` (`format.go:42`) / `validateFields()` (`format.go:51`) は DB オープン **前** に実行する。理由: index が存在しない状態でも unknown field エラーを即返せるようにするため。
 
 ---
 

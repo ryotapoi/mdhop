@@ -147,7 +147,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 | 呼び出し元 | 目的 | 主な参照箇所 |
 |---|---|---|
-| `move.go` | move 後の被リンクを書き換え | `move.go:157` / `move.go:192` |
+| `move.go` | move 後の被リンクを書き換え | `move.go:192` `isBasenameRawLink` / `move.go:196` `rewriteRawLink` |
 | `disambiguate.go` | basename → フルパスに書き換え | `disambiguate.go:115` / `disambiguate.go:150` |
 | `disambiguate.go` | scan モード（DB なし） | `disambiguate.go:355` / `disambiguate.go:374` |
 | `repair.go` | 壊れたリンクをパス付きに修正 | `repair.go:142` / `repair.go:175` |
@@ -189,9 +189,9 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 | エラー | 定義 | 発生 |
 |---|---|---|
-| `ErrAmbiguousLink` | `errors.go:16` | build バリデーション `build.go:81` / `util.go:124` / `resolve.go:207` |
+| `ErrAmbiguousLink` | `errors.go:16` | build バリデーション `build.go:81` / `util.go:124` / `resolve.go:206` |
 | `ErrLinkEscapesVault` | `errors.go:19` | build `build.go:228` `build.go:235` / resolve `resolve.go:110` `resolve.go:118` / `util.go:118` |
-| `ErrLinkNotFound` | `errors.go:18` | resolve コマンド `resolve.go:64` / `resolvePathFromDB` `resolve.go:188` / `resolveBasenameFromDB` `resolve.go:232` |
+| `ErrLinkNotFound` | `errors.go:18` | resolve コマンド `resolve.go:63` / `resolvePathFromDB` `resolve.go:188` / `resolveBasenameFromDB` `resolve.go:232` |
 
 ---
 

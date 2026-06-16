@@ -74,7 +74,7 @@ sources:
 
 - ディスク不在ファイルは `removeOrPhantomize`（`db.go:350`）で delete 判定と同じロジックへ
 - 存在ファイルは outgoing edges 全削除→再挿入（`update.go:145–181`）。meta エントリも削除→再挿入
-- `cleanupOrphanedNodes` で tags / phantoms / assets の孤立ノードを除去（`db.go:408`）
+- `cleanupOrphanedNodes` で tags / phantoms / assets の孤立ノードを除去（`db.go:410`）
 
 ### 3-3. delete
 

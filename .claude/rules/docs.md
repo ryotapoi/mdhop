@@ -7,17 +7,13 @@ paths:
 
 # ドキュメントルール
 
-権威による配置（docs/ = 正本 / llm-wiki/ = 正本に負ける作業の入口）の正本は `docs/rules/information-management.md`。ここはその要点だけを再掲する。
+情報の配置・分類・権威（docs/ = 正本 / llm-wiki/ = 正本に負ける作業の入口 / regen 区分 / 昇格ルール）の正本は `docs/rules/information-management.md`。docs/ または llm-wiki/ を編集する前にそれを読む。ここでは重複を避け、編集時に踏みやすい運用上の注意だけを置く。
 
-## 正（source of truth）
+## 編集時の注意
 
-- 正本は `docs/`（rules / specs / decisions）と「ソースコード・テスト」のみ。矛盾したら正本が勝つ
-- `llm-wiki/` は正本ではない。ソース/正本と矛盾したらそちらが勝つ。各ファイルの `regen`（full / compiled / none）で再生成可否を宣言する
-- 同じ情報を2箇所に書かない（DRY）。llm-wiki/ の `regen: full` / `compiled` は正本を再掲せずポインタ（パス・行・ADR 番号）だけを持つ
-- 実装の詳細はコードに置く
-- 設計判断の理由は ADR に記録する。コードから復元できない情報だけ残す
-- ソースから機械再抽出できる索引・地図は手書きで正本に置かない。llm-wiki/ の `regen: full` に置き、腐ったら作り直す
-- `regen: none`（外部知見）が設計判断や仕様を拘束し始めたら docs/decisions か docs/specs へ昇格させる
+- 実装の詳細はコードに置く。docs/ に手順を写経しない
+- 設計判断の理由は ADR（docs/decisions/）に記録する。コードから復元できない情報だけ残す
+- llm-wiki/ の `regen: full` / `compiled` を手で恒久編集しない。直したくなったら正本（docs/・ソース）を直して再編纂する
 
 ## 外部仕様の編集
 

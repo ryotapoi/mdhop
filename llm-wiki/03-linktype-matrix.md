@@ -35,7 +35,7 @@ sources:
 | `wikilink` | `parseWikiLinks()` | `parse.go:142` |
 | `markdown` | `parseMarkdownLinks()` | `parse.go:190` |
 | `tag` | `parseTags()` | `parse.go:259` |
-| `frontmatter` | `expandFrontmatterTag()` (← `parseFrontmatterTags()`) | `parse_frontmatter.go:264` / `229` |
+| `frontmatter` | `expandFrontmatterTag()` (← `parseFrontmatterTags()`) | `parse_frontmatter.go:265` / `229` |
 | `frontmatter_wikilink` | `parseFrontmatterWikilinks()` | `parse_frontmatter.go:182` |
 | `frontmatter_path` | `frontmatterPathLinks()` → `frontmatterPathOccur()` | `parse_frontmatter.go:287` / `307` |
 
@@ -54,7 +54,7 @@ ADR:
 
 | LinkType | 解決経路 |
 |---|---|
-| `tag` / `frontmatter` | タグノードを直接解決。resolve 側は `tagKey(target)` で lookup (`resolve.go:94`)、build 側は `isTagLinkType()` 判定 (`build.go:215`) → `upsertTag()` (`build.go:216`) |
+| `tag` / `frontmatter` | タグノードを直接解決。resolve 側は `tagKey(target)` (`resolve.go:95`) → `getNodeID()` (`resolve.go:96`)、build 側は `isTagLinkType()` 判定 (`build.go:215`) → `upsertTag()` (`build.go:216`) |
 | `wikilink` / `frontmatter_wikilink` (basename) | `resolveBasenameFromDB()` でバックトラック解決。ルート優先ルール適用 (`build.go:251-260`) |
 | `wikilink` / `frontmatter_wikilink` (vault-relative path、`/` なし) | `resolvePathFromDB()` で exact パスマッチ (`resolve.go:129`, `build.go:246`) |
 | `markdown` / `frontmatter_path` (相対パス `./` or `../`) | `filepath.Join(dir, target)` で正規化後 `resolvePathFromDB()` (`resolve.go:109`) |

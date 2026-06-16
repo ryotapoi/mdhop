@@ -85,6 +85,6 @@ sources:
 
 ## 備考
 
-- `move` は `--from` 末尾 `/` またはディスク上ディレクトリの場合に `MoveDir` へ分岐 (`cmd/mdhop/move.go:39`)
+- `move` は `--from` 末尾 `/` またはディスク上ディレクトリの場合に `MoveDir` へ分岐（条件 `cmd/mdhop/move.go:33` `if fromIsDir`、呼び出し `cmd/mdhop/move.go:41` `core.MoveDir`）
 - `disambiguate` は `--scan` フラグ指定時に `DisambiguateScan` へ分岐 (`cmd/mdhop/disambiguate.go:32`)
 - フォーマッタは各 `cmd/mdhop/format_<cmd>.go` に分離。共通ヘルパーは `cmd/mdhop/format.go`

@@ -36,7 +36,7 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 - `backlog/backlog.md`: 未着手・進行中の作業項目
 - `llm-wiki/`: AI が編纂・保守する作業の入口（正本ではない。ソース/正本と矛盾したらそちらが勝つ）。`knowledge.md` は技術的な知見・ハマりどころ（`regen: none`）
 
-`docs/` が正本、`llm-wiki/` は正本に負ける作業の入口。権威による配置の詳細は `docs/rules/information-management.md`。必要な情報だけ読む。判断に影響する可能性がある情報源は、推測で済ませず実物を確認する。
+`docs/` が正本、`llm-wiki/` は正本に負ける作業の入口（各ファイルの `regen` で再生成可否を宣言）。権威による配置の詳細は `docs/rules/information-management.md`。必要な情報だけ読む。判断に影響する可能性がある情報源は、推測で済ませず実物を確認する。
 
 ## Core Policies
 
