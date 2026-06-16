@@ -1,7 +1,6 @@
 ---
 paths:
-  - "rules/**"
-  - "decisions/**"
+  - "docs/**"
   - "references/**"
   - "backlog/**"
 ---
@@ -10,7 +9,7 @@ paths:
 
 ## 正（source of truth）
 
-- 正は「最小ドキュメント（rules/, decisions/, references/）」と「ソースコード」のみ
+- 正は「最小ドキュメント（docs/rules/, docs/decisions/, references/）」と「ソースコード」のみ
 - 同じ情報を2箇所に書かない（DRY）
 - 実装の詳細はコードに置く
 - 設計判断の理由は ADR に記録する。コードから復元できない情報だけ残す

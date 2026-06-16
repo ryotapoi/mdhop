@@ -15,7 +15,7 @@
 
 - ユーザー依頼
 - `backlog/backlog.md` の該当項目
-- 関連する `rules/`, `specs/`（あれば）, `decisions/`, `references/knowledge.md`
+- 関連する `docs/rules/`, `docs/specs/`（あれば）, `docs/decisions/`, `references/knowledge.md`
 - 既存コード、ログ、再現手順
 
 ## Decision Criteria

@@ -1564,7 +1564,7 @@ func TestRunReachable_FieldsFilter(t *testing.T) {
 	if _, ok := m["unreachable"]; !ok {
 		t.Errorf("unreachable missing:\n%s", out)
 	}
-	// from is always included regardless of --fields (overview.md).
+	// from is always included regardless of --fields (docs/specs/overview.md).
 	if string(m["from"]) != `"docs/index.md"` {
 		t.Errorf("from = %s, want \"docs/index.md\" even with --fields:\n%s", m["from"], out)
 	}

@@ -19,7 +19,7 @@
   - 変更差分
   - plan または要求
   - 検証結果
-  - 関連する `rules/`, `references/knowledge.md`
+  - 関連する `docs/rules/`, `references/knowledge.md`
 
 ## Depth
 

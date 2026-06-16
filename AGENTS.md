@@ -2,7 +2,7 @@
 
 ## Project
 
-mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdown リポジトリ内のリンク関係を SQLite に事前解析し、grep に頼らず関連ノートへ辿れるようにする。詳細は `rules/01-concept.md`。
+mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdown リポジトリ内のリンク関係を SQLite に事前解析し、grep に頼らず関連ノートへ辿れるようにする。詳細は `docs/rules/01-concept.md`。
 
 ## Entry Point
 
@@ -30,12 +30,11 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 
 ## Information Sources
 
-- `rules/`: プロダクト目的、外部仕様、データモデル、アーキテクチャ、情報管理の正本
-- `decisions/`: 後から理由を問われる判断
+- `docs/rules/`: プロダクト目的、アーキテクチャ、情報管理の正本
+- `docs/specs/`: ユーザー視点の振る舞い仕様（`overview.md` / `stories.md` / `test-plan.md`）
+- `docs/decisions/`: 後から理由を問われる判断
 - `backlog/backlog.md`: 未着手・進行中の作業項目
 - `references/knowledge.md`: 技術的な知見・ハマりどころ
-- `derived/`: 正本からの派生ビュー。矛盾時は `rules/` などの正本を優先する
-- `specs/`: 現状は未配置。`rules/` とテストの間に明文化すべき振る舞い仕様が増えた場合の置き場
 
 必要な情報だけ読む。判断に影響する可能性がある情報源は、推測で済ませず実物を確認する。
 
@@ -46,7 +45,7 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 - 原則 1 plan = 1 commit。独立した成果が混ざるなら plan を分ける。
 - 仕様・CLI 挙動・データ保持・削除方針に複数の妥当な選択肢がある場合はユーザーに確認する。
 - 技術的知見は `references/knowledge.md` に集約する。workflow / skill 本体を肥大化させない。
-- 後から制約になる判断は `decisions/` に残す。
+- 後から制約になる判断は `docs/decisions/` に残す。
 - 広い構造改善は必要に応じて `backlog/backlog.md` または `maintenance.md` の対象へ切り出す。
 - workflow は 1 つの commit 単位で回す。Goal が複数 commit に分かれる場合は `goal-workflow` skill に従って commit 単位へ分けて繰り返す。
 - 単発依頼はコミットまで終えたら止まる（次のタスクはユーザー指示待ち）。Goal は完了したら止まる。
@@ -96,5 +95,5 @@ go build -o bin/mdhop ./cmd/mdhop
 ## Language
 
 - コード・コメント・コミットメッセージ: 英語
-- ドキュメント（`rules/`, `backlog/`, `decisions/`, `references/`, `.agents/`）: 日本語
+- ドキュメント（`docs/`, `backlog/`, `references/`, `.agents/`）: 日本語
 - `AGENTS.md`: 日本語

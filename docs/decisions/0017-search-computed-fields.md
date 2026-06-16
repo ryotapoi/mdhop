@@ -10,7 +10,7 @@ v0.11.0 で「巨大すぎるページ」「リンク過疎な葉ページ」「
 
 これらの値をどう保持するかで、index スキーマと build/add/update の責務に影響が出る。`--sort -lines` のように全件ソートに使う前提があるため、実行時のファイル全読みは index キャッシュという mdhop の存在意義（grep に頼らず事前解析）と矛盾する。一方で edge count は edges テーブルから常に導出できる派生値である。
 
-mdhop の DB は「変更時は DB を再生成する前提」（`rules/03-data-model.md`）で、migration レイヤを持たない。スキーマ列追加は `mdhop build` の全再生成で吸収される。
+mdhop の DB は「変更時は DB を再生成する前提」（`docs/rules/03-data-model.md`）で、migration レイヤを持たない。スキーマ列追加は `mdhop build` の全再生成で吸収される。
 
 ## Considered Options
 

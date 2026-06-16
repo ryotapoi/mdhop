@@ -124,10 +124,10 @@ meta:
 
 ## ドキュメント
 
-- [コマンド仕様・挙動の詳細](rules/overview.md)
-- [ユースケース・使用フロー](derived/stories.md)
-- [設計思想](rules/01-concept.md)
-- [データモデル](rules/03-data-model.md)
+- [コマンド仕様・挙動の詳細](docs/specs/overview.md)
+- [ユースケース・使用フロー](docs/specs/stories.md)
+- [設計思想](docs/rules/01-concept.md)
+- [データモデル](docs/rules/03-data-model.md)
 
 ## ライセンス
 

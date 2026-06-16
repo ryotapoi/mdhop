@@ -19,7 +19,7 @@
 - 最近の git history
 - `backlog/backlog.md`
 - 変更が多かったモジュール（`internal/core/` 配下、`cmd/mdhop/` 等）
-- `rules/architecture.md`, `references/knowledge.md`
+- `docs/rules/architecture.md`, `references/knowledge.md`
 
 ## Tools
 
@@ -31,7 +31,7 @@
 - 今回の差分ではなく、今後の変更コストを下げる観点で見る
 - すぐ直すものと backlog に積むものを分ける
 - 改善タスクは 1 commit に収まる粒度にする
-- 仕様や設計方針の変更が必要なら `decisions/` または `rules/` 更新を検討する
+- 仕様や設計方針の変更が必要なら `docs/decisions/` または `docs/rules/` 更新を検討する
 
 ## Acceptance
 

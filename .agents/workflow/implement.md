@@ -7,7 +7,7 @@
   - 既存の局所パターンに従う。変える場合は理由を説明できるようにする。
   - 型定義・API・依存方向は実物で確認する。
   - 振る舞い変更や bug fix では、同じ commit に unit test / regression test を追加または更新する。テストできない場合は理由を明記する。
-  - 振る舞い変更があるなら、必要に応じて `rules/overview.md`、`specs/`、テストを同期する。
+  - 振る舞い変更があるなら、必要に応じて `docs/specs/overview.md`、`docs/specs/`、テストを同期する。
   - 実装中に見つかった別タスクは、今やる理由がなければ `backlog/backlog.md` に逃がす。
   - ループ内で時刻を扱う場合は各反復で取得する。
 - **Acceptance**:
@@ -16,7 +16,7 @@
   - 余計なスコープ拡張がない。
 - **Relevant**:
   - 承認済み plan、または Small 変更の明確な要求
-  - 関連する `rules/`, `references/knowledge.md`, `specs/`（あれば）
+  - 関連する `docs/rules/`, `references/knowledge.md`, `docs/specs/`（あれば）
   - 変更対象と周辺コード
 
 ## Flow ICAR
@@ -32,12 +32,12 @@
 
 - **Intent**: 実装で変わった仕様・知見・未着手作業を正しい情報源に反映する。
 - **Constraints**:
-  - CLI 表面仕様が変わったら `rules/overview.md` と派生ドキュメントの要否を確認する。
+  - CLI 表面仕様が変わったら `docs/specs/overview.md` と派生ドキュメントの要否を確認する。
   - 完了した backlog 項目があれば `backlog/backlog.md` を更新する。
   - 技術的知見は `references/knowledge.md` に残す。
-  - 後から制約になる判断は `decisions/` に残す。
+  - 後から制約になる判断は `docs/decisions/` に残す。
 - **Acceptance**: 実装差分と情報源が矛盾していない。
-- **Relevant**: `rules/`, `derived/`, `backlog/backlog.md`, `decisions/`, `references/knowledge.md`。
+- **Relevant**: `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `references/knowledge.md`。
 
 ## Go Tooling
 

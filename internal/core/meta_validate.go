@@ -49,7 +49,7 @@ type MetaValidateResult struct {
 // up to date with the current meta.types declarations: changing meta.types
 // without rebuilding makes a newly typed key report every value as a type/enum
 // violation. This follows mdhop's "rebuild the DB on change" model
-// (rules/03-data-model.md), the same assumption every read command relies on.
+// (docs/rules/03-data-model.md), the same assumption every read command relies on.
 func MetaValidate(vaultPath string, opts MetaValidateOptions) (*MetaValidateResult, error) {
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err

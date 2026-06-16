@@ -203,13 +203,13 @@ SQL 生成パターン:
 - EXISTS（演算子なし）: `key` 存在チェック
 - NOT EXISTS: 既存 note のうち `key` を持たないものを返す
 
-演算子・構文の詳細は overview.md 参照。
+演算子・構文の詳細は docs/specs/overview.md 参照。
 
 注意: phantom/tag/asset ノードは meta テーブルにエントリを持たないため、`--where` 指定時に常にフィルタアウトされる。
 
 ### 4.5 メタデータ取得
 
-`--fields meta` で起点ノードの全 frontmatter メタデータを返す（opt-in。挙動は overview.md 参照）。
+`--fields meta` で起点ノードの全 frontmatter メタデータを返す（opt-in。挙動は docs/specs/overview.md 参照）。
 
 SQL パターン: `SELECT key, value, sort_value, value_type FROM meta WHERE node_id = ? ORDER BY key, value`
 

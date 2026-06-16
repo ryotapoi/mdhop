@@ -19,7 +19,7 @@
 - Goal 中に設計判断が発生したら、`design-decision` で結論が出る範囲は自動判断し、Goal 完了時にまとめて提示する。ルールで決まらない仕様・CLI 挙動の判断は Stop Conditions に従って止まる。
 - Goal 完了報告では、設計判断がない場合も `設計判断: なし` と明示する。
 - 進捗・完了の報告は、このセッションのツール結果で裏取りできる事実だけを書く。テストが失敗していれば出力ごと報告し、未検証の項目は未検証と明示する。
-- 後から制約になる判断、仕様変更、未着手作業は、画面出力だけで終わらせず `rules/` / `specs/`（あれば） / `decisions/` / `backlog/backlog.md` の適切な情報源へ同期する。
+- 後から制約になる判断、仕様変更、未着手作業は、画面出力だけで終わらせず `docs/rules/` / `docs/specs/`（あれば） / `docs/decisions/` / `backlog/backlog.md` の適切な情報源へ同期する。
 - 各 commit 内のレビューとは別に、Goal の commit range に対する Codex レビュー（`codex-review`）と `/code-review` を Goal 完了条件に含める（Goal Review 参照）。
 
 ## Acceptance
@@ -95,5 +95,5 @@
 
 - Goal の完了条件が曖昧で、1 commit 単位へ切れない。
 - 次の commit が仕様・CLI 挙動・データ保持・削除方針の未確定判断に依存している（`design-decision` で結論が出る範囲なら止まらず採否を決める）。
-- Goal の途中で、現在の目的と `rules/` / `specs/` / `decisions/` が矛盾している。
+- Goal の途中で、現在の目的と `docs/rules/` / `docs/specs/` / `docs/decisions/` が矛盾している。
 - 必須の検証手段がなく、代替検証やユーザー確認でも完了扱いにできない。

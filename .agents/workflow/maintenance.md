@@ -16,7 +16,7 @@
   - 最近の git history
   - `backlog/backlog.md`
   - 変更が多かったモジュール
-  - `rules/architecture.md`
+  - `docs/rules/architecture.md`
   - `references/knowledge.md`
 
 ## Use When

@@ -64,14 +64,14 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - 複数の選択肢から意図的に一つを選んだ判断
 - 将来の実装に制約を与える判断
 
-該当あり → `decisions/` に ADR を作成（下記「ADR テンプレート」参照）
+該当あり → `docs/decisions/` に ADR を作成（下記「ADR テンプレート」参照）
 該当なし → スキップ
 
 ## ADR テンプレート
 
-`decisions/` の既存ファイルを確認し、次の連番を決定する。
+`docs/decisions/` の既存ファイルを確認し、次の連番を決定する。
 判断ごとに1つの ADR を作成（1つの ADR に複数の判断を混ぜない）。
-ファイル名: `decisions/NNNN-タイトル.md`（NNNN は0埋め4桁、タイトルはケバブケース）。
+ファイル名: `docs/decisions/NNNN-タイトル.md`（NNNN は0埋め4桁、タイトルはケバブケース）。
 連番は再利用しない（Superseded でも番号は残す）。1〜2ページに収める。
 
 ```markdown

@@ -9,7 +9,7 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 - **Constraints**:
   - 手続きの重さは作業の大きさとリスクに合わせる。
   - workflow は 1 つの commit 単位で回す。Goal 実行中に 1 commit を超えると分かったら、作業を広げず `goal-workflow` skill に戻って commit 単位を切り直す。
-  - 判断に影響する `rules/`, `decisions/`, `backlog/backlog.md`, `references/knowledge.md`, `specs/`（あれば）は推測で済ませず実物を確認する。
+  - 判断に影響する `docs/rules/`, `docs/decisions/`, `backlog/backlog.md`, `references/knowledge.md`, `docs/specs/`（あれば）は推測で済ませず実物を確認する。
   - 仕様・CLI 挙動・データ保持・削除方針に関わる判断は、実装で決めず必要ならユーザー確認に回す。
   - コミット後の進み方は Goal 実行中か単発依頼かで分かれる（Goal 実行中は次の 1 commit workflow へ、単発依頼はユーザー指示待ち）。
 - **Acceptance**:
@@ -52,9 +52,9 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 複数情報源が矛盾した場合、新しい順で照合する。古い方を直す。
 
 1. 現在のユーザー依頼
-2. `rules/`
-3. `decisions/`
-4. `specs/`（あれば）
+2. `docs/rules/`
+3. `docs/decisions/`
+4. `docs/specs/`
 5. tests
 
 ## Execution Notes
@@ -64,6 +64,6 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 ## Stop Conditions
 
 - 仕様・CLI 挙動・データ保持・削除方針に複数の妥当な選択肢が実際にある。
-- 要求と `rules/` / `specs/` / `decisions/` が矛盾している。
+- 要求と `docs/rules/` / `docs/specs/` / `docs/decisions/` が矛盾している。
 - High-risk 変更で検証手段が確保できない。
 - ユーザーが停止・相談・計画のみを指示している。

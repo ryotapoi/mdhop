@@ -19,7 +19,7 @@
   - tag（本文 + frontmatter tags）
   - frontmatter 内リンク（設定で指定したキーのみ）
   - frontmatter メタデータ（scalar 値と scalar 配列要素を meta テーブルに格納。null・マッピングはスキップ。型宣言に基づき sort_value を正規化）
-- 型設定: `mdhop.yaml` の `meta.types` で frontmatter キーの型を宣言（5 型: string, number, date, semver, ordered）。形式は overview.md 参照
+- 型設定: `mdhop.yaml` の `meta.types` で frontmatter キーの型を宣言（5 型: string, number, date, semver, ordered）。形式は docs/specs/overview.md 参照
 - 誤検出対策（最低限）:
   - コードフェンス/インラインコード内のタグ抽出を抑止
   - 見出し `# Heading` を tag として扱わない
@@ -77,7 +77,7 @@
   - frontmatter の値によるノードフィルタリング
   - 同キー条件 = OR、異キー条件 = AND。1 つの `--where` 内で ` && ` 区切りにより同一キーでも AND が可能（日付範囲等）
   - 比較演算子は型宣言済みキーで型安全な比較（sort_value ベース）
-  - 演算子・構文は overview.md 参照
+  - 演算子・構文は docs/specs/overview.md 参照
 
 ### 2.5 省コンテキスト出力
 
@@ -104,14 +104,14 @@
 - `--limit` / `--offset` でページング。total フィールドに適用前の総件数を返す
 - `--fields meta` で frontmatter メタデータを追加出力（opt-in）
 - `--include-head N` でノート先頭N行を追加出力
-- コマンド詳細は overview.md 参照
+- コマンド詳細は docs/specs/overview.md 参照
 
 ### 2.8 型スキャフォールディング（init-meta）
 
 - frontmatter メタデータの型定義（`mdhop.yaml` の `meta.types`）を自動生成
 - プリセット出力 + Vault スキャンによる型推定
 - DB 不要（ファイル走査ベース）。build 前に実行可能
-- コマンド詳細は overview.md 参照
+- コマンド詳細は docs/specs/overview.md 参照
 
 ---
 

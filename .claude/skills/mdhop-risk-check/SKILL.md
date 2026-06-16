@@ -15,16 +15,16 @@ main で直接チェックを回さず、fork 構造で実行する。main の c
 
 1. **監督起動**: main は `Agent` ツールで risk-check 監督を 1 体起動する（`model: opus`）。Opus を使うのは観点クラスタへの振り分けと結果の dedup・統合に判断が要るため。prompt には次を渡す:
    - 対象: plan ファイルのパス / 未コミット差分 / commit range（`base..HEAD`）のいずれか。
-   - 参照すべきパス: 関連 `rules/`、`specs/`（あれば）、`references/knowledge.md`、関連 ADR（特に 0004 / 0008 / 0011）。
+   - 参照すべきパス: 関連 `docs/rules/`、`docs/specs/`（あれば）、`references/knowledge.md`、関連 ADR（特に 0004 / 0008 / 0011）。
 2. **観点クラスタへの並列振り分け**: 監督は下の Checkpoints を観点クラスタに分け、subagent 2〜5 体（`model: sonnet` を明示）に振り分けて並列起動する。クラスタ例:
    - (a) Mission / Scope（Intent・対象範囲・仕様/CLI 挙動判断の要否）
-   - (b) Architecture / 依存方向（Checkpoints 25–27、`rules/architecture.md`）
+   - (b) Architecture / 依存方向（Checkpoints 25–27、`docs/rules/architecture.md`）
    - (c) ドメイン semantics（リンクパース・ルート優先・DB/SQL・vault escape・disk 操作・stdout IF: Checkpoints 1–15）
    - (d) 既知の落とし穴 + `knowledge.md` 照合（Checkpoints 16–24, 28–29 と過去知見）
    - 対象が小さい場合は観点をまとめて体数を減らしてよい（最小 2 体）。
 3. **各 subagent への指示（必須）**: 「ファイルパス・行番号つきの事実と該当 Checkpoint 番号のみ返す。推測・提案・『推奨事項』セクションは含めない」を必ず渡す。判断は監督と main 側で行う。
 4. **統合**: 監督は各 subagent の結果を dedup し、🔴（実害確定・要対応）/ 🟡（要確認）/ 🔵（軽微・任意）を付けて一覧に統合して返す。監督は修正を一切行わない。固有の指摘がなければ「固有の指摘なし（LGTM）」を返す。
-5. **main 側の責務**: 修正と、`specs/` / `backlog/backlog.md` / `decisions/` / `references/knowledge.md` への同期判断は main 側で行う。
+5. **main 側の責務**: 修正と、`docs/specs/` / `backlog/backlog.md` / `docs/decisions/` / `references/knowledge.md` への同期判断は main 側で行う。
 
 ## Constraints
 
@@ -32,21 +32,21 @@ main で直接チェックを回さず、fork 構造で実行する。main の c
 - 仕様・CLI 挙動の判断が必要なら、実装判断として決めずユーザー確認に回す。
 - 具体的な過去知見は `references/knowledge.md` を参照し、skill 本体には増やしすぎない。
 - plan / 実装どちらのレビューでも使える。対象は plan ファイル、または未コミット差分 / commit range。
-- Checkpoints と対象を照合する際、必要に応じて `rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を Read で読む。
+- Checkpoints と対象を照合する際、必要に応じて `docs/rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を Read で読む。
 
 ## Acceptance
 
 - `LGTM` またはリスク一覧がある。
 - リスクには影響、根拠、推奨対応がある。
-- 必要な場合、更新すべき `rules/`, `backlog/backlog.md`, `decisions/`, `references/knowledge.md`, `specs/`（あれば）が明確。
+- 必要な場合、更新すべき `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `references/knowledge.md`, `docs/specs/`（あれば）が明確。
 
 ## Relevant
 
 - ユーザー依頼、plan、または変更差分（未コミット / commit range）
-- `rules/01-concept.md`, `rules/02-requirements.md`, `rules/03-data-model.md`
-- `rules/overview.md`
-- `rules/architecture.md`
-- `decisions/`
+- `docs/rules/01-concept.md`, `docs/rules/02-requirements.md`, `docs/rules/03-data-model.md`
+- `docs/specs/overview.md`
+- `docs/rules/architecture.md`
+- `docs/decisions/`
 - `references/knowledge.md`
 
 ## Checkpoints
@@ -84,7 +84,7 @@ main で直接チェックを回さず、fork 構造で実行する。main の c
 
 ### stdout の安定インターフェース
 
-15. **stdout JSON に未定義フィールドを追加しない**: `rules/overview.md` で定義された JSON フィールド以外を stdout に追加するのは agent 向け安定 IF の破壊（仕様変更として扱う）。warnings 等の付加情報は stderr に出力する（Build と同じパターン）。
+15. **stdout JSON に未定義フィールドを追加しない**: `docs/specs/overview.md` で定義された JSON フィールド以外を stdout に追加するのは agent 向け安定 IF の破壊（仕様変更として扱う）。warnings 等の付加情報は stderr に出力する（Build と同じパターン）。
 
 ### Usage / config
 
@@ -106,13 +106,13 @@ main で直接チェックを回さず、fork 構造で実行する。main の c
 
 ### モジュール配置・構造
 
-25. **依存方向 `cmd/mdhop → internal/core` の遵守**: 新しい import がこの方向に従っているか。`internal/core` が `cmd/mdhop` に依存していないか（`rules/architecture.md` 参照）。
+25. **依存方向 `cmd/mdhop → internal/core` の遵守**: 新しい import がこの方向に従っているか。`internal/core` が `cmd/mdhop` に依存していないか（`docs/rules/architecture.md` 参照）。
 26. **共通化は依存方向に沿って配置する**: `cmd/mdhop` と `internal/core` 間で共有するコードは `internal/core` に置く。`cmd/mdhop` のローカルなヘルパーが本来 `internal/core` に属する概念を扱っていないか。
 27. **リファクタリングと機能実装を混ぜない**: diff / plan のステップに構造変更と新しいビジネスロジックが混在していないか。必要なら先行リファクタとして分離する。
 
 ### 派生ドキュメント・互換性
 
-28. **派生ドキュメントの更新**: CLI 表面仕様の変更に伴い、`rules/overview.md`, `README.md`, `README.ja.md`, `examples/` 配下の SKILL.md 等の更新が含まれているか。
+28. **派生ドキュメントの更新**: CLI 表面仕様の変更に伴い、`docs/specs/overview.md`, `README.md`, `README.ja.md`, `examples/` 配下の SKILL.md 等の更新が含まれているか。
 29. **互換性への影響の明示**: 出力フォーマット変更が既存の利用パターン（スクリプト連携、TSV パース等）に影響する場合、破壊的変更として明示されているか。
 
 上記に該当しないが mdhop 固有の設計判断に関わる問題も自由に指摘してよい。

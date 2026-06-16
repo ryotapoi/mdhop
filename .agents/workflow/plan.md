@@ -10,13 +10,13 @@
   - 検証方針（自動 / CLI 動作確認 / ユーザー確認）を plan に明記する。
 - **Acceptance**:
   - 実装対象、非対象、検証方針が明確。
-  - 必要な `rules/`, `backlog/backlog.md`, `decisions/`, `references/knowledge.md`, `specs/` の更新方針が明確。
+  - 必要な `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `references/knowledge.md`, `docs/specs/` の更新方針が明確。
   - レビュー指摘への対応が済んでいる、または対応しない理由が plan に書かれている。
   - 未解決の不明点がない。ある場合はユーザー確認待ちとして止まっている。
 - **Relevant**:
   - ユーザー依頼
   - `backlog/backlog.md`
-  - 関連する `rules/`, `decisions/`, `references/knowledge.md`, `specs/`（あれば）
+  - 関連する `docs/rules/`, `docs/decisions/`, `references/knowledge.md`, `docs/specs/`（あれば）
   - 関連コードと既存パターン
 
 ## Use When
@@ -36,7 +36,7 @@ Small（`default.md` の Intake 分類）は plan を省略してよい。
 - **Intent**: CLI 変更の Before / After / 操作手順を、具体的な 1 状態で確認できるようにする。
 - **Constraints**: 内部ロジックのみの変更なら「N/A — CLI 出力変更なし」と明記してスキップする。
 - **Acceptance**: ユーザー確認が必要な CLI 挙動が plan 上で明確になっている。
-- **Relevant**: `rules/overview.md`, 対象 command, 関連テスト。
+- **Relevant**: `docs/specs/overview.md`, 対象 command, 関連テスト。
 
 ### Design
 
@@ -44,10 +44,10 @@ Small（`default.md` の Intake 分類）は plan を省略してよい。
 - **Constraints**:
   - `design-decision` を使い、ルールに当てはめても決まらないときだけユーザー確認する。
   - mdhop 固有制約に触れるなら `mdhop-risk-check` で確認する。
-  - モジュール配置は `rules/architecture.md` の依存方向と既存責務で判断する。
+  - モジュール配置は `docs/rules/architecture.md` の依存方向と既存責務で判断する。
   - 共通化は「片方だけ変更したくなったとき、もう片方に影響なく変更できるか？」で判断する。
 - **Acceptance**: 採用案・却下案・理由・残リスクが plan に残っている。
-- **Relevant**: `rules/architecture.md`, `rules/03-data-model.md`, `rules/overview.md`, `references/knowledge.md`, 関連コード。
+- **Relevant**: `docs/rules/architecture.md`, `docs/rules/03-data-model.md`, `docs/specs/overview.md`, `references/knowledge.md`, 関連コード。
 
 ### Refactor Scope
 

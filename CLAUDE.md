@@ -2,7 +2,7 @@
 
 ## プロジェクト概要
 
-mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdown リポジトリ内のリンク関係を事前解析して SQLite にインデックス化し、grep に頼らず関連ノートへ辿れるようにする。詳細: rules/01-concept.md
+mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdown リポジトリ内のリンク関係を事前解析して SQLite にインデックス化し、grep に頼らず関連ノートへ辿れるようにする。詳細: docs/rules/01-concept.md
 
 ## ワークフロー入口
 
@@ -29,16 +29,16 @@ plan mode（`EnterPlanMode` / `ExitPlanMode`）は使わない。計画は内部
 不明点があれば止まってユーザーに確認。なければ自動進行。
 単発依頼はコミットまで終えたら止まる（次のタスクはユーザー指示待ち）。Goal は完了したら止まる。
 
-## rules/
+## docs/
 
 計画・実装時に必ず Read で参照すること。CLAUDE.md の要約で済ませず、実ファイルを読んで判断する。
 
-- コア思想と設計根拠: `rules/01-concept.md`
-- 要件定義: `rules/02-requirements.md`
-- DB スキーマとクエリ設計: `rules/03-data-model.md`
-- ユーザー視点のコマンド仕様: `rules/overview.md`
-- 情報管理の原則（フォルダ構成・情報分類・SSoT）: `rules/information-management.md`
-- モジュール構成と依存方向: `rules/architecture.md`
+- コア思想と設計根拠: `docs/rules/01-concept.md`
+- 要件定義: `docs/rules/02-requirements.md`
+- DB スキーマとクエリ設計: `docs/rules/03-data-model.md`
+- ユーザー視点のコマンド仕様: `docs/specs/overview.md`
+- 情報管理の原則（フォルダ構成・情報分類・SSoT）: `docs/rules/information-management.md`
+- モジュール構成と依存方向: `docs/rules/architecture.md`
 
 ## ビルド・テストコマンド
 
@@ -67,7 +67,7 @@ go build -o bin/mdhop ./cmd/mdhop      # CLI 動作確認用バイナリ
 
 ## ドキュメント管理
 
-- 同じ情報を複数のドキュメントに書かない。各情報の置き場所は1箇所に限定する（DRY / SSoT は `rules/information-management.md` 参照）
+- 同じ情報を複数のドキュメントに書かない。各情報の置き場所は1箇所に限定する（DRY / SSoT は `docs/rules/information-management.md` 参照）
 - `.claude/`・`CLAUDE.md`（Claude 側）と `.agents/`・`AGENTS.md`（Codex 側）は、目的・制約・判断基準の方向性を揃える。subagent、review delegation、tool 呼び出し、skill / workflow の実行手順は各エージェントの仕組みに合わせてよい。共有方針を片方で変更したら、同じコミットで他方にも反映する
 - 新しいスキルやファイルを作成したら、同じステップで `.claude/settings.json` 等への登録も行う
 - 技術的な知見・ハマりどころは `references/knowledge.md` に集約する

@@ -15,7 +15,7 @@
 - **Relevant**:
   - ユーザー依頼
   - `backlog/backlog.md` の該当項目
-  - 関連する `rules/`, `decisions/`, `references/knowledge.md`, `specs/`（あれば）
+  - 関連する `docs/rules/`, `docs/decisions/`, `references/knowledge.md`, `docs/specs/`（あれば）
   - 既存コード、ログ、再現手順
 
 ## Use When

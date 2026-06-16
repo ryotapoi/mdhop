@@ -15,21 +15,21 @@ mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の�
 - 仕様・CLI 挙動の判断が必要なら、実装判断として決めずユーザー確認に回す。
 - 具体的な過去知見は `references/knowledge.md` を参照し、skill 本体には増やしすぎない。
 - plan / 実装どちらのレビューでも使える。対象は plan ファイル、または未コミット差分 / commit range。
-- Checkpoints と対象を照合する際、必要に応じて `rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を Read で読む。
+- Checkpoints と対象を照合する際、必要に応じて `docs/rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を Read で読む。
 
 ## Acceptance
 
 - `LGTM` またはリスク一覧がある。
 - リスクには影響、根拠、推奨対応がある。
-- 必要な場合、更新すべき `rules/`, `backlog/backlog.md`, `decisions/`, `references/knowledge.md`, `specs/`（あれば）が明確。
+- 必要な場合、更新すべき `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `references/knowledge.md`, `docs/specs/`（あれば）が明確。
 
 ## Relevant
 
 - ユーザー依頼、plan、または変更差分（未コミット / commit range）
-- `rules/01-concept.md`, `rules/02-requirements.md`, `rules/03-data-model.md`
-- `rules/overview.md`
-- `rules/architecture.md`
-- `decisions/`
+- `docs/rules/01-concept.md`, `docs/rules/02-requirements.md`, `docs/rules/03-data-model.md`
+- `docs/specs/overview.md`
+- `docs/rules/architecture.md`
+- `docs/decisions/`
 - `references/knowledge.md`
 
 ## Checkpoints
@@ -65,7 +65,7 @@ mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の�
 
 ### stdout の安定インターフェース
 
-15. **stdout JSON に未定義フィールドを追加しない**: `rules/overview.md` で定義された JSON フィールド以外を stdout に追加するのは agent 向け安定 IF の破壊（仕様変更として扱う）。warnings 等の付加情報は stderr に出力する（Build と同じパターン）。
+15. **stdout JSON に未定義フィールドを追加しない**: `docs/specs/overview.md` で定義された JSON フィールド以外を stdout に追加するのは agent 向け安定 IF の破壊（仕様変更として扱う）。warnings 等の付加情報は stderr に出力する（Build と同じパターン）。
 
 ### Usage / config
 
@@ -87,13 +87,13 @@ mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の�
 
 ### モジュール配置・構造
 
-25. **依存方向 `cmd/mdhop → internal/core` の遵守**: 新しい import がこの方向に従っているか。`internal/core` が `cmd/mdhop` に依存していないか（`rules/architecture.md` 参照）。
+25. **依存方向 `cmd/mdhop → internal/core` の遵守**: 新しい import がこの方向に従っているか。`internal/core` が `cmd/mdhop` に依存していないか（`docs/rules/architecture.md` 参照）。
 26. **共通化は依存方向に沿って配置する**: `cmd/mdhop` と `internal/core` 間で共有するコードは `internal/core` に置く。`cmd/mdhop` のローカルなヘルパーが本来 `internal/core` に属する概念を扱っていないか。
 27. **リファクタリングと機能実装を混ぜない**: diff / plan のステップに構造変更と新しいビジネスロジックが混在していないか。必要なら先行リファクタとして分離する。
 
 ### 派生ドキュメント・互換性
 
-28. **派生ドキュメントの更新**: CLI 表面仕様の変更に伴い、`rules/overview.md`, `README.md`, `README.ja.md`, `examples/` 配下の SKILL.md 等の更新が含まれているか。
+28. **派生ドキュメントの更新**: CLI 表面仕様の変更に伴い、`docs/specs/overview.md`, `README.md`, `README.ja.md`, `examples/` 配下の SKILL.md 等の更新が含まれているか。
 29. **互換性への影響の明示**: 出力フォーマット変更が既存の利用パターン（スクリプト連携、TSV パース等）に影響する場合、破壊的変更として明示されているか。
 
 上記に該当しないが mdhop 固有の設計判断に関わる問題も自由に指摘してよい。
