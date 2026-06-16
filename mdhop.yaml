@@ -1,8 +1,12 @@
 # mdhop self-index config.
-# Lets `mdhop build` run from the repo root so docs/ and llm-wiki/ link
-# integrity can be checked with mdhop itself (diagnose / reachable).
+# Lets `mdhop build` run from the repo root, so a subtree like llm-wiki/ or
+# docs/ can be link-checked with mdhop itself (diagnose / reachable).
+# The repo is not a single clean vault: cmd/ vs internal/ and .agents/ vs
+# .claude/ hold many same-basename files, so a root-wide `diagnose` reports
+# lots of unrelated basename conflicts. Always scope with --path 'llm-wiki/**'
+# (or the subtree you care about) rather than reading a bare root diagnose.
 # testdata/ and examples/ are independent fixture vaults whose duplicate
-# basenames would otherwise raise ambiguous-link errors; exclude them.
+# basenames would otherwise raise ambiguous-link errors at build time; exclude them.
 build:
   exclude_paths:
     - testdata/**

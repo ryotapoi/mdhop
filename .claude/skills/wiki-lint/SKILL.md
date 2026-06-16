@@ -53,13 +53,14 @@ llm-wiki/ は GitHub でリンクされる素の Markdown（ページ間リン�
 **mdhop があれば**高速路として使える（任意。必須ではない）。このリポジトリはルートに `mdhop.yaml`（testdata/ examples/ を除外）があるので、ルートで build すれば docs/ も含めた整合性を一度に見られる。`.mdhop/` は `.gitignore` 済み。
 
 ```bash
-mdhop build                                                              # ルート build（mdhop.yaml で testdata/examples 除外）
+mdhop build                                                                   # ルート build（mdhop.yaml で testdata/examples 除外）
 mdhop reachable --from llm-wiki/index.md --path 'llm-wiki/**' --format json   # unreachable = index から拾えない孤立ページ
-mdhop diagnose --format json                                             # リンク切れ・anchor 切れ・basename 衝突
+mdhop diagnose --path 'llm-wiki/**' --format json                             # llm-wiki 内のリンク切れ・anchor 切れ・phantom
 ```
 
+- `diagnose` は必ず `--path 'llm-wiki/**'` で絞る。絞らないと cmd/ と internal/ の同名 `.go`、`.agents/` と `.claude/` の同名 workflow など llm-wiki と無関係の basename 衝突が大量に出て、結果を読み違える。docs/ も一緒に見るなら `--path 'docs/**' --path 'llm-wiki/**'` と対象を明示する。
 - `reachable` の `unreachable` が空でなければ「拾える」違反（index.md にリンクを足すか、ページ自体が不要かを判断）。
-- `diagnose` の broken / phantom はリンク切れ。`repair --dry-run --format json` で書き換え案を確認できる（実修正は機械的に安全な範囲のみ、後述）。
+- `diagnose` の broken / phantom はリンク切れ。`repair --path 'llm-wiki/**' --dry-run --format json` で書き換え案を確認できる（実修正は機械的に安全な範囲のみ、後述）。
 
 ### 2. sources パスの実在（リポジトリルートから）
 
@@ -84,7 +85,7 @@ mdhop diagnose --format json                                             # リ�
 
 **機械的に修復してよいもの**（実施する）:
 
-- 壊れた `[](相対パス)` リンク（リンク先の正しいパスが一意に確定する場合）。mdhop があれば `repair --dry-run` で書き換え案を確認してから直す。
+- 壊れた `[](相対パス)` リンク（リンク先の正しいパスが一意に確定する場合）。mdhop があれば `repair --path 'llm-wiki/**' --dry-run` で書き換え案を確認してから直す（`--path` で絞らないと llm-wiki 外まで対象になる）。
 - frontmatter `sources:` の明白なパス追従（ソースがリネームされ新パスが一意に確定する場合）。
 
 **修復せずレポートするもの**:
