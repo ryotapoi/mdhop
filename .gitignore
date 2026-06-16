@@ -37,6 +37,9 @@ CLAUDE.local.md
 # Temporary files (scratch notes, etc.)
 /tmp/
 
+# mdhop index (built on demand, e.g. by wiki-lint for llm-wiki/)
+.mdhop/
+
 # Goal runner runtime flags (stop / blocked / done のフラグファイル。state と decisions はコミット対象)
 backlog/goal-blocked.md
 backlog/goal-done.md

@@ -17,7 +17,7 @@
   - `backlog/backlog.md`
   - 変更が多かったモジュール
   - `docs/rules/architecture.md`
-  - `llm-wiki/`（作業地図）
+  - `llm-wiki/`（作業地図。`wiki-lint` skill で孤立・リンク切れ・sources 切れの機械検証と「速い / docs レベルでない / 嘘がない / 拾える」の不変条件照合を行う）
 
 ## Use When
 

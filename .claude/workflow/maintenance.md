@@ -25,6 +25,7 @@
 
 - 棚卸し・健康診断: `maintenance-audit` スキル（軽い整合性・負債・backlog 鮮度の light pass から、テスト・カバレッジ・行数・依存方向・凝集度・分割の deep pass まで、scope で深さを指定）
 - module / 配置 / 依存方向の境界判断: `module-boundary` スキル
+- `llm-wiki/` の地図健全性: `wiki-lint` スキル（孤立・リンク切れ・sources 切れの機械検証＋「速い / docs レベルでない / 嘘がない / 拾える」の不変条件照合）
 
 ## Decision Criteria
 
