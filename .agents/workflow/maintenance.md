@@ -17,7 +17,13 @@
   - `backlog/backlog.md`
   - 変更が多かったモジュール
   - `docs/rules/architecture.md`
-  - `llm-wiki/`（作業地図。`wiki-lint` skill で孤立・リンク切れ・sources 切れの機械検証と「速い / docs レベルでない / 嘘がない / 拾える」の不変条件照合を行う）
+  - `llm-wiki/`（作業地図）
+
+## Tools
+
+- 棚卸し・健康診断: `maintenance-audit` skill（軽い整合性・負債・backlog 鮮度の light pass から、テスト・カバレッジ・行数・依存方向・凝集度・分割の deep pass まで、scope で深さを指定）
+- module / 配置 / 依存方向の境界判断: `module-boundary` skill
+- `llm-wiki/` の地図健全性: `wiki-lint` skill（孤立・リンク切れ・sources 切れの機械検証＋「速い / docs レベルでない / 嘘がない / 拾える」の不変条件照合）
 
 ## Use When
 
