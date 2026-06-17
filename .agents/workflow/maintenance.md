@@ -25,6 +25,22 @@
 - module / 配置 / 依存方向の境界判断: `module-boundary` skill
 - `llm-wiki/` の地図健全性: `wiki-lint` skill（孤立・リンク切れ・sources 切れの機械検証＋「速い / docs レベルでない / 嘘がない / 拾える」の不変条件照合）
 
+## Flow ICAR
+
+### Maintenance Pass
+
+- **Intent**: 単一差分を超える構造劣化、負債、重複、テスト戦略の不足を見つける。
+- **Constraints**: 今回の差分ではなく、今後の変更コストを下げる観点で見る。仕様や設計方針の変更が必要なら `docs/decisions/` または `docs/rules/` 更新を検討する。
+- **Acceptance**: すぐ直すものと backlog に積むものが分かれている。
+- **Relevant**: 最近の git history、変更が多かったモジュール、関連 rules / llm-wiki。
+
+### Backlog Sync
+
+- **Intent**: 棚卸し結果を追跡可能な改善タスクにする。
+- **Constraints**: 改善タスクは 1 commit に収まる粒度にする。
+- **Acceptance**: 必要な改善が `backlog/backlog.md` に入っている。
+- **Relevant**: `backlog/backlog.md`。
+
 ## Use When
 
 - 複数コミットやマイルストーンの区切り

@@ -1,54 +1,59 @@
 # Implement
 
-## Intent
+## ICAR
 
-承認済み plan、または plan を省略できる軽微な変更の明確な要求を、既存設計と情報源に整合する形で実装する。
+- **Intent**: 承認済み plan、または plan を省略できる軽微な変更の明確な要求を、既存設計と情報源に整合する形で実装する。
+- **Constraints**:
+  - 既存の局所パターンに従う。変える場合は理由を説明可能にする。
+  - 型定義・API・依存方向は実物で確認する。
+  - 振る舞い変更や bug fix では、同じ commit に unit test / regression test を追加または更新する。テストできない場合は理由を明記する。
+  - 振る舞いが変わるなら `docs/specs/`（あれば）の該当箇所を同期する。
+  - backlog に積んでいた項目を実装完了したら `backlog/backlog.md` の該当行を `[x]` 等で更新する。
+  - 実装中に見つかった別タスクは、今やる理由がなければ `backlog/backlog.md` に逃がす。
+  - 構造の悪さが実装を歪める場合は、同じ変更で直すか、別リファクタ plan に切るかを判断する。
+  - ループ内で時刻を扱う場合は各反復で取得する。
+- **Acceptance**:
+  - 要求された振る舞いが実装されている。
+  - 必要な `docs/specs/`（あれば） / tests / `backlog/backlog.md` の同期が済んでいる。
+  - 余計なスコープ拡張がない。
+- **Relevant**:
+  - 承認済み plan、または Small 変更（`default.md` の Intake 分類）の明確な要求。
+  - 関連する `docs/rules/`, `docs/specs/`（あれば）, `llm-wiki/`（作業地図）。
+  - 変更対象と周辺コード。
 
-## Inputs
+## Flow ICAR
 
-- 承認済み plan、または Small 変更（`default.md` の Intake 分類）の明確な要求
-- 関連する `docs/rules/`, `docs/specs/`（あれば）, `llm-wiki/`（作業地図）
-- 変更対象と周辺コード
+### Code Change
 
-## Decision Criteria
+- **Intent**: 要求された振る舞いを最小十分な差分で実装する。
+- **Constraints**: TDD でやる場合は `tdd` スキルに従う（Normal / High-risk の振る舞い変更は基本 TDD。Small は省略可）。
+- **Acceptance**: plan と実装上の事実が食い違っていない。
+- **Relevant**: 変更対象コード、関連テスト、関連 rules。
 
-- 既存の局所パターンに従う。変える場合は理由を説明可能にする
-- 型定義・API・依存方向は実物で確認（推測しない）
-- 振る舞い変更や bug fix では、同じ commit に unit test / regression test を追加または更新する。テストできない場合は理由を明記する
-- TDD でやる場合は `tdd` スキルに従う（Normal / High-risk の振る舞い変更は基本 TDD。Small は省略可）
-- 振る舞いが変わるなら `docs/specs/`（あれば）の該当箇所を同期する
-- backlog に積んでいた項目を実装完了したら `backlog/backlog.md` の該当行を `[x]` 等で更新する
-- 実装中に見つかった別タスクは、今やる理由がなければ `backlog/backlog.md` に逃がす
-- 構造の悪さが実装を歪める場合は、同じ変更で直すか、別リファクタ plan に切るかを判断する
-- ループ内で時刻を扱う場合は各反復で取得（ループ外で 1 回だけ取得しない）
+### Documentation Sync
 
-## Documentation Sync
-
-実装で変わった仕様・構造・知見は、同じ差分の中で正しい情報源に反映する（commit 待ちにしない。更新は review で差分の一部としてレビューされる）。判断基準の正本は `docs/rules/information-management.md`。
-
-- 振る舞い・CLI 表面が変わったら `docs/specs/`（あれば）と派生ドキュメントの要否を確認する
-- 後から制約になる判断は `docs/decisions/` に ADR で残す
-- 今回の変更で `llm-wiki/` が古くなっていないか見て追従する。「知見を書く」だけでなく、構造そのものの追従を含む:
-  - 索引・地図（`regen: full`）— 例: コマンド追加で `01-command-index.md`、波及・型・helper 対応表。手で恒久編集せず、変わったソースの frontmatter `sources:` を読み直し、古くなった節だけ再生成する
-  - 概念・ガイド（`regen: compiled`）— 例: リンク解決の経路を変えたら `06-resolve-rewrite.md` の地図を編み直す。同じく sources を読み直して該当箇所を再編纂する
-  - 外部知見（`regen: none`）— ライブラリの罠・実測など。特定ソースに紐づく罠はそのコードのコメントへ寄せ、llm-wiki には横断的なものだけ手で書く。単一の集約ファイルは作らない
+- **Intent**: 実装で変わった仕様・構造・知見を、同じ差分の中で正しい情報源に反映する。
+- **Constraints**:
+  - 判断基準の正本は `docs/rules/information-management.md`。
+  - 振る舞い・CLI 表面が変わったら `docs/specs/`（あれば）と派生ドキュメントの要否を確認する。
+  - 後から制約になる判断は `docs/decisions/` に ADR で残す。
+  - 今回の変更で `llm-wiki/` が古くなっていないか見て追従する。「知見を書く」だけでなく、構造そのものの追従を含む:
+    - 索引・地図（`regen: full`）— 例: コマンド追加で `01-command-index.md`、波及・型・helper 対応表。手で恒久編集せず、変わったソースの frontmatter `sources:` を読み直し、古くなった節だけ再生成する。
+    - 概念・ガイド（`regen: compiled`）— 例: リンク解決の経路を変えたら `06-resolve-rewrite.md` の地図を編み直す。同じく sources を読み直して該当箇所を再編纂する。
+    - 外部知見（`regen: none`）— ライブラリの罠・実測など。特定ソースに紐づく罠はそのコードのコメントへ寄せ、llm-wiki には横断的なものだけ手で書く。単一の集約ファイルは作らない。
+- **Acceptance**: 実装差分と情報源が矛盾していない。
+- **Relevant**: `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）。
 
 ## Go Tooling
 
 - ビルド: `go build ./...`
 - テスト: `go test ./...`
 - 静的チェック: `go vet ./...`
-- フォーマット: `gofmt` / `goimports` は PostToolUse hook（`.claude/hooks/go-format.sh`）で自動実行されるため手動不要
+- フォーマット: `gofmt` / `goimports` は PostToolUse hook（`.claude/hooks/go-format.sh`）で自動実行されるため手動不要。
 - バイナリ: `go build -o bin/mdhop ./cmd/mdhop`（CLI 動作確認用）
-
-## Acceptance
-
-- 要求された振る舞いが実装されている
-- 必要な `docs/specs/`（あれば） / tests / `backlog/backlog.md` の同期が済んでいる
-- 余計なスコープ拡張がない
 
 ## Stop Conditions
 
-- plan と実装上の事実が食い違う
-- 実装中に仕様判断が必要になった
-- リファクタなしでは変更が不自然または危険になる
+- plan と実装上の事実が食い違う。
+- 実装中に仕様判断が必要になった。
+- リファクタなしでは変更が不自然または危険になる。
