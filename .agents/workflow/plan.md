@@ -43,7 +43,7 @@ Small（`default.md` の Intake 分類）は plan を省略してよい。
 - **Intent**: モジュール配置・共通化方針・型選択を、既存設計と長期保守性に沿って決める。
 - **Constraints**:
   - `design-decision` を使い、ルールに当てはめても決まらないときだけユーザー確認する。
-  - mdhop 固有制約に触れるなら `mdhop-risk-check` で確認する。
+  - mdhop 固有制約に触れるなら `project-risk-check` で確認する。
   - モジュール配置は `docs/rules/architecture.md` の依存方向と既存責務で判断する。
   - 共通化は「片方だけ変更したくなったとき、もう片方に影響なく変更できるか？」で判断する。
 - **Acceptance**: 採用案・却下案・理由・残リスクが plan に残っている。
@@ -64,7 +64,7 @@ Small（`default.md` の Intake 分類）は plan を省略してよい。
 - **Intent**: 実装前に plan の事実誤認・設計劣化・検証不足を見つける。
 - **Constraints**:
   - 通常は実装後レビュー（`review.md`）を標準とし、plan review は self-check でよい。
-  - 領域固有リスクがあれば `mdhop-risk-check` を plan に当てる。
+  - 領域固有リスクがあれば `project-risk-check` を plan に当てる。
   - High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`change-review` などの別視点を入れる。
 - **Acceptance**: 指摘が plan に反映済み、または対応しない理由が事実と理由で残っている。
 - **Relevant**: plan、関連 rules、レビュー観点 skill。

@@ -1,9 +1,9 @@
 ---
-name: mdhop-risk-check
+name: project-risk-check
 description: mdhop 固有の plan / 実装チェック。CLI 仕様、SQLite/SQL、リンク解決、ルート優先ルール、vault パス、破壊的処理（delete --rm / move / rewrite 系）、stdout JSON、モジュール境界に触れる変更で使う。汎用レビューではなく mdhop 固有の実害に絞って確認する。
 ---
 
-# mdhop Risk Check
+# Project Risk Check
 
 ## Intent
 
