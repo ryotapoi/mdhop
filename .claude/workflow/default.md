@@ -1,7 +1,7 @@
 # Default Workflow
 
-この workflow は、単発依頼、または Goal 内で切り出された 1 commit 分の作業を完了させるための手順。
-Goal を使う作業全体の入口は `goal-workflow` skill とし、この workflow は Goal 内の各 commit で繰り返す。
+この workflow は、単発の実装依頼、または Goal 内で切り出された 1 commit 分の作業を完了させるための手順。
+Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit でこの workflow を繰り返す。単発依頼の場合はこの workflow を直接の入口とする。
 
 ## Intent
 
@@ -10,23 +10,16 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 ## Inputs
 
 - ユーザー依頼
-- 関連する `docs/rules/`, `docs/specs/`（あれば）, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）
+- 関連する `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）
 - 既存コードと git history
 
 ## Intake 分類
 
-最初に作業を分類する。判定が揺れたら High-risk 寄りに倒す。Small / Normal の境界は迷ったら Normal でよい。
+最初に作業を分類する。判定が揺れたら High-risk 寄りに倒す。Small / Normal の境界は迷ったら Normal で進めてよい。
 
-- **Small**: typo、文書修正、テスト期待値の単純な追加、1 ファイルの明確な修正
+- **Small**: typo、文書、テスト期待値、1 ファイルの明確な修正
 - **Normal**: 通常の機能追加・バグ修正・複数ファイル変更
-- **High-risk**: 以下のいずれかに触れる変更
-  - SQLite スキーマ変更、マイグレーション、`build` の挙動変更（`delete --rm` などの破壊的処理を含むもの）
-  - SQL の意味的変更（プレースホルダの扱い、`GROUP BY`、`MAX`/`MIN` 等の集約関数、NULL 三値論理、exists_flag フィルタ）
-  - `modernc.org/sqlite` 固有の罠を踏みうる変更（`LastInsertId` の罠、`:memory:` 接続、`PRAGMA table_info` ベースの migration など。詳細は `internal/core/db.go` のコメント参照）
-  - リンク解決ロジック・ルート優先ルール（ADR 0004）に触れる変更
-  - CLI 仕様の破壊的変更（stdout JSON フィールド、--where フィルタの解釈変更など）
-  - vault escape / パス安全性に関わる変更
-  - 公開 API の削除、外部連携、並行性
+- **High-risk**: データ永続化、マイグレーション、並行性、公開 API、削除、広い UI 挙動、外部連携
 - **Exploratory**: 原因不明、仕様不明、技術検証が先に必要
 
 ## Routing
@@ -41,9 +34,9 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 
 ## Decision Criteria
 
-- workflow は 1 つの commit 単位で回す。実行中に 1 commit を超えると分かったら、作業を広げず（Goal 実行中は）`goal-workflow` skill に戻って commit 単位を切り直す。
+- workflow は 1 つの commit 単位で回す。実行中に 1 commit を超えると分かったら、作業を広げず、Goal 実行中は `goal-workflow` skill に戻って commit 単位を切り直す。
 - Small は plan を省略してよい。作業内容と検証だけ簡潔に示す。
-- 仕様・データモデル・複数ファイル変更・設計判断を伴うなら plan を作る。
+- 仕様・UX・データモデル・複数ファイル変更・設計判断を伴うなら plan を作る。
 - High-risk は plan・検証・必要なレビューを明示する。
 - 実装判断に影響する不明点は、調査かユーザー確認で潰してから進む。
 - 途中でタスクの性質が変わったら、Intake からやり直す（格上げは許容）。
@@ -58,25 +51,26 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 4. `docs/specs/`
 5. tests
 
-仕様・CLI 挙動に関わる判断は実装で決めず、ユーザー確認に回す。
+仕様・UX に関わる判断は実装で決めず、ユーザー確認に回す。
 
 ## Acceptance
 
 - ユーザーの要求が満たされている
-- 必要な情報源が同期されている（`backlog/backlog.md`, `docs/decisions/`、必要なら `docs/specs/`）
+- 必要な情報源が同期されている（`docs/specs/`, `backlog/backlog.md`, `docs/decisions/`、知見はソースコメント / `llm-wiki/`）
 - 選んだ検証とレビューの深さを説明できる
 - コミット済み、またはユーザーが明示的にコミット不要とした状態
 - コミット後の進み方は `finish.md` に従う（Goal 実行中は次の 1 commit workflow へ、Goal 外の単発依頼はユーザー指示待ち）
 
 ## Stop Conditions
 
-- 仕様・CLI 挙動・データ保持・削除方針に複数の妥当な選択肢がある（即停止して確認。ただし `design-decision` で結論が出る範囲なら止まらず採否を決める）
+- 仕様・UX・データ保持・削除方針に**複数の妥当な選択肢が実際にある**（即停止して確認。ただし `design-decision` で結論が出る範囲なら止まらず採否を決める）
 - 要求と `docs/rules/` / `docs/specs/` / `docs/decisions/` が矛盾している
 - High-risk 変更で検証手段が確保できない
 - ユーザーが停止・相談・計画のみを指示している
 
 ## Subagent / Skill
 
-- 複数ファイル横断・キーワードのファンアウト調査は Explore subagent に委譲する（CLAUDE.md の Constraints / サブエージェント活用に従う）
-- skill は判断プロトコル（`design-decision`, `module-boundary`, `tdd` など）として呼ぶ。mdhop 固有のレビューは `mdhop-risk-check` を使う（depth 選択は `review.md`）
+- 複数ファイル横断・キーワードのファンアウト調査は Explore subagent に委譲する
+- skill は各 phase の workflow の指示に従って使う。
+- `boundary-control` は横断チェックとして全 phase に効く。今回の要求の外へ作業を広げそうな時、隣接作業が見つかった時、scope を変える編集の前に使い、active scope 内か（workflow-required / incidental-required）を判定する。active workflow を止めたり置き換えたりはしない
 - 詳細は各 phase のファイル参照

@@ -1,44 +1,45 @@
 # Default Workflow
 
-この workflow は、単発依頼、または Goal 内で切り出された 1 commit 分の作業を完了させるための手順。
-Goal を使う作業全体の入口は `goal-workflow` skill とし、この workflow は Goal 内の各 commit で繰り返す。
+この workflow は、単発の実装依頼、または Goal 内で切り出された 1 commit 分の作業を完了させるための手順。
+Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit でこの workflow を繰り返す。単発依頼の場合はこの workflow を直接の入口とする。
 
 ## ICAR
 
 - **Intent**: 単発依頼、または Goal 内で切り出された 1 commit 分の作業を、必要十分な調査・計画・実装・検証・記録で完了させる。
 - **Constraints**:
+  - workflow は 1 つの commit 単位で回す。Goal が複数 commit 単位を含む場合は、`goal-workflow` skill に戻って 1 commit に収まる単位へ切り直す。
   - 手続きの重さは作業の大きさとリスクに合わせる。
-  - workflow は 1 つの commit 単位で回す。Goal 実行中に 1 commit を超えると分かったら、作業を広げず `goal-workflow` skill に戻って commit 単位を切り直す。
-  - 判断に影響する `docs/rules/`, `docs/decisions/`, `backlog/backlog.md`, `llm-wiki/`（作業地図）, `docs/specs/`（あれば）は推測で済ませず実物を確認する。
-  - 仕様・CLI 挙動・データ保持・削除方針に関わる判断は、実装で決めず必要ならユーザー確認に回す。
-  - コミット後の進み方は Goal 実行中か単発依頼かで分かれる（Goal 実行中は次の 1 commit workflow へ、単発依頼はユーザー指示待ち）。
+  - 判断に影響する `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）は推測で済ませず実物を確認する。
+  - 仕様・UX に関わる判断は実装で決めず、ユーザー確認に回す。
 - **Acceptance**:
   - ユーザーの要求が満たされている。
   - 必要な情報源が同期されている。
   - 選んだ検証とレビューの深さを説明できる。
   - コミット済み、またはユーザーが明示的にコミット不要とした状態。
 - **Relevant**:
-  - `.agents/workflow/goal.md`（Goal 実行時の正本）
-  - `.agents/workflow/investigate.md`
-  - `.agents/workflow/plan.md`
-  - `.agents/workflow/implement.md`
-  - `.agents/workflow/verify.md`
-  - `.agents/workflow/review.md`
-  - `.agents/workflow/finish.md`
-  - `.agents/workflow/maintenance.md`
+  - `goal-workflow` skill
+  - `agents/workflow/investigate.md`
+  - `agents/workflow/plan.md`
+  - `agents/workflow/implement.md`
+  - `agents/workflow/verify.md`
+  - `agents/workflow/review.md`
+  - `agents/workflow/finish.md`
+  - `agents/workflow/maintenance.md`
 
 ## Intake
 
 最初に作業を分類する。判定が揺れたら High-risk 寄りに倒す。Small / Normal の境界は迷ったら Normal で進めてよい。
 
-- **Small**: typo、文書修正、テスト期待値の単純な追加、1 ファイルの明確な修正
+- **Small**: typo、文書、テスト期待値、1 ファイルの明確な修正
 - **Normal**: 通常の機能追加・バグ修正・複数ファイル変更
-- **High-risk**: SQLite スキーマ、SQL 意味変更、リンク解決、ルート優先ルール、stdout JSON、vault escape、`move` / `delete --rm` 等の破壊的処理、公開 API、外部連携、並行性
+- **High-risk**: データ永続化、マイグレーション、並行性、公開 API、削除、広い UI 挙動、外部連携
 - **Exploratory**: 原因不明、仕様不明、技術検証が先に必要
 
 ## Flow
 
 - Exploratory → `investigate.md` で事実を揃えてから Intake をやり直す。
+- Goal で選ばれた今回扱う 1 commit 分だけを進める。
+- 実行中に 1 commit を超えると分かった場合 → 作業を広げず `goal-workflow` skill に戻って commit 単位を切り直す。
 - Plan が必要な変更 → `plan.md` で実装前の ICAR を揃える。
 - Plan 省略可な変更 → `implement.md` へ進み、局所 ICAR を満たす。
 - 実装 → `implement.md`
@@ -61,9 +62,11 @@ Goal を使う作業全体の入口は `goal-workflow` skill とし、この wor
 
 独立した調査・レビュー・実装は並列化してよい。領域固有の判断は各 phase の workflow に従って skill を使う。
 
+横断のスコープ制御を全 phase に効かせる。今回の要求の外へ作業を広げそうな時、隣接作業が見つかった時、scope を変える編集の前に、その行為が active scope 内か判定する。active scope は「ユーザーの明示指示 + 起動 workflow / skill の Intent・Acceptance + phase の要件 + workflow が要求する review 対応・同期・記録」で構成し、ユーザーの一文だけで決めない。判定順は workflow-required（手順が要求）→ incidental-required（やらないと Acceptance を満たせない最小行為）→ adjacent-candidate（関連・有益だが達成には不要、実行しない）→ blocked（進められない、止めて報告）。adjacent-candidate は実行せず、project-relevant なら backlog / decision log 等へ capture するか最終報告で report する。この制御で自動進行する workflow を細切れに止めない。
+
 ## Stop Conditions
 
-- 仕様・CLI 挙動・データ保持・削除方針に複数の妥当な選択肢が実際にある。
+- 仕様・UX・データ保持・削除方針に複数の妥当な選択肢が実際にある。
 - 要求と `docs/rules/` / `docs/specs/` / `docs/decisions/` が矛盾している。
 - High-risk 変更で検証手段が確保できない。
 - ユーザーが停止・相談・計画のみを指示している。

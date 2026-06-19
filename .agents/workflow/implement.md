@@ -4,19 +4,22 @@
 
 - **Intent**: 承認済み plan、または plan を省略できる軽微な変更の明確な要求を、既存設計と情報源に整合する形で実装する。
 - **Constraints**:
+  - plan を省略する場合でも、workflow は 1 commit に収まる軽微な変更だけにする。
+  - 実装中に 1 commit を超えると分かったら、作業を広げず `plan.md` に戻るか、今回扱う 1 commit 単位へ切り直す。
   - 既存の局所パターンに従う。変える場合は理由を説明できるようにする。
+  - 新しい型・ファイル・外部依存・責務配置・module/package/target/folder 境界を扱う場合は、実装前に `module-boundary` で配置判断を確認する。
   - 型定義・API・依存方向は実物で確認する。
   - 振る舞い変更や bug fix では、同じ commit に unit test / regression test を追加または更新する。テストできない場合は理由を明記する。
-  - 振る舞い変更があるなら、必要に応じて `docs/specs/overview.md`、`docs/specs/`、テストを同期する。
-  - 実装中に見つかった別タスクは、今やる理由がなければ `backlog/backlog.md` に逃がす。
-  - ループ内で時刻を扱う場合は各反復で取得する。
+  - 振る舞い変更があるなら、必要に応じて `docs/specs/` とテストを同期する。
+  - 実装中に見つかった別タスクは、今やる理由がなければ `backlog/backlog.md` に逃がす。今回の commit の active scope 内か迷う作業は、`default.md` の横断スコープ制御で分類してから着手する（adjacent なら実行せず capture / report）。
+  - ループ内で時刻を扱う場合は各反復で取得する（ループ外で 1 回だけ取得しない）。
 - **Acceptance**:
   - 要求された振る舞いが実装されている。
-  - 必要な docs / tests / `backlog/backlog.md` の同期が済んでいる。
+  - 必要な `docs/specs/` / tests / `backlog/backlog.md` の同期が済んでいる。
   - 余計なスコープ拡張がない。
 - **Relevant**:
   - 承認済み plan、または Small 変更の明確な要求
-  - 関連する `docs/rules/`, `llm-wiki/`（作業地図）, `docs/specs/`（あれば）
+  - 関連する `docs/rules/`, `docs/specs/`, `llm-wiki/`（作業地図）
   - 変更対象と周辺コード
 
 ## Flow ICAR
@@ -24,33 +27,40 @@
 ### Code Change
 
 - **Intent**: 要求された振る舞いを最小十分な差分で実装する。
-- **Constraints**: TDD でやる場合は `tdd` スキルに従う。Go コードは `gofmt` を通す。
+- **Constraints**:
+  - テストファーストで進める場合は `tdd` スキルに従う。
+  - 構造の悪さが実装を歪める場合は、同じ変更で直すか、別リファクタ plan に切るかを判断する。
 - **Acceptance**: plan と実装上の事実が食い違っていない。
-- **Relevant**: 変更対象コード、関連テスト、関連 rules。
+- **Relevant**: 変更対象コード、関連テスト、関連 specs。
 
 ### Documentation Sync
 
 - **Intent**: 実装で変わった仕様・知見・未着手作業を正しい情報源に反映する。
 - **Constraints**:
-  - CLI 表面仕様が変わったら `docs/specs/overview.md` と派生ドキュメントの要否を確認する。
-  - 完了した backlog 項目があれば `backlog/backlog.md` を更新する。
-  - 今回の変更で `llm-wiki/` が古くなっていないか見て、同じ差分の中で追従する（commit 待ちにしない。更新は review で差分の一部としてレビューされる）。「知見を書く」だけでなく構造そのものの追従を含む:
-    - 索引・地図（`regen: full`）— 例: コマンド追加で `01-command-index.md`、波及・型・helper 対応表。手で恒久編集せず、変わったソースの frontmatter `sources:` を読み直し、古くなった節だけ再生成する。
-    - 概念・ガイド（`regen: compiled`）— 例: リンク解決の経路を変えたら `06-resolve-rewrite.md` の地図を編み直す。同じく sources を読み直して該当箇所を再編纂する。
-    - 外部知見（`regen: none`）— ライブラリの罠・実測など。特定ソースに紐づく罠はそのコードのコメントへ寄せ、llm-wiki には横断的なものだけ手で書く。単一の集約ファイルは作らない。
-  - 後から制約になる判断は `docs/decisions/` に残す。判断基準の正本は `docs/rules/information-management.md`。
+  - 完了した backlog 項目があれば `backlog/backlog.md` の該当行を `[x]` 等で更新する。
+  - 技術的知見は、特定ソースに紐づく罠はそのコードのコメントへ、横断的な挙動・設計理解は `llm-wiki/` の該当地図へ残す。単一の集約知見ファイルは作らない。
+  - 今回の変更で `llm-wiki/` の地図が古くなっていないか確認し、古くなった場合は同じ差分で追従する。各ページの更新方法（再生成するか手編集するか）は `regen` 区分に従い、その判断基準の正本は `docs/rules/information-management.md`（および `llm-wiki/` の索引）とする。区分ごとの手順はこの workflow に写経しない。
+  - 後から制約になる判断は `docs/decisions/` に残す。
 - **Acceptance**: 実装差分と情報源が矛盾していない。
-- **Relevant**: `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）。
+- **Relevant**: `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）。
 
-## Go Tooling
+## Tooling
 
-- ビルド: `go build ./...`
-- テスト: `go test ./...`
+<!-- slot: ビルド・テスト・実行のコマンドと使うツールを書く（例: XcodeBuildMCP の build_macos / test_macos と「Bash で xcodebuild を直接叩かない」、go build ./... / go test ./...、./gradlew verifyAll、CLI なら bin/<tool>）。API 仕様の一次情報確認手段も書く（外部 API が無ければ「N/A — 外部 API 参照なし」と明記する）。 -->
+
+- 全体ビルド: `go build ./...`
+- 全体テスト: `go test ./...`
 - 静的チェック: `go vet ./...`
-- バイナリ: `go build -o bin/mdhop ./cmd/mdhop`
+- バイナリ作成: `go build -o bin/mdhop ./cmd/mdhop`
+- 集中テスト例: `go test ./internal/core/`、`go test ./internal/core/ -run TestBuild`
+- CLI 挙動確認: `bin/mdhop <args>` で stdout / stderr / 終了コード / DB 副作用を見る。
+- 破壊的処理（`delete --rm`, `move` など）は `testdata/` または `tmp/` 配下の一時 vault で確認する。
+- Go / SQLite / YAML 等の外部 API 仕様が判断に影響する場合は一次情報を確認する。
+<!-- /slot -->
 
 ## Stop Conditions
 
 - plan と実装上の事実が食い違う。
 - 実装中に仕様判断が必要になった。
 - リファクタなしでは変更が不自然または危険になる。
+- module / package / target / folder 境界の判断なしに、新しい責務や外部依存を既存構造へ押し込む必要が出た。

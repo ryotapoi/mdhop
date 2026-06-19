@@ -6,57 +6,38 @@
 
 ## Plan Mode
 
-plan mode（`EnterPlanMode` / `ExitPlanMode`）は使わない。承認待ちが Goal の自動進行と噛み合わないため。計画は内部で立て、そのまま `implement.md` へ進む。ユーザー確認が必要なのは Stop Conditions に該当する場合だけ。
+plan mode（`EnterPlanMode` / `ExitPlanMode`）は使わない。承認待ちが `/goal` の自動進行と噛み合わないため。計画は内部で立て、そのまま `implement.md` へ進む。ユーザー確認が必要なのは Stop Conditions に該当する場合だけ。
 
 ## Use When
 
 - 複数ファイル変更
-- 仕様・データモデル・アーキテクチャに影響する変更
-- High-risk 変更（`default.md` の Intake 分類）
+- 仕様・UX・データモデル・アーキテクチャに影響する変更
+- High-risk 変更
 - 実装方針が複数あり判断が必要
 - リファクタを含む
 
-Small（typo、docs、テスト追加だけ、1 ファイルの明確なバグ修正）は plan を省略してよい。
+Small（`default.md` の Intake 分類）— typo、docs、テスト追加だけ、1 ファイルの明確なバグ修正 — は plan を省略してよい。
 
 ## Inputs
 
 - ユーザー依頼
 - `backlog/backlog.md`
-- 関連する `docs/rules/`, `docs/specs/`（あれば）, `docs/decisions/`, `llm-wiki/`（作業地図）
+- 関連する `docs/rules/`, `docs/specs/`, `docs/decisions/`, `llm-wiki/`（作業地図）
 - 関連コードと既存パターン
 
 ## UX シナリオ
 
-CLI 出力に関わる変更なら、Before / After / 操作手順を 1 つの具体的な状態で書き、ユーザーに確認する。
-内部ロジックのみの変更なら「N/A — CLI 出力変更なし」と明記してスキップ。
+UI / 出力に関わる変更なら、Before / After / 操作手順を 1 つの具体的な状態で plan に書く。
+ロジックのみの変更なら「N/A — UI 変更なし」と明記してスキップ。
 
-```markdown
-## UX Scenario
-
-### Before
-- 具体的な CLI 入出力の状態を記述
-
-### After
-- 同じ操作がどう変わるべきかを記述
-
-### 操作手順
-1. ユーザーがどのコマンドを実行したら
-2. 出力がどう変わるか
-```
-
-ポイント:
-- 抽象的な仕様ではなく、具体的な1つの状態で書く
-- 操作の前後で出力がどう見えるかを明示する
-- 複数のシナリオがある場合は主要なものを2-3個
-
-ユーザーへの確認は plan の必須ステップではない。仕様・CLI 挙動に複数の妥当な選択肢が実際にある（Stop Conditions 該当）場合に止まって確認する。出力の見え方の確認は実装後に `verify.md` の方針で自動検証（`bin/mdhop` 実行）を優先し、確定できない場合だけ Stop Condition または残存リスクとして扱う。
+ユーザーへの確認は plan の必須ステップではない。仕様・UX に複数の妥当な選択肢が実際にある（Stop Conditions 該当）場合に止まって確認する。見た目・操作の確認は実装後に `verify.md` の方針で自動検証を優先し、確定できない場合だけ Stop Condition または残存リスクとして扱う。
 
 ## 設計判断
 
 - 設計判断の前に `design-decision` スキルを呼ぶ
 - ルールに当てはめても決まらないときだけユーザー確認
-- モジュール配置（`cmd/mdhop` と `internal/core` の依存方向）、共通化方針、型選択を判断する。配置・責務・依存方向そのものを問う場合は `module-boundary` を使う
-- mdhop 固有制約に触れるなら `mdhop-risk-check` で確認する（対象領域の一覧は `review.md` の領域固有 supplement を参照）
+- モジュール配置・共通化方針・型選択を判断する
+- プロジェクト固有制約に触れるなら `project-risk-check` で確認する。観点は skill 側が持つ。
 
 ## 先行リファクタ判定
 
@@ -68,15 +49,22 @@ CLI 出力に関わる変更なら、Before / After / 操作手順を 1 つの�
 ## Decision Criteria
 
 - 原則 1 plan = 1 commit。独立した成果が混ざるなら plan を分ける
+- backlog item や Goal が大きくても、そのまま 1 plan にしない。review / revert / bisect できる 1 commit 単位へ切る
+- 1 commit 単位は、途中段階でも「その単位として完了している」状態にする。Goal 全体の完了とは別に判断する
 - 設計判断は採用案・却下案・理由を plan に記録
-- 検証方針（自動 / CLI 動作確認 / ユーザー依頼）を plan に明記
+- 検証方針（自動 / ユーザー確認）を plan に明記
+- **モジュール配置**: 「依存の方向に違反しないか」「既存モジュールの責務を逸脱しないか」で判断する。新モジュールを切るならその理由を書く
+- **共通化と分離**: 「片方だけ変更したくなったとき、もう片方に影響なく変更できるか？」で判断する。無理に共通化して分岐だらけになるなら分ける
 
 ## Plan Review
 
 - 通常は実装後レビュー（`review.md`）を標準とし、plan review は self-check でよい。
-- 実装差分レビューでは Small 以外を原則 `/code-review xhigh` に通すため、plan 時点でもレビュー深度と追加 skill の要否を明記する。
-- 領域固有リスクがあれば `mdhop-risk-check` を plan に当てる。
+- 実装差分レビューでは Small 以外を原則 `/code-review xhigh` 観点ベースのレビューに通すため、plan 時点でもレビュー深度と追加 skill の要否を明記する。
+- 領域固有リスクがあれば該当観点の skill を plan に当てる。`project-risk-check` 以外で固有制約に触れる場合は次の slot のマッピングに従う。
+  <!-- slot: project-risk-check 以外の領域固有レビュー skill があれば追記する（例: SwiftUI を触るなら swiftui-pro を使う）。 -->
+  <!-- /slot -->
 - High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`codex-review` でプランファイルを別系統レビューに回す。
+- 同じ論点でレビューが収束しない場合は、状況を報告して指示を仰ぐ。
 
 ## Acceptance
 
@@ -88,6 +76,6 @@ CLI 出力に関わる変更なら、Before / After / 操作手順を 1 つの�
 
 ## Stop Conditions
 
-- 仕様・CLI 挙動・設計方針に複数の妥当な選択肢がある（即停止して確認。ただし `design-decision` で結論が出る範囲なら止まらず採否を決める）
+- 仕様・UX・設計方針に**複数の妥当な選択肢が実際にある**（即停止して確認。ただし `design-decision` で結論が出る範囲なら止まらず採否を決める）
 - 1 commit に収まらない（plan を分ける）
 - High-risk なのに検証方針がない
