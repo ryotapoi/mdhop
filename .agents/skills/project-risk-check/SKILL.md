@@ -1,36 +1,31 @@
 ---
 name: project-risk-check
-description: mdhop 固有の plan / 実装チェック。CLI 仕様、SQLite/SQL、リンク解決、ルート優先ルール、vault パス、破壊的処理（delete --rm / move / rewrite 系）、stdout JSON、モジュール境界に触れる変更で使う。汎用レビューではなく mdhop 固有の実害に絞って確認する。
+description: Use for mdhop-specific plan or implementation checks when changes touch CLI behavior, SQLite/SQL, link resolution, root-priority rules, vault paths, destructive operations, stdout JSON, or module boundaries.
 ---
 
-# Project Risk Check
+# mdhop Risk Check
 
-## Intent
+## ICAR
 
-mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の落とし穴に照らして、計画または実装のリスクを確認する。
-
-## Constraints
-
-- 汎用レビューではなく、mdhop 固有の実害に絞る。一般的なコード品質・構造劣化は汎用レビュー側で見る（Claude では `/code-review` / `thermo-nuclear-code-quality-review`）。
-- 仕様・CLI 挙動の判断が必要なら、実装判断として決めずユーザー確認に回す。
-- 具体的な過去知見は該当ソースのコメントまたは `llm-wiki/` の該当地図を参照し、skill 本体には増やしすぎない。
-- plan / 実装どちらのレビューでも使える。対象は plan ファイル、または未コミット差分 / commit range。
-- Checkpoints と対象を照合する際、必要に応じて `docs/rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を Read で読む。
-
-## Acceptance
-
-- `LGTM` またはリスク一覧がある。
-- リスクには影響、根拠、推奨対応がある。
-- 必要な場合、更新すべき `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）, `docs/specs/`（あれば）が明確。
-
-## Relevant
-
-- ユーザー依頼、plan、または変更差分（未コミット / commit range）
-- `docs/rules/01-concept.md`, `docs/rules/02-requirements.md`, `docs/rules/03-data-model.md`
-- `docs/specs/overview.md`
-- `docs/rules/architecture.md`
-- `docs/decisions/`
-- `llm-wiki/`（作業地図）
+- **Intent**: mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の落とし穴に照らして、計画または実装のリスクを確認する。
+- **Constraints**:
+  - 汎用レビューではなく、mdhop 固有の実害に絞る。一般的なコード品質は `change-review`、構造劣化は `thermo-nuclear-code-quality-review` 側で見る。
+  - 仕様・CLI 挙動の判断が必要なら、実装判断として決めずユーザー確認に回す。
+  - 具体的な過去知見は該当ソースのコメントまたは `llm-wiki/` の該当地図を参照し、skill 本体には増やしすぎない。
+  - plan / 実装どちらのレビューでも使える。対象は plan ファイル、または未コミット差分 / commit range。
+  - Checkpoints と対象を照合する際、必要に応じて `docs/rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を読む。
+- **Acceptance**:
+  - `LGTM` またはリスク一覧がある。
+  - リスクには影響、根拠、推奨対応がある。
+  - 必要な場合、更新すべき `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`、および知見の記録先（ソースコメント / `llm-wiki/`）が明確。
+- **Relevant**:
+  - ユーザー依頼、plan、または変更差分（未コミット / commit range）
+  - `docs/rules/01-concept.md`, `docs/rules/02-requirements.md`, `docs/rules/03-data-model.md`
+  - `docs/specs/overview.md`
+  - `docs/rules/architecture.md`
+  - `docs/rules/information-management.md`
+  - `docs/decisions/`
+  - `llm-wiki/`（作業地図）
 
 ## Checkpoints
 
@@ -97,3 +92,8 @@ mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の�
 29. **互換性への影響の明示**: 出力フォーマット変更が既存の利用パターン（スクリプト連携、TSV パース等）に影響する場合、破壊的変更として明示されているか。
 
 上記に該当しないが mdhop 固有の設計判断に関わる問題も自由に指摘してよい。
+
+## Output
+
+- 日本語。指摘には 🔴 MUST / 🟡 SHOULD / 🔵 NIT を付け、該当箇所を引用する。
+- mdhop 固有の問題がなければ「mdhop 固有の指摘なし（LGTM）」。

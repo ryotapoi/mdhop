@@ -8,19 +8,19 @@ mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdo
 
 入口は依頼の形で 2 通り。
 
-- **Goal（`/goal` または `goal-workflow` を明示指定）**: `goal-workflow` skill を入口にする。Goal は作業全体を 1 commit 単位へ分割し、各 commit で `.claude/workflow/default.md` 以下の phase workflow を回す。Goal 手順の正本は `.claude/workflow/goal.md`。`goal-workflow` skill はそのファイルを読んで進める。Goal 前提では都度確認を避けて自動進行し、止まるのは各 workflow の Stop Conditions だけ。
-- **単発依頼**: `.claude/workflow/default.md` を最初に Read し、Intake 分類（Small / Normal / High-risk / Exploratory）から必要な phase ファイルへ進む。
+- **Goal（`/goal` または `goal-workflow` を明示指定）**: `goal-workflow` skill を入口にする。Goal は作業全体を 1 commit 単位へ分割し、各 commit で `.claude/workflow/change/workflow.md` 以下の phase workflow を回す。Goal 手順の正本は `.claude/workflow/goal.md`。`goal-workflow` skill はそのファイルを読んで進める。Goal 前提では都度確認を避けて自動進行し、止まるのは各 workflow の Stop Conditions だけ。
+- **単発依頼**: `.claude/workflow/change/workflow.md` を最初に Read し、Intake 分類（Small / Normal / High-risk / Exploratory）から必要な phase ファイルへ進む。
 
 ```text
 goal-workflow skill（Goal の入口）
-└── goal.md（正本: commit slicing / Goal Review / branch / ff-merge）
-    └── default.md（各 commit / 単発依頼の Intake・Routing）
-        ├── investigate.md — Exploratory 用の事実集め
-        ├── plan.md — 計画作成（省略可条件含む。plan mode は使わない）
-        ├── implement.md — 実装
-        ├── verify.md — 動作確認
-        ├── review.md — リスクベースの review depth 選択
-        ├── finish.md — コミット + 文書同期
+└── goal.md（正本: commit slicing / Goal Review）
+    └── change/workflow.md（各 commit / 単発依頼の Intake・Routing）
+        ├── change/investigate.md — Exploratory 用の事実集め
+        ├── change/plan.md — 計画作成（省略可条件含む。plan mode は使わない）
+        ├── change/implement.md — 実装
+        ├── change/verify.md — 動作確認
+        ├── change/review.md — リスクベースの review depth 選択
+        ├── change/finish.md — コミット + 文書同期
         └── maintenance.md — L3、節目で呼ぶ構造棚卸し
 ```
 

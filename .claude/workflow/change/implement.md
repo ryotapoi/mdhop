@@ -5,17 +5,18 @@
 - **Intent**: 承認済み plan、または plan を省略できる軽微な変更の明確な要求を、既存設計と情報源に整合する形で実装する。
 - **Constraints**:
   - plan を省略する場合でも、workflow は 1 commit に収まる軽微な変更だけにする。
-  - 実装中に 1 commit を超えると分かったら、作業を広げず `plan.md` に戻るか、今回扱う 1 commit 単位へ切り直す。
+  - 実装中に 1 commit として不自然だと分かったら、作業を広げず `change/plan.md` に戻るか、今回扱う 1 commit 単位へ切り直す。Goal 実行中の Change worker は事実を Goal main に返し、Goal main が切り直す。
   - 既存の局所パターンに従う。変える場合は理由を説明できるようにする。
   - 新しい型・ファイル・外部依存・責務配置・module/package/target/folder 境界を扱う場合は、実装前に `module-boundary` で配置判断を確認する。
   - 型定義・API・依存方向は実物で確認する。
   - 振る舞い変更や bug fix では、同じ commit に unit test / regression test を追加または更新する。テストできない場合は理由を明記する。
   - 振る舞い変更があるなら、必要に応じて `docs/specs/` とテストを同期する。
+  - commit に含める内容変更（code / tests / `backlog/backlog.md` / `docs/specs/` / `llm-wiki/` / `docs/decisions/` / ADR）は、この phase で完了する。review 後の finish / commit では tracked file の内容を追加・変更・削除しない。
   - 実装中に見つかった別タスクは、今やる理由がなければ `backlog/backlog.md` に逃がす。今回の commit の active scope 内か迷う作業は `boundary-control` で分類してから着手する（adjacent なら実行せず capture / report）。
   - ループ内で時刻を扱う場合は各反復で取得する（ループ外で 1 回だけ取得しない）。
 - **Acceptance**:
   - 要求された振る舞いが実装されている。
-  - 必要な `docs/specs/` / tests / `backlog/backlog.md` の同期が済んでいる。
+  - 必要な `docs/specs/` / tests / `backlog/backlog.md` / `docs/decisions/` / `llm-wiki/` の同期が済んでいる。
   - 余計なスコープ拡張がない。
 - **Relevant**:
   - 承認済み plan、または Small 変更の明確な要求
@@ -31,7 +32,7 @@
   - テストファーストで進める場合は `tdd` スキルに従う。
   - 構造の悪さが実装を歪める場合は、同じ変更で直すか、別リファクタ plan に切るかを判断する。
 - **Acceptance**: plan と実装上の事実が食い違っていない。
-- **Relevant**: 変更対象コード、関連テスト、関連 specs。
+- **Relevant**: 変更対象コード、関連テスト、関連 `docs/specs/`。
 
 ### Documentation Sync
 
@@ -55,6 +56,7 @@
 - 集中テスト例: `go test ./internal/core/`、`go test ./internal/core/ -run TestBuild`
 - CLI 挙動確認: `bin/mdhop <args>` で stdout / stderr / 終了コード / DB 副作用を見る。
 - 破壊的処理（`delete --rm`, `move` など）は `testdata/` または `tmp/` 配下の一時 vault で確認する。
+- Go / SQLite / YAML 等の外部 API 仕様が判断に影響する場合は一次情報を確認する。
 <!-- /slot -->
 
 ## Stop Conditions

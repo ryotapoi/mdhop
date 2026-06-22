@@ -8,21 +8,21 @@ mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdo
 
 入口は依頼の形で 2 通り。
 
-- **Goal（`/goal` または `goal-workflow` を明示指定）**: グローバルの `goal-workflow` skill（`~/.agents/skills/goal-workflow/`）を入口にする。Goal は作業全体を 1 commit 単位へ分割し、各 commit で `.agents/workflow/default.md` 以下の phase workflow を回す。Goal 手順の正本は `.agents/workflow/goal.md`。
-- **単発依頼**: 最初に `.agents/workflow/default.md` を読み、Intake から必要な phase ファイルへ進む。
+- **Goal（`/goal` または `goal-workflow` を明示指定）**: グローバルの `goal-workflow` skill（`~/.agents/skills/goal-workflow/`）を入口にする。Goal は作業全体を 1 commit 単位へ分割し、各 commit で `.agents/workflow/change/workflow.md` 以下の phase workflow を回す。Goal 手順の正本は `.agents/workflow/goal.md`。
+- **単発依頼**: 最初に `.agents/workflow/change/workflow.md` を読み、Intake から必要な phase ファイルへ進む。
 
 各 phase に入るときだけ、対応する workflow ファイルを読む。`AGENTS.md` の要約だけで進めない。
 
 ```text
 goal-workflow skill（Goal の入口）
-└── .agents/workflow/goal.md（正本: commit slicing / Claude review / 完了条件）
-    └── default.md（各 commit / 単発依頼の Intake・Routing）
-        ├── investigate.md
-        ├── plan.md
-        ├── implement.md
-        ├── verify.md
-        ├── review.md
-        ├── finish.md
+└── .agents/workflow/goal.md（正本: commit slicing / Cross-Agent Review / 完了条件）
+    └── change/workflow.md（各 commit / 単発依頼の Intake・Routing）
+        ├── change/investigate.md
+        ├── change/plan.md
+        ├── change/implement.md
+        ├── change/verify.md
+        ├── change/review.md
+        ├── change/finish.md
         └── maintenance.md
 ```
 

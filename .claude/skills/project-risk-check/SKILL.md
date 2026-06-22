@@ -1,5 +1,5 @@
 ---
-name: mdhop-risk-check
+name: project-risk-check
 description: mdhop 固有の plan / 実装チェック。CLI 仕様、SQLite/SQL、リンク解決、ルート優先ルール、vault パス、破壊的処理（delete --rm / move / rewrite 系）、stdout JSON、モジュール境界に触れる変更で使う。汎用レビューではなく mdhop 固有の実害に絞って確認する。
 ---
 
@@ -9,36 +9,19 @@ description: mdhop 固有の plan / 実装チェック。CLI 仕様、SQLite/SQL
 
 mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の落とし穴に照らして、計画または実装のリスクを確認する。
 
-## Execution
-
-main で直接チェックを回さず、fork 構造で実行する。main の context を汚さず、最終判断（修正・同期）は main に残すための分離。
-
-1. **監督起動**: main は `Agent` ツールで risk-check 監督を 1 体起動する（`model: opus`）。Opus を使うのは観点クラスタへの振り分けと結果の dedup・統合に判断が要るため。prompt には次を渡す:
-   - 対象: plan ファイルのパス / 未コミット差分 / commit range（`base..HEAD`）のいずれか。
-   - 参照すべきパス: 関連 `docs/rules/`、`docs/specs/`（あれば）、`llm-wiki/`（作業地図）、関連 ADR（特に 0004 / 0008 / 0011）。
-2. **観点クラスタへの並列振り分け**: 監督は下の Checkpoints を観点クラスタに分け、subagent 2〜5 体（`model: sonnet` を明示）に振り分けて並列起動する。クラスタ例:
-   - (a) Mission / Scope（Intent・対象範囲・仕様/CLI 挙動判断の要否）
-   - (b) Architecture / 依存方向（Checkpoints 25–27、`docs/rules/architecture.md`）
-   - (c) ドメイン semantics（リンクパース・ルート優先・DB/SQL・vault escape・disk 操作・stdout IF: Checkpoints 1–15）
-   - (d) 既知の落とし穴 + `llm-wiki/` 地図照合（Checkpoints 16–24, 28–29 と過去知見）
-   - 対象が小さい場合は観点をまとめて体数を減らしてよい（最小 2 体）。
-3. **各 subagent への指示（必須）**: 「ファイルパス・行番号つきの事実と該当 Checkpoint 番号のみ返す。推測・提案・『推奨事項』セクションは含めない」を必ず渡す。判断は監督と main 側で行う。
-4. **統合**: 監督は各 subagent の結果を dedup し、🔴（実害確定・要対応）/ 🟡（要確認）/ 🔵（軽微・任意）を付けて一覧に統合して返す。監督は修正を一切行わない。固有の指摘がなければ「固有の指摘なし（LGTM）」を返す。
-5. **main 側の責務**: 修正と、`docs/specs/` / `backlog/backlog.md` / `docs/decisions/` への同期判断は main 側で行う。
-
 ## Constraints
 
-- 汎用レビューではなく、mdhop 固有の実害に絞る。一般的なコード品質・構造劣化は汎用レビュー側で見る（Claude では `/code-review` / `thermo-nuclear-code-quality-review`）。
+- 汎用レビューではなく、mdhop 固有の実害に絞る。一般的なコード品質は `/code-review`、構造劣化は `thermo-nuclear-code-quality-review` 側で見る。
 - 仕様・CLI 挙動の判断が必要なら、実装判断として決めずユーザー確認に回す。
-- 具体的な過去知見は `llm-wiki/` の該当地図を参照し、skill 本体には増やしすぎない。
+- 具体的な過去知見は該当ソースのコメントまたは `llm-wiki/` の該当地図を参照し、skill 本体には増やしすぎない。
 - plan / 実装どちらのレビューでも使える。対象は plan ファイル、または未コミット差分 / commit range。
-- Checkpoints と対象を照合する際、必要に応じて `docs/rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を Read で読む。
+- Checkpoints と対象を照合する際、必要に応じて `docs/rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を読む。
 
 ## Acceptance
 
 - `LGTM` またはリスク一覧がある。
 - リスクには影響、根拠、推奨対応がある。
-- 必要な場合、更新すべき `docs/rules/`, `backlog/backlog.md`, `docs/decisions/`, `docs/specs/`（あれば）が明確。
+- 必要な場合、更新すべき `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`、および知見の記録先（ソースコメント / `llm-wiki/`）が明確。
 
 ## Relevant
 
@@ -46,12 +29,26 @@ main で直接チェックを回さず、fork 構造で実行する。main の c
 - `docs/rules/01-concept.md`, `docs/rules/02-requirements.md`, `docs/rules/03-data-model.md`
 - `docs/specs/overview.md`
 - `docs/rules/architecture.md`
+- `docs/rules/information-management.md`
 - `docs/decisions/`
 - `llm-wiki/`（作業地図）
 
-## Checkpoints
+## Execution
 
-監督はこの観点リストを Execution のクラスタに振り分けて subagent に渡す。各 subagent は担当 Checkpoint の番号で指摘を返す。
+呼び出し元は、この skill を読んでから観点ごとの subagent を起動し、結果を統合する。mdhop 固有リスクの context を呼び出し元に抱え込まず、観点ごとに並列で網羅するため。
+
+1. **対象を渡す**: 呼び出し元は、対象（plan ファイルのパス / 未コミット差分 / commit range のいずれか）と参照すべきパスを subagent に渡す。参照すべきパスは `docs/rules/01-concept.md`, `docs/rules/02-requirements.md`, `docs/rules/03-data-model.md`, `docs/specs/overview.md`, `docs/rules/architecture.md`, `docs/rules/information-management.md`, `docs/decisions/`, `llm-wiki/`（作業地図）、関連 ADR（特に 0004 / 0008 / 0011）。
+2. **観点クラスタへの fan-out**: 呼び出し元は下の Checkpoints を観点クラスタに分け、subagent 2〜5 体（`model: sonnet` を必ず明示）へ振り分けて並列起動する。クラスタ例:
+   - (a) Mission / Scope（Intent・対象範囲・仕様/CLI 挙動判断の要否）
+   - (b) Architecture / 依存方向（Checkpoints 25–27、`docs/rules/architecture.md`）
+   - (c) ドメイン semantics（リンクパース・ルート優先・DB/SQL・vault escape・disk 操作・stdout IF: Checkpoints 1–15）
+   - (d) 既知の落とし穴 + `llm-wiki/` 地図照合（Checkpoints 16–24, 28–29 と過去知見）
+   対象が小さい場合は観点をまとめて体数を減らしてよい。
+3. **各 subagent への指示**: 各 subagent には必ず次を指示する — 「ファイルパス・行番号つきの事実と該当 Checkpoint 番号のみ返す。推測や提案セクションは含めない」。判断は呼び出し元と上位の実装担当が行う。
+4. **統合**: 呼び出し元は各 subagent の結果を dedup し、🔴 MUST / 🟡 SHOULD / 🔵 NIT を付けて一覧に統合する。修正は一切行わない。固有の指摘がなければ「mdhop 固有の指摘なし（LGTM）」を返す。
+5. **修正責務**: 修正と、`docs/rules/` / `docs/specs/` / `backlog/backlog.md` / `docs/decisions/` への同期判断は、この skill の呼び出し元より上位の実装担当が行う。
+
+## Checkpoints
 
 ### リンクパース・rawLink の仕様
 
@@ -116,3 +113,10 @@ main で直接チェックを回さず、fork 構造で実行する。main の c
 29. **互換性への影響の明示**: 出力フォーマット変更が既存の利用パターン（スクリプト連携、TSV パース等）に影響する場合、破壊的変更として明示されているか。
 
 上記に該当しないが mdhop 固有の設計判断に関わる問題も自由に指摘してよい。
+
+## Output
+
+各 subagent の結果を統合して返す最終出力の書式:
+
+- 日本語。指摘には 🔴 MUST / 🟡 SHOULD / 🔵 NIT を付け、該当箇所を引用する。
+- mdhop 固有の問題がなければ「mdhop 固有の指摘なし（LGTM）」。
