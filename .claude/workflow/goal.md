@@ -69,12 +69,12 @@
 
 ## Change Worker
 
-- Goal main は次の 1 Change を選び、fresh subagent を Change worker として 1 つずつ直列起動する。同じ worktree で複数の Change worker を並行実行しない。
+- Goal main は次の 1 Change を選び、fresh subagent を Change worker として 1 つずつ直列起動する。同じ worktree で複数の Change worker を並行実行しない。Goal が複数 Change を含む場合、各 Change は fresh Change worker に渡す。
 - Change worker は渡された Change だけを担当し、Goal 全体を再計画・再分割しない。
 - 通常は `change/workflow.md` に従い、調査から commit まで完了して戻る。
 - 1 commit として不自然だと分かった場合は、作業を広げず事実を Goal main に返す。Goal main が commit 単位を切り直す。
 - 戻りの固定 schema は作らない。commit、検証、残作業、停止理由が理解できればよい。
-- 単発 Change は現在の agent が直接実行してよい。
+- Goal を経由しない単発 Change だけは、現在の agent が直接実行してよい。
 
 ## Goal Review
 

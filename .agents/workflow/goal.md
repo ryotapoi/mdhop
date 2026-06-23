@@ -9,7 +9,7 @@
   - 実装作業は `goal-workflow` skill を入口にし、この workflow を正本として読む。
   - `/goal` の呼び出し文は、原則として skill への参照と完了対象だけでよい。例: `/goal goal-workflow skill に従い、backlog/backlog.md の「v0.x」を完了して。`
   - Goal 開始時の `HEAD` を base commit として記録する。`base` は Goal 終了まで動かさず、Goal 全体の差分 `<base>..HEAD` と最終報告の起点にする。分割レビューの進捗は `review_cursor`（初期値 `base`）で別に持つ。ブランチは切らず、range で対象を表す。
-  - 1 回の実装 workflow は 1 commit 単位に限る。Goal が複数 commit を必要とする場合は、`change/workflow.md` の workflow を commit ごとに繰り返す。
+  - 1 回の実装 workflow は 1 commit 単位に限る。Goal が複数 commit を必要とする場合は、Goal main が次の 1 Change を選び、fresh Change worker を 1 つずつ直列起動する。
   - 各 commit は、Goal 全体の途中でも、その commit 単位では review / revert / bisect できる完了状態にする。
   - Goal 全体を 1 plan / 1 commit に押し込まない。次に扱う 1 commit 分を毎回明確に切り出す。
   - 複数案があるだけでは止まらない。現在の要求、`docs/rules/` / `docs/specs/` / `docs/decisions/`、コード、調査・検証結果から最善案を選んで進める。
@@ -38,7 +38,7 @@
 
 1. Goal の目的、制約、完了条件を確認し、開始時の base commit を記録する。ブランチは切らない。
 2. Goal を 1 commit 単位の候補へ分割する。
-3. 次に扱う 1 commit 分を選び、`change/workflow.md` の workflow を実行する。
+3. 次に扱う 1 commit 分を選び、Change worker に渡す。単発 Change は現在の agent が直接 `change/workflow.md` を実行してよい。
 4. commit 後、Goal の残りと Cross-Agent Review の実施タイミングを確認する。
 5. 残りがあれば次の 1 commit 分に戻る。
 6. 必要な Cross-Agent Review と対応が済んでいなければ実施する。
@@ -52,6 +52,16 @@
 - 広いリファクタと振る舞い変更は、レビューしづらくなるなら分ける。
 - 途中で 1 commit として不自然になったら、作業を広げず commit 単位を切り直す。
 - Goal に必要な残作業は、次の Change として続けるか、別タスクが適切なら `backlog/backlog.md` に残す。どちらの場合も漏らさない。
+
+## Change Worker
+
+- Goal main は次の 1 Change を選び、fresh Change worker を 1 つずつ直列起動する。同じ worktree で複数の Change worker を並行実行しない。Goal が複数 Change を含む場合、各 Change は fresh Change worker に渡す。
+- Change worker は渡された Change だけを active scope とし、Goal 全体を再計画・再分割しない。
+- 通常は `change/workflow.md` に従い、調査から commit まで完了して戻る。
+- 1 commit として不自然だと分かった場合は、作業を広げず事実を Goal main に返す。Goal main が commit 単位を切り直す。
+- 戻りの固定 schema は作らない。commit、検証、残作業、停止理由が理解できればよい。
+- Goal を経由しない単発 Change だけは、現在の agent が直接実行してよい。
+- Change worker は、独立委任が効率または品質を高める調査・実装補助・検証を必要に応じて下位 subagent に任せてよい。
 
 ## Final Report
 

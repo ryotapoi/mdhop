@@ -24,7 +24,8 @@
 - **テスト可能な振る舞い変更や bug fix に unit test / regression test がない場合は、原則 blocker として扱う**（`change/verify.md` で未完了。理由がある例外のみ許容）。
 - review は粗探しではなく、実害・仕様逸脱・テスト不足・設計劣化を探す。
 - 指摘に対応しない場合は、理由を plan / commit body / 該当ドキュメントに記録する。
-- reviewer を呼ぶ回数は、初回を含めて合計最大 3 回。`Review 1 -> Fix 1 -> Review 2 -> Fix 2 -> Review 3 -> Fix 3` まで行ったら Review 4 は行わない。Review 3 後の Fix 3 は未レビューの最終修正になるため、上限到達として最後の指摘、行った修正、未レビューの最終修正、残リスクを記録し、タスク完了報告（Goal なら Goal 完了報告）で `レビュー上限超過` として通知する。
+- review は commit 前の局所品質ゲートであり、最終保証ではない。採用した指摘を修正した後に再レビューするかは、差分の大きさ、risk、MUST 指摘の内容、新しい設計判断の有無から判断する。
+- 修正後に再レビューしない場合も、対応しない指摘・残リスク・Goal の Cross-Agent Review で見るべき観点があれば記録する。`レビュー上限超過` は Change 内 review では使わない。
 
 ## How To Run
 
@@ -60,25 +61,18 @@ review lane はレビュー実行と候補整理だけを担当する。Change w
 - `thermo-nuclear-code-quality-review` を Read し、対象差分に適用する。
 - 構造劣化リスクを finding 形式で整理して Change worker に返す。修正はしない。
 
-Change worker が全 lane の戻りを統合して最終採否を行い、修正・テスト・コミットはすべて Change worker で行う。再レビューは必要な lane だけをもう一周起動する。reviewer 呼び出しは初回を含めて合計最大 3 回。
+Change worker が全 lane の戻りを統合して最終採否を行い、修正・テスト・コミットはすべて Change worker で行う。再レビューは、差分の大きさ、risk、MUST 指摘の内容、新しい設計判断の有無から必要な lane だけをもう一周起動する。
 
 Goal 全体の commit range では、ここでの Self Review / `/code-review` を再実行しない。Goal range は `goal.md` に従い、実行直前に固定した `<review_cursor>..<review_end>` への Cross-Agent Review（Codex レビュー）だけを行う。
 
 ## Acceptance
-
-以下のいずれかを満たした状態:
-
-- レビュー指摘 0 件
-- 残った指摘すべてが前回と**根拠（why）が同じ**再指摘（A/A' は新規角度なら対応してレビューへ戻る）
-- reviewer 呼び出し 3 回に到達して打ち切り、最後の指摘、行った修正、未レビューの最終修正、残リスクを `レビュー上限超過` として完了報告に含める
-
-加えて:
 
 - 選んだ review depth と理由が説明できる
 - review 対象が commit 予定差分全体（code / tests / docs / `backlog/backlog.md` / `docs/decisions/` を含む）である
 - テスト可能な振る舞い変更 / bug fix に unit / regression test がある、または追加しない理由が明確
 - 指摘があれば対応済み、または対応しない理由が明確
 - レビュー後の変更に対して必要な再検証が済んでいる
+- 修正後に再レビューしない場合、その判断理由と残リスクが説明できる
 
 ## Maintenance Findings
 
