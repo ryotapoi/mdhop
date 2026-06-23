@@ -52,7 +52,7 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 
 ## Skills
 
-Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グローバルスキルは `~/.agents/skills/` に置く。
+Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グローバルスキルは `~/.agents/skills/` に置く。commit は project local skill ではなく global `commit` skill を使う。
 
 主に使うスキル:
 
@@ -61,7 +61,7 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 - `design-decision`: 設計判断の価値基準を当てる
 - `project-risk-check`: mdhop 固有の制約に照らして plan / 実装を確認する
 - `maintenance-audit`: 複数タスク後の構造・負債を棚卸しする（light / deep を scope で指定）
-- `commit`: Conventional Commits 形式でコミットする
+- `commit`: global skill を使い、review 済み差分だけを stage して Conventional Commits 形式でコミットする
 
 独立した調査・レビュー・実装は subagent で並列化してよい。1 subagent = 1 タスクに絞る。
 

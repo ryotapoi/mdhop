@@ -12,10 +12,10 @@ review を通過した変更を、コミットまで含めて完了状態にす�
 
 ## Decision Criteria
 
-- コミットは `commit` スキルで作成する。finish では tracked file の内容を追加・変更・削除しない
+- コミットは global `commit` skill で作成する。finish では tracked file の内容を追加・変更・削除しない
 - 文書同期（`backlog/backlog.md` / `docs/decisions/` / `llm-wiki/` / `docs/specs/`）や ADR が不足していると分かった場合は、commit せず `change/implement.md` に戻り、verify と review をやり直す
-- コミットメッセージ規約は `commit` スキル側が判断する
-- このファイルでは commit スキルを呼ぶこと自体を担保する
+- コミットメッセージ規約は global `commit` skill 側が判断する
+- このファイルでは global `commit` skill を呼ぶこと自体を担保する
 - Goal 実行中の場合、commit 後に Goal 全体が完了したか、次の 1 commit workflow に進むかを `goal.md` で確認する
 - Goal 完了報告では、`ユーザー判断が必要` と `レビュー上限超過` の有無を明示する
 

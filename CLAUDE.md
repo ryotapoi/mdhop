@@ -20,7 +20,7 @@ goal-workflow skill（Goal の入口）
         ├── change/implement.md — 実装
         ├── change/verify.md — 動作確認
         ├── change/review.md — リスクベースの review depth 選択
-        ├── change/finish.md — コミット + 文書同期
+        ├── change/finish.md — global commit skill でコミット
         └── maintenance.md — L3、節目で呼ぶ構造棚卸し
 ```
 
