@@ -12,7 +12,7 @@ mdhop 固有のプロダクト制約・アーキテクチャ制約・既知の�
 ## Constraints
 
 - 汎用レビューではなく、mdhop 固有の実害に絞る。一般的なコード品質は `/code-review`、構造劣化は `thermo-nuclear-code-quality-review` 側で見る。
-- 仕様・CLI 挙動の判断が必要なら、実装判断として決めずユーザー確認に回す。
+- 仕様・CLI 挙動の判断が必要な場合も、現在の要求、正本、既存コード、調査・検証結果から適切な案を選んで進める。ユーザーが別の選択をする可能性がある重要な判断は、最終報告に残す。進めること自体が不適切な場合だけ、呼び出し元 workflow の Stop Conditions に従う。
 - 具体的な過去知見は該当ソースのコメントまたは `llm-wiki/` の該当地図を参照し、skill 本体には増やしすぎない。
 - plan / 実装どちらのレビューでも使える。対象は plan ファイル、または未コミット差分 / commit range。
 - Checkpoints と対象を照合する際、必要に応じて `docs/rules/` と関連 ADR（特に 0004 ルート優先、0008 move collateral rewrite、0011 asset node）を読む。
