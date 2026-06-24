@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 // AddOptions controls which files to add to the index.
@@ -36,6 +35,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		return nil, err
 	}
 	defer db.Close()
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	cfg, err := LoadConfig(vaultPath)
 	if err != nil {
@@ -74,7 +74,14 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 
 	// Check disk existence and collect mtime.
 	for i := range files {
-		info, err := os.Stat(filepath.Join(vaultPath, files[i].path))
+		fullPath, err := diskPaths.existingPath(files[i].path)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, files[i].path)
+		}
+		if err != nil {
+			return nil, err
+		}
+		info, err := os.Stat(fullPath)
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, files[i].path)
 		}
@@ -208,7 +215,11 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 			if err != nil {
 				return nil, err
 			}
-			info, err := os.Stat(filepath.Join(vaultPath, re.sourcePath))
+			fullPath, err := diskPaths.existingPath(re.sourcePath)
+			if err != nil {
+				return nil, err
+			}
+			info, err := os.Stat(fullPath)
 			if err != nil {
 				return nil, err
 			}
@@ -240,7 +251,11 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	}
 	var parsed []parsedFile
 	for _, f := range files {
-		content, err := os.ReadFile(filepath.Join(vaultPath, f.path))
+		fullPath, err := diskPaths.existingPath(f.path)
+		if err != nil {
+			return nil, err
+		}
+		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, err
 		}

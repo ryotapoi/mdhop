@@ -45,6 +45,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 
 	// Build resolve maps for notes and assets.
 	rm := newResolveMaps(files, assetFiles)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	// Read all files, parse links, stat for mtime, and validate.
 	// Done before DB creation so failures leave no temp file behind.
@@ -58,7 +59,10 @@ func Build(vaultPath string) (*BuildResult, error) {
 	parsed := make([]parsedFile, 0, len(files))
 	var userErrors []string
 	for _, rel := range files {
-		fullPath := filepath.Join(vaultPath, rel)
+		fullPath, err := diskPaths.existingPath(rel)
+		if err != nil {
+			return nil, err
+		}
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, err
@@ -111,7 +115,10 @@ func Build(vaultPath string) (*BuildResult, error) {
 	}
 	assetInfos := make([]assetInfo, 0, len(assetFiles))
 	for _, rel := range assetFiles {
-		fullPath := filepath.Join(vaultPath, rel)
+		fullPath, err := diskPaths.existingPath(rel)
+		if err != nil {
+			return nil, err
+		}
 		info, err := os.Stat(fullPath)
 		if err != nil {
 			return nil, err
