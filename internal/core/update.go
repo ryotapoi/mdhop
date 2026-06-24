@@ -28,6 +28,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 	defer db.Close()
 
 	rm, err := buildMapsFromDB(db)
@@ -65,12 +66,16 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	}
 	var classified []classifiedFile
 	for _, fi := range files {
-		info, err := os.Stat(filepath.Join(vaultPath, fi.path))
+		fullPath, err := diskPaths.existingPath(fi.path)
 		if os.IsNotExist(err) {
 			classified = append(classified, classifiedFile{fileInfo: fi, existsOnDisk: false})
 		} else if err != nil {
 			return nil, err
 		} else {
+			info, err := os.Stat(fullPath)
+			if err != nil {
+				return nil, err
+			}
 			classified = append(classified, classifiedFile{
 				fileInfo:     fi,
 				existsOnDisk: true,
@@ -120,7 +125,11 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		if !cf.existsOnDisk {
 			continue
 		}
-		content, err := os.ReadFile(filepath.Join(vaultPath, cf.path))
+		fullPath, err := diskPaths.existingPath(cf.path)
+		if err != nil {
+			return nil, err
+		}
+		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, err
 		}

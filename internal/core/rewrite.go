@@ -148,8 +148,13 @@ func writeFilePreservePerm(path string, data []byte, perm os.FileMode) error {
 
 // restoreBackups restores files to their original content (best-effort).
 func restoreBackups(vaultPath string, backups []rewriteBackup) {
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 	for _, fb := range backups {
-		_ = writeFilePreservePerm(filepath.Join(vaultPath, fb.path), fb.content, fb.perm)
+		fullPath, err := diskPaths.existingPath(fb.path)
+		if err != nil {
+			fullPath = filepath.Join(vaultPath, fb.path)
+		}
+		_ = writeFilePreservePerm(fullPath, fb.content, fb.perm)
 	}
 }
 
@@ -163,12 +168,18 @@ func restoreBackups(vaultPath string, backups []rewriteBackup) {
 // sourceID to the real DB node ID.
 func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[int64]int64, []rewriteBackup, error) {
 	newMtimes := make(map[int64]int64)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	// Phase 1: read all originals before any writes.
 	originals := make(map[string][]byte, len(groups))
 	perms := make(map[string]os.FileMode, len(groups))
+	fullPaths := make(map[string]string, len(groups))
 	for sourcePath := range groups {
-		fullPath := filepath.Join(vaultPath, sourcePath)
+		fullPath, err := diskPaths.existingPath(sourcePath)
+		if err != nil {
+			return nil, nil, err
+		}
+		fullPaths[sourcePath] = fullPath
 		info, err := os.Stat(fullPath)
 		if err != nil {
 			return nil, nil, err
@@ -186,12 +197,16 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 
 	restore := func() {
 		for _, fb := range written {
-			_ = writeFilePreservePerm(filepath.Join(vaultPath, fb.path), fb.content, fb.perm)
+			fullPath := fullPaths[fb.path]
+			if fullPath == "" {
+				fullPath = filepath.Join(vaultPath, fb.path)
+			}
+			_ = writeFilePreservePerm(fullPath, fb.content, fb.perm)
 		}
 	}
 
 	for sourcePath, entries := range groups {
-		fullPath := filepath.Join(vaultPath, sourcePath)
+		fullPath := fullPaths[sourcePath]
 		original := originals[sourcePath]
 		lines := strings.Split(string(original), "\n")
 

@@ -45,6 +45,7 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
 
 	sort.Strings(files)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	// Build resolve maps.
 	nm := buildNoteResolveMaps(files)
@@ -82,7 +83,10 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 	skippedSet := make(map[string]bool) // "file\x00rawLink" dedup
 
 	for _, sourcePath := range scanFiles {
-		fullPath := filepath.Join(vaultPath, sourcePath)
+		fullPath, err := diskPaths.existingPath(sourcePath)
+		if err != nil {
+			return nil, err
+		}
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, err

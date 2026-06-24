@@ -166,6 +166,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 
 	// Stale check on source files.
 	sourceStaleChecked := make(map[int64]bool)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 	for _, re := range rewrites {
 		if sourceStaleChecked[re.sourceID] {
 			continue
@@ -176,7 +177,11 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 		if err != nil {
 			return nil, err
 		}
-		info, err := os.Stat(filepath.Join(vaultPath, re.sourcePath))
+		fullPath, err := diskPaths.existingPath(re.sourcePath)
+		if err != nil {
+			return nil, err
+		}
+		info, err := os.Stat(fullPath)
 		if err != nil {
 			return nil, err
 		}
@@ -289,6 +294,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
 
 	sort.Strings(files)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	fileSet := make(map[string]bool, len(files))
 	for _, f := range files {
@@ -345,7 +351,11 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 			continue
 		}
 
-		content, err := os.ReadFile(filepath.Join(vaultPath, sourcePath))
+		fullPath, err := diskPaths.existingPath(sourcePath)
+		if err != nil {
+			return nil, err
+		}
+		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, err
 		}

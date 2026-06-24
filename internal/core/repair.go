@@ -56,6 +56,7 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
 
 	sort.Strings(files)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	// Build path set (lowercase) and basename map.
 	pathSetLower := make(map[string]bool, len(files))
@@ -79,7 +80,10 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 		if !pathMatchesFilters(sourcePath, opts.Path, opts.Exclude) {
 			continue
 		}
-		fullPath := filepath.Join(vaultPath, sourcePath)
+		fullPath, err := diskPaths.existingPath(sourcePath)
+		if err != nil {
+			return nil, err
+		}
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, err
@@ -107,7 +111,7 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 				// vault-escape → always a repair candidate (don't os.Stat outside vault)
 			} else if isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
 				// Broken path link → protect links to excluded files that exist on disk
-				if linkTargetExistsRaw(vaultPath, sourcePath, lo) {
+				if linkTargetExistsRaw(diskPaths, sourcePath, lo) {
 					continue
 				}
 			} else {
@@ -198,15 +202,14 @@ func isLinkEscaping(sourcePath string, lo linkOccur) bool {
 // linkTargetExistsRaw checks if a link target resolves to an existing file on disk.
 // Used to protect broken path links that point to files excluded by build.exclude_paths.
 // NOT used for vault-escape links (they point outside the vault, so os.Stat is inappropriate).
-func linkTargetExistsRaw(vaultPath, sourcePath string, lo linkOccur) bool {
+func linkTargetExistsRaw(diskPaths *vaultDiskPathResolver, sourcePath string, lo linkOccur) bool {
 	resolved := resolveToVaultRelative(sourcePath, lo)
 
-	full := filepath.Join(vaultPath, resolved)
-	if _, err := os.Stat(full); err == nil {
+	if _, err := diskPaths.existingPath(resolved); err == nil {
 		return true
 	}
 	if !strings.HasSuffix(strings.ToLower(resolved), ".md") {
-		if _, err := os.Stat(full + ".md"); err == nil {
+		if _, err := diskPaths.existingPath(resolved + ".md"); err == nil {
 			return true
 		}
 	}

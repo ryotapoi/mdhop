@@ -42,6 +42,7 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
 
 	sort.Strings(files)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	// Build fileSet for existence checks.
 	fileSet := make(map[string]bool, len(files))
@@ -84,7 +85,10 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 			continue
 		}
 
-		fullPath := filepath.Join(vaultPath, sourcePath)
+		fullPath, err := diskPaths.existingPath(sourcePath)
+		if err != nil {
+			return nil, err
+		}
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, err

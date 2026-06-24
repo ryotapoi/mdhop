@@ -111,6 +111,32 @@ func TestUpdateContentChange(t *testing.T) {
 	}
 }
 
+func TestUpdateResolvesNFCInputToNFDPath(t *testing.T) {
+	vault := t.TempDir()
+	nfdPath := "Cafe\u0301.md"
+	nfcPath := "Caf\u00e9.md"
+	if err := os.WriteFile(filepath.Join(vault, nfdPath), []byte("[[A]]\n"), 0o644); err != nil {
+		t.Fatalf("write NFD note: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A\n"), 0o644); err != nil {
+		t.Fatalf("write A: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, nfdPath), []byte("[[A]]\n#tag\n"), 0o644); err != nil {
+		t.Fatalf("rewrite NFD note: %v", err)
+	}
+
+	result, err := Update(vault, UpdateOptions{Files: []string{nfcPath}})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if len(result.Updated) != 1 || result.Updated[0] != nfcPath {
+		t.Fatalf("Updated = %+v, want [%s]", result.Updated, nfcPath)
+	}
+}
+
 func TestUpdateDeletedFileWithRefs(t *testing.T) {
 	vault := copyVault(t, "vault_update")
 	if _, err := Build(vault); err != nil {

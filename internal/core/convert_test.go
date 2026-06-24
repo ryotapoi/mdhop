@@ -230,6 +230,32 @@ func TestConvertToWikilink(t *testing.T) {
 	}
 }
 
+func TestConvertResolvesNFCPathToNFDPath(t *testing.T) {
+	tmp := t.TempDir()
+	nfdPath := "Cafe\u0301.md"
+	if err := os.WriteFile(filepath.Join(tmp, nfdPath), []byte("[Target](Target.md)\n"), 0o644); err != nil {
+		t.Fatalf("write NFD note: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "Target.md"), []byte("# Target\n"), 0o644); err != nil {
+		t.Fatalf("write target: %v", err)
+	}
+
+	result, err := Convert(tmp, ConvertOptions{ToFormat: "wikilink"})
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	if len(result.Rewritten) != 1 || result.Rewritten[0].File != "Caf\u00e9.md" {
+		t.Fatalf("rewritten = %+v, want NFC source path", result.Rewritten)
+	}
+	content, err := os.ReadFile(filepath.Join(tmp, nfdPath))
+	if err != nil {
+		t.Fatalf("read NFD note: %v", err)
+	}
+	if got := string(content); got != "[[Target]]\n" {
+		t.Fatalf("content = %q, want converted wikilink", got)
+	}
+}
+
 func TestConvertToMarkdown(t *testing.T) {
 	tmp := t.TempDir()
 	if err := testutil.CopyDir("../../testdata/vault_convert", tmp); err != nil {

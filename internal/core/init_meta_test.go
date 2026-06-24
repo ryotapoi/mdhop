@@ -114,6 +114,26 @@ func TestPresetMetaTypes(t *testing.T) {
 	}
 }
 
+func TestScanMetaTypesResolvesNFCPathToNFDPath(t *testing.T) {
+	vault := t.TempDir()
+	nfdPath := "Cafe\u0301.md"
+	if err := os.WriteFile(filepath.Join(vault, nfdPath), []byte("---\ncreated: 2024-01-15\n---\n# Cafe\n"), 0o644); err != nil {
+		t.Fatalf("write NFD note: %v", err)
+	}
+
+	inferred, err := scanMetaTypes(vault, Config{})
+	if err != nil {
+		t.Fatalf("scanMetaTypes: %v", err)
+	}
+	got, ok := inferred["created"]
+	if !ok {
+		t.Fatalf("created not inferred; got %+v", inferred)
+	}
+	if got.InferredType != MetaTypeDate {
+		t.Fatalf("created type = %q, want %q", got.InferredType, MetaTypeDate)
+	}
+}
+
 func TestMergeMetaConfig(t *testing.T) {
 	t.Run("all new keys", func(t *testing.T) {
 		existing := map[string]MetaTypeInfo{}

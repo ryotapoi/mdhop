@@ -2,7 +2,6 @@ package core
 
 import (
 	"os"
-	"path/filepath"
 	"sort"
 )
 
@@ -118,12 +117,16 @@ func scanMetaTypes(vaultPath string, cfg Config) (map[string]InferredMeta, error
 		return nil, err
 	}
 	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	// Aggregate stats per key
 	statsMap := make(map[string]*keyStats)
 
 	for _, rel := range files {
-		fullPath := filepath.Join(vaultPath, rel)
+		fullPath, err := diskPaths.existingPath(rel)
+		if err != nil {
+			return nil, err
+		}
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			return nil, err
