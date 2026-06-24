@@ -56,6 +56,7 @@
 ## Change Worker
 
 - Goal 経由の Change は、commit 数に関わらず、原則 fresh Change worker に渡す。
+- fresh Change worker は full-history fork ではなく新規コンテキストで起動する。前 commit / 前 worker の会話履歴は渡さず、必要な事実は commit、差分、現在のファイル、backlog、review result など現在の repository state から確認させる。
 - Goal main は実装を直接担当しない。Goal main の責務は、base / review_cursor 管理、commit slicing、次の Change 選定、Cross-Agent Review、最終報告に限る。
 - Goal main は次の 1 Change を選び、fresh Change worker を 1 つずつ直列起動する。同じ worktree で複数の Change worker を並行実行しない。Goal が 1 commit だけで完了する場合も Change worker を 1 つ起動する。
 - Change worker は渡された Change だけを active scope とし、Goal 全体を再計画・再分割しない。
