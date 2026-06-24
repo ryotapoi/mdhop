@@ -648,7 +648,7 @@ func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to str
 		if err != nil {
 			return "", err
 		}
-		rel = filepath.ToSlash(rel)
+		rel = filepath.ToSlash(filepath.Clean(rel))
 
 		// Check vault escape.
 		if strings.HasPrefix(NormalizePath(filepath.Join(filepath.Dir(to), rel)), "..") {
@@ -705,7 +705,7 @@ func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to str
 		if err != nil {
 			return "", err
 		}
-		rel = filepath.ToSlash(rel)
+		rel = filepath.ToSlash(filepath.Clean(rel))
 
 		// Check vault escape.
 		if strings.HasPrefix(NormalizePath(filepath.Join(filepath.Dir(to), rel)), "..") {

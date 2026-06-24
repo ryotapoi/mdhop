@@ -368,6 +368,77 @@ func TestMove_OutgoingRelativeRewritten(t *testing.T) {
 	}
 }
 
+func TestMove_OutgoingRelativeRootLinkIsCleaned(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("[[../]]\n[root](../)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Move(vault, MoveOptions{From: "sub/A.md", To: "other/A.md"})
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+
+	wantRewrites := map[string]string{
+		"[[../]]":     "[[..]]",
+		"[root](../)": "[root](..)",
+	}
+	for _, rw := range result.Rewritten {
+		if rw.File != "other/A.md" {
+			continue
+		}
+		if want, ok := wantRewrites[rw.OldLink]; ok {
+			if rw.NewLink != want {
+				t.Errorf("rewrite %q: got %q, want %q", rw.OldLink, rw.NewLink, want)
+			}
+			delete(wantRewrites, rw.OldLink)
+		}
+		if strings.Contains(rw.NewLink, "/.") {
+			t.Errorf("rewrite %q should not contain trailing /. segment: %q", rw.OldLink, rw.NewLink)
+		}
+	}
+	for oldLink, want := range wantRewrites {
+		t.Errorf("missing rewrite for %q to %q", oldLink, want)
+	}
+
+	content, err := os.ReadFile(filepath.Join(vault, "other", "A.md"))
+	if err != nil {
+		t.Fatalf("read other/A.md: %v", err)
+	}
+	gotContent := string(content)
+	if strings.Contains(gotContent, "../.") {
+		t.Errorf("moved content should not contain ../., got:\n%s", gotContent)
+	}
+	if !strings.Contains(gotContent, "[[..]]") || !strings.Contains(gotContent, "[root](..)") {
+		t.Errorf("moved content missing cleaned root links, got:\n%s", gotContent)
+	}
+
+	edges := queryEdges(t, dbPath(vault), "other/A.md")
+	wantRawLinks := map[string]bool{
+		"[[..]]":     false,
+		"[root](..)": false,
+	}
+	for _, e := range edges {
+		if strings.Contains(e.rawLink, "../.") {
+			t.Errorf("DB edge raw_link should not contain ../.: %q", e.rawLink)
+		}
+		if _, ok := wantRawLinks[e.rawLink]; ok {
+			wantRawLinks[e.rawLink] = true
+		}
+	}
+	for rawLink, found := range wantRawLinks {
+		if !found {
+			t.Errorf("DB edge should contain cleaned raw_link %q, got edges: %+v", rawLink, edges)
+		}
+	}
+}
+
 // --- Test 9: phantom promotion ---
 func TestMove_PhantomPromotion(t *testing.T) {
 	vault := copyVault(t, "vault_move_phantom")

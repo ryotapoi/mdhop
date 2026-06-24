@@ -7,7 +7,7 @@
   - **再現条件**: Linux filesystem 上で NFC / NFD の異なるファイル名を扱う path 正規化テストを実行する場合。macOS ではローカル `go test ./...` が通るため、OS ごとの filesystem 正規化差で CI のみ失敗する
   - **対処案**: テストデータ作成・path lookup・`NormalizePath` 適用位置を Linux 上でも成り立つ形に見直し、Ubuntu CI と macOS の両方で `go test ./...` を通す
 
-- [ ] `rewriteOutgoingRelativeLink` が `filepath.Rel` の戻り値を `filepath.Clean` せず壊れた相対リンクを生成しうる
+- [x] `rewriteOutgoingRelativeLink` が `filepath.Rel` の戻り値を `filepath.Clean` せず壊れた相対リンクを生成しうる
   - **症状**: `move_helpers.go:642` 付近で `rel := filepath.Rel(filepath.Dir(to), resolvedTarget)` の結果を `filepath.ToSlash(rel)` するだけで `filepath.Clean` していない。`filepath.Rel("other", ".")` は `".."` ではなく `"../."` を返すため、移動後の相対リンクが `[[../.]]` のような末尾 `/.` 付きで書き換えられるケースがある
   - **再現条件**: from がサブディレクトリにあり vault ルート（`..` で解決される先）を指す相対リンクを持ち、その from を別ディレクトリへ move する場合（検証エージェントが Go で `filepath.Rel("other", ".") == "../."` を実測確認済み）
   - **対処案**: `rel = filepath.ToSlash(filepath.Clean(rel))` にする。`move_helpers.go` の 2 箇所（wikilink / markdown 系）両方を確認。回帰テストを追加する
