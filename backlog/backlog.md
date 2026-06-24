@@ -1,6 +1,11 @@
 # Backlog
 
-## Bugs
+## v0.12.1
+
+- [ ] Linux CI で Unicode 正規化系テストが落ちる不具合を修正する
+  - **症状**: GitHub Actions の `ubuntu-latest` で `go test ./...` が失敗し、`TestAddNormalizesUnicodePathToExistingPhantom` / `TestAddRejectsUnicodeEquivalentExistingIndexPath` / `TestBuildNormalizesUnicodePathsToNFC` / `TestMetaCheckResolvesNFCValueToNFDPath` / `TestResolveNFCLinkAgainstNFDIndexName` が `Café.md` を見つけられない
+  - **再現条件**: Linux filesystem 上で NFC / NFD の異なるファイル名を扱う path 正規化テストを実行する場合。macOS ではローカル `go test ./...` が通るため、OS ごとの filesystem 正規化差で CI のみ失敗する
+  - **対処案**: テストデータ作成・path lookup・`NormalizePath` 適用位置を Linux 上でも成り立つ形に見直し、Ubuntu CI と macOS の両方で `go test ./...` を通す
 
 - [ ] `rewriteOutgoingRelativeLink` が `filepath.Rel` の戻り値を `filepath.Clean` せず壊れた相対リンクを生成しうる
   - **症状**: `move_helpers.go:642` 付近で `rel := filepath.Rel(filepath.Dir(to), resolvedTarget)` の結果を `filepath.ToSlash(rel)` するだけで `filepath.Clean` していない。`filepath.Rel("other", ".")` は `".."` ではなく `"../."` を返すため、移動後の相対リンクが `[[../.]]` のような末尾 `/.` 付きで書き換えられるケースがある
