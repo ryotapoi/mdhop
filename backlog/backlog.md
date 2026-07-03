@@ -24,19 +24,6 @@
   - **背景**: LLM が `--help` だけで使い方を把握できる水準にしたい。あわせてスキルと実装のドリフトを防止する
   - **対処案**: 各サブコマンドの `--help` に「フラグの意味・出力列/JSON フィールドの定義・実例2〜3個」を載せる。トップレベルの `--help` は現在の短さを維持する。`examples/skills/mdhop/SKILL.md` と references/ を「存在の告知・いつ使うか・--help への誘導」中心に薄くし、CLI 構文の重複記述を減らす
 
-## v0.12.1
-
-- [x] Linux CI で Unicode 正規化系テストが落ちる不具合を修正する
-  - **症状**: GitHub Actions の `ubuntu-latest` で `go test ./...` が失敗し、`TestAddNormalizesUnicodePathToExistingPhantom` / `TestAddRejectsUnicodeEquivalentExistingIndexPath` / `TestBuildNormalizesUnicodePathsToNFC` / `TestMetaCheckResolvesNFCValueToNFDPath` / `TestResolveNFCLinkAgainstNFDIndexName` が `Café.md` を見つけられない
-  - **再現条件**: Linux filesystem 上で NFC / NFD の異なるファイル名を扱う path 正規化テストを実行する場合。macOS ではローカル `go test ./...` が通るため、OS ごとの filesystem 正規化差で CI のみ失敗する
-  - **対処案**: テストデータ作成・path lookup・`NormalizePath` 適用位置を Linux 上でも成り立つ形に見直し、Ubuntu CI と macOS の両方で `go test ./...` を通す
-
-- [x] `rewriteOutgoingRelativeLink` が `filepath.Rel` の戻り値を `filepath.Clean` せず壊れた相対リンクを生成しうる
-  - **症状**: `move_helpers.go:642` 付近で `rel := filepath.Rel(filepath.Dir(to), resolvedTarget)` の結果を `filepath.ToSlash(rel)` するだけで `filepath.Clean` していない。`filepath.Rel("other", ".")` は `".."` ではなく `"../."` を返すため、移動後の相対リンクが `[[../.]]` のような末尾 `/.` 付きで書き換えられるケースがある
-  - **再現条件**: from がサブディレクトリにあり vault ルート（`..` で解決される先）を指す相対リンクを持ち、その from を別ディレクトリへ move する場合（検証エージェントが Go で `filepath.Rel("other", ".") == "../."` を実測確認済み）
-  - **対処案**: `rel = filepath.ToSlash(filepath.Clean(rel))` にする。`move_helpers.go` の 2 箇所（wikilink / markdown 系）両方を確認。回帰テストを追加する
-  - **経緯**: 旧 knowledge.md にあった「`filepath.Rel(dir, ".")` は `"../."` を返す。`filepath.Clean` を適用すること」という教訓。コメント化するとコードの現状（Clean なし）と矛盾するため backlog 化（2026-06-17 の knowledge.md 解体時に分離）
-
 ## Maintenance Audit (2026-07-03)
 
 deep pass（7 観点）の findings から対応するもの。package 分割・format_meta_* 重複統合・同型スケルトン共通化は ignore 判断（便益がコストを下回る）で登録しない。
