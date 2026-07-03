@@ -1,5 +1,29 @@
 # Backlog
 
+## v0.13.0
+
+2026-07-03 Knowledge 側のスキル改修（/dig /updating /maintenance 等）との検討で決めた機能追加。順序は上から。
+
+- [ ] `mdhop set` — frontmatter の単一キーを安全に書き換えるコマンド
+  - **背景**: 現状 frontmatter を書き換えるコマンドがなく（convert / repair / disambiguate / simplify は本文リンクのみ）、LLM が YAML を手編集していて崩し事故のリスクがある
+  - **対処案**: 例 `mdhop set --file <path> --key reviewed --value 2026-07-03`。YAML 全体を再シリアライズせず対象キーの行だけ書き換える（キー順序・コメント・引用形式を保存し diff を汚さない）。書き換え後にインデックスも同時更新する。`today` のような相対値サポートの有無は設計時に判断
+
+- [ ] meta-validate のパスパターン別 require プロファイル
+  - **背景**: スキル側が散文ルール（rules/frontmatter.md）を毎回読んで予防する方式から「書く → meta-validate → エラーだけ直す」方式に移行するため、必須キー定義を設定ファイルに寄せたい
+  - **対処案**: mdhop.yaml に「このパスパターンではこのキーが必須」（例: `03-Notes/media/**` は isbn 必須、全体では type / status / created / updated 必須）を書けるようにし、呼び出しごとの `--require` 指定なしで検証できるようにする。単一ファイルを対象にする利便（`--file` 相当）も検討
+
+- [ ] `mdhop move --to-template` — frontmatter 値から移動先パスを展開するテンプレート
+  - **背景**: アーカイブ先パスの組み立て（client 取得 → 年計算 → パス連結）を毎回 LLM がやっており、frontmatter 駆動の一括移動を1コマンドにしたい
+  - **対処案**: 例 `mdhop move --from <path> --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}"`。フィールド参照・fallback 記法（`{client|others}`）・日付の部分抽出（`{updated:year}`）のテンプレート構文の仕様整理が先（要仕様設計）
+
+- [ ] search の強化 3 点
+  - **背景**: 「reviewed の有無で 2 回検索してマージ」「全件 JSON を取ってから 10 件選ぶ」「件数しか使わないのに一覧を取る」という使い方が実際にあり、出力の無駄が大きい
+  - **対処案**: (a) `--sample N` — 候補から CLI 側で無作為に N 件抽出して返す（候補全件を出力せずに済む）。(b) `--count` — 件数のみ返す。(c) `--where` の式強化 — `coalesce(reviewed, updated) <= today-1y` のような coalesce / OR 条件を 1 クエリで書けるようにする
+
+- [ ] ヘルプ充実と examples スキルの薄型化
+  - **背景**: LLM が `--help` だけで使い方を把握できる水準にしたい。あわせてスキルと実装のドリフトを防止する
+  - **対処案**: 各サブコマンドの `--help` に「フラグの意味・出力列/JSON フィールドの定義・実例2〜3個」を載せる。トップレベルの `--help` は現在の短さを維持する。`examples/skills/mdhop/SKILL.md` と references/ を「存在の告知・いつ使うか・--help への誘導」中心に薄くし、CLI 構文の重複記述を減らす
+
 ## v0.12.1
 
 - [x] Linux CI で Unicode 正規化系テストが落ちる不具合を修正する
