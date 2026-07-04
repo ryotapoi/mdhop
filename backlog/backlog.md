@@ -4,7 +4,7 @@
 
 move 系の統合と信頼性改善。2026-07-03 maintenance audit の findings と確定済み設計方針から構成。統合後の基盤の上に `move --to-template` を実装して締める。順序は上から。
 
-- [ ] Move / MoveDir の挙動一致テストと move_helpers 中核パステストを追加する（統合の前提）
+- [x] Move / MoveDir の挙動一致テストと move_helpers 中核パステストを追加する（統合の前提）
   - **調査済みの挙動差**（2026-07-04 deep read）: (a) **自己参照の相対リンクで既存バグの疑い** — `a.md` 内の `[[./a]]` / `[text](./a.md)` を move すると、Move は `movedFromTo=nil`（`move.go:316`）のため `rewriteOutgoingRelativeLink`（`move_helpers.go:639`）の移動先置換がスキップされ、移動前の位置を指す壊れた相対リンクを生成する疑い。MoveDir(1件) は `{from: to}` map が渡るため正しく自己位置を指す。(b) 自己参照スキップは Move の `re.sourcePath == from`（`move.go:189`）と MoveDir の `movedNodeIDs[re.sourceID]`（`move_helpers.go:335`）が同型で挙動差なし（確認済み）。(c) validation は MoveDir のみ `IsAbs` / `pathEscapesVault` / ディレクトリ overlap チェック（`move_helpers.go:58-75`）を持ち、Move にはない。カバレッジ穴: `removeOrPhantomize` 64.3%、`rewriteOutgoingRelativeLink` 66.7%
   - **対処案**: 以下のシナリオをテストで固定する。①`a.md` に `[[./a]]` self-link → `move a.md sub/a.md` で移動後リンクが自己位置を指す（現 Move の結果が壊れていればバグとして記録し、MoveDir(1件) 側の挙動を正とする）②同 markdown link 版 ③vault 外パスの from/to がエラーになる ④`a.md` → `a/a.md` の親子パスで overlap 判定が誤爆しない ⑤1 件 slice の `classifyDiskState` が Move の disk-state switch（`move.go:84-95`）と同結果。あわせて順序依存シナリオ（同名削除→再削除）と相互リンク同時移動シナリオを追加
 

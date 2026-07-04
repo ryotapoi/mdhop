@@ -968,6 +968,61 @@ func TestDeletePhantomizedExistingPhantom(t *testing.T) {
 	}
 }
 
+func TestDeleteSameNameAddThenDeleteAgain(t *testing.T) {
+	vault := t.TempDir()
+	writeVaultFile(t, vault, "A.md", "[[B]]\n")
+	writeVaultFile(t, vault, "B.md", "first\n")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.Remove(filepath.Join(vault, "B.md")); err != nil {
+		t.Fatalf("remove first B.md: %v", err)
+	}
+	firstDelete, err := Delete(vault, DeleteOptions{Files: []string{"B.md"}})
+	if err != nil {
+		t.Fatalf("first delete: %v", err)
+	}
+	if len(firstDelete.Phantomed) != 1 {
+		t.Fatalf("first delete should phantomize B.md, got: %+v", firstDelete)
+	}
+
+	writeVaultFile(t, vault, "B.md", "second\n")
+	added, err := Add(vault, AddOptions{Files: []string{"B.md"}})
+	if err != nil {
+		t.Fatalf("add second B.md: %v", err)
+	}
+	if len(added.Promoted) != 1 || added.Promoted[0] != "B.md" {
+		t.Fatalf("add should promote B.md phantom, got: %+v", added)
+	}
+
+	if err := os.Remove(filepath.Join(vault, "B.md")); err != nil {
+		t.Fatalf("remove second B.md: %v", err)
+	}
+	secondDelete, err := Delete(vault, DeleteOptions{Files: []string{"B.md"}})
+	if err != nil {
+		t.Fatalf("second delete: %v", err)
+	}
+	if len(secondDelete.Phantomed) != 1 {
+		t.Fatalf("second delete should phantomize B.md again, got: %+v", secondDelete)
+	}
+
+	phantoms := queryNodes(t, dbPath(vault), "phantom")
+	var bPhantoms int
+	for _, n := range phantoms {
+		if n.nodeKey == "phantom:name:b" {
+			bPhantoms++
+		}
+	}
+	if bPhantoms != 1 {
+		t.Fatalf("expected exactly one B phantom after re-delete, got %d: %+v", bPhantoms, phantoms)
+	}
+	edges := queryEdges(t, dbPath(vault), "A.md")
+	if len(edges) != 1 || edges[0].targetType != NodeTypePhantom || edges[0].targetName != "B" {
+		t.Fatalf("A.md should point to the re-created B phantom, got: %+v", edges)
+	}
+}
+
 func TestHasNonMDFiles_Nested(t *testing.T) {
 	vault := t.TempDir()
 	inner := filepath.Join(vault, "sub", "inner")

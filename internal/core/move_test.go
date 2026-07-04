@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,6 +56,51 @@ func TestMove_TargetExistsOnDisk(t *testing.T) {
 	if !strings.Contains(err.Error(), "already exists on disk") {
 		t.Errorf("unexpected error: %v", err)
 	}
+}
+
+func TestMove_VaultEscape(t *testing.T) {
+	t.Run("from escapes vault", func(t *testing.T) {
+		vault := newMoveVault(t, map[string]string{
+			"a.md": "content\n",
+		})
+
+		_, err := Move(vault, MoveOptions{From: "../outside.md", To: "sub/a.md"})
+		if err == nil || !strings.Contains(err.Error(), "escapes vault") {
+			t.Fatalf("expected source vault escape error, got: %v", err)
+		}
+	})
+
+	t.Run("to escapes vault", func(t *testing.T) {
+		vault := newMoveVault(t, map[string]string{
+			"a.md": "content\n",
+		})
+
+		_, err := Move(vault, MoveOptions{From: "a.md", To: "../outside.md"})
+		if err == nil || !strings.Contains(err.Error(), "escapes vault") {
+			t.Fatalf("expected destination vault escape error, got: %v", err)
+		}
+		if !fileExists(filepath.Join(vault, "a.md")) {
+			t.Fatal("source file should remain in vault after rejected move")
+		}
+		if fileExists(filepath.Join(filepath.Dir(vault), "outside.md")) {
+			t.Fatal("move must not create destination outside the vault")
+		}
+	})
+
+	t.Run("absolute paths are rejected", func(t *testing.T) {
+		vault := newMoveVault(t, map[string]string{
+			"a.md": "content\n",
+		})
+
+		_, err := Move(vault, MoveOptions{From: filepath.Join(vault, "a.md"), To: "sub/a.md"})
+		if err == nil || !strings.Contains(err.Error(), "vault-relative") {
+			t.Fatalf("expected absolute source path error, got: %v", err)
+		}
+		_, err = Move(vault, MoveOptions{From: "a.md", To: filepath.Join(vault, "sub", "a.md")})
+		if err == nil || !strings.Contains(err.Error(), "vault-relative") {
+			t.Fatalf("expected absolute destination path error, got: %v", err)
+		}
+	})
 }
 
 // --- Test 4: move causes ambiguous links (root priority resolves) ---
@@ -643,6 +689,59 @@ func TestMove_SelfReference(t *testing.T) {
 	}
 }
 
+func TestMove_RelativeSelfLinksKeepPointingToMovedNote(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{
+			name:    "wikilink",
+			content: "[[./a]]\n",
+			want:    "[[./a]]\n",
+		},
+		{
+			name:    "markdown",
+			content: "[self](./a.md)\n",
+			want:    "[self](./a.md)\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := newMoveVault(t, map[string]string{
+				"a.md": tt.content,
+			})
+
+			result, err := Move(vault, MoveOptions{From: "a.md", To: "sub/a.md"})
+			if err != nil {
+				t.Fatalf("move: %v", err)
+			}
+
+			got := readVaultFile(t, vault, "sub/a.md")
+			if got != tt.want {
+				t.Fatalf("moved note content = %q, want %q; rewrites: %+v", got, tt.want, result.Rewritten)
+			}
+			assertEdgeRawLinks(t, vault, "sub/a.md", []string{strings.TrimSpace(tt.want)})
+		})
+	}
+}
+
+func TestMove_ParentChildPathIsSingleFileMove(t *testing.T) {
+	vault := newMoveVault(t, map[string]string{
+		"a.md": "content\n",
+	})
+
+	if _, err := Move(vault, MoveOptions{From: "a.md", To: "a/a.md"}); err != nil {
+		t.Fatalf("move from parent-like path to child path should succeed: %v", err)
+	}
+	if fileExists(filepath.Join(vault, "a.md")) {
+		t.Fatal("a.md should not exist after move")
+	}
+	if !fileExists(filepath.Join(vault, "a", "a.md")) {
+		t.Fatal("a/a.md should exist after move")
+	}
+}
+
 // --- Test 15: Phase 2.5 — root priority resolves third-party ambiguity ---
 func TestMove_AmbiguousThirdPartyRootPriority(t *testing.T) {
 	vault := t.TempDir()
@@ -755,6 +854,61 @@ func TestMove_BothAbsentOnDisk(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "source file not found on disk") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestClassifyDiskState_OneItemMatchesMoveDiskSwitch(t *testing.T) {
+	tests := []struct {
+		name         string
+		writeFrom    bool
+		writeTo      bool
+		wantNeedMove bool
+		wantErr      error
+	}{
+		{
+			name:         "from exists only",
+			writeFrom:    true,
+			wantNeedMove: true,
+		},
+		{
+			name:    "to exists only",
+			writeTo: true,
+		},
+		{
+			name:      "both exist",
+			writeFrom: true,
+			writeTo:   true,
+			wantErr:   ErrAlreadyExistsOnDisk,
+		},
+		{
+			name:    "neither exists",
+			wantErr: ErrSourceFileMissing,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := t.TempDir()
+			if tt.writeFrom {
+				writeVaultFile(t, vault, "from.md", "from\n")
+			}
+			if tt.writeTo {
+				writeVaultFile(t, vault, "to.md", "to\n")
+			}
+
+			gotNeedMove, err := classifyDiskState(vault, []moveInfo{{from: "from.md", to: "to.md"}})
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("error = %v, want %v", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("classifyDiskState: %v", err)
+			}
+			if gotNeedMove != tt.wantNeedMove {
+				t.Fatalf("needDiskMove = %v, want %v", gotNeedMove, tt.wantNeedMove)
+			}
+		})
 	}
 }
 
@@ -1964,6 +2118,69 @@ func TestMoveDir_RelativeBetweenMoved(t *testing.T) {
 	}
 }
 
+func TestMoveDir_OneFileRelativeSelfLinksKeepPointingToMovedNote(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{
+			name:    "wikilink",
+			content: "[[./a]]\n",
+			want:    "[[./a]]\n",
+		},
+		{
+			name:    "markdown",
+			content: "[self](./a.md)\n",
+			want:    "[self](./a.md)\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := newMoveVault(t, map[string]string{
+				"old/a.md": tt.content,
+			})
+
+			result, err := MoveDir(vault, MoveDirOptions{FromDir: "old", ToDir: "sub"})
+			if err != nil {
+				t.Fatalf("MoveDir: %v", err)
+			}
+
+			got := readVaultFile(t, vault, "sub/a.md")
+			if got != tt.want {
+				t.Fatalf("moved note content = %q, want %q; rewrites: %+v", got, tt.want, result.Rewritten)
+			}
+			assertEdgeRawLinks(t, vault, "sub/a.md", []string{strings.TrimSpace(tt.want)})
+		})
+	}
+}
+
+func TestMoveDir_MutualRelativeLinksMoveTogether(t *testing.T) {
+	vault := newMoveVault(t, map[string]string{
+		"old/a.md": "[[./b]]\n[b](./b.md)\n",
+		"old/b.md": "[[./a]]\n[a](./a.md)\n",
+	})
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "old", ToDir: "new"})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+	for _, rw := range result.Rewritten {
+		if rw.File == "new/a.md" || rw.File == "new/b.md" {
+			t.Fatalf("relative links between moved files should not be rewritten, got: %+v", result.Rewritten)
+		}
+	}
+
+	if got := readVaultFile(t, vault, "new/a.md"); got != "[[./b]]\n[b](./b.md)\n" {
+		t.Fatalf("new/a.md = %q", got)
+	}
+	if got := readVaultFile(t, vault, "new/b.md"); got != "[[./a]]\n[a](./a.md)\n" {
+		t.Fatalf("new/b.md = %q", got)
+	}
+	assertEdgeRawLinks(t, vault, "new/a.md", []string{"[[./b]]", "[b](./b.md)"})
+	assertEdgeRawLinks(t, vault, "new/b.md", []string{"[[./a]]", "[a](./a.md)"})
+}
+
 func TestMoveDir_RelativeToExternal(t *testing.T) {
 	// sub/A.md has [ext](../Root.md). Move sub → newdir.
 	// newdir/A.md → Root.md should become ../Root.md (still valid if newdir is 1 level deep).
@@ -2939,5 +3156,56 @@ func TestMove_FrontmatterWikilink_RelativeLinkInMovedNote(t *testing.T) {
 	}
 	if !edgePointsToTarget {
 		t.Errorf("DB should contain frontmatter_wikilink edge with rawLink [[../old/Target]] from new/RelA.md, got edges: %+v", edges)
+	}
+}
+
+func newMoveVault(t *testing.T, files map[string]string) string {
+	t.Helper()
+	root := t.TempDir()
+	vault := filepath.Join(root, "vault")
+	if err := os.MkdirAll(vault, 0o755); err != nil {
+		t.Fatalf("mkdir vault: %v", err)
+	}
+	for rel, content := range files {
+		writeVaultFile(t, vault, rel, content)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	return vault
+}
+
+func writeVaultFile(t *testing.T, vault, rel, content string) {
+	t.Helper()
+	full := filepath.Join(vault, rel)
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(full), err)
+	}
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", rel, err)
+	}
+}
+
+func readVaultFile(t *testing.T, vault, rel string) string {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(vault, rel))
+	if err != nil {
+		t.Fatalf("read %s: %v", rel, err)
+	}
+	return string(content)
+}
+
+func assertEdgeRawLinks(t *testing.T, vault, sourcePath string, want []string) {
+	t.Helper()
+	edges := queryEdges(t, dbPath(vault), sourcePath)
+	got := make(map[string]int, len(edges))
+	for _, e := range edges {
+		got[e.rawLink]++
+	}
+	for _, raw := range want {
+		if got[raw] == 0 {
+			t.Fatalf("missing edge rawLink %q for %s; edges: %+v", raw, sourcePath, edges)
+		}
+		got[raw]--
 	}
 }
