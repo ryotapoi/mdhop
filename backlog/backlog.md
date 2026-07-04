@@ -1,31 +1,5 @@
 # Backlog
 
-## v0.14.0
-
-move 系の統合と信頼性改善。2026-07-03 maintenance audit の findings と確定済み設計方針から構成。統合後の基盤の上に `move --to-template` を実装して締める。順序は上から。
-
-- [x] Move / MoveDir の挙動一致テストと move_helpers 中核パステストを追加する（統合の前提）
-  - **調査済みの挙動差**（2026-07-04 deep read）: (a) **自己参照の相対リンクで既存バグの疑い** — `a.md` 内の `[[./a]]` / `[text](./a.md)` を move すると、Move は `movedFromTo=nil`（`move.go:316`）のため `rewriteOutgoingRelativeLink`（`move_helpers.go:639`）の移動先置換がスキップされ、移動前の位置を指す壊れた相対リンクを生成する疑い。MoveDir(1件) は `{from: to}` map が渡るため正しく自己位置を指す。(b) 自己参照スキップは Move の `re.sourcePath == from`（`move.go:189`）と MoveDir の `movedNodeIDs[re.sourceID]`（`move_helpers.go:335`）が同型で挙動差なし（確認済み）。(c) validation は MoveDir のみ `IsAbs` / `pathEscapesVault` / ディレクトリ overlap チェック（`move_helpers.go:58-75`）を持ち、Move にはない。カバレッジ穴: `removeOrPhantomize` 64.3%、`rewriteOutgoingRelativeLink` 66.7%
-  - **対処案**: 以下のシナリオをテストで固定する。①`a.md` に `[[./a]]` self-link → `move a.md sub/a.md` で移動後リンクが自己位置を指す（現 Move の結果が壊れていればバグとして記録し、MoveDir(1件) 側の挙動を正とする）②同 markdown link 版 ③vault 外パスの from/to がエラーになる ④`a.md` → `a/a.md` の親子パスで overlap 判定が誤爆しない ⑤1 件 slice の `classifyDiskState` が Move の disk-state switch（`move.go:84-95`）と同結果。あわせて順序依存シナリオ（同名削除→再削除）と相互リンク同時移動シナリオを追加
-
-- [x] Move を MoveDir の特殊化に統合する（方針確定 2026-07-03）
-  - **症状**: リンク解決の root-priority 判定が `move.go` 2 箇所 + `move_helpers.go` 3 箇所の並行実装。Phase 0〜5 構造・rollback も並行実装で、解決ルール変更時に片方だけ直すと Move と MoveDir で結果が食い違う
-  - **対処案**: 挙動一致テストを通した上で「Move = 1 件の MoveDir」に置き換える。統合は上記 (a) の自己参照相対リンクバグの修正と (c) の vault-escape チェック追加を兼ねる（MoveDir 側の挙動を正とする）。`move_helpers.go`（886 行）の shared / dir 別分割と `frontmatter_path_guard.go`（両者共通適用を確認済み、`move.go:149` / `move_dir.go:72`）の帰属整理もセットで実施
-  - **docs 同期漏れ（2026-07-04 v0.13.0 Goal Review で発見）**: directory mode の包含関係エラー（`--from sub --to sub/inner`、`move_helpers.go:73-75`）が `docs/specs/overview.md` の move 節に未記載（`move --help` の Behavior notes には記載済み）。統合時の仕様整理で overview.md に追記する
-  - **経緯**: 2026-06-10 audit の「move 系分割再評価」（trigger: 次の move 機能要求）を本 audit の具体案で置き換え
-
-- [x] moved file backup の rollback をヘルパーに集約する（統合後の 1 系統に対して実施）
-  - **症状**: `move.go:364-419` に 5 箇所、`move_dir.go:136-163` に 3 箇所、`writeFilePreservePerm` + `os.Rename` 巻き戻しの同型 inline パターンが反復。collateral 側は `restoreBackups()`（`rewrite.go:150`）に集約済みで 12 箇所から再利用されており非対称
-  - **対処案**: `rewriteBackup` 型を流用して `restoreBackups` と同型のヘルパーに集約。rollback 仕様変更時の更新漏れ（部分ロールバックで vault 不整合）を防ぐ
-
-- [x] rollback 失敗を返却エラーに含める（方針確定 2026-07-03）
-  - **症状**: move 系の `_ =` 13 箇所は意図的な best-effort だが、rollback 自体が失敗しても一切通知されない。rollback は常に一次エラーの経路でのみ走るため、Result に Warnings を足しても error return 時には出力されず伝わらない
-  - **対処案**: 一次エラーに rollback 失敗の詳細（復元できなかったファイル一覧、`mdhop build` での復旧手順）を wrap して返す。best-effort 継続方針（rollback 失敗でも巻き戻しは続行）は維持する
-
-- [x] `mdhop move --to-template` — frontmatter 値から移動先パスを展開するテンプレート
-  - **背景**: アーカイブ先パスの組み立て（client 取得 → 年計算 → パス連結）を毎回 LLM がやっており、frontmatter 駆動の一括移動を1コマンドにしたい
-  - **対処案**: 例 `mdhop move --from <path> --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}"`。フィールド参照・fallback 記法（`{client|others}`）・日付の部分抽出（`{updated:year}`）のテンプレート構文の仕様整理が先（要仕様設計）。move 系統合後の基盤の上に実装する
-
 ## v0.15.0
 
 リンク解決コアと内部構造の整理。2026-07-03 maintenance audit の findings と確定済み設計方針から構成。順序は上から。
