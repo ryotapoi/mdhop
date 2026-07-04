@@ -27,6 +27,9 @@ func runSet(args []string) error {
 	if *key == "" {
 		return fmt.Errorf("--key is required")
 	}
+	if *value == "" {
+		return fmt.Errorf("--value is required")
+	}
 	result, err := core.Set(*vault, core.SetOptions{
 		File:  *file,
 		Key:   *key,

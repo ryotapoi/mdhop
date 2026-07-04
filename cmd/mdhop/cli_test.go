@@ -400,6 +400,13 @@ func TestRunSet_MissingKey(t *testing.T) {
 	}
 }
 
+func TestRunSet_MissingValue(t *testing.T) {
+	err := runSet([]string{"--file", "A.md", "--key", "reviewed"})
+	if err == nil || !strings.Contains(err.Error(), "--value is required") {
+		t.Errorf("expected --value required error, got: %v", err)
+	}
+}
+
 func TestRunSet_JSONOutput(t *testing.T) {
 	vault := t.TempDir()
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: A\n---\n# A\n"), 0o644); err != nil {

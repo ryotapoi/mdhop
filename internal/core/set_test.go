@@ -238,6 +238,67 @@ func TestSetSequenceValueError(t *testing.T) {
 	}
 }
 
+func TestSetMultilinePlainScalarValueError(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\ntitle: This is a long\n  title that wraps\nstatus: draft\n---\n# A\n"
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "title", Value: "New"})
+	if err == nil || !strings.Contains(err.Error(), "multi-line") {
+		t.Fatalf("error = %v, want multi-line", err)
+	}
+	if got := readTestFile(t, path); got != content {
+		t.Fatalf("content changed after failed set:\n%s\nwant:\n%s", got, content)
+	}
+}
+
+func TestSetDuplicateTargetKeyError(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\ntitle: A\ntitle: B\nstatus: draft\n---\n# A\n"
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "title", Value: "New"})
+	if err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Fatalf("error = %v, want duplicate", err)
+	}
+	if got := readTestFile(t, path); got != content {
+		t.Fatalf("content changed after failed set:\n%s\nwant:\n%s", got, content)
+	}
+}
+
+func TestSetAllowsDuplicateNonTargetKey(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\ntitle: A\nstatus: draft\nstatus: old\n---\n# A\n"
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "title", Value: "New"})
+	if err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	want := "---\ntitle: New\nstatus: draft\nstatus: old\n---\n# A\n"
+	if got := readTestFile(t, path); got != want {
+		t.Fatalf("content =\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func readTestFile(t *testing.T, path string) string {
 	t.Helper()
 	content, err := os.ReadFile(path)

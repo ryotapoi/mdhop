@@ -141,17 +141,29 @@ func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, e
 		return nil, false, fmt.Errorf("frontmatter must be a mapping")
 	}
 	mapping := doc.Content[0]
+	matchIndex := -1
+	matchCount := 0
 	for i := 0; i < len(mapping.Content)-1; i += 2 {
 		keyNode := mapping.Content[i]
-		valNode := mapping.Content[i+1]
 		if keyNode.Value != key {
 			continue
 		}
+		matchIndex = i
+		matchCount++
+	}
+	if matchCount > 1 {
+		return nil, false, fmt.Errorf("frontmatter has duplicate key %q", key)
+	}
+	if matchIndex >= 0 {
+		valNode := mapping.Content[matchIndex+1]
 		if valNode.Kind == yaml.SequenceNode {
 			return nil, false, fmt.Errorf("frontmatter key %q has sequence value; set supports scalar values only", key)
 		}
 		if valNode.Kind != yaml.ScalarNode || valNode.Style == yaml.LiteralStyle || valNode.Style == yaml.FoldedStyle {
 			return nil, false, fmt.Errorf("frontmatter key %q has unsupported value; set supports single-line scalar values only", key)
+		}
+		if frontmatterValueLineCount(mapping, matchIndex, end) > 1 {
+			return nil, false, fmt.Errorf("frontmatter key %q has multi-line value; set supports single-line scalar values only", key)
 		}
 		// yaml.Node.Line is 1-based against the YAML body. The opening "---"
 		// is file line 1, so yaml line 1 = file line 2 and file line = Line + 1.
@@ -165,6 +177,15 @@ func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, e
 
 	lines = append(lines[:end], append([]string{newLine}, lines[end:]...)...)
 	return []byte(strings.Join(lines, "\n")), true, nil
+}
+
+func frontmatterValueLineCount(mapping *yaml.Node, keyIndex, frontmatterEndLine int) int {
+	valNode := mapping.Content[keyIndex+1]
+	nextYAMLLine := frontmatterEndLine
+	if nextKeyIndex := keyIndex + 2; nextKeyIndex < len(mapping.Content) {
+		nextYAMLLine = mapping.Content[nextKeyIndex].Line
+	}
+	return nextYAMLLine - valNode.Line
 }
 
 func formatSetYAMLValue(value string) string {
