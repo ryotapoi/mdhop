@@ -37,6 +37,8 @@ func main() {
 		err = runDelete(os.Args[2:])
 	case "update":
 		err = runUpdate(os.Args[2:])
+	case "set":
+		err = runSet(os.Args[2:])
 	case "add":
 		err = runAdd(os.Args[2:])
 	case "move":
@@ -94,6 +96,7 @@ Index Commands:
   build         Build the index from the vault
   add           Add new files to the index
   update        Update specified files in the index
+  set           Set a single frontmatter key and update the index
   delete        Remove files from the index
   move          Move a file and update links
   disambiguate  Rewrite basename links to full paths

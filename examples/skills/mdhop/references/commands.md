@@ -68,6 +68,28 @@ mdhop update --file A.md --file B.md
 
 **Output fields:** `updated`, `deleted`, `phantomed`
 
+## set
+
+Rewrite a single frontmatter key in one file and refresh its index entry. Rewrites only the target key's line, keeping key order, other values, and comments intact.
+
+```bash
+mdhop set --file Notes/Design.md --key reviewed --value 2026-07-04
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--file <path>` | Yes | File to edit |
+| `--key <name>` | Yes | Frontmatter key to set |
+| `--value <value>` | Yes | Value to write (written as-is; no relative-date expansion) |
+| `--format json\|text` | No | Output format |
+
+**Behavior:**
+- Errors if the file has no frontmatter (does not create one)
+- Adds the key just before the closing `---` if it does not already exist
+- Errors if the existing value is a list or block scalar (scalar values only)
+
+**Output fields:** `file`, `key`, `value`, `created`
+
 ## delete
 
 Remove files from the index.

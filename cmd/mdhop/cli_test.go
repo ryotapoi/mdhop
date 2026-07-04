@@ -384,6 +384,55 @@ func TestRunUpdate_Integration(t *testing.T) {
 	}
 }
 
+// --- Set CLI tests ---
+
+func TestRunSet_MissingFile(t *testing.T) {
+	err := runSet([]string{"--key", "reviewed", "--value", "done"})
+	if err == nil || !strings.Contains(err.Error(), "--file is required") {
+		t.Errorf("expected --file required error, got: %v", err)
+	}
+}
+
+func TestRunSet_MissingKey(t *testing.T) {
+	err := runSet([]string{"--file", "A.md", "--value", "done"})
+	if err == nil || !strings.Contains(err.Error(), "--key is required") {
+		t.Errorf("expected --key required error, got: %v", err)
+	}
+}
+
+func TestRunSet_JSONOutput(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: A\n---\n# A\n"), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runSet([]string{
+			"--vault", vault,
+			"--file", "A.md",
+			"--key", "reviewed",
+			"--value", "2026-07-04",
+			"--format", "json",
+		})
+	})
+
+	var got struct {
+		File    string `json:"file"`
+		Key     string `json:"key"`
+		Value   string `json:"value"`
+		Created bool   `json:"created"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("json unmarshal: %v\n%s", err, out)
+	}
+	if got.File != "A.md" || got.Key != "reviewed" || got.Value != "2026-07-04" || !got.Created {
+		t.Fatalf("json = %+v, want A.md reviewed=2026-07-04 created=true", got)
+	}
+}
+
 // --- Add CLI tests ---
 
 func TestRunAdd_InvalidFormat(t *testing.T) {

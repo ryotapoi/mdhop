@@ -55,6 +55,7 @@ meta:
 - `mdhop build` : Vault 全体を解析しインデックスを作成する
 - `mdhop update --file ...` : 登録済みファイルのみを更新する
   - `--file` は複数回指定できる
+- `mdhop set --file A.md --key reviewed --value 2026-07-03` : frontmatter の単一キーを書き換え、インデックスを更新する
 - `mdhop add --file ...` : 新規追加を反映する（未登録のみ）
 - `mdhop move --from A.md --to B.md` : ファイル移動を反映する（note / asset 両対応）
 - `mdhop move --from dir/ --to newdir/` : ディレクトリ単位の移動を反映する
@@ -205,6 +206,14 @@ meta:
   - 任意: `--vault`, `--format`
   - 補足: 更新後の内容に、曖昧リンクが含まれる場合は **エラー**
     - 対象: `[[a]]` / `[x](a.md)` など basename 解決が必要なリンク
+- `set`
+  - 必須: `--file`, `--key`, `--value`
+  - 任意: `--vault`, `--format`
+  - 補足: 1 コマンドで 1 ファイル 1 キーだけを書き換える
+  - 補足: frontmatter がないファイルは **エラー**（frontmatter の新規作成はしない）
+  - 補足: 対象キーがない場合は、frontmatter の閉じ `---` の直前に新規キーを追加する
+  - 補足: `--value` は相対日付展開せず、渡された値をそのまま YAML 値として書き込む
+  - 補足: 既存キーのリスト形式値は対象外として **エラー**
 - `add`
   - 必須: `--file`（複数回指定可）
   - 任意: `--vault`, `--format`, `--no-auto-disambiguate`
@@ -444,6 +453,7 @@ meta:
 - text では空スライスのセクションを省略、JSON では `[]` を出力する
 - delete: `deleted`, `phantomed`
 - update: `updated`, `deleted`, `phantomed`
+- set: `file`, `key`, `value`, `created`
 - add: `added`, `promoted`, `rewritten`
 - move（単体）: `from`, `to`, `rewritten`
 - move（ディレクトリ）: `moved[]`（`from`, `to` の配列）, `rewritten`

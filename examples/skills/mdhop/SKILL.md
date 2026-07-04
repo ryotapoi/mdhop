@@ -14,6 +14,7 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 - Run commands from the vault root, or pass `--vault <path>`.
 - Treat paths as vault-relative.
 - Do not use raw `mv`, `rm`, or `cp` for indexed vault files. Use `mdhop move`, `mdhop delete --rm`, and write-then-`mdhop add`.
+- Do not hand-edit a single frontmatter key. Use `mdhop set` so the index stays in sync.
 - Finish editing file contents before `mdhop add` or `mdhop update`; the index should reflect the final file state.
 - After `repair`, `simplify`, `convert`, or `disambiguate --scan`, run `mdhop build`.
 
@@ -121,6 +122,9 @@ mdhop add --file Notes/NewNote.md --format json
 
 # Re-index edited notes.
 mdhop update --file Notes/Design.md --format json
+
+# Set a single frontmatter key without hand-editing YAML.
+mdhop set --file Notes/Design.md --key reviewed --value 2026-07-04 --format json
 
 # Move files or directories while rewriting links.
 mdhop move --from Notes/Old.md --to Notes/New.md --format json

@@ -4,7 +4,7 @@
 
 2026-07-03 Knowledge 側のスキル改修（/dig /updating /maintenance 等）との検討で決めた機能追加を中心に構成。`move --to-template` のみ move 系統合（v0.14.0）後に実装するため後送り。順序は上から。
 
-- [ ] `mdhop set` — frontmatter の単一キーを安全に書き換えるコマンド
+- [x] `mdhop set` — frontmatter の単一キーを安全に書き換えるコマンド
   - **背景**: 現状 frontmatter を書き換えるコマンドがなく（convert / repair / disambiguate / simplify は本文リンクのみ）、LLM が YAML を手編集していて崩し事故のリスクがある
   - **対処案**: 例 `mdhop set --file <path> --key reviewed --value 2026-07-03`。YAML 全体を再シリアライズせず対象キーの行だけ書き換える（キー順序・コメント・引用形式を保存し diff を汚さない）。書き換え後にインデックスも同時更新する。`today` のような相対値サポートの有無は設計時に判断
 
