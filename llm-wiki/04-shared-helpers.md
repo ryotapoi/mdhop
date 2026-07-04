@@ -31,8 +31,7 @@ sources:
 | ファイル | 行 | 用途 |
 |----------|----|------|
 | `internal/core/add.go` | 189 | basename エッジの rawLink 更新 |
-| `internal/core/move.go` | 196, 203, 210, 304 | 移動後の incoming / outgoing リンク書き換え |
-| `internal/core/move_helpers.go` | 362, 367, 507, 540, 602 | dir-move 向け incoming / collateral / moved-file リンク書き換え |
+| `internal/core/move_helpers.go` | 389, 395, 400, 545, 581, 645 | move / dir-move 向け incoming / collateral / moved-file リンク書き換え |
 | `internal/core/disambiguate.go` | 150, 374 | 曖昧リンク解消 |
 | `internal/core/simplify.go` | 170 | path/relative リンク → basename リンクへ短縮 |
 | `internal/core/repair.go` | 142 | 壊れたリンクの修復 |
@@ -87,8 +86,7 @@ sources:
 | ファイル | 行 | 用途 |
 |----------|----|------|
 | `internal/core/rewrite.go` | 152, 184, 211 | バックアップ復元・書き換え適用 |
-| `internal/core/move.go` | 351, 364, 371, 386, 400, 418 | 移動ファイルの書き込み・バックアップ復元 |
-| `internal/core/move_dir.go` | 132, 135, 162 | dir-move のファイル書き込み・バックアップ復元 |
+| `internal/core/move_dir.go` | 138, 141, 168 | move / dir-move のファイル書き込み・バックアップ復元 |
 
 ---
 
@@ -104,8 +102,7 @@ sources:
 | ファイル | 行 | 用途 |
 |----------|----|------|
 | `internal/core/add.go` | 172 | basename エッジ分類 |
-| `internal/core/move.go` | 192 | incoming リンクの basename 判定 |
-| `internal/core/move_helpers.go` | 343, 596 | dir-move の basename 判定 |
+| `internal/core/move_helpers.go` | 370, 639 | move / dir-move の basename 判定 |
 | `internal/core/disambiguate.go` | 138 | 曖昧解消対象フィルタ |
 | `internal/core/diagnose.go` | 77 | 診断時の basename リンク識別 |
 
@@ -124,8 +121,7 @@ sources:
 |----------|----|------|
 | `internal/core/add.go` | 278, 286 | add 処理の書き換えロールバック |
 | `internal/core/disambiguate.go` | 201, 208 | 曖昧解消のロールバック |
-| `internal/core/move.go` | 352, 366, 373, 388, 402, 420 | move 処理のロールバック |
-| `internal/core/move_dir.go` | 137, 164 | dir-move のロールバック |
+| `internal/core/move_dir.go` | 143, 170 | move / dir-move 処理のロールバック |
 
 ---
 
@@ -145,8 +141,7 @@ sources:
 | `internal/core/build.go` | 375 | 重複 basename の検出 |
 | `internal/core/resolve_maps.go` | 34, 52, 96, 102, 156 | resolveMaps への追加・削除・再構築 |
 | `internal/core/add.go` | 103, 138, 307, 314 | 追加ノードの basename 解決 |
-| `internal/core/move.go` | 164, 165, 274 | 移動前後の basename キー計算 |
-| `internal/core/move_helpers.go` | 353, 390, 403, 479 | dir-move の basename 管理 |
+| `internal/core/move_helpers.go` | 382, 383, 426, 439, 515, 530 | move / dir-move の basename 管理 |
 | `internal/core/disambiguate.go` | 51, 303, 360, 366 | 曖昧候補のフィルタ |
 | `internal/core/simplify.go` | 215, 254 | simplify 時の basename 一致確認 |
 | `internal/core/update.go` | 249, 288 | 更新時の basename 管理 |
@@ -262,15 +257,14 @@ sources:
 
 | 項目 | 値 |
 |------|-----|
-| 定義 | `internal/core/move_helpers.go:729` |
+| 定義 | `internal/core/move_helpers.go:774` |
 | 役割 | 外部リンク書き換えエントリをグループ化して `applyFileRewrites` を呼び出す薄いラッパー |
 
 主な呼び出しサイト:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/move.go` | 334 | move の外部リンク書き換え |
-| `internal/core/move_dir.go` | 99 | dir-move の外部リンク書き換え |
+| `internal/core/move_dir.go` | 105 | move / dir-move の外部リンク書き換え（`executeMoves`） |
 
 ---
 
@@ -278,15 +272,14 @@ sources:
 
 | 項目 | 値 |
 |------|-----|
-| 定義 | `internal/core/move_helpers.go:742` |
+| 定義 | `internal/core/move_helpers.go:787` |
 | 役割 | 移動ファイル本体の outgoing リンクを `replaceOutsideInlineCode` で行ごとに書き換える |
 
 主な呼び出しサイト:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/move.go` | 348 | 移動ファイル内容の outgoing 書き換え |
-| `internal/core/move_dir.go` | 128 | dir-move の移動ファイル内容書き換え |
+| `internal/core/move_dir.go` | 134 | move / dir-move の移動ファイル内容書き換え（`executeMoves`） |
 
 ---
 
@@ -294,15 +287,14 @@ sources:
 
 | 項目 | 値 |
 |------|-----|
-| 定義 | `internal/core/move_helpers.go:762` |
+| 定義 | `internal/core/move_helpers.go:807` |
 | 役割 | 外部エッジの raw_link と mtime を DB に反映し、書き換えリストを返す |
 
 主な呼び出しサイト:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/move.go` | 467 | move の DB 更新 |
-| `internal/core/move_dir.go` | 258 | dir-move の DB 更新 |
+| `internal/core/move_dir.go` | 264 | move / dir-move の DB 更新（`executeMoves`） |
 
 ---
 
@@ -310,7 +302,7 @@ sources:
 
 | 項目 | 値 |
 |------|-----|
-| 定義 | `internal/core/move_helpers.go:798` |
+| 定義 | `internal/core/move_helpers.go:843` |
 | 役割 | ファントムノードを実ノードに昇格させ、エッジを付け替える |
 
 主な呼び出しサイト:
@@ -318,8 +310,7 @@ sources:
 | ファイル | 行 | 用途 |
 |----------|----|------|
 | `internal/core/add.go` | 323 | add 時のファントム昇格 |
-| `internal/core/move.go` | 489 | move 時のファントム昇格 |
-| `internal/core/move_dir.go` | 291 | dir-move 時のファントム昇格 |
+| `internal/core/move_dir.go` | 297 | move / dir-move 時のファントム昇格（`executeMoves`） |
 
 ---
 
@@ -327,12 +318,11 @@ sources:
 
 | 項目 | 値 |
 |------|-----|
-| 定義 | `internal/core/move_helpers.go:611` |
+| 定義 | `internal/core/move_helpers.go:654` |
 | 役割 | 相対パスリンクを移動後の新パスに基づき再計算する |
 
 主な呼び出しサイト:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/move.go` | 315 | move の outgoing 相対リンク更新 |
-| `internal/core/move_helpers.go` | 518 | `buildMovedFileRewrites` 内の dir-move 処理 |
+| `internal/core/move_helpers.go` | 556 | `buildMovedFileRewrites` 内の move / dir-move 処理 |

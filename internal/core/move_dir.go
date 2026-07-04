@@ -1,6 +1,7 @@
 package core
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 )
@@ -61,6 +62,10 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 		return nil, err
 	}
 
+	return executeMoves(vaultPath, db, cfg, moves, diskOnlyFiles, needDiskMove)
+}
+
+func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, diskOnlyFiles []diskOnlyMove, needDiskMove bool) (*MoveDirResult, error) {
 	// Phase 1: build maps and adjust for post-move state.
 	dm, err := adjustMapsForDirMove(db, moves)
 	if err != nil {

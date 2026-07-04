@@ -76,6 +76,31 @@ func validateMoveDirOptions(opts MoveDirOptions) (fromDir, toDir string, err err
 	return fromDir, toDir, nil
 }
 
+// loadSingleMoveFromDB resolves one registered note or asset for single-file Move.
+func loadSingleMoveFromDB(db dbExecer, from, to string) (moveInfo, error) {
+	rm, err := buildMapsFromDB(db)
+	if err != nil {
+		return moveInfo{}, err
+	}
+
+	var nodeID int64
+	var isAsset bool
+	if id, ok := rm.pathToID[from]; ok {
+		nodeID = id
+	} else if id, ok := rm.assetPathToID[from]; ok {
+		nodeID = id
+		isAsset = true
+	} else {
+		return moveInfo{}, fmt.Errorf("%w: %s", ErrFileNotRegistered, from)
+	}
+
+	var dbMtime int64
+	if err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", nodeID).Scan(&dbMtime); err != nil {
+		return moveInfo{}, err
+	}
+	return moveInfo{from: from, to: to, nodeID: nodeID, dbMtime: dbMtime, isAsset: isAsset}, nil
+}
+
 // loadMovesFromDB resolves all registered notes and assets under fromDir into moveInfo
 // records carrying their computed to-paths under toDir.
 func loadMovesFromDB(db dbExecer, fromDir, toDir string) ([]moveInfo, error) {
@@ -290,10 +315,12 @@ func adjustMapsForDirMove(db dbExecer, moves []moveInfo) (*dirMoveMaps, error) {
 // sources and decides which need rewriting based on basename/path resolution.
 func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMaps) ([]rewriteEntry, error) {
 	nodeIDs := make([]int64, 0, len(moves))
+	nodeIDFromPath := make(map[int64]string, len(moves))
 	nodeIDToPath := make(map[int64]string, len(moves))
 	nodeIDIsAsset := make(map[int64]bool, len(moves))
 	for _, m := range moves {
 		nodeIDs = append(nodeIDs, m.nodeID)
+		nodeIDFromPath[m.nodeID] = m.from
 		nodeIDToPath[m.nodeID] = m.to
 		nodeIDIsAsset[m.nodeID] = m.isAsset
 	}
@@ -341,23 +368,29 @@ func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMap
 			}
 
 			if isBasenameRawLink(re.rawLink, re.linkType) {
-				var fromBK string
+				fromPath := nodeIDFromPath[targetID]
+				var fromBK, toBK string
 				var counts map[string]int
 				var prePS, postPS map[string]string
 				if nodeIDIsAsset[targetID] {
-					fromBK = assetBasenameKey(toPath)
+					fromBK = assetBasenameKey(fromPath)
+					toBK = assetBasenameKey(toPath)
 					counts = rm.assetBasenameCounts
 					prePS = dm.preMoveAssetPathSet
 					postPS = rm.assetPathSet
 				} else {
-					fromBK = basenameKey(toPath)
+					fromBK = basenameKey(fromPath)
+					toBK = basenameKey(toPath)
 					counts = rm.basenameCounts
 					prePS = dm.preMovePathSet
 					postPS = rm.pathSet
 				}
-				if counts[fromBK] > 1 {
-					preRoot := hasRootInPathSet(fromBK, prePS)
-					postRoot := hasRootInPathSet(fromBK, postPS)
+				if fromBK != toBK {
+					re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath)
+					incomingRewrites = append(incomingRewrites, re)
+				} else if counts[toBK] > 1 {
+					preRoot := hasRootInPathSet(toBK, prePS)
+					postRoot := hasRootInPathSet(toBK, postPS)
 					if !(preRoot && postRoot) {
 						re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath)
 						incomingRewrites = append(incomingRewrites, re)
@@ -494,7 +527,9 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 				}
 
 				needRewrite := false
-				if p, ok := rm.basenameToPath[bk]; ok {
+				if basenameKey(postMoveTargetPath) != bk {
+					needRewrite = true
+				} else if p, ok := rm.basenameToPath[bk]; ok {
 					if p != postMoveTargetPath {
 						needRewrite = true
 					}
@@ -532,6 +567,9 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 				continue
 			}
 
+			if link.target == "" {
+				continue
+			}
 			preMoveTargetPath, err := lookupEdgeTargetPath(db, m.nodeID, link.rawLink)
 			if err != nil {
 				return nil, err
