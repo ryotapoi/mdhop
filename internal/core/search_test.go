@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -416,6 +417,91 @@ func TestSearch_LimitOffset(t *testing.T) {
 	}
 }
 
+func TestSearch_Sample(t *testing.T) {
+	vault := setupSearchVault(t)
+	meta := searchVaultConfig(t, vault)
+	wc, err := ParseWhere([]string{"status=active"}, meta)
+	if err != nil {
+		t.Fatalf("parse where: %v", err)
+	}
+
+	result, err := Search(vault, SearchOptions{Where: wc, Sample: 2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Total != 3 {
+		t.Errorf("total = %d, want 3", result.Total)
+	}
+	if len(result.Items) != 2 {
+		t.Fatalf("items = %d, want 2", len(result.Items))
+	}
+
+	candidates := map[string]bool{"A.md": true, "B.md": true, "E.md": true}
+	seen := map[string]bool{}
+	for _, item := range result.Items {
+		if !candidates[item.Node.Path] {
+			t.Fatalf("sample item %q is outside candidates", item.Node.Path)
+		}
+		if seen[item.Node.Path] {
+			t.Fatalf("duplicate sample item %q", item.Node.Path)
+		}
+		seen[item.Node.Path] = true
+	}
+}
+
+func TestSearch_SampleGreaterThanTotal(t *testing.T) {
+	vault := setupSearchVault(t)
+
+	result, err := Search(vault, SearchOptions{Sample: 10})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Total != 5 {
+		t.Errorf("total = %d, want 5", result.Total)
+	}
+	if len(result.Items) != 5 {
+		t.Fatalf("items = %d, want 5", len(result.Items))
+	}
+	seen := map[string]bool{}
+	for _, item := range result.Items {
+		if seen[item.Node.Path] {
+			t.Fatalf("duplicate sample item %q", item.Node.Path)
+		}
+		seen[item.Node.Path] = true
+	}
+}
+
+func TestSearch_SampleInvalid(t *testing.T) {
+	vault := setupSearchVault(t)
+	_, err := Search(vault, SearchOptions{Sample: -1})
+	if err == nil || !strings.Contains(err.Error(), "sample must be >= 0") {
+		t.Fatalf("expected sample validation error, got: %v", err)
+	}
+}
+
+func TestSearch_SampleWithLimitError(t *testing.T) {
+	vault := setupSearchVault(t)
+	_, err := Search(vault, SearchOptions{Sample: 2, Limit: 1})
+	if err == nil || !strings.Contains(err.Error(), "sample cannot be used with limit or offset") {
+		t.Fatalf("expected sample/limit conflict error, got: %v", err)
+	}
+
+	_, err = Search(vault, SearchOptions{Sample: 2, Offset: 1})
+	if err == nil || !strings.Contains(err.Error(), "sample cannot be used with limit or offset") {
+		t.Fatalf("expected sample/offset conflict error, got: %v", err)
+	}
+}
+
+func TestSearch_SampleWithSortError(t *testing.T) {
+	vault := setupSearchVault(t)
+	_, err := Search(vault, SearchOptions{Sample: 2, Sort: "priority"})
+	if err == nil || !strings.Contains(err.Error(), "sample cannot be used with sort") {
+		t.Fatalf("expected sample/sort conflict error, got: %v", err)
+	}
+}
+
 func setupSearchVaultWithSub(t *testing.T) string {
 	t.Helper()
 	vault := copyVaultForQuery(t, "vault_search")
@@ -671,6 +757,53 @@ func TestSearch_EmptyResult(t *testing.T) {
 	}
 	if len(result.Items) != 0 {
 		t.Errorf("items = %d, want 0", len(result.Items))
+	}
+}
+
+func TestSearch_Count(t *testing.T) {
+	vault := setupSearchVault(t)
+	meta := searchVaultConfig(t, vault)
+	wc, err := ParseWhere([]string{"status=active"}, meta)
+	if err != nil {
+		t.Fatalf("parse where: %v", err)
+	}
+
+	result, err := Search(vault, SearchOptions{Where: wc, Count: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Total != 3 {
+		t.Errorf("total = %d, want 3", result.Total)
+	}
+	if len(result.Items) != 0 {
+		t.Errorf("items = %d, want 0", len(result.Items))
+	}
+}
+
+func TestSearch_CountWithOutputOptionsError(t *testing.T) {
+	vault := setupSearchVault(t)
+
+	tests := []struct {
+		name string
+		opts SearchOptions
+		want string
+	}{
+		{name: "fields", opts: SearchOptions{Count: true, Fields: []string{"meta"}}, want: "count cannot be used with fields"},
+		{name: "include head", opts: SearchOptions{Count: true, IncludeHead: 1}, want: "count cannot be used with include-head"},
+		{name: "sample", opts: SearchOptions{Count: true, Sample: 1}, want: "count cannot be used with sample"},
+		{name: "sort", opts: SearchOptions{Count: true, Sort: "priority"}, want: "count cannot be used with sort"},
+		{name: "limit", opts: SearchOptions{Count: true, Limit: 1}, want: "count cannot be used with limit or offset"},
+		{name: "offset", opts: SearchOptions{Count: true, Offset: 1}, want: "count cannot be used with limit or offset"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Search(vault, tt.opts)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("expected %q error, got: %v", tt.want, err)
+			}
+		})
 	}
 }
 

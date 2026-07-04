@@ -60,6 +60,19 @@ type searchJSONOutput struct {
 	Items []searchJSONItem `json:"items"`
 }
 
+type searchCountJSONOutput struct {
+	Count int `json:"count"`
+}
+
+func printSearchCountJSON(w io.Writer, count int) error {
+	return encodeJSON(w, searchCountJSONOutput{Count: count})
+}
+
+func printSearchCountText(w io.Writer, count int) error {
+	_, err := fmt.Fprintf(w, "count: %d\n", count)
+	return err
+}
+
 func printSearchJSON(w io.Writer, r *core.SearchResult, fields []string) error {
 	metaKeys, metaAll := searchMetaKeys(fields)
 	wantLines := slices.Contains(fields, core.FieldLines)

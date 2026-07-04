@@ -182,6 +182,8 @@ Entry-point-free vault-wide note search. Returns notes matching metadata conditi
 | `--sort <key>` | string | — | Sort by meta key or computed field: `key` (ascending) or `-key` (descending). Default: path order |
 | `--limit <N>` | int | 0 | Maximum results (0 = unlimited) |
 | `--offset <N>` | int | 0 | Skip first N results |
+| `--sample <N>` | int | 0 | Randomly return N results from filtered candidates (before limit/offset). Cannot be combined with `--limit`/`--offset`/`--sort` |
+| `--count` | bool | false | Return only the filtered result count instead of a note list. Cannot be combined with `--fields`, `--include-head`, `--sample`, `--sort`, `--limit`, or `--offset` |
 | `--path <glob>` | string (repeatable) | — | Include only paths matching glob (OR-joined) |
 | `--exclude <glob>` | string (repeatable) | — | Exclude paths matching glob |
 | `--no-exclude` | bool | false | Disable config file exclusions |
@@ -265,6 +267,12 @@ mdhop search --where "updated<today-90d" --format json
 
 # Biggest notes with computed fields and a single meta key
 mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
+
+# Randomly sample 10 active notes instead of listing them all
+mdhop search --where "status=active" --sample 10 --format json
+
+# Just the count of stale notes, no note list
+mdhop search --where "updated<today-90d" --count --format json
 ```
 
 ### JSON Output Example

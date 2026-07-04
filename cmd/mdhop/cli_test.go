@@ -1269,6 +1269,132 @@ func TestRunSearch_TextOutput(t *testing.T) {
 	}
 }
 
+func TestRunSearch_SampleTextOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+
+	out := captureStdout(t, func() error {
+		return runSearch([]string{
+			"--vault", vault,
+			"--format", "text",
+			"--sample", "2",
+		})
+	})
+
+	if !strings.Contains(out, "total: 4\n") {
+		t.Errorf("missing total: 4 in output:\n%s", out)
+	}
+	if got := strings.Count(out, "- note: "); got != 2 {
+		t.Errorf("sample item count = %d, want 2; output:\n%s", got, out)
+	}
+}
+
+func TestRunSearch_SampleJSONOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+
+	out := captureStdout(t, func() error {
+		return runSearch([]string{
+			"--vault", vault,
+			"--format", "json",
+			"--sample", "2",
+		})
+	})
+
+	var m struct {
+		Total int `json:"total"`
+		Items []struct {
+			Path string `json:"path"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if m.Total != 4 {
+		t.Errorf("total = %d, want 4", m.Total)
+	}
+	if len(m.Items) != 2 {
+		t.Fatalf("items = %d, want 2; output: %s", len(m.Items), out)
+	}
+	seen := map[string]bool{}
+	candidates := map[string]bool{"A.md": true, "D.md": true, "sub/B.md": true, "sub/C.md": true}
+	for _, item := range m.Items {
+		if !candidates[item.Path] {
+			t.Fatalf("sample path %q outside candidates; output: %s", item.Path, out)
+		}
+		if seen[item.Path] {
+			t.Fatalf("duplicate sample path %q; output: %s", item.Path, out)
+		}
+		seen[item.Path] = true
+	}
+}
+
+func TestRunSearch_CountTextOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+
+	out := captureStdout(t, func() error {
+		return runSearch([]string{
+			"--vault", vault,
+			"--format", "text",
+			"--count",
+			"--path", "sub/*",
+		})
+	})
+
+	if out != "count: 2\n" {
+		t.Errorf("output = %q, want count: 2", out)
+	}
+}
+
+func TestRunSearch_CountJSONOutput(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+
+	out := captureStdout(t, func() error {
+		return runSearch([]string{
+			"--vault", vault,
+			"--format", "json",
+			"--count",
+			"--where", "status=active",
+		})
+	})
+
+	var m map[string]any
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if got := m["count"]; got != float64(2) {
+		t.Errorf("count = %v, want 2; output: %s", got, out)
+	}
+	if _, ok := m["items"]; ok {
+		t.Errorf("count JSON should not contain items: %s", out)
+	}
+}
+
+func TestRunSearch_SampleWithLimitError(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+
+	err := runSearch([]string{"--vault", vault, "--sample", "2", "--limit", "1"})
+	if err == nil || !strings.Contains(err.Error(), "sample cannot be used with limit or offset") {
+		t.Fatalf("expected sample/limit conflict error, got: %v", err)
+	}
+}
+
+func TestRunSearch_SampleZeroError(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+
+	err := runSearch([]string{"--vault", vault, "--sample", "0"})
+	if err == nil || !strings.Contains(err.Error(), "sample must be > 0") {
+		t.Fatalf("expected sample > 0 error, got: %v", err)
+	}
+}
+
+func TestRunSearch_CountWithFieldsError(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+
+	err := runSearch([]string{"--vault", vault, "--count", "--fields", "meta"})
+	if err == nil || !strings.Contains(err.Error(), "count cannot be used with fields") {
+		t.Fatalf("expected count/fields conflict error, got: %v", err)
+	}
+}
+
 // --- Convert CLI tests ---
 
 func TestRunConvert_MissingTo(t *testing.T) {

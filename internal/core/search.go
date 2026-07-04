@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"strings"
 )
 
@@ -14,6 +15,8 @@ type SearchOptions struct {
 	Sort        string         // "key" = asc, "-key" = desc, "" = path order
 	Limit       int            // 0 = unlimited
 	Offset      int
+	Sample      int // 0 = disabled
+	Count       bool
 	IncludeHead int // 0 = skip
 	NoTags      bool
 	NoOutgoing  bool
@@ -98,6 +101,32 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	if opts.Offset < 0 {
 		return nil, fmt.Errorf("search: offset must be >= 0")
 	}
+	if opts.Sample < 0 {
+		return nil, fmt.Errorf("search: sample must be >= 0")
+	}
+	if opts.Sample > 0 && (opts.Limit > 0 || opts.Offset > 0) {
+		return nil, fmt.Errorf("search: sample cannot be used with limit or offset")
+	}
+	if opts.Sample > 0 && opts.Sort != "" {
+		return nil, fmt.Errorf("search: sample cannot be used with sort")
+	}
+	if opts.Count {
+		if opts.Sample > 0 {
+			return nil, fmt.Errorf("search: count cannot be used with sample")
+		}
+		if len(opts.Fields) > 0 {
+			return nil, fmt.Errorf("search: count cannot be used with fields")
+		}
+		if opts.IncludeHead > 0 {
+			return nil, fmt.Errorf("search: count cannot be used with include-head")
+		}
+		if opts.Sort != "" {
+			return nil, fmt.Errorf("search: count cannot be used with sort")
+		}
+		if opts.Limit > 0 || opts.Offset > 0 {
+			return nil, fmt.Errorf("search: count cannot be used with limit or offset")
+		}
+	}
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err
 	}
@@ -150,6 +179,9 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	if err := db.QueryRow(countQuery, whereArgs...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("search count: %w", err)
 	}
+	if opts.Count {
+		return &SearchResult{Total: total}, nil
+	}
 
 	// Build main query. Computed fields (lines, outgoing/incoming edge counts)
 	// are always selected: lines comes straight from nodes, and the edge counts
@@ -163,7 +195,9 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	var joinArgs []any
 	var orderSQL string
 
-	if sortKey != "" {
+	if opts.Sample > 0 {
+		orderSQL = " ORDER BY n.path ASC"
+	} else if sortKey != "" {
 		if col, ok := computedSortColumn(sortKey); ok {
 			dir := "ASC"
 			if sortDesc {
@@ -240,6 +274,14 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	if opts.Sample > 0 {
+		rand.Shuffle(len(rowItems), func(i, j int) {
+			rowItems[i], rowItems[j] = rowItems[j], rowItems[i]
+		})
+		if opts.Sample < len(rowItems) {
+			rowItems = rowItems[:opts.Sample]
+		}
 	}
 
 	wantMeta := wantMetaFields(opts.Fields)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/ryotapoi/mdhop/internal/core"
@@ -16,6 +17,8 @@ func runSearch(args []string) error {
 	includeHead := fs.Int("include-head", 0, "include first N lines of each note")
 	limit := fs.Int("limit", 0, "max results (0 = unlimited)")
 	offset := fs.Int("offset", 0, "skip first N results")
+	sample := fs.Int("sample", 0, "randomly return N results from filtered candidates")
+	count := fs.Bool("count", false, "return only the filtered result count")
 	noTags := fs.Bool("no-tags", false, "only notes with no tag edges")
 	noOutgoing := fs.Bool("no-outgoing", false, "only notes with no outgoing edges")
 	noIncoming := fs.Bool("no-incoming", false, "only notes with no incoming edges")
@@ -32,6 +35,15 @@ func runSearch(args []string) error {
 
 	if err := validateFormat(*format); err != nil {
 		return err
+	}
+	sampleSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "sample" {
+			sampleSet = true
+		}
+	})
+	if sampleSet && *sample <= 0 {
+		return fmt.Errorf("search: sample must be > 0")
 	}
 
 	fieldList := parseFields(*fields)
@@ -69,6 +81,8 @@ func runSearch(args []string) error {
 		Sort:        *sortKey,
 		Limit:       *limit,
 		Offset:      *offset,
+		Sample:      *sample,
+		Count:       *count,
 		IncludeHead: *includeHead,
 		NoTags:      *noTags,
 		NoOutgoing:  *noOutgoing,
@@ -82,8 +96,14 @@ func runSearch(args []string) error {
 
 	switch *format {
 	case "json":
+		if *count {
+			return printSearchCountJSON(os.Stdout, result.Total)
+		}
 		return printSearchJSON(os.Stdout, result, fieldList)
 	default:
+		if *count {
+			return printSearchCountText(os.Stdout, result.Total)
+		}
 		return printSearchText(os.Stdout, result, fieldList)
 	}
 }

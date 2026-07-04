@@ -51,6 +51,12 @@ mdhop search --path "projects/*" --format json
 mdhop search --no-tags --format json
 mdhop search --no-outgoing --format json
 mdhop search --no-incoming --format json
+
+# Randomly sample a handful of matches instead of listing them all.
+mdhop search --where "status=active" --sample 10 --format json
+
+# Just the count, no note list.
+mdhop search --where "updated<today-90d" --count --format json
 ```
 
 ### Explore Relationships
