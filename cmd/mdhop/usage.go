@@ -296,7 +296,7 @@ Options:
   --exclude <glob>            Optional, repeatable. Exclude result paths matching the glob.
   --exclude-tag <tag>         Optional, repeatable. Exclude matching tags.
   --no-exclude                Ignore mdhop.yaml exclude settings.
-  --where <expr>              Optional, repeatable. Metadata filter using =,!=,~,>,<,>=,<=, EXISTS/NOT EXISTS, coalesce(...), and today±N d/w/m/y dates.
+  --where <expr>              Optional, repeatable. Metadata filter using =,!=,~,>,<,>=,<=, EXISTS/NOT EXISTS, coalesce(...), &&, ||, and today±N d/w/m/y dates.
   --vault <path>              Optional. Vault root directory. Default: ".".
   --format json|text          Optional. Output format. Default: text.
 
@@ -313,6 +313,7 @@ Examples:
   mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
   mdhop query --tag architecture --fields backlinks --format json
   mdhop query --file Notes/Design.md --where "status=active" --fields backlinks,meta --format json
+  mdhop query --file Notes/Design.md --where "status=active || status=review" --format json
 
 `
 
@@ -321,7 +322,7 @@ const searchHelp = `Usage: mdhop search [--where <expr>...] [--path <glob>...] [
 Search existing notes without an entry node.
 
 Options:
-  --where <expr>       Optional, repeatable. Metadata filter using the same syntax as query.
+  --where <expr>       Optional, repeatable. Metadata filter using the same syntax as query, including && and || separators.
   --path <glob>        Optional, repeatable. Include note paths matching any glob.
   --exclude <glob>     Optional, repeatable. Exclude note paths matching the glob.
   --no-exclude         Ignore mdhop.yaml exclude settings.
@@ -347,6 +348,7 @@ Fields:
 
 Examples:
   mdhop search --where "status=active" --sort "-priority" --fields meta --format json
+  mdhop search --where "status=active || status=review" --format json
   mdhop search --where "updated<today-90d" --count --format json
   mdhop search --where "status=active" --sample 10 --format json
 

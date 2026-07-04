@@ -514,6 +514,97 @@ func TestParseWhere_And_NoSpaceNotSplit(t *testing.T) {
 	}
 }
 
+// --- ParseWhere || tests ---
+
+func TestParseWhere_Or_TwoConds(t *testing.T) {
+	wc, err := ParseWhere([]string{"status=active || priority>1"}, MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"priority": {Name: MetaTypeNumber},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(wc.Conditions) != 0 {
+		t.Errorf("Conditions = %d, want 0", len(wc.Conditions))
+	}
+	if len(wc.AndGroups) != 0 {
+		t.Errorf("AndGroups = %d, want 0", len(wc.AndGroups))
+	}
+	if len(wc.OrGroups) != 1 {
+		t.Fatalf("OrGroups = %d, want 1", len(wc.OrGroups))
+	}
+	g := wc.OrGroups[0]
+	if len(g) != 2 {
+		t.Fatalf("group len = %d, want 2", len(g))
+	}
+	if g[0].Key != "status" || g[0].Op != WhereOpEq || g[0].Value != "active" {
+		t.Errorf("g[0] = {%q, %d, %q}, want {status, Eq, active}", g[0].Key, g[0].Op, g[0].Value)
+	}
+	if g[1].Key != "priority" || g[1].Op != WhereOpGt {
+		t.Errorf("g[1] = {%q, %d}, want {priority, Gt}", g[1].Key, g[1].Op)
+	}
+}
+
+func TestParseWhere_Or_Coalesce(t *testing.T) {
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated)<=2025-07-04 || status=done"}, MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"reviewed": {Name: MetaTypeDate},
+			"updated":  {Name: MetaTypeDate},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(wc.OrGroups) != 1 {
+		t.Fatalf("OrGroups = %d, want 1", len(wc.OrGroups))
+	}
+	c := wc.OrGroups[0][0]
+	if c.Key != "coalesce(reviewed, updated)" || c.Op != WhereOpLte {
+		t.Errorf("coalesce condition = {%q, %d}, want {coalesce(reviewed, updated), Lte}", c.Key, c.Op)
+	}
+	if got, want := strings.Join(c.CoalesceKeys, ","), "reviewed,updated"; got != want {
+		t.Errorf("CoalesceKeys = %q, want %q", got, want)
+	}
+}
+
+func TestParseWhere_Or_MixedWithAndRejected(t *testing.T) {
+	_, err := ParseWhere([]string{"status=active || priority>1 && created<today"}, MetaConfig{})
+	if err == nil {
+		t.Fatal("expected error for mixed || and &&")
+	}
+	if !strings.Contains(err.Error(), "cannot mix && and ||") {
+		t.Errorf("error = %v, want mixed-separator message", err)
+	}
+}
+
+func TestParseWhere_Or_EmptyPart(t *testing.T) {
+	_, err := ParseWhere([]string{"status=active || "}, MetaConfig{})
+	if err == nil {
+		t.Fatal("expected error for trailing empty OR part")
+	}
+}
+
+func TestParseWhere_Or_LeadingEmptyPart(t *testing.T) {
+	_, err := ParseWhere([]string{" || status=active"}, MetaConfig{})
+	if err == nil {
+		t.Fatal("expected error for leading empty OR part")
+	}
+}
+
+func TestParseWhere_Or_NoSpaceNotSplit(t *testing.T) {
+	wc, err := ParseWhere([]string{"status=active||status=done"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(wc.Conditions) != 1 {
+		t.Fatalf("Conditions = %d, want 1", len(wc.Conditions))
+	}
+	if wc.Conditions[0].Value != "active||status=done" {
+		t.Errorf("value = %q, want literal unsplit value", wc.Conditions[0].Value)
+	}
+}
+
 // --- MetaFilterSQL tests ---
 
 func TestWhereClause_Nil(t *testing.T) {
@@ -837,6 +928,51 @@ func TestWhereClause_AndGroup_Neq(t *testing.T) {
 	}
 }
 
+// --- OrGroup MetaFilterSQL tests ---
+
+func TestWhereClause_OrGroup_DiffKeys(t *testing.T) {
+	wc := &WhereClause{OrGroups: [][]WhereCond{
+		{
+			{Key: "status", Op: WhereOpEq, Value: "active"},
+			{Key: "priority", Op: WhereOpGt, Value: "100000000000000000001.00000000", valueType: "number"},
+		},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, " UNION ") {
+		t.Errorf("OR group should use UNION: %q", sql)
+	}
+	if strings.Contains(sql, "INTERSECT") {
+		t.Errorf("single OR group should not use INTERSECT: %q", sql)
+	}
+	if len(args) != 5 {
+		t.Errorf("args len = %d, want 5", len(args))
+	}
+}
+
+func TestWhereClause_OrGroup_WithOtherFlag(t *testing.T) {
+	wc := &WhereClause{
+		Conditions: []WhereCond{
+			{Key: "created", Op: WhereOpGte, Value: "2025-02-01", valueType: "date"},
+		},
+		OrGroups: [][]WhereCond{
+			{
+				{Key: "status", Op: WhereOpEq, Value: "active"},
+				{Key: "priority", Op: WhereOpEq, Value: "3"},
+			},
+		},
+	}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, "INTERSECT") {
+		t.Errorf("OR group plus separate flag should be ANDed with INTERSECT: %q", sql)
+	}
+	if !strings.Contains(sql, " UNION ") {
+		t.Errorf("OR group should still use UNION: %q", sql)
+	}
+	if len(args) != 7 {
+		t.Errorf("args len = %d, want 7", len(args))
+	}
+}
+
 // --- Integration tests (vault_query_where) ---
 
 func setupWhereVault(t *testing.T) string {
@@ -931,6 +1067,42 @@ func TestQueryBacklinksWhere_SameKeyOR(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	assertNames(t, "priority=2 OR priority=3", res.Backlinks, []string{"B", "C"})
+}
+
+func TestQueryBacklinksWhere_OrExpression(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"status=done || priority=2"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// B matches priority=2. C matches status=done.
+	assertNames(t, "status=done || priority=2", res.Backlinks, []string{"B", "C"})
+}
+
+func TestQueryBacklinksWhere_OrExpressionAndSeparateFlag(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"status=active || status=done", "priority=2"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// The OR expression admits B/C/E by status, then the separate flag ANDs priority=2.
+	assertNames(t, "(status active OR done) AND priority=2", res.Backlinks, []string{"B"})
 }
 
 func TestQueryBacklinksWhere_DiffKeyAND(t *testing.T) {
@@ -1232,6 +1404,24 @@ func TestQueryBacklinksWhere_CoalesceEqAndNeqParenthesized(t *testing.T) {
 	assertNames(t, "coalesce eq intersect neq", res.Backlinks, []string{"B", "E"})
 }
 
+func TestQueryBacklinksWhere_OrExpressionCoalesce(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated)<=2025-07-04 || status=done"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// B/E match coalesce; C matches status=done despite coalesce selecting reviewed=2026-01-01.
+	assertNames(t, "coalesce old OR status done", res.Backlinks, []string{"B", "C", "E"})
+}
+
 // --- AND group integration tests ---
 
 func TestQueryBacklinksWhere_AndSameKey(t *testing.T) {
@@ -1273,6 +1463,26 @@ func TestSearchWhere_AndSameKey(t *testing.T) {
 		nodes = append(nodes, item.Node)
 	}
 	assertNames(t, "created range", nodes, []string{"B", "C"})
+}
+
+func TestSearchWhere_OrExpression(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"status=done || priority=2"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Search(vault, SearchOptions{
+		Where: wc,
+	})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	var nodes []NodeInfo
+	for _, item := range res.Items {
+		nodes = append(nodes, item.Node)
+	}
+	assertNames(t, "search status done OR priority 2", nodes, []string{"B", "C"})
 }
 
 func TestSearchWhere_NotExists(t *testing.T) {

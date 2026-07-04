@@ -40,6 +40,7 @@ type whereValue struct {
 type WhereClause struct {
 	Conditions []WhereCond   // from non-&& --where flags (same-key = OR)
 	AndGroups  [][]WhereCond // from && --where flags (each group = all AND)
+	OrGroups   [][]WhereCond // from || --where flags (each group = any OR)
 }
 
 // operatorTable lists operators in priority order (longest first).
@@ -59,7 +60,9 @@ var operatorTable = []struct {
 // ParseWhere parses a list of where expressions into a WhereClause.
 // Empty input returns (nil, nil).
 // Expressions containing " && " are split into AND groups where all
-// conditions must be satisfied (even for the same key).
+// conditions must be satisfied (even for the same key). Expressions containing
+// " || " are split into OR groups. Mixing both separators in one expression is
+// rejected because --where has no precedence or parentheses support.
 func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 	if len(exprs) == 0 {
 		return nil, nil
@@ -67,17 +70,18 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 
 	var conds []WhereCond
 	var andGroups [][]WhereCond
+	var orGroups [][]WhereCond
 	for _, expr := range exprs {
-		parts := strings.Split(expr, " && ")
-		if len(parts) == 1 {
-			// Single condition — append to Conditions (same-key = OR).
-			c, err := parseOneWhere(expr, metaCfg)
-			if err != nil {
-				return nil, err
-			}
-			conds = append(conds, c)
-		} else {
+		hasAnd := strings.Contains(expr, " && ")
+		hasOr := strings.Contains(expr, " || ")
+		if hasAnd && hasOr {
+			return nil, fmt.Errorf("where: cannot mix && and || in one expression %q", expr)
+		}
+
+		switch {
+		case hasAnd:
 			// Multiple conditions joined by && — all AND.
+			parts := strings.Split(expr, " && ")
 			var group []WhereCond
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
@@ -91,12 +95,35 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 				group = append(group, c)
 			}
 			andGroups = append(andGroups, group)
+		case hasOr:
+			// Multiple conditions joined by || — any OR.
+			parts := strings.Split(expr, " || ")
+			var group []WhereCond
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if p == "" {
+					return nil, fmt.Errorf("where: empty condition in || expression %q", expr)
+				}
+				c, err := parseOneWhere(p, metaCfg)
+				if err != nil {
+					return nil, err
+				}
+				group = append(group, c)
+			}
+			orGroups = append(orGroups, group)
+		default:
+			// Single condition — append to Conditions (same-key = OR).
+			c, err := parseOneWhere(expr, metaCfg)
+			if err != nil {
+				return nil, err
+			}
+			conds = append(conds, c)
 		}
 	}
-	if len(conds) == 0 && len(andGroups) == 0 {
+	if len(conds) == 0 && len(andGroups) == 0 && len(orGroups) == 0 {
 		return nil, nil
 	}
-	return &WhereClause{Conditions: conds, AndGroups: andGroups}, nil
+	return &WhereClause{Conditions: conds, AndGroups: andGroups, OrGroups: orGroups}, nil
 }
 
 func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
@@ -257,7 +284,7 @@ func parseWhereKey(key, expr string) (string, []string, error) {
 // alias is the node ID column (e.g. "n.id").
 // Returns ("", nil) for nil receiver or empty conditions.
 func (wc *WhereClause) MetaFilterSQL(alias string) (string, []any) {
-	if wc == nil || (len(wc.Conditions) == 0 && len(wc.AndGroups) == 0) {
+	if wc == nil || (len(wc.Conditions) == 0 && len(wc.AndGroups) == 0 && len(wc.OrGroups) == 0) {
 		return "", nil
 	}
 
@@ -297,10 +324,31 @@ func (wc *WhereClause) MetaFilterSQL(alias string) (string, []any) {
 		}
 	}
 
+	// Process OR groups: each condition → own subquery, UNION within group.
+	for _, group := range wc.OrGroups {
+		sq, args := buildOrGroupSQL(group)
+		subqueries = append(subqueries, sq)
+		allArgs = append(allArgs, args...)
+	}
+
 	if len(subqueries) == 1 {
 		return fmt.Sprintf(" AND %s IN (%s)", alias, subqueries[0]), allArgs
 	}
+	for i, sq := range subqueries {
+		subqueries[i] = "SELECT * FROM (" + sq + ")"
+	}
 	return fmt.Sprintf(" AND %s IN (%s)", alias, strings.Join(subqueries, " INTERSECT ")), allArgs
+}
+
+func buildOrGroupSQL(conds []WhereCond) (string, []any) {
+	var unionSQL []string
+	var args []any
+	for _, c := range conds {
+		sql, sqlArgs := buildKeyGroupSQL(c.Key, []WhereCond{c})
+		unionSQL = append(unionSQL, sql)
+		args = append(args, sqlArgs...)
+	}
+	return strings.Join(unionSQL, " UNION "), args
 }
 
 func buildKeyGroupSQL(key string, conds []WhereCond) (string, []any) {
