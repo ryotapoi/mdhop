@@ -90,11 +90,14 @@ func MetaValidate(vaultPath string, opts MetaValidateOptions) (*MetaValidateResu
 
 	result := &MetaValidateResult{}
 
-	if err := validateRequired(db, opts.Require, inclSQL, inclArgs, exclSQL, exclArgs, result); err != nil {
-		return nil, err
-	}
-	if err := validateRequiredProfiles(db, cfg.Meta.Profiles, inclSQL, inclArgs, exclSQL, exclArgs, result); err != nil {
-		return nil, err
+	if len(opts.Require) > 0 {
+		if err := validateRequired(db, opts.Require, inclSQL, inclArgs, exclSQL, exclArgs, result); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := validateRequiredProfiles(db, cfg.Meta.Profiles, inclSQL, inclArgs, exclSQL, exclArgs, result); err != nil {
+			return nil, err
+		}
 	}
 	if err := validateTypes(db, typedKeys, inclSQL, inclArgs, exclSQL, exclArgs, result); err != nil {
 		return nil, err

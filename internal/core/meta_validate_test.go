@@ -228,10 +228,12 @@ func TestMetaValidate_ProfileOnlyIsCheckTarget(t *testing.T) {
 	}
 }
 
-func TestMetaValidate_DeduplicatesCLIAndProfileRequire(t *testing.T) {
+func TestMetaValidate_CLIRequireOverridesProfileRequire(t *testing.T) {
 	vault := setupMetaValidateVaultWithConfig(t, `meta:
+  types:
+    updated: date
   profiles:
-    - require: [status]
+    - require: [category]
 `)
 
 	result, err := MetaValidate(vault, MetaValidateOptions{Require: []string{"status"}})
@@ -248,5 +250,19 @@ func TestMetaValidate_DeduplicatesCLIAndProfileRequire(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("missing status[%d] = %s, want %s", i, got[i], want[i])
 		}
+	}
+	if got := missingViolationsByKey(result, "category"); len(got) != 0 {
+		t.Fatalf("missing category = %v, want none because explicit --require replaces profiles", got)
+	}
+
+	var hasTypeViolation bool
+	for _, v := range result.Violations {
+		if v.Reason == ReasonType && v.Key == "updated" && v.SourcePath == "bad_date.md" && v.Value == "someday" {
+			hasTypeViolation = true
+			break
+		}
+	}
+	if !hasTypeViolation {
+		t.Fatalf("violations = %+v, want updated type violation to still run with explicit --require", result.Violations)
 	}
 }

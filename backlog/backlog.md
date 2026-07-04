@@ -24,7 +24,7 @@
   - **症状**: `config.go:93-247` の 154 行がクエリ時フィルタ実行ロジック。`PathExcludeSQL` は既に `pathfilter.go` にあり、同一型のメソッドが 2 ファイルに分散している
   - **対処案**: 型定義と全メソッドを 1 ファイルに集約する機械的移動。config.go は mdhop.yaml のロードとバリデーションに絞る
 
-- [ ] meta-validate: `--require` 明示時は meta.profiles を置換する（確定仕様 2026-07-04）
+- [x] meta-validate: `--require` 明示時は meta.profiles を置換する（確定仕様 2026-07-04）
   - **現状**: `--require` と `meta.profiles` は合算して検証され dedup される（`internal/core/meta_validate.go:93-102`。`docs/specs/overview.md` の meta-validate 節も合算で記述）
   - **確定仕様**: `--require` を明示指定した実行では profiles の require は無視して置換する（マージしない）。meta.types の型 / enum 検査は `--require` の有無に関わらず従来通り常に実行
   - **対処案**: `opts.Require` 非空なら `validateRequiredProfiles` を呼ばない。overview.md・`--help`・テスト（合算を検証している `TestMetaValidate_DeduplicatesCLIAndProfileRequire` は置換検証に差し替え）を同一コミットで更新

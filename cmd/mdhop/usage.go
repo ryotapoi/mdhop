@@ -472,7 +472,7 @@ const metaValidateHelp = `Usage: mdhop meta-validate [--require <key>...] [--pat
 Validate frontmatter against required keys and mdhop.yaml meta type declarations.
 
 Options:
-  --require <key>     Optional, repeatable. Require a non-empty value for this key; combined with mdhop.yaml meta.profiles for this run only.
+  --require <key>     Optional, repeatable. Require a non-empty value for this key; overrides mdhop.yaml meta.profiles for this run only.
   --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.
   --exclude <glob>    Optional, repeatable. Exclude source notes whose paths match the glob.
   --vault <path>      Optional. Vault root directory. Default: ".".
