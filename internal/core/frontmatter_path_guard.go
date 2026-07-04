@@ -86,7 +86,7 @@ func validateFrontmatterPathEdges(db dbExecer, rm *resolveMaps, movedFromTo map[
 // resolveFrontmatterPathDry resolves a frontmatter_path link against rm
 // without creating phantom nodes, returning the resolved vault path ("" if
 // the value would become a phantom). Mirrors the path branches of
-// resolveLink (build.go); keep the two in sync.
+// resolveLinkWithBackend; keep the two in sync.
 func resolveFrontmatterPathDry(sourcePath string, link linkOccur, rm *resolveMaps) (string, error) {
 	target := normalizeTextNFC(link.target)
 	if link.isRelative {

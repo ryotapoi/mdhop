@@ -3,6 +3,7 @@ regen: compiled
 sources:
   - internal/core/parse.go
   - internal/core/parse_frontmatter.go
+  - internal/core/link_resolver.go
   - internal/core/resolve.go
   - internal/core/resolve_maps.go
   - internal/core/rewrite.go
@@ -57,23 +58,28 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 ## 2. resolve（linkOccur → target node ID）
 
-### 2A. build 時（インメモリマップ使用）
+### 2A. 共通ディスパッチ
 
-`build.go:207` `resolveLink(db, sourcePath, link, rm)` — メインディスパッチャ。
+`link_resolver.go` `resolveLinkWithBackend(sourcePath, link, backend)` — build 時と resolve コマンド時で共有するメインディスパッチャ。
 
 | 条件 | 処理 | 関数 |
 |---|---|---|
-| `target == ""` かつ subpath あり | 自己リンク `[[#Heading]]` → sourceID を返す | `build.go:209` |
-| tag / frontmatter 型 | upsertTag | `build.go:215` |
-| `link.isRelative` | `filepath.Join(dir, target)` → `resolvePathTarget` | `build.go:226` |
-| vault 外逃げ（相対） | `ErrLinkEscapesVault` | `build.go:228` |
-| vault 外逃げ（絶対） | `ErrLinkEscapesVault` | `build.go:235` |
-| `/` 始まり | 先頭 `/` を除去 → `resolvePathTarget` | `build.go:240` |
-| wikilink かつ `/` 含む（パス形式） | `resolvePathTarget` | `build.go:246` |
-| `link.isBasename` | note unique → note root → asset unique → asset root → phantom | `build.go:251` |
-| それ以外（markdown パス） | `resolvePathTarget` | `build.go:282` |
+| `target == ""` かつ subpath あり | 自己リンク `[[#Heading]]` | backend `resolveSelf` |
+| tag / frontmatter 型 | tag 解決 | backend `resolveTag` |
+| `link.isRelative` | vault escape 検査 → `filepath.Join(dir, target)` | backend `resolvePath` |
+| vault 外逃げ（相対 / 絶対） | `ErrLinkEscapesVault` | `resolveLinkWithBackend` |
+| `/` 始まり | 先頭 `/` を除去 | backend `resolvePath` |
+| wikilink かつ `/` 含む（パス形式） | vault 相対パス | backend `resolvePath` |
+| `link.isBasename` | basename 解決 | backend `resolveBasename` |
+| それ以外（markdown パス） | path 解決 | backend `resolvePath` |
 
-`resolvePathTarget(db, resolved, link, rm)` (`build.go:286`): pathSet → pathSet+.md → assetPathSet → phantom の順。
+### 2B. build 時（インメモリマップ使用）
+
+`build.go` `resolveLink(db, sourcePath, link, rm)` — `mapLinkResolver` を使って共通ディスパッチへ渡す。
+
+`mapLinkResolver.resolveBasename`: note unique → note root → asset unique → asset root → phantom の順。build / add / update / move では edge 作成前に `validateParsedLinks` で曖昧 basename を拒否するため、ここでは未解決 basename が phantom fallback できる。
+
+`resolvePathTarget(db, resolved, link, rm)`: pathSet → pathSet+.md → assetPathSet → phantom の順。
 
 **インメモリマップの構造** (`resolve_maps.go:9` `resolveMaps`):
 
@@ -85,26 +91,16 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 マップの初期化: `resolve_maps.go:132` `newResolveMaps(files, assetFiles)`。
 インクリメンタル更新: `addNote/removeNote/addAsset/removeAsset` (`resolve_maps.go:28〜88`)。
 
-### 2B. resolve コマンド時（DB クエリ使用）
+### 2C. resolve コマンド時（DB クエリ使用）
 
 `resolve.go:21` `Resolve(vaultPath, fromPath, link)` — 公開 API。
-内部ディスパッチャ: `resolve.go:83` `resolveLinkFromDB(db, sourcePath, link)` — `resolveLink` と対応する DB 版。
+内部解決: `resolve.go` `resolveLinkFromDB(db, sourcePath, link)` — `dbLinkResolver` を使って共通ディスパッチへ渡す。
 
-| 条件 | 処理 | 関数 |
-|---|---|---|
-| 自己リンク | `getNodeID(db, noteKey(sourcePath))` | `resolve.go:85` |
-| tag / frontmatter 型 | `getNodeID(db, tagKey)` | `resolve.go:94` |
-| 相対パス | `NormalizePath(Join(dir, target))` → `resolvePathFromDB` | `resolve.go:109` |
-| vault 外逃げ | `ErrLinkEscapesVault` | `resolve.go:110` / `resolve.go:118` |
-| `/` 始まり | 先頭 `/` 除去 → `resolvePathFromDB` | `resolve.go:124` |
-| wikilink パス形式 | `resolvePathFromDB` | `resolve.go:129` |
-| basename | `resolveBasenameFromDB` | `resolve.go:134` |
+`resolvePathFromDB`: note exact → note+.md → asset → phantom の順（DB クエリ）。
 
-`resolvePathFromDB` (`resolve.go:144`): note exact → note+.md → asset → phantom の順（DB クエリ）。
+`resolveBasenameFromDB`: `queryBasenameMatches` で全 note を走査 → `pickBasenameMatch` でルート優先適用。複数候補かつ root-priority で一意化できない場合は `ErrAmbiguousLink` を返す。
 
-`resolveBasenameFromDB` (`resolve.go:194`): `queryBasenameMatches` で全 note を走査 → `pickBasenameMatch` でルート優先適用。
-
-### 2C. ルート優先ルール（ADR 0004）
+### 2D. ルート優先ルール（ADR 0004）
 
 `pickBasenameMatch(matches)` (`resolve.go:275`):
 
@@ -117,10 +113,10 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 **pathSet キー構造とルート判定の仕組み**: `addNote` (`resolve_maps.go:28`) は `A.md` を `"a"`（拡張子なし）と `"a.md"` の 2 キーで登録する。ルート直下の `A.md` は `"a"` キー、`sub/A.md` は `"sub/a"` キーになるので、`pathSet["a"]` が存在すれば必ずルートファイルを指す。`hasRootInPathSet(bk, pathSet)` (`util.go:58`) はこの性質を使い、`pathSet[bk]` の存在チェックだけでルート候補の有無を判定できる。
 
 **build 時のアンビギュイティ拒否タイミング**: `build.go:81` の `isAmbiguousBasenameLink`。
-条件は basename カウント > 1 かつルート直下にファイルがない（`util.go:67`）。
+条件は basename カウント > 1 かつルート直下にファイルがない（`link_ambiguity.go`）。
 エラーは `ErrAmbiguousLink` (`errors.go:16`)、最大 `maxBuildErrors(5)` 件まで収集。
 
-**validate 関数** (`util.go:113` `validateParsedLinks`): add/update/move/move_dir が edge 作成前に呼ぶ。build 側の inline 判定と同ロジック。
+**validate 関数** (`link_ambiguity.go` `validateParsedLinks`): add/update/move/move_dir が edge 作成前に呼ぶ。build 側の inline 判定と同ロジック。
 
 ---
 
@@ -171,10 +167,10 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 ### 解決ロジックを変えるとき
 
-- build 時（インメモリ）: `build.go:207` `resolveLink` + `build.go:286` `resolvePathTarget`
-- resolve コマンド時（DB）: `resolve.go:83` `resolveLinkFromDB` + `resolve.go:144` `resolvePathFromDB`
-- 二つは **ロジックを平行に保つ必要がある**（`resolve.go:83` のコメント参照）
-- ルート優先: `resolve.go:275` `pickBasenameMatch` / `util.go:67` `isAmbiguousBasenameLink`
+- 共通ディスパッチ: `link_resolver.go` `resolveLinkWithBackend`
+- build 時（インメモリ）: `build.go` `resolveLink` + `mapLinkResolver` + `resolvePathTarget`
+- resolve コマンド時（DB）: `resolve.go` `resolveLinkFromDB` + `dbLinkResolver` + `resolvePathFromDB`
+- ルート優先: `resolve.go` `pickBasenameMatch` / `link_ambiguity.go` `isAmbiguousBasenameLink`
 - ADR 0004: `docs/decisions/0004-root-priority-for-ambiguous-basename.md`
 
 ### リライト処理を変えるとき

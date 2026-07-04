@@ -79,64 +79,40 @@ func selectLinkOccur(links []linkOccur, input string) *linkOccur {
 }
 
 // resolveLinkFromDB resolves a linkOccur to a target node ID using DB queries.
-// Mirrors resolveLink() in build.go but uses DB instead of in-memory maps.
 func resolveLinkFromDB(db dbExecer, sourcePath string, link linkOccur) (int64, string, error) {
-	// Self-link: [[#Heading]]
-	if link.target == "" && link.subpath != "" {
-		id, err := getNodeID(db, noteKey(sourcePath))
-		if err != nil {
-			return 0, "", err
+	return resolveLinkWithBackend(sourcePath, link, dbLinkResolver{db: db})
+}
+
+type dbLinkResolver struct {
+	db dbExecer
+}
+
+func (r dbLinkResolver) resolveSelf(sourcePath string, link linkOccur) (int64, string, error) {
+	id, err := getNodeID(r.db, noteKey(sourcePath))
+	if err != nil {
+		return 0, "", err
+	}
+	return id, link.subpath, nil
+}
+
+func (r dbLinkResolver) resolveTag(link linkOccur) (int64, string, error) {
+	key := tagKey(link.target)
+	id, err := getNodeID(r.db, key)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, "", fmt.Errorf("tag not found: %s", link.target)
 		}
-		return id, link.subpath, nil
+		return 0, "", err
 	}
+	return id, "", nil
+}
 
-	// Tag or frontmatter tag
-	if link.linkType == LinkTypeTag || link.linkType == LinkTypeFrontmatter {
-		key := tagKey(link.target)
-		id, err := getNodeID(db, key)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return 0, "", fmt.Errorf("tag not found: %s", link.target)
-			}
-			return 0, "", err
-		}
-		return id, "", nil
-	}
+func (r dbLinkResolver) resolvePath(resolved string, link linkOccur) (int64, string, error) {
+	return resolvePathFromDB(r.db, resolved, link)
+}
 
-	target := link.target
-
-	// Relative path resolution: ./Target or ../Root
-	if link.isRelative {
-		if escapesVault(sourcePath, target) {
-			return 0, "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
-		}
-		resolved := NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
-		return resolvePathFromDB(db, resolved, link)
-	}
-
-	// Vault-absolute path escape check (defense-in-depth).
-	if !link.isBasename && pathEscapesVault(target) {
-		return 0, "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
-	}
-
-	// Absolute path (/ prefix): /sub/B.md → sub/B.md
-	if strings.HasPrefix(target, "/") {
-		stripped := strings.TrimPrefix(target, "/")
-		return resolvePathFromDB(db, stripped, link)
-	}
-
-	// Wikilink with vault-relative path (contains /, not relative): [[path/to/Note]]
-	if (link.linkType == LinkTypeWikilink || link.linkType == LinkTypeFrontmatterWikilink) && !link.isBasename {
-		return resolvePathFromDB(db, target, link)
-	}
-
-	// Basename resolution
-	if link.isBasename {
-		return resolveBasenameFromDB(db, target, link)
-	}
-
-	// Markdown link with path that is not relative and not / prefix
-	return resolvePathFromDB(db, target, link)
+func (r dbLinkResolver) resolveBasename(target string, link linkOccur) (int64, string, error) {
+	return resolveBasenameFromDB(r.db, target, link)
 }
 
 // resolvePathFromDB finds a note/asset node by path, falling back to phantom.

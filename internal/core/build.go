@@ -212,81 +212,58 @@ func Build(vaultPath string) (*BuildResult, error) {
 // resolveLink resolves a linkOccur to a target node ID and subpath.
 // Returns (0, "", nil) if the link should be skipped.
 func resolveLink(db dbExecer, sourcePath string, link linkOccur, rm *resolveMaps) (int64, string, error) {
-	// Self-link: [[#Heading]]
-	if link.target == "" && link.subpath != "" {
-		id := rm.pathToID[sourcePath]
+	return resolveLinkWithBackend(sourcePath, link, mapLinkResolver{db: db, rm: rm})
+}
+
+type mapLinkResolver struct {
+	db dbExecer
+	rm *resolveMaps
+}
+
+func (r mapLinkResolver) resolveSelf(sourcePath string, link linkOccur) (int64, string, error) {
+	return r.rm.pathToID[sourcePath], link.subpath, nil
+}
+
+func (r mapLinkResolver) resolveTag(link linkOccur) (int64, string, error) {
+	id, err := upsertTag(r.db, link.target)
+	if err != nil {
+		return 0, "", err
+	}
+	return id, "", nil
+}
+
+func (r mapLinkResolver) resolvePath(resolved string, link linkOccur) (int64, string, error) {
+	return resolvePathTarget(r.db, resolved, link, r.rm)
+}
+
+func (r mapLinkResolver) resolveBasename(target string, link linkOccur) (int64, string, error) {
+	lower := strings.ToLower(normalizeTextNFC(target))
+	// 1. note unique
+	if path, ok := r.rm.basenameToPath[lower]; ok {
+		id := r.rm.pathToID[path]
 		return id, link.subpath, nil
 	}
-
-	// Tag or frontmatter tag
-	if isTagLinkType(link.linkType) {
-		id, err := upsertTag(db, link.target)
-		if err != nil {
-			return 0, "", err
-		}
-		return id, "", nil
-	}
-
-	target := link.target
-
-	// Relative path resolution: ./Target or ../Root
-	if link.isRelative {
-		resolved := NormalizePath(filepath.Join(filepath.Dir(sourcePath), target))
-		if escapesVault(sourcePath, target) {
-			return 0, "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
-		}
-		return resolvePathTarget(db, resolved, link, rm)
-	}
-
-	// Vault-absolute path escape check (defense-in-depth).
-	if !link.isBasename && pathEscapesVault(target) {
-		return 0, "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
-	}
-
-	// Absolute path (/ prefix, markdown link only): /sub/B.md → sub/B.md
-	if strings.HasPrefix(target, "/") {
-		stripped := strings.TrimPrefix(target, "/")
-		return resolvePathTarget(db, stripped, link, rm)
-	}
-
-	// Wikilink with vault-relative path (contains /, not relative): [[path/to/Note]]
-	if (link.linkType == LinkTypeWikilink || link.linkType == LinkTypeFrontmatterWikilink) && !link.isBasename {
-		return resolvePathTarget(db, target, link, rm)
-	}
-
-	// Basename resolution (wikilink and markdown)
-	if link.isBasename {
-		lower := strings.ToLower(normalizeTextNFC(target))
-		// 1. note unique
-		if path, ok := rm.basenameToPath[lower]; ok {
-			id := rm.pathToID[path]
-			return id, link.subpath, nil
-		}
-		// 2. note root-priority
-		if path, ok := rm.rootBasenameToPath[lower]; ok {
-			id := rm.pathToID[path]
-			return id, link.subpath, nil
-		}
-		// 3. asset unique
-		if path, ok := rm.assetBasenameToPath[lower]; ok {
-			id := rm.assetPathToID[path]
-			return id, link.subpath, nil
-		}
-		// 4. asset root-priority
-		if path, ok := rm.assetRootBasenameToPath[lower]; ok {
-			id := rm.assetPathToID[path]
-			return id, link.subpath, nil
-		}
-		// 5. phantom fallback
-		id, err := upsertPhantom(db, target)
-		if err != nil {
-			return 0, "", err
-		}
+	// 2. note root-priority
+	if path, ok := r.rm.rootBasenameToPath[lower]; ok {
+		id := r.rm.pathToID[path]
 		return id, link.subpath, nil
 	}
-
-	// Markdown link with path that is not relative and not / prefix
-	return resolvePathTarget(db, target, link, rm)
+	// 3. asset unique
+	if path, ok := r.rm.assetBasenameToPath[lower]; ok {
+		id := r.rm.assetPathToID[path]
+		return id, link.subpath, nil
+	}
+	// 4. asset root-priority
+	if path, ok := r.rm.assetRootBasenameToPath[lower]; ok {
+		id := r.rm.assetPathToID[path]
+		return id, link.subpath, nil
+	}
+	// 5. phantom fallback
+	id, err := upsertPhantom(r.db, target)
+	if err != nil {
+		return 0, "", err
+	}
+	return id, link.subpath, nil
 }
 
 // resolvePathTarget tries to find a file by path in pathSet, falling back to asset then phantom.

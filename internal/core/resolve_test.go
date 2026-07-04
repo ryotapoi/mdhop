@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -418,6 +419,46 @@ func TestResolveBasenameAmbiguousNoRoot(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "ambiguous") {
 		t.Errorf("error = %q, want containing %q", err.Error(), "ambiguous")
+	}
+}
+
+func TestResolveBasenameBackendAmbiguityPolicy(t *testing.T) {
+	db := openTestDB(t, filepath.Join(t.TempDir(), "index.sqlite"))
+	defer db.Close()
+	if err := initSchema(db); err != nil {
+		t.Fatalf("init schema: %v", err)
+	}
+
+	link := linkOccur{
+		rawLink:    "[[A]]",
+		target:     "A",
+		linkType:   LinkTypeWikilink,
+		isBasename: true,
+	}
+
+	rm := newResolveMaps([]string{"sub1/A.md", "sub2/A.md"}, nil)
+	id, _, err := resolveLink(db, "Source.md", link, rm)
+	if err != nil {
+		t.Fatalf("map resolver should fall through to phantom, got: %v", err)
+	}
+	var nodeType NodeType
+	var name string
+	if err := db.QueryRow(`SELECT type, name FROM nodes WHERE id = ?`, id).Scan(&nodeType, &name); err != nil {
+		t.Fatalf("query resolved node: %v", err)
+	}
+	if nodeType != NodeTypePhantom || name != "A" {
+		t.Fatalf("map resolver target = (%s, %q), want phantom A", nodeType, name)
+	}
+
+	if _, err := upsertNote(db, "sub1/A.md", "A", 0, 1); err != nil {
+		t.Fatalf("insert first note: %v", err)
+	}
+	if _, err := upsertNote(db, "sub2/A.md", "A", 0, 1); err != nil {
+		t.Fatalf("insert second note: %v", err)
+	}
+	_, _, err = resolveLinkFromDB(db, "Source.md", link)
+	if !errors.Is(err, ErrAmbiguousLink) {
+		t.Fatalf("DB resolver error = %v, want ErrAmbiguousLink", err)
 	}
 }
 
