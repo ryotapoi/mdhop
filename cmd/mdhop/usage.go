@@ -38,6 +38,13 @@ Options:
   --vault <path>             Optional. Vault root directory. Default: ".".
   --format json|text         Optional. Output format. Default: text.
 
+Behavior notes:
+  Registered files passed to --file fail.
+  Files being added fail when they contain ambiguous basename links.
+  When basename collisions occur, existing basename links are automatically rewritten to full paths where their meaning can be preserved; --no-auto-disambiguate disables this.
+  Existing basename links to phantom nodes fail even with auto-disambiguation when the added files contain multiple files with that basename, because there is no safe rewrite target.
+  When meta.link_keys is configured, frontmatter raw path values cannot be rewritten; add fails before changing anything if existing raw path values would resolve differently.
+
 Output fields:
   added      Files added as real nodes.
   promoted   Phantom nodes promoted to real files.
@@ -128,6 +135,13 @@ Options:
   --to <path>         Required. Vault-relative destination file or directory.
   --vault <path>      Optional. Vault root directory. Default: ".".
   --format json|text  Optional. Output format. Default: text.
+
+Behavior notes:
+  The source file fails stale detection when its mtime does not match the DB record; external files rewritten as collateral are not stale-checked.
+  If --from is missing on disk and --to already exists, the move is treated as already completed and only link rewrites plus DB updates are performed.
+  Existing --to paths on disk fail to prevent overwrites.
+  Directory moves fail when --from and --to contain each other, such as --from sub --to sub/inner.
+  When meta.link_keys is configured, frontmatter raw path values cannot be rewritten; move fails before changing anything if existing raw path values would resolve differently.
 
 Output fields:
   from       Source path for single-file moves.
