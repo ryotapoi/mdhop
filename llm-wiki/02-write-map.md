@@ -57,7 +57,7 @@ sources:
 理由: DB ロールバックはトランザクション内で自動処理できるが、ディスク変更は手動でロールバック（`restoreBackups`）が必要なため、失敗時にディスクとDB の二重巻き戻しを避けられる。
 
 - `add.go:260–288` — ディスク rewrite → `db.Begin()` の順。`defer` で commit 失敗時に `restoreBackups` を呼ぶ
-- `move_dir.go:101–209` — `executeMoves` が単体 `move` と directory mode の外部ファイル書き換え（4.1）→ 移動ファイル書き換え（4.2）→ `os.Rename`（4.3）→ `db.Begin()`（Phase 5）を担う
+- `move_dir.go:101–177` — `executeMoves` が単体 `move` と directory mode の外部ファイル書き換え（4.1）→ 移動ファイル書き換え（4.2）→ `os.Rename`（4.3）→ `db.Begin()`（Phase 5）を担う
 - `disambiguate.go:188–210` — `applyFileRewrites` → `db.Begin()` の順
 
 ---
@@ -92,7 +92,7 @@ sources:
 - **ルート優先ルール**: incoming/collateral の書き換えスキップ判定に `hasRootInPathSet` を使用（`move_helpers.go:393–397`, `move_helpers.go:434–438`, `move_helpers.go:468–472`）→ ADR 0004
 - **ディスク移動自動検知**: from 不在・to 存在なら Rename スキップ（`move_helpers.go:216–235`）→ ADR 0003
 - **外部リライト stale チェック**: v0.12 で削除済み。ミスマッチ時は silent no-op で DB のみ更新（`build` で復旧）→ ADR 0012
-- **move-dir**: `executeMoves` を複数ファイルに適用する。directory mode だけ disk-only ファイル（DB 未登録）も `os.Rename` するが DB 更新はしない（`move_dir.go:187–198`）
+- **move-dir**: `executeMoves` を複数ファイルに適用する。directory mode だけ disk-only ファイル（DB 未登録）も `os.Rename` するが DB 更新はしない（`move_dir.go:152–163`）
 
 ### 3-5. disambiguate
 
@@ -126,5 +126,5 @@ sources:
 
 - `rewriteBackup`（`rewrite.go:29`）: 書き換え前のファイル内容と permissions を保持
 - `restoreBackups`（`rewrite.go:150`）: best-effort でディスク書き換えを元に戻す
-- DB は `tx.Rollback()` を `defer` で保証。ディスクのロールバックは DB ロールバック `defer` の後に続けて呼ぶ（`add.go:285–288`、`move_dir.go:156–171`）
+- DB は `tx.Rollback()` を `defer` で保証。ディスクのロールバックは DB ロールバック `defer` の後に続けて呼ぶ（`add.go:290–303`、`move_dir.go:125–137`）。move の移動ファイル本体は `applyMovedFileRewrites`（`move_helpers.go:805`）が `rewriteBackup` を返し、`restoreBackups` で復元する
 - `build` は temp DB（`.mdhop/index.sqlite.tmp`）に全書き込み後 rename する。失敗時は temp ファイルを `defer os.Remove` で除去（`build.go:123–126`）

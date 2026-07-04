@@ -14,7 +14,7 @@ move 系の統合と信頼性改善。2026-07-03 maintenance audit の findings 
   - **docs 同期漏れ（2026-07-04 v0.13.0 Goal Review で発見）**: directory mode の包含関係エラー（`--from sub --to sub/inner`、`move_helpers.go:73-75`）が `docs/specs/overview.md` の move 節に未記載（`move --help` の Behavior notes には記載済み）。統合時の仕様整理で overview.md に追記する
   - **経緯**: 2026-06-10 audit の「move 系分割再評価」（trigger: 次の move 機能要求）を本 audit の具体案で置き換え
 
-- [ ] moved file backup の rollback をヘルパーに集約する（統合後の 1 系統に対して実施）
+- [x] moved file backup の rollback をヘルパーに集約する（統合後の 1 系統に対して実施）
   - **症状**: `move.go:364-419` に 5 箇所、`move_dir.go:136-163` に 3 箇所、`writeFilePreservePerm` + `os.Rename` 巻き戻しの同型 inline パターンが反復。collateral 側は `restoreBackups()`（`rewrite.go:150`）に集約済みで 12 箇所から再利用されており非対称
   - **対処案**: `rewriteBackup` 型を流用して `restoreBackups` と同型のヘルパーに集約。rollback 仕様変更時の更新漏れ（部分ロールバックで vault 不整合）を防ぐ
 

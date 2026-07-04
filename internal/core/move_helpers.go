@@ -802,6 +802,34 @@ func applyOutgoingRewritesToContent(content []byte, rewrites []outgoingRewrite) 
 	return []byte(strings.Join(lines, "\n"))
 }
 
+// applyMovedFileRewrites writes outgoing rewrites to moved files and returns
+// backups for later rollback. On write failure, already-written moved files are
+// restored best-effort.
+func applyMovedFileRewrites(vaultPath string, moves []moveInfo, movedFileRewrites []movedFileRewrite, needDiskMove bool) ([]rewriteBackup, error) {
+	var backups []rewriteBackup
+	for i, mfr := range movedFileRewrites {
+		if len(mfr.outRewrites) == 0 {
+			continue
+		}
+		m := moves[i]
+		diskPath := m.to
+		if needDiskMove {
+			diskPath = m.from
+		}
+
+		newContent := applyOutgoingRewritesToContent(mfr.content, mfr.outRewrites)
+		movedFileRewrites[i].content = newContent
+
+		fullPath := filepath.Join(vaultPath, diskPath)
+		if err := writeFilePreservePerm(fullPath, newContent, mfr.perm); err != nil {
+			restoreBackups(vaultPath, backups)
+			return backups, err
+		}
+		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.content, perm: mfr.perm})
+	}
+	return backups, nil
+}
+
 // updateExternalEdgesAndMtimes updates edge raw_links and source node mtimes
 // for externally rewritten files. Returns the list of rewritten links.
 func updateExternalEdgesAndMtimes(tx dbExecer, rewrites []rewriteEntry, mtimes map[int64]int64) ([]RewrittenLink, error) {

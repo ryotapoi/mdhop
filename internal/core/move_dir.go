@@ -108,41 +108,10 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	}
 
 	// 4.2: apply outgoing rewrites to moved files.
-	type movedBackup struct {
-		restorePath string
-		content     []byte
-		perm        os.FileMode
-	}
-	var movedFileBackups []movedBackup
-	for i, mfr := range movedFileRewrites {
-		if len(mfr.outRewrites) == 0 {
-			continue
-		}
-		m := moves[i]
-		var diskPath string
-		if needDiskMove {
-			diskPath = m.from
-		} else {
-			diskPath = m.to
-		}
-		movedFileBackups = append(movedFileBackups, movedBackup{
-			restorePath: diskPath,
-			content:     mfr.content,
-			perm:        mfr.perm,
-		})
-
-		newContent := applyOutgoingRewritesToContent(mfr.content, mfr.outRewrites)
-		movedFileRewrites[i].content = newContent
-
-		fullPath := filepath.Join(vaultPath, diskPath)
-		if err := writeFilePreservePerm(fullPath, newContent, mfr.perm); err != nil {
-			// Restore previous moved file backups.
-			for _, b := range movedFileBackups[:len(movedFileBackups)-1] {
-				_ = writeFilePreservePerm(filepath.Join(vaultPath, b.restorePath), b.content, b.perm)
-			}
-			restoreBackups(vaultPath, externalBackups)
-			return nil, err
-		}
+	movedFileBackups, err := applyMovedFileRewrites(vaultPath, moves, movedFileRewrites, needDiskMove)
+	if err != nil {
+		restoreBackups(vaultPath, externalBackups)
+		return nil, err
 	}
 
 	// 4.3: disk moves (if needed).
@@ -162,11 +131,9 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			cr := completedRenames[j]
 			_ = os.Rename(filepath.Join(vaultPath, cr.to), filepath.Join(vaultPath, cr.from))
 		}
-		// Restore moved file backups. After rename rollback (if any), each backup's
-		// restorePath is the original disk location.
-		for _, b := range movedFileBackups {
-			_ = writeFilePreservePerm(filepath.Join(vaultPath, b.restorePath), b.content, b.perm)
-		}
+		// After rename rollback (if any), moved-file backups point at the
+		// original disk locations.
+		restoreBackups(vaultPath, movedFileBackups)
 		restoreBackups(vaultPath, externalBackups)
 	}()
 

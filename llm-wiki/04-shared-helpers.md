@@ -70,7 +70,7 @@ sources:
 | ファイル | 行 | 用途 |
 |----------|----|------|
 | `internal/core/rewrite.go` | 206 | `applyFileRewrites` 内の行ごと置換 |
-| `internal/core/move_helpers.go` | 754 | `applyOutgoingRewritesToContent` 内の行ごと置換 |
+| `internal/core/move_helpers.go` | 799 | `applyOutgoingRewritesToContent` 内の行ごと置換 |
 
 ---
 
@@ -85,8 +85,8 @@ sources:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/rewrite.go` | 152, 184, 211 | バックアップ復元・書き換え適用 |
-| `internal/core/move_dir.go` | 138, 141, 168 | move / dir-move のファイル書き込み・バックアップ復元 |
+| `internal/core/rewrite.go` | 157, 204, 231 | バックアップ復元・書き換え適用 |
+| `internal/core/move_helpers.go` | 824 | move / dir-move の移動ファイル書き込み |
 
 ---
 
@@ -119,9 +119,10 @@ sources:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/add.go` | 278, 286 | add 処理の書き換えロールバック |
-| `internal/core/disambiguate.go` | 201, 208 | 曖昧解消のロールバック |
-| `internal/core/move_dir.go` | 143, 170 | move / dir-move 処理のロールバック |
+| `internal/core/add.go` | 293, 301 | add 処理の書き換えロールバック |
+| `internal/core/disambiguate.go` | 206, 213 | 曖昧解消のロールバック |
+| `internal/core/move_helpers.go` | 825 | move / dir-move の移動ファイル書き換え失敗時ロールバック |
+| `internal/core/move_dir.go` | 113, 136, 137 | move / dir-move 処理のロールバック |
 
 ---
 
@@ -279,7 +280,22 @@ sources:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/move_dir.go` | 134 | move / dir-move の移動ファイル内容書き換え（`executeMoves`） |
+| `internal/core/move_helpers.go` | 820 | `applyMovedFileRewrites` 内の移動ファイル内容書き換え |
+
+---
+
+### applyMovedFileRewrites
+
+| 項目 | 値 |
+|------|-----|
+| 定義 | `internal/core/move_helpers.go:808` |
+| 役割 | move / dir-move の移動ファイル本体に outgoing rewrite を適用し、`rewriteBackup` を返す |
+
+主な呼び出しサイト:
+
+| ファイル | 行 | 用途 |
+|----------|----|------|
+| `internal/core/move_dir.go` | 111 | move / dir-move の移動ファイル本体書き換え（`executeMoves`） |
 
 ---
 
@@ -287,14 +303,14 @@ sources:
 
 | 項目 | 値 |
 |------|-----|
-| 定義 | `internal/core/move_helpers.go:807` |
+| 定義 | `internal/core/move_helpers.go:835` |
 | 役割 | 外部エッジの raw_link と mtime を DB に反映し、書き換えリストを返す |
 
 主な呼び出しサイト:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/move_dir.go` | 264 | move / dir-move の DB 更新（`executeMoves`） |
+| `internal/core/move_dir.go` | 231 | move / dir-move の DB 更新（`executeMoves`） |
 
 ---
 
@@ -302,15 +318,15 @@ sources:
 
 | 項目 | 値 |
 |------|-----|
-| 定義 | `internal/core/move_helpers.go:843` |
+| 定義 | `internal/core/move_helpers.go:871` |
 | 役割 | ファントムノードを実ノードに昇格させ、エッジを付け替える |
 
 主な呼び出しサイト:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/add.go` | 323 | add 時のファントム昇格 |
-| `internal/core/move_dir.go` | 297 | move / dir-move 時のファントム昇格（`executeMoves`） |
+| `internal/core/add.go` | 340 | add 時のファントム昇格 |
+| `internal/core/move_dir.go` | 264 | move / dir-move 時のファントム昇格（`executeMoves`） |
 
 ---
 
