@@ -162,7 +162,7 @@ func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, e
 		if valNode.Kind != yaml.ScalarNode || valNode.Style == yaml.LiteralStyle || valNode.Style == yaml.FoldedStyle {
 			return nil, false, fmt.Errorf("frontmatter key %q has unsupported value; set supports single-line scalar values only", key)
 		}
-		if frontmatterValueLineCount(mapping, matchIndex, end) > 1 {
+		if frontmatterValueLineCount(mapping, matchIndex, end, lines) > 1 {
 			return nil, false, fmt.Errorf("frontmatter key %q has multi-line value; set supports single-line scalar values only", key)
 		}
 		// yaml.Node.Line is 1-based against the YAML body. The opening "---"
@@ -179,13 +179,38 @@ func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, e
 	return []byte(strings.Join(lines, "\n")), true, nil
 }
 
-func frontmatterValueLineCount(mapping *yaml.Node, keyIndex, frontmatterEndLine int) int {
+func frontmatterValueLineCount(mapping *yaml.Node, keyIndex, frontmatterEndLine int, lines []string) int {
 	valNode := mapping.Content[keyIndex+1]
-	nextYAMLLine := frontmatterEndLine
 	if nextKeyIndex := keyIndex + 2; nextKeyIndex < len(mapping.Content) {
-		nextYAMLLine = mapping.Content[nextKeyIndex].Line
+		return mapping.Content[nextKeyIndex].Line - valNode.Line
 	}
-	return nextYAMLLine - valNode.Line
+	return lastFrontmatterValueLineCount(valNode.Line, frontmatterEndLine, lines)
+}
+
+func lastFrontmatterValueLineCount(valueYAMLLine, frontmatterEndLine int, lines []string) int {
+	if valueYAMLLine < 0 || valueYAMLLine >= len(lines) || !frontmatterLineParsesAsSingleMappingEntry(lines[valueYAMLLine]) {
+		return 2
+	}
+	count := 1
+	for lineIndex := valueYAMLLine + 1; lineIndex < frontmatterEndLine && lineIndex < len(lines); lineIndex++ {
+		if strings.TrimSpace(stripYAMLComment(lines[lineIndex])) == "" {
+			continue
+		}
+		count++
+	}
+	return count
+}
+
+func frontmatterLineParsesAsSingleMappingEntry(line string) bool {
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(line+"\n"), &doc); err != nil {
+		return false
+	}
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
+		return false
+	}
+	mapping := doc.Content[0]
+	return mapping.Kind == yaml.MappingNode && len(mapping.Content) == 2
 }
 
 func formatSetYAMLValue(value string) string {

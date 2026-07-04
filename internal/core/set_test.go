@@ -258,6 +258,96 @@ func TestSetMultilinePlainScalarValueError(t *testing.T) {
 	}
 }
 
+func TestSetLastKeyAllowsTrailingBlankLineBeforeFrontmatterClose(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\ntitle: A\nstatus: draft\n\n---\n# A\n"
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "status", Value: "new"})
+	if err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	want := "---\ntitle: A\nstatus: new\n\n---\n# A\n"
+	if got := readTestFile(t, path); got != want {
+		t.Fatalf("content =\n%s\nwant:\n%s", got, want)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if !hasMeta(meta, "status", "new") {
+		t.Fatalf("meta missing status=new: %+v", meta)
+	}
+}
+
+func TestSetLastKeyAllowsTrailingCommentBeforeFrontmatterClose(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\ntitle: A\nstatus: draft\n# note\n---\n# A\n"
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "status", Value: "new"})
+	if err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	want := "---\ntitle: A\nstatus: new\n# note\n---\n# A\n"
+	if got := readTestFile(t, path); got != want {
+		t.Fatalf("content =\n%s\nwant:\n%s", got, want)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if !hasMeta(meta, "status", "new") {
+		t.Fatalf("meta missing status=new: %+v", meta)
+	}
+}
+
+func TestSetLastKeyMultilinePlainScalarBeforeTrailingBlankLineError(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\ntitle: A\nstatus: long\n  value that wraps\n\n---\n# A\n"
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "status", Value: "new"})
+	if err == nil || !strings.Contains(err.Error(), "multi-line") {
+		t.Fatalf("error = %v, want multi-line", err)
+	}
+	if got := readTestFile(t, path); got != content {
+		t.Fatalf("content changed after failed set:\n%s\nwant:\n%s", got, content)
+	}
+}
+
+func TestSetLastKeyMultilineQuotedScalarCommentLineError(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\ntitle: A\nstatus: \"long\n  # value\"\n---\n# A\n"
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "status", Value: "new"})
+	if err == nil || !strings.Contains(err.Error(), "multi-line") {
+		t.Fatalf("error = %v, want multi-line", err)
+	}
+	if got := readTestFile(t, path); got != content {
+		t.Fatalf("content changed after failed set:\n%s\nwant:\n%s", got, content)
+	}
+}
+
 func TestSetDuplicateTargetKeyError(t *testing.T) {
 	vault := t.TempDir()
 	content := "---\ntitle: A\ntitle: B\nstatus: draft\n---\n# A\n"
