@@ -36,6 +36,7 @@ move 系の統合と信頼性改善。2026-07-03 maintenance audit の findings 
 - [ ] Move を MoveDir の特殊化に統合する（方針確定 2026-07-03）
   - **症状**: リンク解決の root-priority 判定が `move.go` 2 箇所 + `move_helpers.go` 3 箇所の並行実装。Phase 0〜5 構造・rollback も並行実装で、解決ルール変更時に片方だけ直すと Move と MoveDir で結果が食い違う
   - **対処案**: 挙動一致テストを通した上で「Move = 1 件の MoveDir」に置き換える。統合は上記 (a) の自己参照相対リンクバグの修正と (c) の vault-escape チェック追加を兼ねる（MoveDir 側の挙動を正とする）。`move_helpers.go`（886 行）の shared / dir 別分割と `frontmatter_path_guard.go`（両者共通適用を確認済み、`move.go:149` / `move_dir.go:72`）の帰属整理もセットで実施
+  - **docs 同期漏れ（2026-07-04 v0.13.0 Goal Review で発見）**: directory mode の包含関係エラー（`--from sub --to sub/inner`、`move_helpers.go:73-75`）が `docs/specs/overview.md` の move 節に未記載（`move --help` の Behavior notes には記載済み）。統合時の仕様整理で overview.md に追記する
   - **経緯**: 2026-06-10 audit の「move 系分割再評価」（trigger: 次の move 機能要求）を本 audit の具体案で置き換え
 
 - [ ] moved file backup の rollback をヘルパーに集約する（統合後の 1 系統に対して実施）
