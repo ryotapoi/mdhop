@@ -68,6 +68,14 @@
 - 直接実行の例外は Goal 経由の作業には適用しない。Goal を経由しない単発 Change だけは、現在の agent が直接実行してよい。
 - Change worker は、独立委任が効率または品質を高める調査・実装補助・検証を必要に応じて下位 subagent に任せてよい。
 
+## Unresponsive Change Worker
+
+- Change worker への待機が複数回 timeout した場合、Goal main はまず同一 worker へ status request を送り、現在 phase / 実行中コマンド / 残作業 / blocker の短い報告を求める。
+- status request にも応答がない、worker が `not_found` になる、または close / wait 操作自体が戻らない場合は、Goal main が `git status --short`、`git diff --stat`、必要な `git diff`、`git log --oneline -n` で実状態を確認する。
+- 未コミット差分が今回の Change scope 内にあると判断できる場合、Goal main は worker を終了扱いにして差分を引き取り、review / verify / 必要修正 / commit を続行してよい。
+- 差分が scope 外、破壊的、または完了状態を判断できない場合は、差分を破棄せず停止してユーザー確認する。
+- この回収手順は例外処理であり、通常の Change worker に定期報告ファイルや常時 ledger を要求しない。
+
 ## Final Report
 
 - 完了時も停止時も、報告形式は状況に合わせて分かりやすく整える。固定テンプレートに無理に合わせない。
