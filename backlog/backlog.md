@@ -8,7 +8,7 @@
   - **背景**: 現状 frontmatter を書き換えるコマンドがなく（convert / repair / disambiguate / simplify は本文リンクのみ）、LLM が YAML を手編集していて崩し事故のリスクがある
   - **対処案**: 例 `mdhop set --file <path> --key reviewed --value 2026-07-03`。YAML 全体を再シリアライズせず対象キーの行だけ書き換える（キー順序・コメント・引用形式を保存し diff を汚さない）。書き換え後にインデックスも同時更新する。`today` のような相対値サポートの有無は設計時に判断
 
-- [ ] meta-validate のパスパターン別 require プロファイル
+- [x] meta-validate のパスパターン別 require プロファイル
   - **背景**: スキル側が散文ルール（rules/frontmatter.md）を毎回読んで予防する方式から「書く → meta-validate → エラーだけ直す」方式に移行するため、必須キー定義を設定ファイルに寄せたい
   - **対処案**: mdhop.yaml に「このパスパターンではこのキーが必須」（例: `03-Notes/media/**` は isbn 必須、全体では type / status / created / updated 必須）を書けるようにし、呼び出しごとの `--require` 指定なしで検証できるようにする。単一ファイルを対象にする利便（`--file` 相当）も検討。あわせて meta_check.go / meta_validate.go の責務を先頭 doc comment で明示する（リネームは見送り、下記「登録見送り」参照）
 

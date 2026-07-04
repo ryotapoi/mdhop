@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -426,6 +427,112 @@ func TestLoadConfig_MetaTypesMixed(t *testing.T) {
 	}
 	if len(cfg.Meta.Types["severity"].OrderedValues) != 4 {
 		t.Errorf("severity OrderedValues len = %d, want 4", len(cfg.Meta.Types["severity"].OrderedValues))
+	}
+}
+
+func TestConfigMetaProfiles(t *testing.T) {
+	dir := t.TempDir()
+	content := `meta:
+  profiles:
+    - require: [type, status]
+    - path: "media/*"
+      require: [isbn]
+`
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Meta.Profiles) != 2 {
+		t.Fatalf("profiles = %+v, want 2 items", cfg.Meta.Profiles)
+	}
+	if cfg.Meta.Profiles[0].Path != "" {
+		t.Errorf("profiles[0].Path = %q, want empty", cfg.Meta.Profiles[0].Path)
+	}
+	if got := cfg.Meta.Profiles[0].Require; len(got) != 2 || got[0] != "type" || got[1] != "status" {
+		t.Errorf("profiles[0].Require = %v, want [type status]", got)
+	}
+	if cfg.Meta.Profiles[1].Path != "media/*" {
+		t.Errorf("profiles[1].Path = %q, want media/*", cfg.Meta.Profiles[1].Path)
+	}
+	if got := cfg.Meta.Profiles[1].Require; len(got) != 1 || got[0] != "isbn" {
+		t.Errorf("profiles[1].Require = %v, want [isbn]", got)
+	}
+}
+
+func TestConfigMetaProfilesRequireEmpty(t *testing.T) {
+	dir := t.TempDir()
+	content := `meta:
+  profiles:
+    - path: "media/*"
+      require: []
+`
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadConfig(dir)
+	if err == nil {
+		t.Fatal("expected error for empty profile require")
+	}
+	if !strings.Contains(err.Error(), "meta.profiles[0]: require must not be empty") {
+		t.Fatalf("error = %v, want meta.profiles[0] require error", err)
+	}
+}
+
+func TestConfigMetaProfilesPathBracket(t *testing.T) {
+	dir := t.TempDir()
+	content := `meta:
+  profiles:
+    - path: "[media]/*"
+      require: [isbn]
+`
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadConfig(dir)
+	if err == nil {
+		t.Fatal("expected error for bracket profile path")
+	}
+	if !strings.Contains(err.Error(), "meta.profiles[0].path: unsupported glob pattern") {
+		t.Fatalf("error = %v, want meta.profiles[0].path glob error", err)
+	}
+}
+
+func TestConfigMetaProfilesRequireEmptyKey(t *testing.T) {
+	dir := t.TempDir()
+	content := `meta:
+  profiles:
+    - require: ["", isbn]
+`
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadConfig(dir)
+	if err == nil {
+		t.Fatal("expected error for empty key in profile require")
+	}
+	if !strings.Contains(err.Error(), "meta.profiles[0].require: empty key is not allowed") {
+		t.Fatalf("error = %v, want meta.profiles[0].require empty key error", err)
+	}
+}
+
+func TestConfigMetaProfilesRequireDuplicateKey(t *testing.T) {
+	dir := t.TempDir()
+	content := `meta:
+  profiles:
+    - require: [isbn, isbn]
+`
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadConfig(dir)
+	if err == nil {
+		t.Fatal("expected error for duplicate key in profile require")
+	}
+	if !strings.Contains(err.Error(), `meta.profiles[0].require: duplicate key "isbn"`) {
+		t.Fatalf("error = %v, want meta.profiles[0].require duplicate key error", err)
 	}
 }
 

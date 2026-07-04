@@ -1756,6 +1756,47 @@ func TestRunMetaValidate_NothingToCheck(t *testing.T) {
 	}
 }
 
+func TestRunMetaValidate_Profiles(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_meta_validate")
+	configPath := filepath.Join(vault, "mdhop.yaml")
+	config := `meta:
+  profiles:
+    - path: "media/*"
+      require: [isbn]
+`
+	if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
+		t.Fatalf("write mdhop.yaml: %v", err)
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runMetaValidate([]string{"--vault", vault, "--format", "json"})
+	})
+
+	var m struct {
+		Violations []struct {
+			SourcePath string `json:"source_path"`
+			Key        string `json:"key"`
+			Value      string `json:"value"`
+			Reason     string `json:"reason"`
+		} `json:"violations"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	var missingISBN []string
+	for _, v := range m.Violations {
+		if v.Reason == "missing" && v.Key == "isbn" {
+			missingISBN = append(missingISBN, v.SourcePath)
+		}
+	}
+	if len(missingISBN) != 1 || missingISBN[0] != "media/book.md" {
+		t.Errorf("missing isbn = %v, want [media/book.md]", missingISBN)
+	}
+}
+
 // --- Graph CLI tests ---
 
 func TestRunGraph_JSONOutput(t *testing.T) {

@@ -1,3 +1,6 @@
+// meta_check.go implements reference-existence checks for frontmatter values.
+// Schema-conformance checks for required keys, types, and enums belong to
+// meta_validate.go per ADR 0019.
 package core
 
 import (

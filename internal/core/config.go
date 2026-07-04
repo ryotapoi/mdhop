@@ -55,9 +55,17 @@ func (m *MetaTypeInfo) UnmarshalYAML(value *yaml.Node) error {
 // MetaConfig holds frontmatter metadata type declarations.
 type MetaConfig struct {
 	Types map[string]MetaTypeInfo `yaml:"types"`
+	// Profiles lists required frontmatter keys by optional path glob.
+	Profiles []MetaRequireProfile `yaml:"profiles"`
 	// LinkKeys lists frontmatter keys whose raw path values become graph
 	// edges with link type "frontmatter_path". URL values are skipped.
 	LinkKeys []string `yaml:"link_keys"`
+}
+
+// MetaRequireProfile declares required frontmatter keys for an optional path glob.
+type MetaRequireProfile struct {
+	Path    string   `yaml:"path"`
+	Require []string `yaml:"require"`
 }
 
 // LookupType returns the MetaTypeInfo for a given frontmatter key.
@@ -150,6 +158,26 @@ func validateMetaConfig(mc MetaConfig) error {
 		}
 		if key == "" {
 			return fmt.Errorf("meta.link_keys: empty key is not allowed")
+		}
+	}
+	for i, profile := range mc.Profiles {
+		if len(profile.Require) == 0 {
+			return fmt.Errorf("meta.profiles[%d]: require must not be empty", i)
+		}
+		seenKeys := make(map[string]bool, len(profile.Require))
+		for _, key := range profile.Require {
+			if key == "" {
+				return fmt.Errorf("meta.profiles[%d].require: empty key is not allowed", i)
+			}
+			if seenKeys[key] {
+				return fmt.Errorf("meta.profiles[%d].require: duplicate key %q", i, key)
+			}
+			seenKeys[key] = true
+		}
+		if profile.Path != "" {
+			if err := validateGlobPatterns([]string{profile.Path}); err != nil {
+				return fmt.Errorf("meta.profiles[%d].path: %w", i, err)
+			}
 		}
 	}
 	return nil

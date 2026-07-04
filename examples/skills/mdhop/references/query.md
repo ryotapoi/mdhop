@@ -596,11 +596,12 @@ Check that frontmatter conforms to the declared schema: required keys are presen
 | `--exclude <glob>` | No | Exclude source notes matching the glob (repeatable) |
 | `--format json\|text` | No | Output format |
 
-At least one of `--require` or a non-string `meta.types` declaration must be present; otherwise there is nothing to check and the command errors.
+At least one of `--require`, a `meta.profiles` declaration, or a non-string `meta.types` declaration must be present; otherwise there is nothing to check and the command errors.
 
 ### Behavior
 
 - `--require <key>` reports `missing` for every note lacking a non-empty value for the key. Empty / null frontmatter values are dropped at index time, so `key:` with no value is reported as `missing` (same defect as an absent key)
+- `mdhop.yaml`'s `meta.profiles` declares required keys per path pattern (e.g. `03-Notes/media/**` requires `isbn`, while a profile with no `path` requires keys on every note). `--require` is combined with `meta.profiles` for that run only; it is never written back to `mdhop.yaml`
 - Keys declared `date` / `number` / `semver` in `meta.types` whose values fail to parse are reported as `type`; keys declared `ordered` whose values fall outside the list are reported as `enum`
 - Type/enum checks always run (driven by `meta.types`), with or without `--require`; `--require` only adds the missing-key check
 - `string` and undeclared keys carry no type/enum constraint and are not checked
@@ -614,6 +615,10 @@ At least one of `--require` or a non-string `meta.types` declaration must be pre
 mdhop meta-validate --require type --require status --require updated --path "docs/*" --format json
 
 # Just type/enum conformance from meta.types (no required keys).
+mdhop meta-validate --format json
+
+# mdhop.yaml declares meta.profiles (e.g. isbn required under 03-Notes/media/**);
+# no --require needed.
 mdhop meta-validate --format json
 ```
 
