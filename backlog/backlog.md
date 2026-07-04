@@ -8,7 +8,7 @@
   - **症状**: `pathToID` は「DB insert 後に caller がセットする」順序契約で、add / build / update / move / move_helpers の 5 ファイル 13 箇所（asset 側 4 箇所）が暗黙手順に依存（`resolve_maps.go:31-33,47-48` のコメントが手順依存を自認）。順序を誤ると phantom promotion が誤った ID を掴みリンク解決が静かに壊れる
   - **対処案**: DB 依存は持ち込まず、`registerNote(path, id)` / `registerAsset(path, id)` 相当の登録 API を追加して caller の pathToID 直接書き込みを全置換する。「addNote したのに ID セット忘れ」を構造的に排除。build 後に全 node の path→ID 対応を突き合わせる整合性テストも追加する
 
-- [ ] util.go の責務混在を解消する（resolveMaps API 確定後に実施）
+- [x] util.go の責務混在を解消する（resolveMaps API 確定後に実施）
   - **症状**: 純粋な文字列/パス正規化、resolveMaps 依存のリンク解決判定（`util.go:123-186`）、ファイルシステム副作用（`util.go:191-253` の `CleanupEmptyDirs` 等）の 3 系統が同居。resolveMaps の内部変更が util.go に波及することがファイル名から予測できない
   - **対処案**: `link_ambiguity.go` / `fs_cleanup.go` 等へ切り出す
 
