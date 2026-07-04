@@ -1,8 +1,28 @@
 # Backlog
 
-## v0.16.0
+## v0.15.0
 
-2026-07-04/05 に確定した機能仕様と、先行して着地した実装（v0.13.0 / v0.14.0）との突き合わせで見つかった差分の修正。順序は上から。
+リンク解決コアと内部構造の整理（2026-07-03 maintenance audit の findings と確定済み設計方針）に、2026-07-04/05 に確定した機能仕様と先行実装（v0.13.0 / v0.14.0）との突き合わせで見つかった差分修正を統合。順序は上から。
+
+- [x] resolveMaps の登録 API を一本化する（方針確定 2026-07-03）
+  - **症状**: `pathToID` は「DB insert 後に caller がセットする」順序契約で、add / build / update / move / move_helpers の 5 ファイル 13 箇所（asset 側 4 箇所）が暗黙手順に依存（`resolve_maps.go:31-33,47-48` のコメントが手順依存を自認）。順序を誤ると phantom promotion が誤った ID を掴みリンク解決が静かに壊れる
+  - **対処案**: DB 依存は持ち込まず、`registerNote(path, id)` / `registerAsset(path, id)` 相当の登録 API を追加して caller の pathToID 直接書き込みを全置換する。「addNote したのに ID セット忘れ」を構造的に排除。build 後に全 node の path→ID 対応を突き合わせる整合性テストも追加する
+
+- [x] util.go の責務混在を解消する（resolveMaps API 確定後に実施）
+  - **症状**: 純粋な文字列/パス正規化、resolveMaps 依存のリンク解決判定（`util.go:123-186`）、ファイルシステム副作用（`util.go:191-253` の `CleanupEmptyDirs` 等）の 3 系統が同居。resolveMaps の内部変更が util.go に波及することがファイル名から予測できない
+  - **対処案**: `link_ambiguity.go` / `fs_cleanup.go` 等へ切り出す
+
+- [x] resolveLink / resolveLinkFromDB を basenameResolver 抽象で統合する（方針確定 2026-07-03）
+  - **症状**: `build.go:214-283`（インメモリ resolveMaps 版）と `resolve.go:82-140`（DB クエリ版）が "Mirrors" コメント付きで判定分岐の順序・条件式まで複製（分岐数・順序は完全一致）。解決ルール変更時に resolve.go 側が漏れると `mdhop resolve` の答えとインデックス構築結果が矛盾する
+  - **対処案**: 判定分岐を 1 実装に統合し、basename 解決ステップだけ interface に切り出す（build = map 実装 / resolve = DB クエリ実装）。曖昧時の仕様差（build は phantom フォールスルー / resolve は `ErrAmbiguousLink`）は resolver 実装差として吸収し、外部挙動は変えない
+
+- [x] query/diagnose/stats のフィールド名を core 定数化する（search 方式に統一）
+  - **症状**: search のみ Go 定数（`search.go:42-44` → `format_search.go:14-16`）でコンパイラチェックが効き、query（`query.go:119-173` / `format_query.go:10-18`）・diagnose・stats は生文字列を core 分岐 / cmd validation map / format 出力キーの 2〜3 箇所で手動同期している。変更漏れは「無効フィールドが黙って無視される」形で実行時にしか出ない
+  - **対処案**: 各コマンドのフィールド名を core 定数として定義し cmd 側から参照。`.claude/rules/conventions.md` に「フィールド名は core 定数を参照する」規約を明記
+
+- [x] ExcludeFilter を config.go から exclude_filter.go に分離する
+  - **症状**: `config.go:93-247` の 154 行がクエリ時フィルタ実行ロジック。`PathExcludeSQL` は既に `pathfilter.go` にあり、同一型のメソッドが 2 ファイルに分散している
+  - **対処案**: 型定義と全メソッドを 1 ファイルに集約する機械的移動。config.go は mdhop.yaml のロードとバリデーションに絞る
 
 - [ ] meta-validate: `--require` 明示時は meta.profiles を置換する（確定仕様 2026-07-04）
   - **現状**: `--require` と `meta.profiles` は合算して検証され dedup される（`internal/core/meta_validate.go:93-102`。`docs/specs/overview.md` の meta-validate 節も合算で記述）
@@ -32,30 +52,6 @@
     - dir 指定 + `--to-template` を CLI が明示拒否（確定仕様: dir 一括モードあり。全ファイルを事前検証し、1 件でも失敗があれば全体を中止する all-or-nothing。部分実行なし）
     - 展開値の途中に `/` が含まれるケースの扱いが未定義・テストなし（確定仕様: エラー。テンプレート側の `/` だけがディレクトリ区切り）
   - **対処案**: 上から順に実装。dir 一括は MoveDir のバッチ機構に from→to リストを渡す形で載せる。`/` 混入エラーはテスト付きで明確化。overview.md の `--to-template` 節・`--help` を同期
-
-## v0.15.0
-
-リンク解決コアと内部構造の整理。2026-07-03 maintenance audit の findings と確定済み設計方針から構成。順序は上から。
-
-- [x] resolveMaps の登録 API を一本化する（方針確定 2026-07-03）
-  - **症状**: `pathToID` は「DB insert 後に caller がセットする」順序契約で、add / build / update / move / move_helpers の 5 ファイル 13 箇所（asset 側 4 箇所）が暗黙手順に依存（`resolve_maps.go:31-33,47-48` のコメントが手順依存を自認）。順序を誤ると phantom promotion が誤った ID を掴みリンク解決が静かに壊れる
-  - **対処案**: DB 依存は持ち込まず、`registerNote(path, id)` / `registerAsset(path, id)` 相当の登録 API を追加して caller の pathToID 直接書き込みを全置換する。「addNote したのに ID セット忘れ」を構造的に排除。build 後に全 node の path→ID 対応を突き合わせる整合性テストも追加する
-
-- [x] util.go の責務混在を解消する（resolveMaps API 確定後に実施）
-  - **症状**: 純粋な文字列/パス正規化、resolveMaps 依存のリンク解決判定（`util.go:123-186`）、ファイルシステム副作用（`util.go:191-253` の `CleanupEmptyDirs` 等）の 3 系統が同居。resolveMaps の内部変更が util.go に波及することがファイル名から予測できない
-  - **対処案**: `link_ambiguity.go` / `fs_cleanup.go` 等へ切り出す
-
-- [x] resolveLink / resolveLinkFromDB を basenameResolver 抽象で統合する（方針確定 2026-07-03）
-  - **症状**: `build.go:214-283`（インメモリ resolveMaps 版）と `resolve.go:82-140`（DB クエリ版）が "Mirrors" コメント付きで判定分岐の順序・条件式まで複製（分岐数・順序は完全一致）。解決ルール変更時に resolve.go 側が漏れると `mdhop resolve` の答えとインデックス構築結果が矛盾する
-  - **対処案**: 判定分岐を 1 実装に統合し、basename 解決ステップだけ interface に切り出す（build = map 実装 / resolve = DB クエリ実装）。曖昧時の仕様差（build は phantom フォールスルー / resolve は `ErrAmbiguousLink`）は resolver 実装差として吸収し、外部挙動は変えない
-
-- [x] query/diagnose/stats のフィールド名を core 定数化する（search 方式に統一）
-  - **症状**: search のみ Go 定数（`search.go:42-44` → `format_search.go:14-16`）でコンパイラチェックが効き、query（`query.go:119-173` / `format_query.go:10-18`）・diagnose・stats は生文字列を core 分岐 / cmd validation map / format 出力キーの 2〜3 箇所で手動同期している。変更漏れは「無効フィールドが黙って無視される」形で実行時にしか出ない
-  - **対処案**: 各コマンドのフィールド名を core 定数として定義し cmd 側から参照。`.claude/rules/conventions.md` に「フィールド名は core 定数を参照する」規約を明記
-
-- [x] ExcludeFilter を config.go から exclude_filter.go に分離する
-  - **症状**: `config.go:93-247` の 154 行がクエリ時フィルタ実行ロジック。`PathExcludeSQL` は既に `pathfilter.go` にあり、同一型のメソッドが 2 ファイルに分散している
-  - **対処案**: 型定義と全メソッドを 1 ファイルに集約する機械的移動。config.go は mdhop.yaml のロードとバリデーションに絞る
 
 - [ ] テスト追加: db.go の LastInsertId フォールバック分岐
   - **症状**: `upsertNode` 54.5%（modernc.org/sqlite の LastInsertId フォールバック分岐 `db.go:172-179` が未検証）。move_helpers.go 分のテストは v0.14.0 の挙動一致テストに吸収済み
