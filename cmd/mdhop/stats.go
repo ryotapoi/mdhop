@@ -9,6 +9,7 @@ import (
 
 func runStats(args []string) error {
 	fs := flag.NewFlagSet("stats", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, statsHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output")

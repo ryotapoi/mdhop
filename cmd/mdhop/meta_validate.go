@@ -9,6 +9,7 @@ import (
 
 func runMetaValidate(args []string) error {
 	fs := flag.NewFlagSet("meta-validate", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, metaValidateHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	var require multiString

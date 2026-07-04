@@ -10,6 +10,7 @@ import (
 
 func runConvert(args []string) error {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, convertHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	toFormat := fs.String("to", "", "target format: wikilink or markdown (required)")

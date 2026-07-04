@@ -10,6 +10,7 @@ import (
 
 func runSet(args []string) error {
 	fs := flag.NewFlagSet("set", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, setHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	file := fs.String("file", "", "file to update")

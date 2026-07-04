@@ -10,6 +10,7 @@ import (
 
 func runSimplify(args []string) error {
 	fs := flag.NewFlagSet("simplify", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, simplifyHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	dryRun := fs.Bool("dry-run", false, "show what would be simplified without making changes")

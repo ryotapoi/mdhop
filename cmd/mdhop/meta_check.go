@@ -9,6 +9,7 @@ import (
 
 func runMetaCheck(args []string) error {
 	fs := flag.NewFlagSet("meta-check", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, metaCheckHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	kind := fs.String("kind", "path", "value interpretation (path or wikilink)")

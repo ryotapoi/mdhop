@@ -10,6 +10,7 @@ import (
 
 func runGraph(args []string) error {
 	fs := flag.NewFlagSet("graph", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, graphHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "json", "output format (json or dot)")
 	includePhantoms := fs.Bool("include-phantoms", false, "include phantom nodes referenced from in-set notes")

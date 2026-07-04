@@ -11,6 +11,7 @@ import (
 
 func runMove(args []string) error {
 	fs := flag.NewFlagSet("move", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, moveHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	from := fs.String("from", "", "source file path (vault-relative)")

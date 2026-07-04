@@ -22,6 +22,7 @@ func isDirArg(vaultPath, arg string) bool {
 
 func runDelete(args []string) error {
 	fs := flag.NewFlagSet("delete", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, deleteHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	rm := fs.Bool("rm", false, "remove files from disk before updating index")

@@ -10,6 +10,7 @@ import (
 
 func runUpdate(args []string) error {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, updateHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	var files multiString

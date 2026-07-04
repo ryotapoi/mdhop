@@ -11,6 +11,7 @@ import (
 
 func runInitMeta(args []string) error {
 	fs := flag.NewFlagSet("init-meta", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, initMetaHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	preset := fs.Bool("preset", false, "include recommended type definitions")
 	scan := fs.Bool("scan", false, "scan vault and infer types from frontmatter")

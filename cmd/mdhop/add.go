@@ -10,6 +10,7 @@ import (
 
 func runAdd(args []string) error {
 	fs := flag.NewFlagSet("add", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, addHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	var files multiString

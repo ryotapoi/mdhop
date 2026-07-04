@@ -10,6 +10,7 @@ import (
 
 func runSearch(args []string) error {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, searchHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output (meta, meta.<key>, lines, outgoing_count, incoming_count)")

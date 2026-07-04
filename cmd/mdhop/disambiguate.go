@@ -10,6 +10,7 @@ import (
 
 func runDisambiguate(args []string) error {
 	fs := flag.NewFlagSet("disambiguate", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, disambiguateHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	name := fs.String("name", "", "basename to disambiguate")

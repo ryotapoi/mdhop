@@ -9,6 +9,7 @@ import (
 
 func runReachable(args []string) error {
 	fs := flag.NewFlagSet("reachable", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, reachableHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output")

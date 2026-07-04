@@ -10,6 +10,7 @@ import (
 
 func runResolve(args []string) error {
 	fs := flag.NewFlagSet("resolve", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, resolveHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	from := fs.String("from", "", "source file (vault-relative path)")
 	link := fs.String("link", "", "link text to resolve")

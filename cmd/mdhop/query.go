@@ -9,6 +9,7 @@ import (
 
 func runQuery(args []string) error {
 	fs := flag.NewFlagSet("query", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, queryHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	file := fs.String("file", "", "note entry (vault-relative path)")
 	tag := fs.String("tag", "", "tag entry")

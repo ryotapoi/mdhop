@@ -10,6 +10,7 @@ import (
 
 func runRepair(args []string) error {
 	fs := flag.NewFlagSet("repair", flag.ContinueOnError)
+	fs.Usage = commandUsage(fs, repairHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
 	dryRun := fs.Bool("dry-run", false, "show what would be repaired without making changes")
