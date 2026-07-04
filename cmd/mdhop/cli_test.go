@@ -504,8 +504,23 @@ func TestRunMove_MissingFrom(t *testing.T) {
 
 func TestRunMove_MissingTo(t *testing.T) {
 	err := runMove([]string{"--from", "A.md"})
-	if err == nil || !strings.Contains(err.Error(), "--to is required") {
-		t.Errorf("expected --to required error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "--to or --to-template is required") {
+		t.Errorf("expected destination required error, got: %v", err)
+	}
+}
+
+func TestRunMove_ToTemplateFlagConflicts(t *testing.T) {
+	err := runMove([]string{"--from", "A.md", "--to", "B.md", "--to-template", "{basename}.md"})
+	if err == nil || !strings.Contains(err.Error(), "cannot be used together") {
+		t.Errorf("expected mutually exclusive error, got: %v", err)
+	}
+}
+
+func TestRunMove_ToTemplateDirectoryModeRejected(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+	err := runMove([]string{"--vault", vault, "--from", "sub/", "--to-template", "archive/{basename}.md"})
+	if err == nil || !strings.Contains(err.Error(), "cannot be used for directory moves") {
+		t.Errorf("expected directory mode error, got: %v", err)
 	}
 }
 
@@ -536,6 +551,44 @@ func TestRunMove_Integration(t *testing.T) {
 	}
 	if qr.Entry.Type != core.NodeTypeNote {
 		t.Errorf("sub/A.md type = %q, want note", qr.Entry.Type)
+	}
+}
+
+func TestRunMove_ToTemplateIntegration(t *testing.T) {
+	vault := t.TempDir()
+	projectPath := filepath.Join(vault, "Projects", "Alpha.v1.md")
+	if err := os.MkdirAll(filepath.Dir(projectPath), 0o755); err != nil {
+		t.Fatalf("mkdir project dir: %v", err)
+	}
+	if err := os.WriteFile(projectPath, []byte("---\nclient: Acme\nupdated: 2026-07-04\n---\n# Alpha\n"), 0o644); err != nil {
+		t.Fatalf("write project note: %v", err)
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runMove([]string{
+			"--vault", vault,
+			"--from", "Projects/Alpha.v1.md",
+			"--to-template", "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}",
+			"--format", "json",
+		})
+	})
+
+	wantTo := "99-Archive/02-Projects/Acme/2026/Alpha.v1.md"
+	if _, err := os.Stat(filepath.Join(vault, wantTo)); err != nil {
+		t.Fatalf("expanded destination should exist: %v", err)
+	}
+	var got struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("unmarshal move output: %v\n%s", err, out)
+	}
+	if got.From != "Projects/Alpha.v1.md" || got.To != wantTo {
+		t.Fatalf("output = %+v, want from Projects/Alpha.v1.md to %s", got, wantTo)
 	}
 }
 

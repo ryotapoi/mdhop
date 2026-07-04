@@ -86,6 +86,7 @@ sources:
 ### 3-4. move / move-dir
 
 - **実行経路**: 単体 `move` は `move.go:25–56` で 1 件の `moveInfo` を作り、`move_dir.go:68` の `executeMoves` に委譲する。directory mode も同じ executor を使う
+- **`--to-template`**: CLI で `--to` の代わりに指定できる単体 note move mode。`internal/core/move_template.go` が source note の indexed frontmatter と source filename `{basename}` から destination path を先に展開し、その path を通常の `Move` に渡す。directory mode / asset move / `--to` 併用は不可。展開エラー（missing field、複数値、invalid date year extraction、空・vault escape・directory path）は mutation 前に失敗する
 - **incoming rewrite（Phase 2）**: 移動元への path リンクをすべて書き換える。basename リンクは basename が変わった場合か、ambiguous になった場合のみ書き換える（`move_helpers.go:314–405`）
 - **collateral rewrite（Phase 2.5）**: 移動先 basename と一致する他の note / asset への basename リンクが ambiguous になる場合に、それらを full path に書き換える → ADR 0008（`move_helpers.go:412–482`）
 - **outgoing rewrite（Phase 3）**: 移動したノートの outgoing basename リンクのうち、移動後に解決先が変わるものと、relative リンクを書き換える（`move_helpers.go:483–593`）

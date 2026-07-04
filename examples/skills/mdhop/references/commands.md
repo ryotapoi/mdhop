@@ -20,7 +20,7 @@ mdhop set --help
 
 ## File-Safe Mutations
 
-- `mdhop move`: move or rename a registered file or directory while preserving link meaning.
+- `mdhop move`: move or rename a registered file or directory while preserving link meaning. Single-note moves can use `--to-template` to expand the destination from indexed frontmatter.
 - `mdhop delete`: remove registered files from the index, optionally from disk with `--rm`.
 
 Use these instead of raw `mv` or `rm` for indexed vault content. Check help before destructive operations.

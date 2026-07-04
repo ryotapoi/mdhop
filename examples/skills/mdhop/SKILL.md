@@ -95,6 +95,7 @@ mdhop add --file Notes/NewNote.md --format json
 mdhop update --file Notes/Design.md --format json
 mdhop set --file Notes/Design.md --key reviewed --value 2026-07-04 --format json
 mdhop move --from Notes/Old.md --to Notes/New.md --format json
+mdhop move --from Notes/Project.md --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}" --format json
 mdhop delete --file Notes/Obsolete.md --rm --format json
 ```
 

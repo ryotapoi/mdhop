@@ -16,6 +16,7 @@ func runMove(args []string) error {
 	format := fs.String("format", "text", "output format (json or text)")
 	from := fs.String("from", "", "source file path (vault-relative)")
 	to := fs.String("to", "", "destination file path (vault-relative)")
+	toTemplate := fs.String("to-template", "", "destination template expanded from source frontmatter")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -25,11 +26,17 @@ func runMove(args []string) error {
 	if *from == "" {
 		return fmt.Errorf("--from is required")
 	}
-	if *to == "" {
-		return fmt.Errorf("--to is required")
+	if *to == "" && *toTemplate == "" {
+		return fmt.Errorf("--to or --to-template is required")
+	}
+	if *to != "" && *toTemplate != "" {
+		return fmt.Errorf("--to and --to-template cannot be used together")
 	}
 
 	fromIsDir := isDirArg(*vault, *from)
+	if fromIsDir && *toTemplate != "" {
+		return fmt.Errorf("--to-template cannot be used for directory moves")
+	}
 
 	if fromIsDir {
 		// Directory mode.
@@ -56,6 +63,16 @@ func runMove(args []string) error {
 	}
 
 	// Single file mode.
+	if *toTemplate != "" {
+		expandedTo, err := core.ExpandMoveTemplate(*vault, core.MoveTemplateOptions{
+			From:     *from,
+			Template: *toTemplate,
+		})
+		if err != nil {
+			return err
+		}
+		*to = expandedTo
+	}
 	toIsDir := strings.HasSuffix(*to, "/")
 	if toIsDir {
 		return fmt.Errorf("cannot use directory destination for single file move")

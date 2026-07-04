@@ -22,7 +22,7 @@ move 系の統合と信頼性改善。2026-07-03 maintenance audit の findings 
   - **症状**: move 系の `_ =` 13 箇所は意図的な best-effort だが、rollback 自体が失敗しても一切通知されない。rollback は常に一次エラーの経路でのみ走るため、Result に Warnings を足しても error return 時には出力されず伝わらない
   - **対処案**: 一次エラーに rollback 失敗の詳細（復元できなかったファイル一覧、`mdhop build` での復旧手順）を wrap して返す。best-effort 継続方針（rollback 失敗でも巻き戻しは続行）は維持する
 
-- [ ] `mdhop move --to-template` — frontmatter 値から移動先パスを展開するテンプレート
+- [x] `mdhop move --to-template` — frontmatter 値から移動先パスを展開するテンプレート
   - **背景**: アーカイブ先パスの組み立て（client 取得 → 年計算 → パス連結）を毎回 LLM がやっており、frontmatter 駆動の一括移動を1コマンドにしたい
   - **対処案**: 例 `mdhop move --from <path> --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}"`。フィールド参照・fallback 記法（`{client|others}`）・日付の部分抽出（`{updated:year}`）のテンプレート構文の仕様整理が先（要仕様設計）。move 系統合後の基盤の上に実装する
 

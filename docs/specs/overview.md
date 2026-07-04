@@ -58,6 +58,7 @@ meta:
 - `mdhop set --file A.md --key reviewed --value 2026-07-03` : frontmatter の単一キーを書き換え、インデックスを更新する
 - `mdhop add --file ...` : 新規追加を反映する（未登録のみ）
 - `mdhop move --from A.md --to B.md` : ファイル移動を反映する（note / asset 両対応）
+- `mdhop move --from A.md --to-template "99-Archive/{client|others}/{updated:year}/{basename}"` : note の frontmatter 値から移動先を展開して移動する
 - `mdhop move --from dir/ --to newdir/` : ディレクトリ単位の移動を反映する
 - `mdhop delete --file ...` : ファイル削除を反映する（note / asset 両対応、登録済みのみ）
 - `mdhop delete --file dir/` : ディレクトリ配下の全登録済みファイル（note + asset）を削除する
@@ -228,8 +229,20 @@ meta:
   - 補足: basename 衝突が発生する場合、既存リンクを自動でフルパス化する（意味を保てる場合のみ）。`--no-auto-disambiguate` で無効化
   - 補足: 既存の basename リンクが phantom を参照しており、追加ファイルが同じ basename を複数持つ場合は auto-disambiguate ON でも **エラー**（安全に書き換え先を決定できないため）
 - `move`
-  - 必須: `--from`, `--to`
+  - 必須: `--from`, `--to` または `--to-template`
   - 任意: `--vault`, `--format`
+  - `--to-template`: 登録済み note の indexed frontmatter と source filename から単体 move の移動先を展開する。`--to` とは同時指定不可。directory mode では使用不可
+    - 構文:
+      - `{field}`: source note の frontmatter key `field` の値
+      - `{field|fallback}`: `field` が存在しない場合は fallback literal を使う
+      - `{updated:year}`: date として parse した `updated` から 4 桁年を使う
+      - `{basename}`: source path のファイル名（例: `Alpha.v1.md`）
+    - エラー:
+      - fallback なしの missing field はエラー
+      - 参照 field が複数値（YAML sequence 等）を持つ場合は、静かに 1 件を選ばずエラー
+      - date partial extraction が date として parse できない場合はエラー
+      - 展開結果が空、絶対パス、vault 外へ escape するパス、または directory path になる場合はエラー
+    - 展開後の destination path を既存の `move` に渡すため、vault safety、上書き防止、stale 検出、リンク書き換え、frontmatter raw path guard は通常の `move` と同じ
   - 補足: ディスク上のファイル移動も行う（移動先ディレクトリは自動作成）
   - 補足: `--from` がディスクになく `--to` がディスクにある場合、既に移動済みとみなしてリンク書き換え+DB更新のみ行う
   - 補足: `--to` がディスク上に既に存在する場合は **エラー**（上書き防止）
@@ -466,7 +479,7 @@ meta:
 - update: `updated`, `deleted`, `phantomed`
 - set: `file`, `key`, `value`, `created`
 - add: `added`, `promoted`, `rewritten`
-- move（単体）: `from`, `to`, `rewritten`
+- move（単体）: `from`, `to`, `rewritten`（`--to-template` の場合、`to` は展開後 path）
 - move（ディレクトリ）: `moved[]`（`from`, `to` の配列）, `rewritten`
 - disambiguate: `rewritten`
 - simplify: `rewritten`, `skipped`
