@@ -98,7 +98,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 		} else {
 			// Ensure present in maps (normally already there for registered notes).
 			if _, ok := rm.pathToID[cf.path]; !ok {
-				rm.pathToID[cf.path] = cf.id
+				rm.registerNote(cf.path, cf.id)
 				rm.addNote(cf.path)
 			}
 		}
@@ -252,7 +252,7 @@ func buildMapsFromDB(db dbExecer) (*resolveMaps, error) {
 			return nil, err
 		}
 		path = NormalizePath(path)
-		rm.pathToID[path] = id
+		rm.registerNote(path, id)
 
 		rel := strings.ToLower(path)
 		rm.pathSet[rel] = path
@@ -283,7 +283,7 @@ func buildMapsFromDB(db dbExecer) (*resolveMaps, error) {
 			return nil, err
 		}
 		path = NormalizePath(path)
-		rm.assetPathToID[path] = id
+		rm.registerAsset(path, id)
 		rm.assetPathSet[strings.ToLower(path)] = path
 
 		abk := assetBasenameKey(path)

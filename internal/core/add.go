@@ -311,7 +311,7 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		rm.pathToID[pf.file.path] = id
+		rm.registerNote(pf.file.path, id)
 		result.Added = append(result.Added, pf.file.path)
 	}
 

@@ -57,7 +57,7 @@ func TestAddNote_RootFile(t *testing.T) {
 func TestRemoveNote_RoundTrip(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addNote("sub/Note.md")
-	rm.pathToID["sub/Note.md"] = 42 // simulate caller setting pathToID
+	rm.registerNote("sub/Note.md", 42)
 
 	rm.removeNote("sub/Note.md")
 
@@ -81,7 +81,7 @@ func TestRemoveNote_BasenameDuplicate(t *testing.T) {
 		t.Fatalf("basenameCounts[a] = %d; want 2", got)
 	}
 
-	rm.pathToID["sub/A.md"] = 1
+	rm.registerNote("sub/A.md", 1)
 	rm.removeNote("sub/A.md")
 
 	if got := rm.basenameCounts["a"]; got != 1 {
@@ -96,7 +96,7 @@ func TestRemoveNote_BasenameDuplicate(t *testing.T) {
 func TestRemoveNote_ZeroCountCleanup(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addNote("A.md")
-	rm.pathToID["A.md"] = 1
+	rm.registerNote("A.md", 1)
 
 	rm.removeNote("A.md")
 
@@ -118,6 +118,15 @@ func TestAddNote_MixedCase(t *testing.T) {
 	}
 	if got, ok := rm.pathSet["sub/note"]; !ok || got != "Sub/Note.MD" {
 		t.Errorf("pathSet[sub/note] = %q, ok=%v; want Sub/Note.MD", got, ok)
+	}
+}
+
+func TestRegisterNote_NormalizesPath(t *testing.T) {
+	rm := newEmptyResolveMaps()
+	rm.registerNote("sub//Note.md", 42)
+
+	if got, ok := rm.pathToID["sub/Note.md"]; !ok || got != 42 {
+		t.Errorf("pathToID[sub/Note.md] = %d, ok=%v; want 42", got, ok)
 	}
 }
 
@@ -162,7 +171,7 @@ func TestAddAsset_RootFile(t *testing.T) {
 func TestRemoveAsset_RoundTrip(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addAsset("sub/image.png")
-	rm.assetPathToID["sub/image.png"] = 99
+	rm.registerAsset("sub/image.png", 99)
 
 	rm.removeAsset("sub/image.png")
 
@@ -180,7 +189,7 @@ func TestRemoveAsset_RoundTrip(t *testing.T) {
 func TestRemoveAsset_ZeroCountCleanup(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addAsset("photo.jpg")
-	rm.assetPathToID["photo.jpg"] = 1
+	rm.registerAsset("photo.jpg", 1)
 
 	rm.removeAsset("photo.jpg")
 
@@ -201,14 +210,23 @@ func TestAddAsset_MixedCase(t *testing.T) {
 	}
 }
 
+func TestRegisterAsset_NormalizesPath(t *testing.T) {
+	rm := newEmptyResolveMaps()
+	rm.registerAsset("sub//image.png", 99)
+
+	if got, ok := rm.assetPathToID["sub/image.png"]; !ok || got != 99 {
+		t.Errorf("assetPathToID[sub/image.png] = %d, ok=%v; want 99", got, ok)
+	}
+}
+
 // --- rebuildBasenameToPath ---
 
 func TestRebuildBasenameToPath_UniqueOnly(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addNote("A.md")
 	rm.addNote("sub/B.md")
-	rm.pathToID["A.md"] = 1
-	rm.pathToID["sub/B.md"] = 2
+	rm.registerNote("A.md", 1)
+	rm.registerNote("sub/B.md", 2)
 
 	rm.rebuildBasenameToPath(nil)
 
@@ -224,8 +242,8 @@ func TestRebuildBasenameToPath_ExcludesDuplicates(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addNote("sub/A.md")
 	rm.addNote("other/A.md")
-	rm.pathToID["sub/A.md"] = 1
-	rm.pathToID["other/A.md"] = 2
+	rm.registerNote("sub/A.md", 1)
+	rm.registerNote("other/A.md", 2)
 
 	rm.rebuildBasenameToPath(nil)
 
@@ -248,7 +266,7 @@ func TestRebuildBasenameToPath_ExtraPaths(t *testing.T) {
 func TestRebuildBasenameToPath_NilExtraPaths(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addNote("A.md")
-	rm.pathToID["A.md"] = 1
+	rm.registerNote("A.md", 1)
 
 	rm.rebuildBasenameToPath(nil)
 
@@ -262,7 +280,7 @@ func TestRebuildBasenameToPath_NilExtraPaths(t *testing.T) {
 func TestRebuildAssetBasenameToPath_UniqueOnly(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addAsset("img.png")
-	rm.assetPathToID["img.png"] = 1
+	rm.registerAsset("img.png", 1)
 
 	rm.rebuildAssetBasenameToPath()
 
@@ -275,8 +293,8 @@ func TestRebuildAssetBasenameToPath_ExcludesDuplicates(t *testing.T) {
 	rm := newEmptyResolveMaps()
 	rm.addAsset("sub/img.png")
 	rm.addAsset("other/img.png")
-	rm.assetPathToID["sub/img.png"] = 1
-	rm.assetPathToID["other/img.png"] = 2
+	rm.registerAsset("sub/img.png", 1)
+	rm.registerAsset("other/img.png", 2)
 
 	rm.rebuildAssetBasenameToPath()
 

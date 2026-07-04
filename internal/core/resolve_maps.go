@@ -23,7 +23,7 @@ type resolveMaps struct {
 
 // addNote adds path to pathSet (2 entries: lowercase, lowercase without ext),
 // increments basenameCounts, and updates rootBasenameToPath if root file.
-// pathToID is NOT modified — caller sets it after DB insert.
+// pathToID is registered separately by registerNote after DB insert.
 // path must be NormalizePath'd. Maps must be initialized (non-nil).
 func (rm *resolveMaps) addNote(path string) {
 	path = NormalizePath(path)
@@ -38,9 +38,14 @@ func (rm *resolveMaps) addNote(path string) {
 	}
 }
 
+// registerNote records the DB node ID for a note path.
+func (rm *resolveMaps) registerNote(path string, id int64) {
+	path = NormalizePath(path)
+	rm.pathToID[path] = id
+}
+
 // removeNote removes path from pathToID, pathSet (2 entries),
 // decrements basenameCounts (deletes entry if zero), and removes rootBasenameToPath if root file.
-// NOTE: removeNote deletes pathToID but addNote does NOT set it — this is intentional.
 // path must be NormalizePath'd. Maps must be initialized (non-nil).
 func (rm *resolveMaps) removeNote(path string) {
 	path = NormalizePath(path)
@@ -61,7 +66,7 @@ func (rm *resolveMaps) removeNote(path string) {
 
 // addAsset adds path to assetPathSet (1 entry: lowercase with ext),
 // increments assetBasenameCounts, and updates assetRootBasenameToPath if root file.
-// assetPathToID is NOT modified — caller sets it after DB insert.
+// assetPathToID is registered separately by registerAsset after DB insert.
 func (rm *resolveMaps) addAsset(path string) {
 	path = NormalizePath(path)
 	rm.assetPathSet[strings.ToLower(path)] = path
@@ -70,6 +75,12 @@ func (rm *resolveMaps) addAsset(path string) {
 	if isRootFile(path) {
 		rm.assetRootBasenameToPath[abk] = path
 	}
+}
+
+// registerAsset records the DB node ID for an asset path.
+func (rm *resolveMaps) registerAsset(path string, id int64) {
+	path = NormalizePath(path)
+	rm.assetPathToID[path] = id
 }
 
 // removeAsset removes path from assetPathToID, assetPathSet,
@@ -127,7 +138,7 @@ type noteResolveMaps struct {
 
 // newResolveMaps assembles a resolveMaps from note and asset file lists. The
 // pathToID / assetPathToID maps are initialized empty; callers that need node
-// IDs (build/add) fill them as they insert nodes. Read-only resolvers
+// IDs (build/add) register them as they insert nodes. Read-only resolvers
 // (meta-check) leave them empty.
 func newResolveMaps(files, assetFiles []string) *resolveMaps {
 	nm := buildNoteResolveMaps(files)

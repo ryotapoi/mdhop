@@ -33,6 +33,12 @@ type nodeRow struct {
 	existsFlag int
 }
 
+type nodeIDRow struct {
+	id       int64
+	nodeType NodeType
+	path     string
+}
+
 func copyVault(t *testing.T, name string) string {
 	t.Helper()
 	root := filepath.Join("..", "..", "testdata", name)
@@ -106,6 +112,28 @@ func queryNodes(t *testing.T, dbp string, nodeType NodeType) []nodeRow {
 			t.Fatalf("scan node: %v", err)
 		}
 		out = append(out, n)
+	}
+	return out
+}
+
+func queryExistingPathNodeIDs(t *testing.T, db *sql.DB) []nodeIDRow {
+	t.Helper()
+	rows, err := db.Query(`SELECT id, type, path FROM nodes WHERE exists_flag=1 AND path IS NOT NULL ORDER BY type, path`)
+	if err != nil {
+		t.Fatalf("query node ids: %v", err)
+	}
+	defer rows.Close()
+
+	var out []nodeIDRow
+	for rows.Next() {
+		var n nodeIDRow
+		if err := rows.Scan(&n.id, &n.nodeType, &n.path); err != nil {
+			t.Fatalf("scan node id: %v", err)
+		}
+		out = append(out, n)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate node ids: %v", err)
 	}
 	return out
 }
@@ -205,6 +233,46 @@ func TestBuildRebuildOverwritesDB(t *testing.T) {
 	after := countNotes(t, dbPath(vault))
 	if after <= before {
 		t.Fatalf("expected node count to increase, before=%d after=%d", before, after)
+	}
+}
+
+func TestBuildResolveMapsRegisterAllBuiltNodes(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A\n\n[[sub/B]]\n![[image.png]]\n"), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatalf("mkdir sub: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("# B\n"), 0o644); err != nil {
+		t.Fatalf("write sub/B.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "image.png"), []byte("png"), 0o644); err != nil {
+		t.Fatalf("write image.png: %v", err)
+	}
+
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	rm, err := buildMapsFromDB(db)
+	if err != nil {
+		t.Fatalf("build maps from db: %v", err)
+	}
+
+	for _, node := range queryExistingPathNodeIDs(t, db) {
+		switch node.nodeType {
+		case NodeTypeNote:
+			if got, ok := rm.pathToID[node.path]; !ok || got != node.id {
+				t.Fatalf("note pathToID[%s] = %d, ok=%v; want %d", node.path, got, ok, node.id)
+			}
+		case NodeTypeAsset:
+			if got, ok := rm.assetPathToID[node.path]; !ok || got != node.id {
+				t.Fatalf("assetPathToID[%s] = %d, ok=%v; want %d", node.path, got, ok, node.id)
+			}
+		}
 	}
 }
 

@@ -292,10 +292,10 @@ func adjustMapsForDirMove(db dbExecer, moves []moveInfo) (*dirMoveMaps, error) {
 	}
 	for _, m := range moves {
 		if m.isAsset {
-			rm.assetPathToID[m.to] = m.nodeID
+			rm.registerAsset(m.to, m.nodeID)
 			rm.addAsset(m.to)
 		} else {
-			rm.pathToID[m.to] = m.nodeID
+			rm.registerNote(m.to, m.nodeID)
 			rm.addNote(m.to)
 		}
 	}

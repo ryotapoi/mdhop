@@ -154,7 +154,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		rm.pathToID[pf.path] = id
+		rm.registerNote(pf.path, id)
 	}
 
 	// Pass 1.5: insert all asset nodes.
@@ -164,7 +164,7 @@ func Build(vaultPath string) (*BuildResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		rm.assetPathToID[ai.path] = id
+		rm.registerAsset(ai.path, id)
 	}
 
 	// Pass 2: resolve links and create edges (using cached parsed data).
