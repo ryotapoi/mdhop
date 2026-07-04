@@ -1,30 +1,5 @@
 # Backlog
 
-## v0.13.0
-
-2026-07-03 Knowledge 側のスキル改修（/dig /updating /maintenance 等）との検討で決めた機能追加を中心に構成。`move --to-template` のみ move 系統合（v0.14.0）後に実装するため後送り。順序は上から。
-
-- [x] `mdhop set` — frontmatter の単一キーを安全に書き換えるコマンド
-  - **背景**: 現状 frontmatter を書き換えるコマンドがなく（convert / repair / disambiguate / simplify は本文リンクのみ）、LLM が YAML を手編集していて崩し事故のリスクがある
-  - **対処案**: 例 `mdhop set --file <path> --key reviewed --value 2026-07-03`。YAML 全体を再シリアライズせず対象キーの行だけ書き換える（キー順序・コメント・引用形式を保存し diff を汚さない）。書き換え後にインデックスも同時更新する。`today` のような相対値サポートの有無は設計時に判断
-
-- [x] meta-validate のパスパターン別 require プロファイル
-  - **背景**: スキル側が散文ルール（rules/frontmatter.md）を毎回読んで予防する方式から「書く → meta-validate → エラーだけ直す」方式に移行するため、必須キー定義を設定ファイルに寄せたい
-  - **対処案**: mdhop.yaml に「このパスパターンではこのキーが必須」（例: `03-Notes/media/**` は isbn 必須、全体では type / status / created / updated 必須）を書けるようにし、呼び出しごとの `--require` 指定なしで検証できるようにする。単一ファイルを対象にする利便（`--file` 相当）も検討。あわせて meta_check.go / meta_validate.go の責務を先頭 doc comment で明示する（リネームは見送り、下記「登録見送り」参照）
-
-- [x] search の強化 3 点
-  - **背景**: 「reviewed の有無で 2 回検索してマージ」「全件 JSON を取ってから 10 件選ぶ」「件数しか使わないのに一覧を取る」という使い方が実際にあり、出力の無駄が大きい
-  - **対処案**: (a) `--sample N` — 候補から CLI 側で無作為に N 件抽出して返す（候補全件を出力せずに済む）。(b) `--count` — 件数のみ返す。(c) `--where` の式強化 — `coalesce(reviewed, updated) <= today-1y` のような coalesce / OR 条件を 1 クエリで書けるようにする
-  - **進捗**: (a) `--sample N`、(b) `--count`、(c) `--where` の式強化（`coalesce(key1, key2, ...)`）は実装済み
-
-- [x] query のデフォルト値（100/100/10）を core 定数に一元化する
-  - **症状**: `cmd/mdhop/query.go:21-23` の flag デフォルトと `internal/core/query.go:104-111` のフォールバックが独立定義。片方だけ変えると CLI 経由と `core.Query` 直呼びで挙動が乖離する
-  - **対処案**: core 側に定数を定義し、flag デフォルトから参照する
-
-- [x] ヘルプ充実と examples スキルの薄型化
-  - **背景**: LLM が `--help` だけで使い方を把握できる水準にしたい。あわせてスキルと実装のドリフトを防止する
-  - **対処案**: 各サブコマンドの `--help` に「フラグの意味・出力列/JSON フィールドの定義・実例2〜3個」を載せる。トップレベルの `--help` は現在の短さを維持する。`examples/skills/mdhop/SKILL.md` と references/ を「存在の告知・いつ使うか・--help への誘導」中心に薄くし、CLI 構文の重複記述を減らす
-
 ## v0.14.0
 
 move 系の統合と信頼性改善。2026-07-03 maintenance audit の findings と確定済み設計方針から構成。統合後の基盤の上に `move --to-template` を実装して締める。順序は上から。
