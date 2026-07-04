@@ -47,17 +47,6 @@ func pathIncludeNullSafeSQL(alias string, patterns []string) (string, []any) {
 	return " AND (" + alias + " IS NULL OR " + globs + ")", args
 }
 
-// PathExcludeSQL returns a SQL fragment and args for excluding paths.
-// alias is the column expression for path (e.g. "n.path").
-func (ef *ExcludeFilter) PathExcludeSQL(alias string) (string, []any) {
-	if ef == nil || len(ef.PathGlobs) == 0 {
-		return "", nil
-	}
-	globs, args := globOrSQL(alias, ef.PathGlobs)
-	// path IS NULL protects phantom/tag nodes (NOT (NULL GLOB ?) → NULL → false in WHERE).
-	return fmt.Sprintf(" AND (%s IS NULL OR NOT (%s))", alias, globs), args
-}
-
 // globMatch implements SQLite GLOB semantics in Go.
 // '*' matches any sequence of characters (including '/').
 // '?' matches exactly one character.
