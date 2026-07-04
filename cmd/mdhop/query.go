@@ -18,9 +18,9 @@ func runQuery(args []string) error {
 	fields := fs.String("fields", "", "comma-separated fields to output")
 	includeHead := fs.Int("include-head", 0, "include first N lines of note")
 	includeSnippet := fs.Int("include-snippet", 0, "include N context lines around links")
-	maxBacklinks := fs.Int("max-backlinks", 100, "max backlinks")
-	maxTwoHop := fs.Int("max-twohop", 100, "max twohop entries")
-	maxViaPerTarget := fs.Int("max-via-per-target", 10, "max via entries per twohop target")
+	maxBacklinks := fs.Int("max-backlinks", core.DefaultMaxBacklinks, "max backlinks")
+	maxTwoHop := fs.Int("max-twohop", core.DefaultMaxTwoHop, "max twohop entries")
+	maxViaPerTarget := fs.Int("max-via-per-target", core.DefaultMaxViaPerTarget, "max via entries per twohop target")
 	var pathPatterns multiString
 	var excludePaths multiString
 	var excludeTags multiString

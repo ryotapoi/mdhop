@@ -10,6 +10,12 @@ type EntrySpec struct {
 	Name    string // auto-detect: #tag → tag, otherwise note → phantom
 }
 
+const (
+	DefaultMaxBacklinks    = 100
+	DefaultMaxTwoHop       = 100
+	DefaultMaxViaPerTarget = 10
+)
+
 // QueryOptions controls which fields to return and their limits.
 type QueryOptions struct {
 	Fields          []string       // nil/empty = all standard fields
@@ -102,13 +108,13 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if opts.MaxBacklinks <= 0 {
-		opts.MaxBacklinks = 100
+		opts.MaxBacklinks = DefaultMaxBacklinks
 	}
 	if opts.MaxTwoHop <= 0 {
-		opts.MaxTwoHop = 100
+		opts.MaxTwoHop = DefaultMaxTwoHop
 	}
 	if opts.MaxViaPerTarget <= 0 {
-		opts.MaxViaPerTarget = 10
+		opts.MaxViaPerTarget = DefaultMaxViaPerTarget
 	}
 
 	result := &QueryResult{Entry: info}

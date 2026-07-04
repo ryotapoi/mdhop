@@ -17,7 +17,7 @@
   - **対処案**: (a) `--sample N` — 候補から CLI 側で無作為に N 件抽出して返す（候補全件を出力せずに済む）。(b) `--count` — 件数のみ返す。(c) `--where` の式強化 — `coalesce(reviewed, updated) <= today-1y` のような coalesce / OR 条件を 1 クエリで書けるようにする
   - **進捗**: (a) `--sample N`、(b) `--count`、(c) `--where` の式強化（`coalesce(key1, key2, ...)`）は実装済み
 
-- [ ] query のデフォルト値（100/100/10）を core 定数に一元化する
+- [x] query のデフォルト値（100/100/10）を core 定数に一元化する
   - **症状**: `cmd/mdhop/query.go:21-23` の flag デフォルトと `internal/core/query.go:104-111` のフォールバックが独立定義。片方だけ変えると CLI 経由と `core.Query` 直呼びで挙動が乖離する
   - **対処案**: core 側に定数を定義し、flag デフォルトから参照する
 
