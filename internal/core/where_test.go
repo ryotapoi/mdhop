@@ -33,7 +33,7 @@ func TestExpandRelativeDate(t *testing.T) {
 		{"today-90days", "", false},
 	}
 	for _, tt := range tests {
-		got, ok := expandRelativeDate(tt.token, now)
+		got, ok := ExpandRelativeDate(tt.token, now)
 		if ok != tt.ok {
 			t.Errorf("%s: ok = %v, want %v", tt.token, ok, tt.ok)
 			continue

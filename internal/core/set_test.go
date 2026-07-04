@@ -100,7 +100,7 @@ func TestSetAddsKeyToEmptyFrontmatter(t *testing.T) {
 	}
 }
 
-func TestSetNoFrontmatterError(t *testing.T) {
+func TestSetCreatesFrontmatterWhenMissing(t *testing.T) {
 	vault := t.TempDir()
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A\n"), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
@@ -109,9 +109,22 @@ func TestSetNoFrontmatterError(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	_, err := Set(vault, SetOptions{File: "A.md", Key: "reviewed", Value: "done"})
-	if err == nil || !strings.Contains(err.Error(), "frontmatter not found") {
-		t.Fatalf("error = %v, want frontmatter not found", err)
+	result, err := Set(vault, SetOptions{File: "A.md", Key: "reviewed", Value: "done"})
+	if err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	if !result.Created {
+		t.Fatal("Created = false, want true")
+	}
+
+	got := readTestFile(t, filepath.Join(vault, "A.md"))
+	want := "---\nreviewed: done\n---\n# A\n"
+	if got != want {
+		t.Fatalf("content =\n%s\nwant =\n%s", got, want)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if !hasMeta(meta, "reviewed", "done") {
+		t.Fatalf("meta missing reviewed=done: %+v", meta)
 	}
 }
 

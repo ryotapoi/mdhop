@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
@@ -16,6 +17,7 @@ func runSet(args []string) error {
 	file := fs.String("file", "", "file to update")
 	key := fs.String("key", "", "frontmatter key to set")
 	value := fs.String("value", "", "frontmatter value to write")
+	date := fs.String("date", "", "relative date expression to write as YYYY-MM-DD")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -28,13 +30,38 @@ func runSet(args []string) error {
 	if *key == "" {
 		return fmt.Errorf("--key is required")
 	}
-	if *value == "" {
-		return fmt.Errorf("--value is required")
+	valueSpecified := false
+	dateSpecified := false
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "value":
+			valueSpecified = true
+		case "date":
+			dateSpecified = true
+		}
+	})
+	if valueSpecified == dateSpecified {
+		return fmt.Errorf("exactly one of --value or --date is required")
+	}
+	writeValue := *value
+	if valueSpecified {
+		if writeValue == "" {
+			return fmt.Errorf("--value cannot be empty")
+		}
+	} else {
+		if *date == "" {
+			return fmt.Errorf("--date cannot be empty")
+		}
+		expanded, ok := core.ExpandRelativeDate(*date, time.Now())
+		if !ok {
+			return fmt.Errorf("--date must use relative date syntax such as today, today-90d, or today+1y")
+		}
+		writeValue = expanded
 	}
 	result, err := core.Set(*vault, core.SetOptions{
 		File:  *file,
 		Key:   *key,
-		Value: *value,
+		Value: writeValue,
 	})
 	if err != nil {
 		return err

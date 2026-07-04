@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 	"github.com/ryotapoi/mdhop/internal/testutil"
@@ -402,8 +403,22 @@ func TestRunSet_MissingKey(t *testing.T) {
 
 func TestRunSet_MissingValue(t *testing.T) {
 	err := runSet([]string{"--file", "A.md", "--key", "reviewed"})
-	if err == nil || !strings.Contains(err.Error(), "--value is required") {
-		t.Errorf("expected --value required error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "exactly one of --value or --date is required") {
+		t.Errorf("expected value/date required error, got: %v", err)
+	}
+}
+
+func TestRunSet_ValueAndDateMutuallyExclusive(t *testing.T) {
+	err := runSet([]string{"--file", "A.md", "--key", "reviewed", "--value", "done", "--date", "today"})
+	if err == nil || !strings.Contains(err.Error(), "exactly one of --value or --date is required") {
+		t.Errorf("expected value/date mutually exclusive error, got: %v", err)
+	}
+}
+
+func TestRunSet_InvalidDate(t *testing.T) {
+	err := runSet([]string{"--file", "A.md", "--key", "reviewed", "--date", "yesterday"})
+	if err == nil || !strings.Contains(err.Error(), "--date must use relative date syntax") {
+		t.Errorf("expected invalid date error, got: %v", err)
 	}
 }
 
@@ -437,6 +452,77 @@ func TestRunSet_JSONOutput(t *testing.T) {
 	}
 	if got.File != "A.md" || got.Key != "reviewed" || got.Value != "2026-07-04" || !got.Created {
 		t.Fatalf("json = %+v, want A.md reviewed=2026-07-04 created=true", got)
+	}
+}
+
+func TestRunSet_DateOutput(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: A\n---\n# A\n"), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	startDate := time.Now().Format("2006-01-02")
+	out := captureStdout(t, func() error {
+		return runSet([]string{
+			"--vault", vault,
+			"--file", "A.md",
+			"--key", "reviewed",
+			"--date", "today",
+			"--format", "json",
+		})
+	})
+	endDate := time.Now().Format("2006-01-02")
+
+	var got struct {
+		File    string `json:"file"`
+		Key     string `json:"key"`
+		Value   string `json:"value"`
+		Created bool   `json:"created"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("json unmarshal: %v\n%s", err, out)
+	}
+	if got.File != "A.md" || got.Key != "reviewed" || !got.Created {
+		t.Fatalf("json = %+v, want A.md reviewed date created=true", got)
+	}
+	if got.Value != startDate && got.Value != endDate {
+		t.Fatalf("value = %q, want %q or %q", got.Value, startDate, endDate)
+	}
+	if content := readCLIFile(t, filepath.Join(vault, "A.md")); !strings.Contains(content, "reviewed: "+got.Value+"\n") {
+		t.Fatalf("file content missing reviewed date %s:\n%s", got.Value, content)
+	}
+}
+
+func TestRunSet_DateCreatesFrontmatter(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A\n"), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	startDate := time.Now().Format("2006-01-02")
+	if err := runSet([]string{
+		"--vault", vault,
+		"--file", "A.md",
+		"--key", "reviewed",
+		"--date", "today",
+	}); err != nil {
+		t.Fatalf("set date: %v", err)
+	}
+	endDate := time.Now().Format("2006-01-02")
+
+	content := readCLIFile(t, filepath.Join(vault, "A.md"))
+	if !strings.HasPrefix(content, "---\nreviewed: ") {
+		t.Fatalf("file content missing new frontmatter block:\n%s", content)
+	}
+	dateValue := strings.TrimPrefix(strings.Split(content, "\n")[1], "reviewed: ")
+	if dateValue != startDate && dateValue != endDate {
+		t.Fatalf("date = %q, want %q or %q", dateValue, startDate, endDate)
 	}
 }
 
@@ -1289,6 +1375,15 @@ func captureStdout(t *testing.T, fn func() error) string {
 		t.Fatalf("command failed: %v\noutput: %s", err, output.String())
 	}
 	return output.String()
+}
+
+func readCLIFile(t *testing.T, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(content)
 }
 
 // --- Search text CLI tests ---

@@ -120,7 +120,8 @@ func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, e
 	lines := strings.Split(text, "\n")
 	end := frontmatterEnd(lines)
 	if end < 0 {
-		return nil, false, fmt.Errorf("frontmatter not found")
+		newLines := append([]string{"---", key + ": " + formatSetYAMLValue(value), "---"}, lines...)
+		return []byte(strings.Join(newLines, "\n")), true, nil
 	}
 
 	yamlContent := strings.Join(lines[1:end], "\n")

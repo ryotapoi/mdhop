@@ -29,12 +29,12 @@
   - **確定仕様**: `--require` を明示指定した実行では profiles の require は無視して置換する（マージしない）。meta.types の型 / enum 検査は `--require` の有無に関わらず従来通り常に実行
   - **対処案**: `opts.Require` 非空なら `validateRequiredProfiles` を呼ばない。overview.md・`--help`・テスト（合算を検証している `TestMetaValidate_DeduplicatesCLIAndProfileRequire` は置換検証に差し替え）を同一コミットで更新
 
-- [ ] set: `--date <expr>` オプションを追加する（確定仕様 2026-07-04）
+- [x] set: `--date <expr>` オプションを追加する（確定仕様 2026-07-04）
   - **現状**: `--value` のみのリテラル書き込みで、usage に "relative dates are not expanded" と明記（`cmd/mdhop/usage.go:87`）
   - **確定仕様**: `--date <expr>` は search の相対日付構文（`today` / `today-90d` / `today+1y` 等）を YYYY-MM-DD に解決してから書き込む。`--value` と相互排他（両方指定・両方省略はエラー）
   - **対処案**: `expandRelativeDate`（`internal/core/where.go:539`）を set から再利用できる形にして実装。usage の "not expanded" 記述と overview.md も更新
 
-- [ ] set: frontmatter なしファイルでは frontmatter を自動作成する（確定仕様 2026-07-04）
+- [x] set: frontmatter なしファイルでは frontmatter を自動作成する（確定仕様 2026-07-04）
   - **現状**: `frontmatter not found` エラー（`internal/core/set.go:121-124`、`TestSetNoFrontmatterError`）
   - **確定仕様**: エラーにせず、ファイル先頭に `---` ブロックを新規作成してキーを書き込む
   - **対処案**: 先頭に `---` / `key: value` / `---` を挿入する分岐を追加。既存のエラー検証テストを自動作成検証に差し替え。overview.md も同期
