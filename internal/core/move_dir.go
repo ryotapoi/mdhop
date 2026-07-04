@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 )
 
+var moveRename = os.Rename
+
 // MoveDirOptions controls the directory move operation.
 type MoveDirOptions struct {
 	FromDir string // vault-relative directory prefix (e.g., "sub")
@@ -65,7 +67,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	return executeMoves(vaultPath, db, cfg, moves, diskOnlyFiles, needDiskMove)
 }
 
-func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, diskOnlyFiles []diskOnlyMove, needDiskMove bool) (*MoveDirResult, error) {
+func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, diskOnlyFiles []diskOnlyMove, needDiskMove bool) (result *MoveDirResult, err error) {
 	// Phase 1: build maps and adjust for post-move state.
 	dm, err := adjustMapsForDirMove(db, moves)
 	if err != nil {
@@ -99,19 +101,19 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	}
 
 	// Phase 4: disk operations.
-	result := &MoveDirResult{}
+	result = &MoveDirResult{}
 
 	// 4.1: apply external rewrites.
-	externalMtimes, externalBackups, err := groupAndApplyExternalRewrites(vaultPath, allExternalRewrites)
+	externalMtimes, externalBackups, externalRestoreFailures, err := groupAndApplyExternalRewrites(vaultPath, allExternalRewrites)
 	if err != nil {
-		return nil, err
+		return nil, wrapRollbackFailures(err, externalRestoreFailures)
 	}
 
 	// 4.2: apply outgoing rewrites to moved files.
-	movedFileBackups, err := applyMovedFileRewrites(vaultPath, moves, movedFileRewrites, needDiskMove)
+	movedFileBackups, movedFileRestoreFailures, err := applyMovedFileRewrites(vaultPath, moves, movedFileRewrites, needDiskMove)
 	if err != nil {
-		restoreBackups(vaultPath, externalBackups)
-		return nil, err
+		restoreFailures := append(movedFileRestoreFailures, restoreBackupFiles(vaultPath, externalBackups)...)
+		return nil, wrapRollbackFailures(err, restoreFailures)
 	}
 
 	// 4.3: disk moves (if needed).
@@ -126,15 +128,23 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 		if committed {
 			return
 		}
+		var rollbackFailures []rollbackFailure
 		// Rollback renames.
 		for j := len(completedRenames) - 1; j >= 0; j-- {
 			cr := completedRenames[j]
-			_ = os.Rename(filepath.Join(vaultPath, cr.to), filepath.Join(vaultPath, cr.from))
+			if renameErr := moveRename(filepath.Join(vaultPath, cr.to), filepath.Join(vaultPath, cr.from)); renameErr != nil {
+				rollbackFailures = append(rollbackFailures, rollbackFailure{
+					action: "move back",
+					path:   cr.to + " -> " + cr.from,
+					err:    renameErr,
+				})
+			}
 		}
 		// After rename rollback (if any), moved-file backups point at the
 		// original disk locations.
-		restoreBackups(vaultPath, movedFileBackups)
-		restoreBackups(vaultPath, externalBackups)
+		rollbackFailures = append(rollbackFailures, restoreBackupFiles(vaultPath, movedFileBackups)...)
+		rollbackFailures = append(rollbackFailures, restoreBackupFiles(vaultPath, externalBackups)...)
+		err = wrapRollbackFailures(err, rollbackFailures)
 	}()
 
 	if needDiskMove {
@@ -144,7 +154,7 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			if err := os.MkdirAll(toFileDir, 0o755); err != nil {
 				return nil, err
 			}
-			if err := os.Rename(filepath.Join(vaultPath, m.from), toFull); err != nil {
+			if err := moveRename(filepath.Join(vaultPath, m.from), toFull); err != nil {
 				return nil, err
 			}
 			completedRenames = append(completedRenames, completedRename{from: m.from, to: m.to})
@@ -156,7 +166,7 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			if err := os.MkdirAll(toFileDir, 0o755); err != nil {
 				return nil, err
 			}
-			if err := os.Rename(filepath.Join(vaultPath, df.from), toFull); err != nil {
+			if err := moveRename(filepath.Join(vaultPath, df.from), toFull); err != nil {
 				return nil, err
 			}
 			completedRenames = append(completedRenames, completedRename{from: df.from, to: df.to})

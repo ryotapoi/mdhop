@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,6 +32,15 @@ type rewriteBackup struct {
 	content []byte
 	perm    os.FileMode
 }
+
+type rollbackFailure struct {
+	action string
+	path   string
+	err    error
+}
+
+var rewriteWriteFile = writeFilePreservePerm
+var rollbackWriteFile = writeFilePreservePerm
 
 // rewriteEntry holds information needed to rewrite a single edge.
 type rewriteEntry struct {
@@ -148,14 +158,38 @@ func writeFilePreservePerm(path string, data []byte, perm os.FileMode) error {
 
 // restoreBackups restores files to their original content (best-effort).
 func restoreBackups(vaultPath string, backups []rewriteBackup) {
+	_ = restoreBackupFiles(vaultPath, backups)
+}
+
+func restoreBackupFiles(vaultPath string, backups []rewriteBackup) []rollbackFailure {
 	diskPaths := newVaultDiskPathResolver(vaultPath)
+	var failures []rollbackFailure
 	for _, fb := range backups {
 		fullPath, err := diskPaths.existingPath(fb.path)
 		if err != nil {
 			fullPath = filepath.Join(vaultPath, fb.path)
 		}
-		_ = writeFilePreservePerm(fullPath, fb.content, fb.perm)
+		if err := rollbackWriteFile(fullPath, fb.content, fb.perm); err != nil {
+			failures = append(failures, rollbackFailure{
+				action: "restore",
+				path:   fb.path,
+				err:    err,
+			})
+		}
 	}
+	return failures
+}
+
+func wrapRollbackFailures(primary error, failures []rollbackFailure) error {
+	if primary == nil || len(failures) == 0 {
+		return primary
+	}
+
+	parts := make([]string, 0, len(failures))
+	for _, failure := range failures {
+		parts = append(parts, fmt.Sprintf("could not %s %s: %v", failure.action, failure.path, failure.err))
+	}
+	return fmt.Errorf("%w; rollback failed: %s. Manually resolve vault state, then run `mdhop build` to rebuild the index", primary, strings.Join(parts, "; "))
 }
 
 // applyFileRewrites applies rewrite entries to source files on disk.
@@ -167,6 +201,11 @@ func restoreBackups(vaultPath string, backups []rewriteBackup) {
 // the caller discards the mtime map; callers that need per-file mtimes must set
 // sourceID to the real DB node ID.
 func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[int64]int64, []rewriteBackup, error) {
+	newMtimes, backups, _, err := applyFileRewritesWithRollbackFailures(vaultPath, groups)
+	return newMtimes, backups, err
+}
+
+func applyFileRewritesWithRollbackFailures(vaultPath string, groups map[string][]rewriteEntry) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {
 	newMtimes := make(map[int64]int64)
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 
@@ -177,17 +216,17 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 	for sourcePath := range groups {
 		fullPath, err := diskPaths.existingPath(sourcePath)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		fullPaths[sourcePath] = fullPath
 		info, err := os.Stat(fullPath)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		perms[sourcePath] = info.Mode().Perm()
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		originals[sourcePath] = content
 	}
@@ -195,14 +234,22 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 	// Phase 2: compute new content and write files.
 	var written []rewriteBackup
 
-	restore := func() {
+	restore := func() []rollbackFailure {
+		var failures []rollbackFailure
 		for _, fb := range written {
 			fullPath := fullPaths[fb.path]
 			if fullPath == "" {
 				fullPath = filepath.Join(vaultPath, fb.path)
 			}
-			_ = writeFilePreservePerm(fullPath, fb.content, fb.perm)
+			if err := rollbackWriteFile(fullPath, fb.content, fb.perm); err != nil {
+				failures = append(failures, rollbackFailure{
+					action: "restore",
+					path:   fb.path,
+					err:    err,
+				})
+			}
 		}
+		return failures
 	}
 
 	for sourcePath, entries := range groups {
@@ -228,23 +275,23 @@ func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[
 		}
 
 		newContent := []byte(strings.Join(lines, "\n"))
-		if err := writeFilePreservePerm(fullPath, newContent, perms[sourcePath]); err != nil {
-			restore()
-			return nil, nil, err
+		if err := rewriteWriteFile(fullPath, newContent, perms[sourcePath]); err != nil {
+			restoreFailures := restore()
+			return nil, nil, restoreFailures, err
 		}
 		written = append(written, rewriteBackup{path: sourcePath, content: original, perm: perms[sourcePath]})
 
 		// Collect new mtime.
 		info, err := os.Stat(fullPath)
 		if err != nil {
-			restore()
-			return nil, nil, err
+			restoreFailures := restore()
+			return nil, nil, restoreFailures, err
 		}
 		sourceID := entries[0].sourceID
 		newMtimes[sourceID] = info.ModTime().Unix()
 	}
 
-	return newMtimes, written, nil
+	return newMtimes, written, nil, nil
 }
 
 // isBasenameRawLink checks if a raw_link represents a basename link (no path separators).

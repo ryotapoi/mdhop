@@ -18,7 +18,7 @@ move 系の統合と信頼性改善。2026-07-03 maintenance audit の findings 
   - **症状**: `move.go:364-419` に 5 箇所、`move_dir.go:136-163` に 3 箇所、`writeFilePreservePerm` + `os.Rename` 巻き戻しの同型 inline パターンが反復。collateral 側は `restoreBackups()`（`rewrite.go:150`）に集約済みで 12 箇所から再利用されており非対称
   - **対処案**: `rewriteBackup` 型を流用して `restoreBackups` と同型のヘルパーに集約。rollback 仕様変更時の更新漏れ（部分ロールバックで vault 不整合）を防ぐ
 
-- [ ] rollback 失敗を返却エラーに含める（方針確定 2026-07-03）
+- [x] rollback 失敗を返却エラーに含める（方針確定 2026-07-03）
   - **症状**: move 系の `_ =` 13 箇所は意図的な best-effort だが、rollback 自体が失敗しても一切通知されない。rollback は常に一次エラーの経路でのみ走るため、Result に Warnings を足しても error return 時には出力されず伝わらない
   - **対処案**: 一次エラーに rollback 失敗の詳細（復元できなかったファイル一覧、`mdhop build` での復旧手順）を wrap して返す。best-effort 継続方針（rollback 失敗でも巻き戻しは続行）は維持する
 

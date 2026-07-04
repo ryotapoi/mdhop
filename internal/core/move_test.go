@@ -3159,6 +3159,137 @@ func TestMove_FrontmatterWikilink_RelativeLinkInMovedNote(t *testing.T) {
 	}
 }
 
+func TestMove_RollbackRestoreFailureIsReturned(t *testing.T) {
+	vault := newMoveVault(t, map[string]string{
+		"A.md":     "content\n",
+		"Other.md": "[[A]]\n",
+	})
+
+	oldRename := moveRename
+	moveRename = func(from, to string) error {
+		return errors.New("primary rename blocked")
+	}
+	t.Cleanup(func() { moveRename = oldRename })
+
+	oldRollbackWriteFile := rollbackWriteFile
+	rollbackWriteFile = func(path string, data []byte, perm os.FileMode) error {
+		if strings.HasSuffix(path, "Other.md") {
+			return errors.New("restore blocked")
+		}
+		return oldRollbackWriteFile(path, data, perm)
+	}
+	t.Cleanup(func() { rollbackWriteFile = oldRollbackWriteFile })
+
+	_, err := Move(vault, MoveOptions{From: "A.md", To: "X.md"})
+	if err == nil {
+		t.Fatal("expected move to fail")
+	}
+	msg := err.Error()
+	for _, want := range []string{
+		"primary rename blocked",
+		"rollback failed",
+		"could not restore Other.md",
+		"restore blocked",
+		"mdhop build",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("error missing %q:\n%s", want, msg)
+		}
+	}
+}
+
+func TestMove_ExternalRewriteRollbackFailureIsReturned(t *testing.T) {
+	vault := newMoveVault(t, map[string]string{
+		"A.md":   "content\n",
+		"One.md": "[[A]]\n",
+		"Two.md": "[[A]]\n",
+	})
+
+	oldRewriteWriteFile := rewriteWriteFile
+	var writeCalls int
+	rewriteWriteFile = func(path string, data []byte, perm os.FileMode) error {
+		writeCalls++
+		if writeCalls == 2 {
+			return errors.New("external rewrite blocked")
+		}
+		return oldRewriteWriteFile(path, data, perm)
+	}
+	t.Cleanup(func() { rewriteWriteFile = oldRewriteWriteFile })
+
+	oldRollbackWriteFile := rollbackWriteFile
+	rollbackWriteFile = func(path string, data []byte, perm os.FileMode) error {
+		return errors.New("restore blocked")
+	}
+	t.Cleanup(func() { rollbackWriteFile = oldRollbackWriteFile })
+
+	_, err := Move(vault, MoveOptions{From: "A.md", To: "X.md"})
+	if err == nil {
+		t.Fatal("expected move to fail")
+	}
+	msg := err.Error()
+	for _, want := range []string{
+		"external rewrite blocked",
+		"rollback failed",
+		"could not restore",
+		"restore blocked",
+		"mdhop build",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("error missing %q:\n%s", want, msg)
+		}
+	}
+}
+
+func TestMoveDir_RollbackRenameFailureIsReturned(t *testing.T) {
+	vault := newMoveVault(t, map[string]string{
+		"sub/A.md": "A\n",
+		"sub/B.md": "B\n",
+	})
+
+	oldRename := moveRename
+	var primaryMoves int
+	moveRename = func(from, to string) error {
+		fromRel, fromErr := filepath.Rel(vault, from)
+		toRel, toErr := filepath.Rel(vault, to)
+		if fromErr != nil || toErr != nil {
+			return oldRename(from, to)
+		}
+		fromRel = filepath.ToSlash(fromRel)
+		toRel = filepath.ToSlash(toRel)
+
+		if strings.HasPrefix(fromRel, "sub/") && strings.HasPrefix(toRel, "newdir/") {
+			primaryMoves++
+			if primaryMoves == 1 {
+				return oldRename(from, to)
+			}
+			return errors.New("primary rename blocked")
+		}
+		if strings.HasPrefix(fromRel, "newdir/") && strings.HasPrefix(toRel, "sub/") {
+			return errors.New("rollback rename blocked")
+		}
+		return oldRename(from, to)
+	}
+	t.Cleanup(func() { moveRename = oldRename })
+
+	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
+	if err == nil {
+		t.Fatal("expected move dir to fail")
+	}
+	msg := err.Error()
+	for _, want := range []string{
+		"primary rename blocked",
+		"rollback failed",
+		"could not move back newdir/",
+		" -> sub/",
+		"rollback rename blocked",
+		"mdhop build",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("error missing %q:\n%s", want, msg)
+		}
+	}
+}
+
 func newMoveVault(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()

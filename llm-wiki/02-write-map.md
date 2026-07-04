@@ -126,5 +126,5 @@ sources:
 
 - `rewriteBackup`（`rewrite.go:29`）: 書き換え前のファイル内容と permissions を保持
 - `restoreBackups`（`rewrite.go:150`）: best-effort でディスク書き換えを元に戻す
-- DB は `tx.Rollback()` を `defer` で保証。ディスクのロールバックは DB ロールバック `defer` の後に続けて呼ぶ（`add.go:290–303`、`move_dir.go:125–137`）。move の移動ファイル本体は `applyMovedFileRewrites`（`move_helpers.go:805`）が `rewriteBackup` を返し、`restoreBackups` で復元する
+- DB は `tx.Rollback()` を `defer` で保証。ディスクのロールバックは DB ロールバック `defer` の後に続けて呼ぶ（`add.go:290–303`、`move_dir.go:125–137`）。move の移動ファイル本体は `applyMovedFileRewrites`（`move_helpers.go:805`）が `rewriteBackup` を返し、失敗時は best-effort で復元する。move / move-dir は、ロールバック自体が失敗した場合でも残りのロールバックを続行し、返却エラーに復元・移動し戻しに失敗したファイルと `mdhop build` の復旧ヒントを含める
 - `build` は temp DB（`.mdhop/index.sqlite.tmp`）に全書き込み後 rename する。失敗時は temp ファイルを `defer os.Remove` で除去（`build.go:123–126`）

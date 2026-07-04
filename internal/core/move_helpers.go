@@ -771,15 +771,15 @@ func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to str
 
 // groupAndApplyExternalRewrites groups rewrites by source path and applies them.
 // Returns per-sourceID mtimes and backups for rollback.
-func groupAndApplyExternalRewrites(vaultPath string, rewrites []rewriteEntry) (map[int64]int64, []rewriteBackup, error) {
+func groupAndApplyExternalRewrites(vaultPath string, rewrites []rewriteEntry) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {
 	if len(rewrites) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	groups := make(map[string][]rewriteEntry)
 	for _, re := range rewrites {
 		groups[re.sourcePath] = append(groups[re.sourcePath], re)
 	}
-	return applyFileRewrites(vaultPath, groups)
+	return applyFileRewritesWithRollbackFailures(vaultPath, groups)
 }
 
 // applyOutgoingRewritesToContent applies outgoing rewrites to file content,
@@ -805,7 +805,7 @@ func applyOutgoingRewritesToContent(content []byte, rewrites []outgoingRewrite) 
 // applyMovedFileRewrites writes outgoing rewrites to moved files and returns
 // backups for later rollback. On write failure, already-written moved files are
 // restored best-effort.
-func applyMovedFileRewrites(vaultPath string, moves []moveInfo, movedFileRewrites []movedFileRewrite, needDiskMove bool) ([]rewriteBackup, error) {
+func applyMovedFileRewrites(vaultPath string, moves []moveInfo, movedFileRewrites []movedFileRewrite, needDiskMove bool) ([]rewriteBackup, []rollbackFailure, error) {
 	var backups []rewriteBackup
 	for i, mfr := range movedFileRewrites {
 		if len(mfr.outRewrites) == 0 {
@@ -822,12 +822,12 @@ func applyMovedFileRewrites(vaultPath string, moves []moveInfo, movedFileRewrite
 
 		fullPath := filepath.Join(vaultPath, diskPath)
 		if err := writeFilePreservePerm(fullPath, newContent, mfr.perm); err != nil {
-			restoreBackups(vaultPath, backups)
-			return backups, err
+			restoreFailures := restoreBackupFiles(vaultPath, backups)
+			return backups, restoreFailures, err
 		}
 		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.content, perm: mfr.perm})
 	}
-	return backups, nil
+	return backups, nil, nil
 }
 
 // updateExternalEdgesAndMtimes updates edge raw_links and source node mtimes
