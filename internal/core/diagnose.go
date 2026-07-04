@@ -17,6 +17,16 @@ type DiagnoseOptions struct {
 	Exclude []string // exclude globs
 }
 
+// Diagnose field names accepted by DiagnoseOptions.Fields and the diagnose
+// --fields CLI flag.
+const (
+	FieldDiagnoseBasenameConflicts      = "basename_conflicts"
+	FieldDiagnoseAssetBasenameConflicts = "asset_basename_conflicts"
+	FieldDiagnosePhantoms               = "phantoms"
+	FieldDiagnoseAnchors                = "anchors"
+	FieldDiagnoseBrokenAnchors          = "broken_anchors"
+)
+
 // sourceFiltered reports whether a source note filter is in effect.
 func (o DiagnoseOptions) sourceFiltered() bool {
 	return len(o.Path) > 0 || len(o.Exclude) > 0
@@ -270,8 +280,8 @@ func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
 
 	result := &DiagnoseResult{}
 
-	wantNoteConflicts := isFieldActive("basename_conflicts", opts.Fields)
-	wantAssetConflicts := isFieldActive("asset_basename_conflicts", opts.Fields)
+	wantNoteConflicts := isFieldActive(FieldDiagnoseBasenameConflicts, opts.Fields)
+	wantAssetConflicts := isFieldActive(FieldDiagnoseAssetBasenameConflicts, opts.Fields)
 
 	// allowed stays nil without a source filter (= report all conflict groups).
 	var allowed map[int64]bool
@@ -296,7 +306,7 @@ func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
 		}
 	}
 
-	if isFieldActive("phantoms", opts.Fields) {
+	if isFieldActive(FieldDiagnosePhantoms, opts.Fields) {
 		result.Phantoms, err = phantomNames(db, opts)
 		if err != nil {
 			return nil, err
@@ -304,7 +314,7 @@ func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
 	}
 
 	// Anchor checking is opt-in: only when "anchors" is explicitly requested.
-	if isFieldActive("anchors", opts.Fields) && len(opts.Fields) > 0 {
+	if isFieldActive(FieldDiagnoseAnchors, opts.Fields) && len(opts.Fields) > 0 {
 		result.BrokenAnchors, err = brokenAnchors(db, vaultPath, opts)
 		if err != nil {
 			return nil, err

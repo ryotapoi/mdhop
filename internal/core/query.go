@@ -32,6 +32,18 @@ type QueryOptions struct {
 	Path []string
 }
 
+// Query field names accepted by QueryOptions.Fields and the query --fields
+// CLI flag.
+const (
+	FieldQueryBacklinks = "backlinks"
+	FieldQueryTags      = "tags"
+	FieldQueryTwoHop    = "twohop"
+	FieldQueryOutgoing  = "outgoing"
+	FieldQueryHead      = "head"
+	FieldQuerySnippet   = "snippet"
+	FieldQueryMeta      = "meta"
+)
+
 // NodeInfo describes a node in the graph.
 type NodeInfo struct {
 	Type   NodeType
@@ -122,7 +134,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	ef := opts.Exclude
 	wc := opts.Where
 
-	if isFieldActive("backlinks", opts.Fields) {
+	if isFieldActive(FieldQueryBacklinks, opts.Fields) {
 		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef, wc, opts.Path)
 		if err != nil {
 			return nil, err
@@ -130,7 +142,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		result.Backlinks = bl
 	}
 
-	if isFieldActive("outgoing", opts.Fields) {
+	if isFieldActive(FieldQueryOutgoing, opts.Fields) {
 		if info.Type == NodeTypeNote {
 			og, err := queryOutgoing(db, nodeID, ef, wc, opts.Path)
 			if err != nil {
@@ -140,7 +152,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		}
 	}
 
-	if isFieldActive("tags", opts.Fields) {
+	if isFieldActive(FieldQueryTags, opts.Fields) {
 		if info.Type == NodeTypeNote {
 			tags, err := queryTags(db, nodeID, ef)
 			if err != nil {
@@ -150,7 +162,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		}
 	}
 
-	if isFieldActive("twohop", opts.Fields) {
+	if isFieldActive(FieldQueryTwoHop, opts.Fields) {
 		th, err := queryTwoHop(db, nodeID, info.Type, opts.MaxTwoHop, opts.MaxViaPerTarget, ef, wc, opts.Path)
 		if err != nil {
 			return nil, err
@@ -158,7 +170,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		result.TwoHop = th
 	}
 
-	if isFieldActive("head", opts.Fields) && opts.IncludeHead > 0 {
+	if isFieldActive(FieldQueryHead, opts.Fields) && opts.IncludeHead > 0 {
 		if info.Type == NodeTypeNote && info.Exists {
 			head, err := readHead(db, vaultPath, nodeID, opts.IncludeHead)
 			if err != nil {
@@ -168,7 +180,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		}
 	}
 
-	if isFieldActive("snippet", opts.Fields) && opts.IncludeSnippet > 0 {
+	if isFieldActive(FieldQuerySnippet, opts.Fields) && opts.IncludeSnippet > 0 {
 		snippets, err := readSnippets(db, vaultPath, nodeID, opts.IncludeSnippet, ef, opts.Path)
 		if err != nil {
 			return nil, err
@@ -176,7 +188,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		result.Snippets = snippets
 	}
 
-	if isFieldActive("meta", opts.Fields) && len(opts.Fields) > 0 {
+	if isFieldActive(FieldQueryMeta, opts.Fields) && len(opts.Fields) > 0 {
 		meta, err := queryMetaByNode(db, nodeID)
 		if err != nil {
 			return nil, err

@@ -9,17 +9,17 @@ import (
 )
 
 var validDiagnoseFieldsCLI = map[string]bool{
-	"basename_conflicts":       true,
-	"asset_basename_conflicts": true,
-	"phantoms":                 true,
-	"anchors":                  true,
+	core.FieldDiagnoseBasenameConflicts:      true,
+	core.FieldDiagnoseAssetBasenameConflicts: true,
+	core.FieldDiagnosePhantoms:               true,
+	core.FieldDiagnoseAnchors:                true,
 }
 
 // anchorsRequested reports whether anchor checking was explicitly requested.
 // Unlike the other fields, anchors is opt-in (not shown when --fields is
 // omitted) because it reads target notes from disk.
 func anchorsRequested(fields []string) bool {
-	return slices.Contains(fields, "anchors")
+	return slices.Contains(fields, core.FieldDiagnoseAnchors)
 }
 
 type diagnoseJSONConflict struct {
@@ -37,25 +37,25 @@ type diagnoseJSONBrokenAnchor struct {
 func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) error {
 	show := fieldSet(fields, validDiagnoseFieldsCLI)
 	m := make(map[string]any)
-	if show["basename_conflicts"] {
+	if show[core.FieldDiagnoseBasenameConflicts] {
 		conflicts := make([]diagnoseJSONConflict, len(r.BasenameConflicts))
 		for i, c := range r.BasenameConflicts {
 			conflicts[i] = diagnoseJSONConflict{Name: c.Name, Paths: c.Paths}
 		}
-		m["basename_conflicts"] = conflicts
+		m[core.FieldDiagnoseBasenameConflicts] = conflicts
 	}
-	if show["asset_basename_conflicts"] {
+	if show[core.FieldDiagnoseAssetBasenameConflicts] {
 		conflicts := make([]diagnoseJSONConflict, len(r.AssetBasenameConflicts))
 		for i, c := range r.AssetBasenameConflicts {
 			conflicts[i] = diagnoseJSONConflict{Name: c.Name, Paths: c.Paths}
 		}
-		m["asset_basename_conflicts"] = conflicts
+		m[core.FieldDiagnoseAssetBasenameConflicts] = conflicts
 	}
-	if show["phantoms"] {
+	if show[core.FieldDiagnosePhantoms] {
 		if r.Phantoms != nil {
-			m["phantoms"] = r.Phantoms
+			m[core.FieldDiagnosePhantoms] = r.Phantoms
 		} else {
-			m["phantoms"] = []string{}
+			m[core.FieldDiagnosePhantoms] = []string{}
 		}
 	}
 	if anchorsRequested(fields) {
@@ -68,15 +68,15 @@ func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) err
 				Fragment:   a.Fragment,
 			}
 		}
-		m["broken_anchors"] = anchors
+		m[core.FieldDiagnoseBrokenAnchors] = anchors
 	}
 	return encodeJSON(w, m)
 }
 
 func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) error {
 	show := fieldSet(fields, validDiagnoseFieldsCLI)
-	if show["basename_conflicts"] && len(r.BasenameConflicts) > 0 {
-		fmt.Fprintln(w, "basename_conflicts:")
+	if show[core.FieldDiagnoseBasenameConflicts] && len(r.BasenameConflicts) > 0 {
+		fmt.Fprintf(w, "%s:\n", core.FieldDiagnoseBasenameConflicts)
 		for _, c := range r.BasenameConflicts {
 			fmt.Fprintf(w, "- name: %s\n", c.Name)
 			fmt.Fprintln(w, "  paths:")
@@ -85,8 +85,8 @@ func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) err
 			}
 		}
 	}
-	if show["asset_basename_conflicts"] && len(r.AssetBasenameConflicts) > 0 {
-		fmt.Fprintln(w, "asset_basename_conflicts:")
+	if show[core.FieldDiagnoseAssetBasenameConflicts] && len(r.AssetBasenameConflicts) > 0 {
+		fmt.Fprintf(w, "%s:\n", core.FieldDiagnoseAssetBasenameConflicts)
 		for _, c := range r.AssetBasenameConflicts {
 			fmt.Fprintf(w, "- name: %s\n", c.Name)
 			fmt.Fprintln(w, "  paths:")
@@ -95,14 +95,14 @@ func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) err
 			}
 		}
 	}
-	if show["phantoms"] && len(r.Phantoms) > 0 {
-		fmt.Fprintln(w, "phantoms:")
+	if show[core.FieldDiagnosePhantoms] && len(r.Phantoms) > 0 {
+		fmt.Fprintf(w, "%s:\n", core.FieldDiagnosePhantoms)
 		for _, name := range r.Phantoms {
 			fmt.Fprintf(w, "- %s\n", name)
 		}
 	}
 	if anchorsRequested(fields) && len(r.BrokenAnchors) > 0 {
-		fmt.Fprintln(w, "broken_anchors:")
+		fmt.Fprintf(w, "%s:\n", core.FieldDiagnoseBrokenAnchors)
 		for _, a := range r.BrokenAnchors {
 			fmt.Fprintf(w, "- source_path: %s\n", a.SourcePath)
 			fmt.Fprintf(w, "  raw_link: %q\n", a.RawLink)

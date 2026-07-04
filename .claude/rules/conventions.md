@@ -22,6 +22,7 @@ paths:
 
 - resolve/stats/diagnose/query の field validation は CLI 層（`cmd/mdhop/*.go`）で DB オープン前に実行する
 - `parseFields`, `validateFormat`, `validateFields` (`format.go`) を使用
+- query/stats/diagnose のフィールド名は `internal/core` の定数を参照し、core 分岐・cmd validation・format 出力キーの生文字列重複を避ける
 
 ## CLI テスト規約
 

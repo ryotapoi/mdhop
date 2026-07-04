@@ -5,6 +5,17 @@ type StatsOptions struct {
 	Fields []string // nil/empty = all
 }
 
+// Stats field names accepted by StatsOptions.Fields and the stats --fields
+// CLI flag.
+const (
+	FieldStatsNotesTotal    = "notes_total"
+	FieldStatsNotesExists   = "notes_exists"
+	FieldStatsEdgesTotal    = "edges_total"
+	FieldStatsTagsTotal     = "tags_total"
+	FieldStatsPhantomsTotal = "phantoms_total"
+	FieldStatsAssetsTotal   = "assets_total"
+)
+
 // StatsResult contains vault statistics.
 type StatsResult struct {
 	NotesTotal    int
@@ -25,37 +36,37 @@ func Stats(vaultPath string, opts StatsOptions) (*StatsResult, error) {
 
 	result := &StatsResult{}
 
-	if isFieldActive("notes_total", opts.Fields) {
+	if isFieldActive(FieldStatsNotesTotal, opts.Fields) {
 		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='note'`).Scan(&result.NotesTotal); err != nil {
 			return nil, err
 		}
 	}
 
-	if isFieldActive("notes_exists", opts.Fields) {
+	if isFieldActive(FieldStatsNotesExists, opts.Fields) {
 		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='note' AND exists_flag=1`).Scan(&result.NotesExists); err != nil {
 			return nil, err
 		}
 	}
 
-	if isFieldActive("edges_total", opts.Fields) {
+	if isFieldActive(FieldStatsEdgesTotal, opts.Fields) {
 		if err := db.QueryRow(`SELECT COUNT(*) FROM edges`).Scan(&result.EdgesTotal); err != nil {
 			return nil, err
 		}
 	}
 
-	if isFieldActive("tags_total", opts.Fields) {
+	if isFieldActive(FieldStatsTagsTotal, opts.Fields) {
 		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='tag'`).Scan(&result.TagsTotal); err != nil {
 			return nil, err
 		}
 	}
 
-	if isFieldActive("phantoms_total", opts.Fields) {
+	if isFieldActive(FieldStatsPhantomsTotal, opts.Fields) {
 		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='phantom'`).Scan(&result.PhantomsTotal); err != nil {
 			return nil, err
 		}
 	}
 
-	if isFieldActive("assets_total", opts.Fields) {
+	if isFieldActive(FieldStatsAssetsTotal, opts.Fields) {
 		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='asset'`).Scan(&result.AssetsTotal); err != nil {
 			return nil, err
 		}

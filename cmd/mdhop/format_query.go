@@ -8,13 +8,13 @@ import (
 )
 
 var validQueryFieldsCLI = map[string]bool{
-	"backlinks": true,
-	"tags":      true,
-	"twohop":    true,
-	"outgoing":  true,
-	"head":      true,
-	"snippet":   true,
-	"meta":      true,
+	core.FieldQueryBacklinks: true,
+	core.FieldQueryTags:      true,
+	core.FieldQueryTwoHop:    true,
+	core.FieldQueryOutgoing:  true,
+	core.FieldQueryHead:      true,
+	core.FieldQuerySnippet:   true,
+	core.FieldQueryMeta:      true,
 }
 
 // queryJSONOutput is the JSON-serializable form of QueryResult.
@@ -103,28 +103,28 @@ func printQueryText(w io.Writer, r *core.QueryResult) error {
 	writeNodeInfoText(w, r.Entry, "  ", "  ")
 
 	if r.Backlinks != nil {
-		fmt.Fprintln(w, "backlinks:")
+		fmt.Fprintf(w, "%s:\n", core.FieldQueryBacklinks)
 		for _, n := range r.Backlinks {
 			writeNodeInfoText(w, n, "- ", "  ")
 		}
 	}
 
 	if r.Outgoing != nil {
-		fmt.Fprintln(w, "outgoing:")
+		fmt.Fprintf(w, "%s:\n", core.FieldQueryOutgoing)
 		for _, n := range r.Outgoing {
 			writeNodeInfoText(w, n, "- ", "  ")
 		}
 	}
 
 	if r.Tags != nil {
-		fmt.Fprintln(w, "tags:")
+		fmt.Fprintf(w, "%s:\n", core.FieldQueryTags)
 		for _, t := range r.Tags {
 			fmt.Fprintf(w, "- %s\n", t)
 		}
 	}
 
 	if r.TwoHop != nil {
-		fmt.Fprintln(w, "twohop:")
+		fmt.Fprintf(w, "%s:\n", core.FieldQueryTwoHop)
 		for _, th := range r.TwoHop {
 			fmt.Fprintf(w, "- via: %s\n", nodeInfoOneLine(th.Via))
 			fmt.Fprintln(w, "  targets:")
@@ -135,14 +135,14 @@ func printQueryText(w io.Writer, r *core.QueryResult) error {
 	}
 
 	if r.Head != nil {
-		fmt.Fprintln(w, "head:")
+		fmt.Fprintf(w, "%s:\n", core.FieldQueryHead)
 		for _, line := range r.Head {
 			fmt.Fprintf(w, "- %q\n", line)
 		}
 	}
 
 	if r.Snippets != nil {
-		fmt.Fprintln(w, "snippet:")
+		fmt.Fprintf(w, "%s:\n", core.FieldQuerySnippet)
 		for _, s := range r.Snippets {
 			fmt.Fprintf(w, "- source: %s\n", s.SourcePath)
 			fmt.Fprintf(w, "  lines: %d-%d\n", s.LineStart, s.LineEnd)
@@ -154,7 +154,7 @@ func printQueryText(w io.Writer, r *core.QueryResult) error {
 	}
 
 	if r.Meta != nil && len(r.Meta) > 0 {
-		fmt.Fprintln(w, "meta:")
+		fmt.Fprintf(w, "%s:\n", core.FieldQueryMeta)
 		for _, m := range r.Meta {
 			fmt.Fprintf(w, "- %s: %s\n", m.Key, m.Value)
 		}

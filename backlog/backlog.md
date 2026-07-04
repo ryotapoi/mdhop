@@ -16,7 +16,7 @@
   - **症状**: `build.go:214-283`（インメモリ resolveMaps 版）と `resolve.go:82-140`（DB クエリ版）が "Mirrors" コメント付きで判定分岐の順序・条件式まで複製（分岐数・順序は完全一致）。解決ルール変更時に resolve.go 側が漏れると `mdhop resolve` の答えとインデックス構築結果が矛盾する
   - **対処案**: 判定分岐を 1 実装に統合し、basename 解決ステップだけ interface に切り出す（build = map 実装 / resolve = DB クエリ実装）。曖昧時の仕様差（build は phantom フォールスルー / resolve は `ErrAmbiguousLink`）は resolver 実装差として吸収し、外部挙動は変えない
 
-- [ ] query/diagnose/stats のフィールド名を core 定数化する（search 方式に統一）
+- [x] query/diagnose/stats のフィールド名を core 定数化する（search 方式に統一）
   - **症状**: search のみ Go 定数（`search.go:42-44` → `format_search.go:14-16`）でコンパイラチェックが効き、query（`query.go:119-173` / `format_query.go:10-18`）・diagnose・stats は生文字列を core 分岐 / cmd validation map / format 出力キーの 2〜3 箇所で手動同期している。変更漏れは「無効フィールドが黙って無視される」形で実行時にしか出ない
   - **対処案**: 各コマンドのフィールド名を core 定数として定義し cmd 側から参照。`.claude/rules/conventions.md` に「フィールド名は core 定数を参照する」規約を明記
 
