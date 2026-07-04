@@ -44,6 +44,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `build` | Vault 全体を解析しインデックスを作成 |
 | `add` | 新規ファイルをインデックスに追加 |
 | `update` | 既存ファイルのインデックスを更新 |
+| `set` | frontmatter の単一 key を設定しインデックスを更新 |
 | `delete` | ファイルをインデックスから削除 |
 | `move` | ファイル移動を反映しリンクを更新 |
 | `disambiguate` | 曖昧な basename リンクをフルパスに書き換え |
@@ -67,37 +68,12 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 
 ## Agent Skill の例
 
-最新の Codex / Claude 形式の skill 例は [`examples/skills/mdhop`](examples/skills/mdhop) にある。構造的なノート探索、メタデータフィルタ、Vault 全体検索、ファイル操作 workflow をまとめている。
-
-最近追加された例（path filter、到達性チェック、グラフ出力、frontmatter 検査、範囲指定 repair）:
+最新の Codex / Claude 形式の skill 例は [`examples/skills/mdhop`](examples/skills/mdhop) にある。適切なコマンドを選ぶための薄い agent 入口で、正確なフラグ・出力フィールド・例は `mdhop <command> --help` に寄せている。
 
 ```bash
-# frontmatter key を持たないノート
-mdhop search --where "priority NOT EXISTS" --format json
-
-# 相対日付比較で更新の古いノート（stale 候補）
-mdhop search --where "updated<today-90d" --format json
-
-# 行数が多い順。computed fields と meta key を出力
-mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
-
-# 見出し anchor 切れ検出を有効化（--fields anchors は anchors のみ出力）
-mdhop diagnose --path "projects/*" --fields anchors --format json
-
-# frontmatter の参照値が解決するかを検査（末尾 / のディレクトリ参照も対応）
-mdhop meta-check --key sources --kind path --format json
-
-# 指定範囲の source note だけを repair 対象として preview
-mdhop repair --path "docs/*" --dry-run --format json
-
-# frontmatter が schema に準拠するかを検査
-mdhop meta-validate --require status --require updated --format json
-
-# 入口 note から到達できる / できない note と最短経路
-mdhop reachable --from index.md --path "docs/*" --route --format json
-
-# 可視化用にリンクグラフを出力
-mdhop graph --path "docs/*" --format dot
+mdhop stats --format json
+mdhop search --where "status=active" --fields meta --format json
+mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
 ```
 
 ## 設定（mdhop.yaml）

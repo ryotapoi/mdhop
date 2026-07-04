@@ -46,6 +46,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `build` | Parse the entire vault and create the index |
 | `add` | Add new files to the index |
 | `update` | Update existing files in the index |
+| `set` | Set one frontmatter key and update the index |
 | `delete` | Remove files from the index |
 | `move` | Reflect file moves and update links |
 | `disambiguate` | Rewrite ambiguous basename links to full paths |
@@ -69,37 +70,12 @@ Run `mdhop <command> --help` for command-specific details.
 
 ## Agent Skill Example
 
-An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdhop`](examples/skills/mdhop). It covers structural note navigation, metadata filtering, vault-wide search, and file operation workflows.
-
-Recent examples (path filters, reachability, graph export, frontmatter checks, scoped repair):
+An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdhop`](examples/skills/mdhop). It is a thin agent entry point for choosing the right command and then relying on `mdhop <command> --help` for exact flags, output fields, and examples.
 
 ```bash
-# Notes missing a frontmatter key
-mdhop search --where "priority NOT EXISTS" --format json
-
-# Stale notes via relative date comparison
-mdhop search --where "updated<today-90d" --format json
-
-# Biggest notes by line count, with computed fields and a meta key
-mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
-
-# Opt in to broken heading anchor detection (only anchors with --fields anchors)
-mdhop diagnose --path "projects/*" --fields anchors --format json
-
-# Check that frontmatter reference values resolve, including directory values ending in /
-mdhop meta-check --key sources --kind path --format json
-
-# Preview repair only for a scoped source-note set
-mdhop repair --path "docs/*" --dry-run --format json
-
-# Check that frontmatter conforms to the schema
-mdhop meta-validate --require status --require updated --format json
-
-# Notes reachable / unreachable from an entry note, with shortest routes
-mdhop reachable --from index.md --path "docs/*" --route --format json
-
-# Export the link graph for visualization
-mdhop graph --path "docs/*" --format dot
+mdhop stats --format json
+mdhop search --where "status=active" --fields meta --format json
+mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
 ```
 
 ## Configuration (mdhop.yaml)
