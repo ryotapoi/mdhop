@@ -44,7 +44,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `build` | Vault 全体を解析しインデックスを作成 |
 | `add` | 新規ファイルをインデックスに追加 |
 | `update` | 既存ファイルのインデックスを更新 |
-| `set` | frontmatter の単一 key を設定しインデックスを更新 |
+| `set` | frontmatter の単一 key または相対日付を設定しインデックスを更新 |
 | `delete` | ファイルをインデックスから削除 |
 | `move` | ファイル移動を反映しリンクを更新（frontmatter 由来の移動先テンプレートにも対応） |
 | `disambiguate` | 曖昧な basename リンクをフルパスに書き換え |
@@ -59,7 +59,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `stats` | ノート数・リンク数などの統計情報 |
 | `diagnose` | basename 衝突・phantom ノード・見出し anchor 切れの検出 |
 | `meta-check` | frontmatter の path / wikilink 値が実在する対象に解決するか検査 |
-| `meta-validate` | frontmatter を必須 key と `meta.types` 宣言に照らして検査 |
+| `meta-validate` | frontmatter を必須 key・profiles・`meta.types` 宣言に照らして検査 |
 | `init-meta` | `mdhop.yaml` の frontmatter 型定義を生成 |
 
 共通オプション: `--vault <path>`（省略時はカレントディレクトリ）、`--format json|text`、`--fields <comma-separated>`
@@ -72,9 +72,10 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 
 ```bash
 mdhop stats --format json
-mdhop search --where "status=active" --fields meta --format json
+mdhop search --where "status=active || status=review" --fields meta --format json
 mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
-mdhop move --from Notes/Project.md --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}" --format json
+mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
+mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 ```
 
 ## 設定（mdhop.yaml）

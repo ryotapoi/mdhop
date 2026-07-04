@@ -16,7 +16,7 @@ mdhop resolve --help
 
 ## Vault-Wide Search
 
-- `mdhop search`: find existing notes without an entry node. Use for frontmatter filters, path filters, sort/page workflows, computed fields, samples, and count-only checks.
+- `mdhop search`: find existing notes without an entry node. Use for frontmatter filters, including `&&` and `||` expressions, path filters, sort/page workflows, computed fields, samples, and count-only checks.
 
 Use `search` instead of `query` when the task starts from a condition rather than a known note/tag/phantom.
 

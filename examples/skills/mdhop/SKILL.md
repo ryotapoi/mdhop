@@ -24,7 +24,7 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 ```bash
 mdhop stats --format json
 mdhop diagnose --format json
-mdhop search --where "status=active" --fields meta --format json
+mdhop search --where "status=active || status=review" --fields meta --format json
 mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
 ```
 
@@ -36,6 +36,7 @@ Use `mdhop search` when there is no single entry note and you want notes by fron
 
 ```bash
 mdhop search --where "status=active" --fields meta --format json
+mdhop search --where "status=active || status=review" --fields meta --format json
 mdhop search --where "updated<today-90d" --count --format json
 ```
 
@@ -94,8 +95,10 @@ mdhop build
 mdhop add --file Notes/NewNote.md --format json
 mdhop update --file Notes/Design.md --format json
 mdhop set --file Notes/Design.md --key reviewed --value 2026-07-04 --format json
+mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
 mdhop move --from Notes/Old.md --to Notes/New.md --format json
 mdhop move --from Notes/Project.md --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}" --format json
+mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 mdhop delete --file Notes/Obsolete.md --rm --format json
 ```
 

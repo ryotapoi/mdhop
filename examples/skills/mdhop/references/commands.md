@@ -7,7 +7,7 @@ This file is a thin orientation guide for commands that build or mutate the inde
 - `mdhop build`: create or rebuild the vault index. Use before query/search workflows or after scan-based rewrite commands.
 - `mdhop add`: register newly written files. Use after creating files, not before their content is final.
 - `mdhop update`: refresh registered files after editing. Use when file contents changed and the index must match disk.
-- `mdhop set`: update one frontmatter key in one file and refresh the index. Use instead of hand-editing a single scalar metadata value.
+- `mdhop set`: update one frontmatter key in one file and refresh the index. Use `--date <expr>` for relative dates such as `today-90d`; use it instead of hand-editing a single scalar metadata value.
 
 Help:
 
@@ -20,7 +20,7 @@ mdhop set --help
 
 ## File-Safe Mutations
 
-- `mdhop move`: move or rename a registered file or directory while preserving link meaning. Single-note moves can use `--to-template` to expand the destination from indexed frontmatter.
+- `mdhop move`: move or rename a registered file or directory while preserving link meaning. Note moves can use `--to-template` to expand the destination from indexed frontmatter, including directory dry-run planning.
 - `mdhop delete`: remove registered files from the index, optionally from disk with `--rm`.
 
 Use these instead of raw `mv` or `rm` for indexed vault content. Check help before destructive operations.

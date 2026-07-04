@@ -46,7 +46,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `build` | Parse the entire vault and create the index |
 | `add` | Add new files to the index |
 | `update` | Update existing files in the index |
-| `set` | Set one frontmatter key and update the index |
+| `set` | Set one frontmatter key or relative date and update the index |
 | `delete` | Remove files from the index |
 | `move` | Reflect file moves and update links, including frontmatter-based destination templates |
 | `disambiguate` | Rewrite ambiguous basename links to full paths |
@@ -61,7 +61,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `stats` | Show vault statistics (note count, link count, etc.) |
 | `diagnose` | Detect basename conflicts, phantom nodes, and broken heading anchors |
 | `meta-check` | Check that frontmatter path/wikilink values resolve to real targets |
-| `meta-validate` | Check frontmatter against required keys and declared `meta.types` |
+| `meta-validate` | Check frontmatter against required keys, profiles, and declared `meta.types` |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.yaml` |
 
 Common options: `--vault <path>` (defaults to current directory), `--format json|text`, `--fields <comma-separated>`
@@ -74,9 +74,10 @@ An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdho
 
 ```bash
 mdhop stats --format json
-mdhop search --where "status=active" --fields meta --format json
+mdhop search --where "status=active || status=review" --fields meta --format json
 mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
-mdhop move --from Notes/Project.md --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}" --format json
+mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
+mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 ```
 
 ## Configuration (mdhop.yaml)
