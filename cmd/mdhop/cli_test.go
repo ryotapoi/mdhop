@@ -602,11 +602,10 @@ func TestRunMove_ToTemplateFlagConflicts(t *testing.T) {
 	}
 }
 
-func TestRunMove_ToTemplateDirectoryModeRejected(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_delete_dir")
-	err := runMove([]string{"--vault", vault, "--from", "sub/", "--to-template", "archive/{basename}.md"})
-	if err == nil || !strings.Contains(err.Error(), "cannot be used for directory moves") {
-		t.Errorf("expected directory mode error, got: %v", err)
+func TestRunMove_DryRunRequiresToTemplate(t *testing.T) {
+	err := runMove([]string{"--from", "A.md", "--to", "B.md", "--dry-run"})
+	if err == nil || !strings.Contains(err.Error(), "only supported with --to-template") {
+		t.Errorf("expected dry-run to-template error, got: %v", err)
 	}
 }
 
@@ -675,6 +674,165 @@ func TestRunMove_ToTemplateIntegration(t *testing.T) {
 	}
 	if got.From != "Projects/Alpha.v1.md" || got.To != wantTo {
 		t.Fatalf("output = %+v, want from Projects/Alpha.v1.md to %s", got, wantTo)
+	}
+}
+
+func TestRunMove_ToTemplateDryRun(t *testing.T) {
+	vault := t.TempDir()
+	projectPath := filepath.Join(vault, "Projects", "Alpha.v1.md")
+	if err := os.MkdirAll(filepath.Dir(projectPath), 0o755); err != nil {
+		t.Fatalf("mkdir project dir: %v", err)
+	}
+	if err := os.WriteFile(projectPath, []byte("---\nclient: Acme\nupdated: 2026-07-04\n---\n# Alpha\n"), 0o644); err != nil {
+		t.Fatalf("write project note: %v", err)
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runMove([]string{
+			"--vault", vault,
+			"--from", "Projects/Alpha.v1.md",
+			"--to-template", "99-Archive/{updated:year}/{basename}",
+			"--dry-run",
+			"--format", "json",
+		})
+	})
+
+	wantTo := "99-Archive/2026/Alpha.v1.md"
+	var got struct {
+		From      string `json:"from"`
+		To        string `json:"to"`
+		Rewritten []any  `json:"rewritten"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("unmarshal move output: %v\n%s", err, out)
+	}
+	if got.From != "Projects/Alpha.v1.md" || got.To != wantTo || got.Rewritten == nil {
+		t.Fatalf("output = %+v, want dry-run plan to %s with rewritten []", got, wantTo)
+	}
+	if _, err := os.Stat(projectPath); err != nil {
+		t.Fatalf("source should remain after dry-run: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(vault, wantTo)); !os.IsNotExist(err) {
+		t.Fatalf("destination should not exist after dry-run, err=%v", err)
+	}
+	if _, err := core.Query(vault, core.EntrySpec{File: "Projects/Alpha.v1.md"}, core.QueryOptions{}); err != nil {
+		t.Fatalf("source should remain in DB after dry-run: %v", err)
+	}
+}
+
+func TestRunMove_ToTemplateDirModeDryRun(t *testing.T) {
+	vault := t.TempDir()
+	files := map[string]string{
+		"src/A.md": "---\nclient: Acme\n---\n# A\n",
+		"src/B.md": "---\nclient: Beta\n---\n# B\n",
+	}
+	for name, content := range files {
+		full := filepath.Join(vault, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", name, err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runMove([]string{
+			"--vault", vault,
+			"--from", "src/",
+			"--to-template", "archive/{client}/{basename}",
+			"--dry-run",
+			"--format", "json",
+		})
+	})
+
+	var got struct {
+		Moved []struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+		} `json:"moved"`
+		Rewritten []any `json:"rewritten"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("unmarshal move output: %v\n%s", err, out)
+	}
+	wantMoved := []struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}{
+		{From: "src/A.md", To: "archive/Acme/A.md"},
+		{From: "src/B.md", To: "archive/Beta/B.md"},
+	}
+	if !reflect.DeepEqual(got.Moved, wantMoved) || got.Rewritten == nil {
+		t.Fatalf("output moved = %+v, rewritten=%v", got.Moved, got.Rewritten)
+	}
+	for name := range files {
+		if _, err := os.Stat(filepath.Join(vault, filepath.FromSlash(name))); err != nil {
+			t.Fatalf("%s should remain after dry-run: %v", name, err)
+		}
+	}
+}
+
+func TestRunMove_ToTemplateDirModeIntegration(t *testing.T) {
+	vault := t.TempDir()
+	files := map[string]string{
+		"src/A.md": "---\nclient: Acme\n---\n# A\n",
+		"src/B.md": "---\nclient: Beta\n---\n# B\n",
+	}
+	for name, content := range files {
+		full := filepath.Join(vault, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", name, err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runMove([]string{
+			"--vault", vault,
+			"--from", "src/",
+			"--to-template", "archive/{client}/{basename}",
+			"--format", "json",
+		})
+	})
+
+	var got struct {
+		Moved []struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+		} `json:"moved"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("unmarshal move output: %v\n%s", err, out)
+	}
+	wantMoved := []struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}{
+		{From: "src/A.md", To: "archive/Acme/A.md"},
+		{From: "src/B.md", To: "archive/Beta/B.md"},
+	}
+	if !reflect.DeepEqual(got.Moved, wantMoved) {
+		t.Fatalf("output moved = %+v, want %+v", got.Moved, wantMoved)
+	}
+	for _, path := range []string{"archive/Acme/A.md", "archive/Beta/B.md"} {
+		if _, err := os.Stat(filepath.Join(vault, filepath.FromSlash(path))); err != nil {
+			t.Fatalf("%s should exist after move: %v", path, err)
+		}
+	}
+	if _, err := core.Query(vault, core.EntrySpec{File: "src/A.md"}, core.QueryOptions{}); err == nil {
+		t.Fatal("src/A.md should no longer be registered after move")
 	}
 }
 

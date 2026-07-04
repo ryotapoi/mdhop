@@ -60,6 +60,7 @@ meta:
 - `mdhop add --file ...` : 新規追加を反映する（未登録のみ）
 - `mdhop move --from A.md --to B.md` : ファイル移動を反映する（note / asset 両対応）
 - `mdhop move --from A.md --to-template "99-Archive/{client|others}/{updated:year}/{basename}"` : note の frontmatter 値から移動先を展開して移動する
+- `mdhop move --from dir/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run` : ディレクトリ配下 note のテンプレート移動計画を表示する
 - `mdhop move --from dir/ --to newdir/` : ディレクトリ単位の移動を反映する
 - `mdhop delete --file ...` : ファイル削除を反映する（note / asset 両対応、登録済みのみ）
 - `mdhop delete --file dir/` : ディレクトリ配下の全登録済みファイル（note + asset）を削除する
@@ -236,18 +237,22 @@ meta:
   - 補足: 既存の basename リンクが phantom を参照しており、追加ファイルが同じ basename を複数持つ場合は auto-disambiguate ON でも **エラー**（安全に書き換え先を決定できないため）
 - `move`
   - 必須: `--from`, `--to` または `--to-template`
-  - 任意: `--vault`, `--format`
-  - `--to-template`: 登録済み note の indexed frontmatter と source filename から単体 move の移動先を展開する。`--to` とは同時指定不可。directory mode では使用不可
+  - 任意: `--vault`, `--format`, `--dry-run`
+  - `--dry-run`: `--to-template` 指定時のみ使用可。展開済み move plan を既存の move 出力形式で返し、ディスク・DB は変更しない
+  - `--to-template`: 登録済み note の indexed frontmatter と source filename から移動先を展開する。`--to` とは同時指定不可。directory mode では配下の登録済み note 全件を展開し、全件の展開・destination 検証が成功してから batch move する
     - 構文:
       - `{field}`: source note の frontmatter key `field` の値
       - `{field|fallback}`: `field` が存在しない場合は fallback literal を使う
-      - `{updated:year}`: date として parse した `updated` から 4 桁年を使う
+      - `{updated:year}` / `{updated:month}` / `{updated:day}`: date として正規化済み sort_value から年・月・日を使う
+      - `{updated:year|2099}`: `updated` が存在しない場合は fallback literal を使う。`updated` が存在するが date として parse できない場合は fallback せずエラー
       - `{basename}`: source path のファイル名（例: `Alpha.v1.md`）
     - エラー:
       - fallback なしの missing field はエラー
       - 参照 field が複数値（YAML sequence 等）を持つ場合は、静かに 1 件を選ばずエラー
       - date partial extraction が date として parse できない場合はエラー
+      - placeholder 展開値に `/` が含まれる場合はエラー（ディレクトリ区切りは template literal の `/` のみ）
       - 展開結果が空、絶対パス、vault 外へ escape するパス、または directory path になる場合はエラー
+      - directory mode で 1 件でも展開・destination 検証に失敗した場合は全体を中止し、部分実行しない
     - 展開後の destination path を既存の `move` に渡すため、vault safety、上書き防止、stale 検出、リンク書き換え、frontmatter raw path guard は通常の `move` と同じ
   - 補足: ディスク上のファイル移動も行う（移動先ディレクトリは自動作成）
   - 補足: `--from` がディスクになく `--to` がディスクにある場合、既に移動済みとみなしてリンク書き換え+DB更新のみ行う

@@ -4,13 +4,20 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
 // MoveTemplateOptions controls destination expansion for move --to-template.
 type MoveTemplateOptions struct {
-	From     string // vault-relative source note path
-	Template string // destination template
+	From      string // vault-relative source note path or directory
+	Template  string // destination template
+	Directory bool   // expand every registered note under From as a directory prefix
+}
+
+// MoveTemplatePlanResult reports the move plan for a move --to-template run.
+type MoveTemplatePlanResult struct {
+	Moved []MovedFile
 }
 
 // ExpandMoveTemplate expands a move destination template from the source note's
@@ -36,7 +43,7 @@ func ExpandMoveTemplate(vaultPath string, opts MoveTemplateOptions) (string, err
 	if err != nil {
 		return "", err
 	}
-	values := metaValuesByKey(meta)
+	values := metaRowsByKey(meta)
 
 	to, err := expandMoveTemplate(opts.Template, values, filepath.Base(from))
 	if err != nil {
@@ -52,6 +59,69 @@ func ExpandMoveTemplate(vaultPath string, opts MoveTemplateOptions) (string, err
 	return to, nil
 }
 
+// PlanMoveTemplate expands and validates move --to-template destinations without
+// changing disk or DB state.
+func PlanMoveTemplate(vaultPath string, opts MoveTemplateOptions) (*MoveTemplatePlanResult, error) {
+	db, err := openDBChecked(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	prepared, err := prepareMoveTemplate(vaultPath, db, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &MoveTemplatePlanResult{Moved: movedFilesFromMoves(prepared.moves)}, nil
+}
+
+// MoveTemplate expands move --to-template destinations and executes the planned
+// note moves as a single all-or-nothing batch.
+func MoveTemplate(vaultPath string, opts MoveTemplateOptions) (*MoveDirResult, error) {
+	db, err := openDBChecked(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	cfg, err := LoadConfig(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+
+	prepared, err := prepareMoveTemplate(vaultPath, db, opts)
+	if err != nil {
+		return nil, err
+	}
+	return executeMoves(vaultPath, db, cfg, prepared.moves, nil, prepared.needDiskMove)
+}
+
+type preparedMoveTemplate struct {
+	moves        []moveInfo
+	needDiskMove bool
+}
+
+func prepareMoveTemplate(vaultPath string, db dbExecer, opts MoveTemplateOptions) (*preparedMoveTemplate, error) {
+	moves, err := loadMoveTemplateMovesFromDB(db, opts)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkDuplicateMoveDestinations(moves); err != nil {
+		return nil, err
+	}
+	if err := checkDestinationsFree(db, moves); err != nil {
+		return nil, err
+	}
+	needDiskMove, err := classifyDiskState(vaultPath, moves)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkMovedFilesNotStale(vaultPath, moves, needDiskMove); err != nil {
+		return nil, err
+	}
+	return &preparedMoveTemplate{moves: moves, needDiskMove: needDiskMove}, nil
+}
+
 func validateMoveTemplateOptions(opts MoveTemplateOptions) (string, error) {
 	from := NormalizePath(opts.From)
 	if opts.Template == "" {
@@ -64,6 +134,68 @@ func validateMoveTemplateOptions(opts MoveTemplateOptions) (string, error) {
 		return "", fmt.Errorf("source path escapes vault: %s", from)
 	}
 	return from, nil
+}
+
+func loadMoveTemplateMovesFromDB(db dbExecer, opts MoveTemplateOptions) ([]moveInfo, error) {
+	from, err := validateMoveTemplateOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	if opts.Directory {
+		fromDir := strings.TrimSuffix(from, "/")
+		paths, err := listDirNodesByType(db, fromDir, NodeTypeNote)
+		if err != nil {
+			return nil, err
+		}
+		if len(paths) == 0 {
+			return nil, fmt.Errorf("no notes registered under directory for --to-template: %s", fromDir)
+		}
+		sort.Strings(paths)
+		moves := make([]moveInfo, 0, len(paths))
+		for _, path := range paths {
+			move, err := loadMoveTemplateMoveFromDB(db, path, opts.Template)
+			if err != nil {
+				return nil, err
+			}
+			moves = append(moves, move)
+		}
+		return moves, nil
+	}
+	move, err := loadMoveTemplateMoveFromDB(db, from, opts.Template)
+	if err != nil {
+		return nil, err
+	}
+	return []moveInfo{move}, nil
+}
+
+func loadMoveTemplateMoveFromDB(db dbExecer, from, template string) (moveInfo, error) {
+	nodeID, err := lookupTemplateSourceNote(db, from)
+	if err != nil {
+		return moveInfo{}, err
+	}
+	meta, err := queryMetaByNode(db, nodeID)
+	if err != nil {
+		return moveInfo{}, err
+	}
+	to, err := expandMoveTemplate(template, metaRowsByKey(meta), filepath.Base(from))
+	if err != nil {
+		return moveInfo{}, err
+	}
+	if err := validateExpandedMoveTemplatePath(to); err != nil {
+		return moveInfo{}, err
+	}
+	to = NormalizePath(to)
+	if err := validateExpandedMoveTemplatePath(to); err != nil {
+		return moveInfo{}, err
+	}
+	if from == to {
+		return moveInfo{}, fmt.Errorf("source and destination are the same: %s", from)
+	}
+	var dbMtime int64
+	if err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", nodeID).Scan(&dbMtime); err != nil {
+		return moveInfo{}, err
+	}
+	return moveInfo{from: from, to: to, nodeID: nodeID, dbMtime: dbMtime}, nil
 }
 
 func lookupTemplateSourceNote(db dbExecer, from string) (int64, error) {
@@ -81,15 +213,15 @@ func lookupTemplateSourceNote(db dbExecer, from string) (int64, error) {
 	return 0, err
 }
 
-func metaValuesByKey(rows []MetaRow) map[string][]string {
-	values := make(map[string][]string, len(rows))
+func metaRowsByKey(rows []MetaRow) map[string][]MetaRow {
+	values := make(map[string][]MetaRow, len(rows))
 	for _, row := range rows {
-		values[row.Key] = append(values[row.Key], row.Value)
+		values[row.Key] = append(values[row.Key], row)
 	}
 	return values
 }
 
-func expandMoveTemplate(template string, values map[string][]string, basenameValue string) (string, error) {
+func expandMoveTemplate(template string, values map[string][]MetaRow, basenameValue string) (string, error) {
 	var out strings.Builder
 	for i := 0; i < len(template); {
 		switch template[i] {
@@ -115,7 +247,7 @@ func expandMoveTemplate(template string, values map[string][]string, basenameVal
 	return out.String(), nil
 }
 
-func expandMoveTemplatePlaceholder(expr string, values map[string][]string, basenameValue string) (string, error) {
+func expandMoveTemplatePlaceholder(expr string, values map[string][]MetaRow, basenameValue string) (string, error) {
 	if expr == "" {
 		return "", fmt.Errorf("empty template placeholder")
 	}
@@ -133,28 +265,52 @@ func expandMoveTemplatePlaceholder(expr string, values map[string][]string, base
 		}
 		return basenameValue, nil
 	}
-	fieldValues, ok := values[field]
+	fieldRows, ok := values[field]
 	if !ok {
 		if hasFallback {
+			if err := validateExpandedMoveTemplatePlaceholderValue(field, fallback); err != nil {
+				return "", err
+			}
 			return fallback, nil
 		}
 		return "", fmt.Errorf("template field missing: %s", field)
 	}
-	if len(fieldValues) != 1 {
+	if len(fieldRows) != 1 {
 		return "", fmt.Errorf("template field has multiple values: %s", field)
 	}
-	value := fieldValues[0]
+	value := fieldRows[0].Value
 	if !hasPart {
+		if err := validateExpandedMoveTemplatePlaceholderValue(field, value); err != nil {
+			return "", err
+		}
 		return value, nil
 	}
-	if part != "year" {
+	if part != "year" && part != "month" && part != "day" {
 		return "", fmt.Errorf("unsupported template date extraction: %s", part)
 	}
-	normalized, warning := normalizeDate(value)
-	if warning != "" {
-		return "", fmt.Errorf("template field %s cannot be parsed as date for year extraction: %q", field, value)
+	dateValue := fieldRows[0].SortValue
+	if dateValue == "" {
+		dateValue = value
 	}
-	return normalized[:4], nil
+	normalized, warning := normalizeDate(dateValue)
+	if warning != "" {
+		return "", fmt.Errorf("template field %s cannot be parsed as date for %s extraction: %q", field, part, value)
+	}
+	switch part {
+	case "year":
+		return normalized[:4], nil
+	case "month":
+		return normalized[5:7], nil
+	default:
+		return normalized[8:10], nil
+	}
+}
+
+func validateExpandedMoveTemplatePlaceholderValue(field, value string) error {
+	if strings.Contains(value, "/") {
+		return fmt.Errorf("expanded template placeholder value contains /: %s", field)
+	}
+	return nil
 }
 
 func validateExpandedMoveTemplatePath(path string) error {
@@ -171,4 +327,23 @@ func validateExpandedMoveTemplatePath(path string) error {
 		return fmt.Errorf("expanded destination path must be a file path: %s", path)
 	}
 	return nil
+}
+
+func checkDuplicateMoveDestinations(moves []moveInfo) error {
+	seen := make(map[string]string, len(moves))
+	for _, m := range moves {
+		if previous, ok := seen[m.to]; ok {
+			return fmt.Errorf("duplicate expanded destination path: %s (from %s and %s)", m.to, previous, m.from)
+		}
+		seen[m.to] = m.from
+	}
+	return nil
+}
+
+func movedFilesFromMoves(moves []moveInfo) []MovedFile {
+	moved := make([]MovedFile, 0, len(moves))
+	for _, m := range moves {
+		moved = append(moved, MovedFile{From: m.from, To: m.to})
+	}
+	return moved
 }

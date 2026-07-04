@@ -17,6 +17,7 @@ func runMove(args []string) error {
 	from := fs.String("from", "", "source file path (vault-relative)")
 	to := fs.String("to", "", "destination file path (vault-relative)")
 	toTemplate := fs.String("to-template", "", "destination template expanded from source frontmatter")
+	dryRun := fs.Bool("dry-run", false, "show the --to-template move plan without making changes")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -34,8 +35,28 @@ func runMove(args []string) error {
 	}
 
 	fromIsDir := isDirArg(*vault, *from)
-	if fromIsDir && *toTemplate != "" {
-		return fmt.Errorf("--to-template cannot be used for directory moves")
+	if *dryRun && *toTemplate == "" {
+		return fmt.Errorf("--dry-run is only supported with --to-template")
+	}
+
+	if *toTemplate != "" {
+		opts := core.MoveTemplateOptions{
+			From:      *from,
+			Template:  *toTemplate,
+			Directory: fromIsDir,
+		}
+		plan, err := core.PlanMoveTemplate(*vault, opts)
+		if err != nil {
+			return err
+		}
+		if *dryRun {
+			return printMoveTemplatePlan(*format, fromIsDir, plan, nil)
+		}
+		result, err := core.MoveTemplate(*vault, opts)
+		if err != nil {
+			return err
+		}
+		return printMoveTemplatePlan(*format, fromIsDir, plan, result)
 	}
 
 	if fromIsDir {
@@ -63,16 +84,6 @@ func runMove(args []string) error {
 	}
 
 	// Single file mode.
-	if *toTemplate != "" {
-		expandedTo, err := core.ExpandMoveTemplate(*vault, core.MoveTemplateOptions{
-			From:     *from,
-			Template: *toTemplate,
-		})
-		if err != nil {
-			return err
-		}
-		*to = expandedTo
-	}
 	toIsDir := strings.HasSuffix(*to, "/")
 	if toIsDir {
 		return fmt.Errorf("cannot use directory destination for single file move")
@@ -92,6 +103,34 @@ func runMove(args []string) error {
 		return printMoveJSON(os.Stdout, normalizedFrom, normalizedTo, result)
 	default:
 		printMoveText(os.Stdout, normalizedFrom, normalizedTo, result)
+		return nil
+	}
+}
+
+func printMoveTemplatePlan(format string, isDir bool, plan *core.MoveTemplatePlanResult, result *core.MoveDirResult) error {
+	rewritten := []core.RewrittenLink(nil)
+	if result != nil {
+		rewritten = result.Rewritten
+	}
+	if isDir {
+		dirResult := &core.MoveDirResult{Moved: plan.Moved, Rewritten: rewritten}
+		switch format {
+		case "json":
+			return printMoveDirJSON(os.Stdout, dirResult)
+		default:
+			printMoveDirText(os.Stdout, dirResult)
+			return nil
+		}
+	}
+	if len(plan.Moved) != 1 {
+		return fmt.Errorf("expected one --to-template move, got %d", len(plan.Moved))
+	}
+	moveResult := &core.MoveResult{Rewritten: rewritten}
+	switch format {
+	case "json":
+		return printMoveJSON(os.Stdout, plan.Moved[0].From, plan.Moved[0].To, moveResult)
+	default:
+		printMoveText(os.Stdout, plan.Moved[0].From, plan.Moved[0].To, moveResult)
 		return nil
 	}
 }
