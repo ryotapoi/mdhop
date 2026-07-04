@@ -1,5 +1,38 @@
 # Backlog
 
+## v0.16.0
+
+2026-07-04/05 に確定した機能仕様と、先行して着地した実装（v0.13.0 / v0.14.0）との突き合わせで見つかった差分の修正。順序は上から。
+
+- [ ] meta-validate: `--require` 明示時は meta.profiles を置換する（確定仕様 2026-07-04）
+  - **現状**: `--require` と `meta.profiles` は合算して検証され dedup される（`internal/core/meta_validate.go:93-102`。`docs/specs/overview.md` の meta-validate 節も合算で記述）
+  - **確定仕様**: `--require` を明示指定した実行では profiles の require は無視して置換する（マージしない）。meta.types の型 / enum 検査は `--require` の有無に関わらず従来通り常に実行
+  - **対処案**: `opts.Require` 非空なら `validateRequiredProfiles` を呼ばない。overview.md・`--help`・テスト（合算を検証している `TestMetaValidate_DeduplicatesCLIAndProfileRequire` は置換検証に差し替え）を同一コミットで更新
+
+- [ ] set: `--date <expr>` オプションを追加する（確定仕様 2026-07-04）
+  - **現状**: `--value` のみのリテラル書き込みで、usage に "relative dates are not expanded" と明記（`cmd/mdhop/usage.go:87`）
+  - **確定仕様**: `--date <expr>` は search の相対日付構文（`today` / `today-90d` / `today+1y` 等）を YYYY-MM-DD に解決してから書き込む。`--value` と相互排他（両方指定・両方省略はエラー）
+  - **対処案**: `expandRelativeDate`（`internal/core/where.go:539`）を set から再利用できる形にして実装。usage の "not expanded" 記述と overview.md も更新
+
+- [ ] set: frontmatter なしファイルでは frontmatter を自動作成する（確定仕様 2026-07-04）
+  - **現状**: `frontmatter not found` エラー（`internal/core/set.go:121-124`、`TestSetNoFrontmatterError`）
+  - **確定仕様**: エラーにせず、ファイル先頭に `---` ブロックを新規作成してキーを書き込む
+  - **対処案**: 先頭に `---` / `key: value` / `---` を挿入する分岐を追加。既存のエラー検証テストを自動作成検証に差し替え。overview.md も同期
+
+- [ ] search: `--where` 式内の ` || ` 区切りを追加する（確定仕様 2026-07-04）
+  - **現状**: 式は ` && ` でのみ分割され（`internal/core/where.go:72`）、` || ` は区切りとして解釈されない。混在検知もなし
+  - **確定仕様**: 1 つの式内で ` || ` 区切りの OR が書ける。1 つの式内での ` && ` と ` || ` の混在は（括弧がなく優先順位を決められないため）明示エラー。複数 `--where` フラグ間は従来通り AND。括弧・任意ネストは非対応のまま（必要になったら Later で再検討）
+  - **対処案**: `ParseWhere` に OR グループを追加し、SQL は UNION で結合（既存の同一キー OR と同系の生成）。`coalesce()`（実装済み）と併用可能にする。overview.md の `--where` 節も更新
+
+- [ ] move: `--to-template` の確定仕様との差分を埋める（確定仕様 2026-07-04）
+  - **現状と差分**（`internal/core/move_template.go`、`cmd/mdhop/move.go:33-35`）:
+    - `--dry-run` が存在しない（確定仕様: 移動計画のみ出力するモードあり）
+    - 日付部分抽出は `{key:year}` のみ（確定仕様: `{key:month}` / `{key:day}` も。正規化済み sort_value ベース）
+    - `{key:year|2099}` のような部分抽出とフォールバックの併用が不可（確定仕様: 併用可。フォールバックはキー欠損時に使う。キーは存在するが値が日付でない場合はエラーのままでよい）
+    - dir 指定 + `--to-template` を CLI が明示拒否（確定仕様: dir 一括モードあり。全ファイルを事前検証し、1 件でも失敗があれば全体を中止する all-or-nothing。部分実行なし）
+    - 展開値の途中に `/` が含まれるケースの扱いが未定義・テストなし（確定仕様: エラー。テンプレート側の `/` だけがディレクトリ区切り）
+  - **対処案**: 上から順に実装。dir 一括は MoveDir のバッチ機構に from→to リストを渡す形で載せる。`/` 混入エラーはテスト付きで明確化。overview.md の `--to-template` 節・`--help` を同期
+
 ## v0.15.0
 
 リンク解決コアと内部構造の整理。2026-07-03 maintenance audit の findings と確定済み設計方針から構成。順序は上から。
