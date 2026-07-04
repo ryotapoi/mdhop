@@ -60,6 +60,30 @@ func newTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+type lastInsertIDZeroDB struct {
+	*sql.DB
+}
+
+func (db lastInsertIDZeroDB) Exec(query string, args ...any) (sql.Result, error) {
+	res, err := db.DB.Exec(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return lastInsertIDZeroResult{res: res}, nil
+}
+
+type lastInsertIDZeroResult struct {
+	res sql.Result
+}
+
+func (r lastInsertIDZeroResult) LastInsertId() (int64, error) {
+	return 0, nil
+}
+
+func (r lastInsertIDZeroResult) RowsAffected() (int64, error) {
+	return r.res.RowsAffected()
+}
+
 func TestUpsertNote_ConflictUpdate(t *testing.T) {
 	db := newTestDB(t)
 
@@ -97,6 +121,43 @@ func TestUpsertNote_ConflictUpdate(t *testing.T) {
 	if mtime != 200 {
 		t.Fatalf("expected mtime 200, got %d", mtime)
 	}
+}
+
+func TestUpsertNode_ConflictUpdateFallsBackWhenLastInsertIDIsZero(t *testing.T) {
+	db := newTestDB(t)
+
+	id1, err := upsertNote(db, "docs/hello.md", "hello", 100, 0)
+	if err != nil {
+		t.Fatalf("first upsertNote: %v", err)
+	}
+
+	id2, err := upsertNode(lastInsertIDZeroDB{DB: db}, noteKey("docs/hello.md"), NodeTypeNote, "hello-updated", "docs/hello.md", 200, intPtr(12))
+	if err != nil {
+		t.Fatalf("upsertNode with LastInsertId fallback: %v", err)
+	}
+	if id2 != id1 {
+		t.Fatalf("expected fallback to select existing id %d, got %d", id1, id2)
+	}
+
+	var name string
+	var mtime int64
+	var lines int
+	if err := db.QueryRow("SELECT name, mtime, lines FROM nodes WHERE id = ?", id1).Scan(&name, &mtime, &lines); err != nil {
+		t.Fatalf("scan updated node: %v", err)
+	}
+	if name != "hello-updated" {
+		t.Fatalf("expected updated name, got %q", name)
+	}
+	if mtime != 200 {
+		t.Fatalf("expected updated mtime 200, got %d", mtime)
+	}
+	if lines != 12 {
+		t.Fatalf("expected updated lines 12, got %d", lines)
+	}
+}
+
+func intPtr(v int) *int {
+	return &v
 }
 
 func TestUpsertAsset_ConflictUpdate(t *testing.T) {
