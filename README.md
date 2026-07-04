@@ -48,7 +48,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `update` | Update existing files in the index |
 | `set` | Set one frontmatter key and update the index |
 | `delete` | Remove files from the index |
-| `move` | Reflect file moves and update links |
+| `move` | Reflect file moves and update links, including frontmatter-based destination templates |
 | `disambiguate` | Rewrite ambiguous basename links to full paths |
 | `simplify` | Shorten redundant path links to basename form (inverse of disambiguate) |
 | `convert` | Convert link format between wikilink and markdown |
@@ -76,6 +76,7 @@ An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdho
 mdhop stats --format json
 mdhop search --where "status=active" --fields meta --format json
 mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
+mdhop move --from Notes/Project.md --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}" --format json
 ```
 
 ## Configuration (mdhop.yaml)

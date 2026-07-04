@@ -46,7 +46,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `update` | 既存ファイルのインデックスを更新 |
 | `set` | frontmatter の単一 key を設定しインデックスを更新 |
 | `delete` | ファイルをインデックスから削除 |
-| `move` | ファイル移動を反映しリンクを更新 |
+| `move` | ファイル移動を反映しリンクを更新（frontmatter 由来の移動先テンプレートにも対応） |
 | `disambiguate` | 曖昧な basename リンクをフルパスに書き換え |
 | `simplify` | 冗長なパスリンクを basename 形式に短縮（disambiguate の逆） |
 | `convert` | リンク形式を wikilink ↔ markdown で変換 |
@@ -74,6 +74,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 mdhop stats --format json
 mdhop search --where "status=active" --fields meta --format json
 mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
+mdhop move --from Notes/Project.md --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}" --format json
 ```
 
 ## 設定（mdhop.yaml）
