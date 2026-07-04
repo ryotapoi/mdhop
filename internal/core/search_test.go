@@ -232,8 +232,8 @@ func TestSearch_WhereRelativeDate(t *testing.T) {
 // comparison SQL skips it — even though its raw value looks like a date.
 func TestSearch_WhereRelativeDate_UndeclaredKey(t *testing.T) {
 	vault := copyVaultForQuery(t, "vault_query_where")
-	// reviewed holds a date-looking value but is NOT declared in meta.types.
-	note := "---\nreviewed: 2025-01-01\n---\n\n# Reviewed\n"
+	// checked holds a date-looking value but is NOT declared in meta.types.
+	note := "---\nchecked: 2025-01-01\n---\n\n# Checked\n"
 	if err := os.WriteFile(filepath.Join(vault, "reviewed.md"), []byte(note), 0o644); err != nil {
 		t.Fatalf("write note: %v", err)
 	}
@@ -241,11 +241,11 @@ func TestSearch_WhereRelativeDate_UndeclaredKey(t *testing.T) {
 	meta := searchVaultConfig(t, vault)
 
 	// Sanity check: the key is genuinely undeclared.
-	if _, ok := meta.Types["reviewed"]; ok {
-		t.Fatal("reviewed must be undeclared for this test")
+	if _, ok := meta.Types["checked"]; ok {
+		t.Fatal("checked must be undeclared for this test")
 	}
 
-	wc, err := ParseWhere([]string{"reviewed<today"}, meta)
+	wc, err := ParseWhere([]string{"checked<today"}, meta)
 	if err != nil {
 		t.Fatalf("parse where: %v", err)
 	}
@@ -255,21 +255,21 @@ func TestSearch_WhereRelativeDate_UndeclaredKey(t *testing.T) {
 	}
 	// The value_type='date' guard skips the string-stored value → no match.
 	if result.Total != 0 {
-		t.Errorf("reviewed<today on undeclared key total = %d, want 0 (date guard skips string value_type)", result.Total)
+		t.Errorf("checked<today on undeclared key total = %d, want 0 (date guard skips string value_type)", result.Total)
 	}
 
-	// Contrast: declaring reviewed as `date` (and rebuilding) makes the same
+	// Contrast: declaring checked as `date` (and rebuilding) makes the same
 	// query match, confirming the guard — not the syntax — is what gates it.
-	yaml := "meta:\n  types:\n    priority: number\n    status: string\n    created: date\n    reviewed: date\n"
+	yaml := "meta:\n  types:\n    priority: number\n    status: string\n    created: date\n    checked: date\n"
 	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte(yaml), 0o644); err != nil {
 		t.Fatalf("write mdhop.yaml: %v", err)
 	}
 	buildForQuery(t, vault)
 	metaDate := searchVaultConfig(t, vault)
-	if metaDate.Types["reviewed"].Name != MetaTypeDate {
-		t.Fatal("reviewed must be declared date after rewrite")
+	if metaDate.Types["checked"].Name != MetaTypeDate {
+		t.Fatal("checked must be declared date after rewrite")
 	}
-	wc2, err := ParseWhere([]string{"reviewed<today"}, metaDate)
+	wc2, err := ParseWhere([]string{"checked<today"}, metaDate)
 	if err != nil {
 		t.Fatalf("parse where: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestSearch_WhereRelativeDate_UndeclaredKey(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result2.Total != 1 {
-		t.Errorf("reviewed<today after declaring date total = %d, want 1", result2.Total)
+		t.Errorf("checked<today after declaring date total = %d, want 1", result2.Total)
 	}
 }
 

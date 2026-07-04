@@ -12,10 +12,10 @@
   - **背景**: スキル側が散文ルール（rules/frontmatter.md）を毎回読んで予防する方式から「書く → meta-validate → エラーだけ直す」方式に移行するため、必須キー定義を設定ファイルに寄せたい
   - **対処案**: mdhop.yaml に「このパスパターンではこのキーが必須」（例: `03-Notes/media/**` は isbn 必須、全体では type / status / created / updated 必須）を書けるようにし、呼び出しごとの `--require` 指定なしで検証できるようにする。単一ファイルを対象にする利便（`--file` 相当）も検討。あわせて meta_check.go / meta_validate.go の責務を先頭 doc comment で明示する（リネームは見送り、下記「登録見送り」参照）
 
-- [ ] search の強化 3 点
+- [x] search の強化 3 点
   - **背景**: 「reviewed の有無で 2 回検索してマージ」「全件 JSON を取ってから 10 件選ぶ」「件数しか使わないのに一覧を取る」という使い方が実際にあり、出力の無駄が大きい
   - **対処案**: (a) `--sample N` — 候補から CLI 側で無作為に N 件抽出して返す（候補全件を出力せずに済む）。(b) `--count` — 件数のみ返す。(c) `--where` の式強化 — `coalesce(reviewed, updated) <= today-1y` のような coalesce / OR 条件を 1 クエリで書けるようにする
-  - **進捗**: (a) `--sample N` と (b) `--count` は実装済み。(c) `--where` の式強化は未着手
+  - **進捗**: (a) `--sample N`、(b) `--count`、(c) `--where` の式強化（`coalesce(key1, key2, ...)`）は実装済み
 
 - [ ] query のデフォルト値（100/100/10）を core 定数に一元化する
   - **症状**: `cmd/mdhop/query.go:21-23` の flag デフォルトと `internal/core/query.go:104-111` のフォールバックが独立定義。片方だけ変えると CLI 経由と `core.Query` 直呼びで挙動が乖離する

@@ -3,3 +3,5 @@ meta:
     priority: number
     status: string
     created: date
+    reviewed: date
+    updated: date

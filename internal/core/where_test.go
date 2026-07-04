@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -113,6 +115,19 @@ func TestParseWhere_Like(t *testing.T) {
 	}
 }
 
+func TestParseWhere_Like_PreservesWhitespace(t *testing.T) {
+	// LIKE patterns may have meaningful leading/trailing whitespace — only the
+	// key is trimmed, never the pattern itself.
+	wc, err := ParseWhere([]string{"status~ act%"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := wc.Conditions[0]
+	if c.Value != " act%" {
+		t.Errorf("value = %q, want %q (leading space preserved)", c.Value, " act%")
+	}
+}
+
 func TestParseWhere_Comparisons(t *testing.T) {
 	metaCfg := MetaConfig{
 		Types: map[string]MetaTypeInfo{
@@ -174,6 +189,85 @@ func TestParseWhere_NotExistsTrimsSpace(t *testing.T) {
 	c := wc.Conditions[0]
 	if c.Key != "priority" || c.Op != WhereOpNotExists || c.Value != "" {
 		t.Errorf("got {%q, %d, %q}, want {priority, NotExists, \"\"}", c.Key, c.Op, c.Value)
+	}
+}
+
+func TestParseWhere_CoalesceComparison(t *testing.T) {
+	metaCfg := MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"reviewed": {Name: MetaTypeDate},
+			"updated":  {Name: MetaTypeString},
+		},
+	}
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated) <= 2025-07-04"}, metaCfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := wc.Conditions[0]
+	if c.Key != "coalesce(reviewed, updated)" || c.Op != WhereOpLte || c.Value != "2025-07-04" {
+		t.Errorf("got {%q, %d, %q}, want {coalesce(reviewed, updated), Lte, 2025-07-04}", c.Key, c.Op, c.Value)
+	}
+	if got, want := strings.Join(c.CoalesceKeys, ","), "reviewed,updated"; got != want {
+		t.Errorf("CoalesceKeys = %q, want %q", got, want)
+	}
+	if c.valueType != string(MetaTypeDate) {
+		t.Errorf("valueType = %q, want date", c.valueType)
+	}
+	if got := c.keyValues["reviewed"]; got != (whereValue{value: "2025-07-04", valueType: "date"}) {
+		t.Errorf("reviewed keyValue = %+v, want date-normalized date", got)
+	}
+	if got := c.keyValues["updated"]; got != (whereValue{value: "2025-07-04", valueType: "string"}) {
+		t.Errorf("updated keyValue = %+v, want string-normalized date", got)
+	}
+}
+
+func TestParseWhere_CoalesceExists(t *testing.T) {
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated)"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := wc.Conditions[0]
+	if c.Key != "coalesce(reviewed, updated)" || c.Op != WhereOpExists {
+		t.Errorf("got {%q, %d}, want {coalesce(reviewed, updated), Exists}", c.Key, c.Op)
+	}
+	if got, want := strings.Join(c.CoalesceKeys, ","), "reviewed,updated"; got != want {
+		t.Errorf("CoalesceKeys = %q, want %q", got, want)
+	}
+}
+
+func TestParseWhere_CoalesceNotExists(t *testing.T) {
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated) NOT EXISTS"}, MetaConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := wc.Conditions[0]
+	if c.Key != "coalesce(reviewed, updated)" || c.Op != WhereOpNotExists {
+		t.Errorf("got {%q, %d}, want {coalesce(reviewed, updated), NotExists}", c.Key, c.Op)
+	}
+	if got, want := strings.Join(c.CoalesceKeys, ","), "reviewed,updated"; got != want {
+		t.Errorf("CoalesceKeys = %q, want %q", got, want)
+	}
+}
+
+func TestParseWhere_CoalesceInvalid(t *testing.T) {
+	tests := []string{
+		"coalesce()<=2025-07-04",
+		"coalesce(reviewed)<=2025-07-04",
+		"coalesce(reviewed, )<=2025-07-04",
+		"coalesce(reviewed, updated<=2025-07-04",
+		"coalesce(reviewed, reviewed)<=2025-07-04",
+		"coalesce(reviewed,  reviewed)<=2025-07-04",
+	}
+	for _, expr := range tests {
+		t.Run(expr, func(t *testing.T) {
+			_, err := ParseWhere([]string{expr}, MetaConfig{})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), "where:") {
+				t.Errorf("error = %v, want where-prefixed error", err)
+			}
+		})
 	}
 }
 
@@ -557,6 +651,67 @@ func TestWhereClause_Gt(t *testing.T) {
 	}
 	if len(args) != 3 { // key + value + type
 		t.Errorf("args = %v, want 3 elements", args)
+	}
+}
+
+func TestWhereClause_CoalesceExists(t *testing.T) {
+	wc := &WhereClause{Conditions: []WhereCond{
+		{Key: "coalesce(reviewed, updated)", CoalesceKeys: []string{"reviewed", "updated"}, Op: WhereOpExists},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, "m.key IN (?,?)") {
+		t.Errorf("coalesce EXISTS should check any key with placeholders: %q", sql)
+	}
+	if len(args) != 2 || args[0] != "reviewed" || args[1] != "updated" {
+		t.Errorf("args = %v, want [reviewed updated]", args)
+	}
+}
+
+func TestWhereClause_CoalesceComparisonPriorityGuard(t *testing.T) {
+	wc := &WhereClause{Conditions: []WhereCond{
+		{Key: "coalesce(reviewed, updated)", CoalesceKeys: []string{"reviewed", "updated"}, Op: WhereOpLte, Value: "2025-07-04", valueType: "date"},
+	}}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, " UNION ") {
+		t.Errorf("coalesce comparison should union priority branches: %q", sql)
+	}
+	if !strings.Contains(sql, "NOT EXISTS") || !strings.Contains(sql, "mh.key IN (?)") {
+		t.Errorf("lower-priority branch should guard higher-priority key existence: %q", sql)
+	}
+	wantArgs := []any{"reviewed", "2025-07-04", "date", "updated", "2025-07-04", "date", "reviewed"}
+	if len(args) != len(wantArgs) {
+		t.Fatalf("args = %v, want %v", args, wantArgs)
+	}
+	for i := range wantArgs {
+		if args[i] != wantArgs[i] {
+			t.Fatalf("args = %v, want %v", args, wantArgs)
+		}
+	}
+}
+
+func TestWhereClause_CoalesceComparisonPerKeyTypes(t *testing.T) {
+	metaCfg := MetaConfig{
+		Types: map[string]MetaTypeInfo{
+			"reviewed": {Name: MetaTypeDate},
+			"updated":  {Name: MetaTypeString},
+		},
+	}
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated)<=2025-7-4"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	sql, args := wc.MetaFilterSQL("n.id")
+	if !strings.Contains(sql, "m.value_type = ?") {
+		t.Fatalf("coalesce comparison should use type guards: %q", sql)
+	}
+	wantArgs := []any{"reviewed", "2025-07-04", "date", "updated", "2025-7-4", "string", "reviewed"}
+	if len(args) != len(wantArgs) {
+		t.Fatalf("args = %v, want %v", args, wantArgs)
+	}
+	for i := range wantArgs {
+		if args[i] != wantArgs[i] {
+			t.Fatalf("args = %v, want %v", args, wantArgs)
+		}
 	}
 }
 
@@ -987,6 +1142,94 @@ func TestQueryBacklinksWhere_AliasNeq(t *testing.T) {
 	// D has no aliases key → no meta → excluded (!=  means "key exists AND value doesn't match").
 	// E has no aliases key → excluded.
 	assertNames(t, "aliases!=beta", res.Backlinks, []string{"C"})
+}
+
+func TestQueryBacklinksWhere_CoalescePriority(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated)<=2025-07-04"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// B matches by reviewed. E has no reviewed, so it falls back to updated and matches.
+	// C would match by updated under a naive OR, but reviewed exists and is too recent.
+	assertNames(t, "coalesce(reviewed, updated)<=2025-07-04", res.Backlinks, []string{"B", "E"})
+}
+
+func TestQueryBacklinksWhere_CoalesceExists(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated)"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	assertNames(t, "coalesce(reviewed, updated)", res.Backlinks, []string{"B", "C", "E"})
+}
+
+func TestQueryBacklinksWhere_CoalesceDifferingTypesFallback(t *testing.T) {
+	vault := copyVaultForQuery(t, "vault_query_where")
+	cfg := []byte("meta:\n  types:\n    priority: number\n    status: string\n    created: date\n    reviewed: date\n")
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), cfg, 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	buildForQuery(t, vault)
+	metaCfg := loadMetaCfg(t, vault)
+	if _, ok := metaCfg.Types["updated"]; ok {
+		t.Fatal("updated must be undeclared for this regression test")
+	}
+	wc, err := ParseWhere([]string{"coalesce(reviewed, updated)<=2025-07-04"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	// E has only updated. With updated undeclared, it is stored as value_type=string
+	// and must still be compared by the updated branch's own string type.
+	assertNames(t, "coalesce reviewed date, updated string", res.Backlinks, []string{"B", "E"})
+}
+
+func TestQueryBacklinksWhere_CoalesceEqAndNeqParenthesized(t *testing.T) {
+	vault := copyVaultForQuery(t, "vault_query_where")
+	note := "---\npriority: 9\nstatus: active\ncreated: 2025-04-01\nupdated: 2025-01-01\n---\n\n# F\n\nLinks to A:\n- [[A]]\n"
+	if err := os.WriteFile(filepath.Join(vault, "F.md"), []byte(note), 0o644); err != nil {
+		t.Fatalf("write note: %v", err)
+	}
+	buildForQuery(t, vault)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{
+		"coalesce(reviewed, updated)=2024-01-01",
+		"coalesce(reviewed, updated)!=2026-01-01",
+	}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	assertNames(t, "coalesce eq intersect neq", res.Backlinks, []string{"B", "E"})
 }
 
 // --- AND group integration tests ---

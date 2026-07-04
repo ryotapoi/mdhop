@@ -41,6 +41,9 @@ mdhop search --where "priority NOT EXISTS" --format json
 # Find stale notes (relative date comparison).
 mdhop search --where "updated<today-90d" --format json
 
+# Prefer reviewed date, falling back to updated date.
+mdhop search --where "coalesce(reviewed, updated)<=today-1y" --format json
+
 # Rank by computed fields (line count, link counts) and output a single meta key.
 mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
 

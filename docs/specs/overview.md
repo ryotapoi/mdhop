@@ -163,6 +163,10 @@ meta:
 - `--where <expr>` : frontmatter メタデータによるフィルタ（複数回指定可）
   - 演算子: `=`, `!=`, `~`（LIKE）, `>`, `<`, `>=`, `<=`, EXISTS（演算子なし）, NOT EXISTS
   - 例: `--where "status=active"`, `--where "priority>1"`, `--where "status"`, `--where "status!=done"`, `--where "priority NOT EXISTS"`
+  - 左辺には `coalesce(key1, key2, ...)` を書ける。比較演算子では、左から順に最初に存在するキーの値を使って比較する
+    - 例: `--where "coalesce(reviewed, updated)<=today-1y"` → reviewed があれば reviewed、なければ updated を基準に古い note を探す
+    - `coalesce(reviewed, updated)` は reviewed または updated のどちらかが存在する note、`coalesce(reviewed, updated) NOT EXISTS` はどちらも存在しない note にマッチする
+    - 型安全な比較は各キー自身の `meta.types` 宣言を使う（reviewed と updated で宣言型が異なっていても、それぞれ自分の型でガードされる）。ただし相対日付（`today` 等）を使った場合は全キー共通で date 型として扱う
   - 結合ルール:
     - 複数 `--where` で同一キー → OR（いずれかの条件にマッチ）
     - 複数 `--where` で異なるキー → AND（全キーの条件にマッチ）

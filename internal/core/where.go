@@ -24,10 +24,17 @@ const (
 
 // WhereCond represents a single where condition.
 type WhereCond struct {
-	Key       string
-	Op        WhereOp
-	Value     string // normalized sort_value for =, !=, >, <, >=, <=; raw pattern for ~; empty for EXISTS
-	valueType string // value_type for type-guarded comparisons (>, <, >=, <=)
+	Key          string
+	CoalesceKeys []string
+	Op           WhereOp
+	Value        string // normalized sort_value for =, !=, >, <, >=, <=; raw pattern for ~; empty for EXISTS
+	valueType    string // value_type for type-guarded comparisons (>, <, >=, <=)
+	keyValues    map[string]whereValue
+}
+
+type whereValue struct {
+	value     string
+	valueType string
 }
 
 // WhereClause holds parsed where conditions.
@@ -97,10 +104,11 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 	expr = strings.TrimSpace(expr)
 
 	if key, ok := parseNotExistsWhere(expr); ok {
-		if key == "" {
-			return WhereCond{}, fmt.Errorf("where: empty key in %q", expr)
+		key, coalesceKeys, err := parseWhereKey(key, expr)
+		if err != nil {
+			return WhereCond{}, err
 		}
-		return WhereCond{Key: key, Op: WhereOpNotExists, Value: ""}, nil
+		return WhereCond{Key: key, CoalesceKeys: coalesceKeys, Op: WhereOpNotExists, Value: ""}, nil
 	}
 
 	// Try each operator (longest first).
@@ -109,46 +117,93 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 		if idx < 0 {
 			continue
 		}
-		key := expr[:idx]
-		value := expr[idx+len(ot.str):]
+		key := strings.TrimSpace(expr[:idx])
+		rawValue := expr[idx+len(ot.str):]
 
-		if key == "" {
-			return WhereCond{}, fmt.Errorf("where: empty key in %q", expr)
+		key, coalesceKeys, err := parseWhereKey(key, expr)
+		if err != nil {
+			return WhereCond{}, err
 		}
-		if value == "" {
+		if rawValue == "" {
 			return WhereCond{}, fmt.Errorf("where: empty value in %q", expr)
 		}
 
 		if ot.op == WhereOpLike {
-			return WhereCond{Key: key, Op: ot.op, Value: value}, nil
+			// LIKE patterns may have meaningful leading/trailing whitespace —
+			// preserve the raw value as-is (only the key gets trimmed, to
+			// support "coalesce(a, b) ~pattern" spacing).
+			return WhereCond{Key: key, CoalesceKeys: coalesceKeys, Op: ot.op, Value: rawValue}, nil
 		}
 
-		// Relative date tokens (today, today-90d, ...) are sugar for an absolute
-		// date literal on the right-hand side. We expand the token and compare as
-		// a date. The comparison runs against the stored sort_value with a
-		// value_type="date" guard, so the left-hand key must be declared `date`
-		// in meta.types — an undeclared key is stored with value_type="string"
-		// and a string-normalized sort_value, which the guard (correctly) skips.
-		typeInfo, _ := metaCfg.LookupType(key)
-		if expanded, ok := expandRelativeDate(value, time.Now()); ok {
-			typeInfo = MetaTypeInfo{Name: MetaTypeDate}
-			value = expanded
+		value := strings.TrimSpace(rawValue)
+		if value == "" {
+			return WhereCond{}, fmt.Errorf("where: empty value in %q", expr)
 		}
 
-		// Normalize value using metaCfg.
-		sortValue, warning := NormalizeSortValue(value, typeInfo)
-		if warning != "" {
-			return WhereCond{}, fmt.Errorf("where: %s (key=%s, value=%s)", warning, key, value)
+		sortValue, valueType, keyValues, err := normalizeWhereValue(key, coalesceKeys, value, metaCfg)
+		if err != nil {
+			return WhereCond{}, err
 		}
-		return WhereCond{Key: key, Op: ot.op, Value: sortValue, valueType: string(typeInfo.Name)}, nil
+		return WhereCond{Key: key, CoalesceKeys: coalesceKeys, Op: ot.op, Value: sortValue, valueType: valueType, keyValues: keyValues}, nil
 	}
 
 	// No operator found → EXISTS.
-	key := expr
-	if key == "" {
-		return WhereCond{}, fmt.Errorf("where: empty key in %q", expr)
+	key, coalesceKeys, err := parseWhereKey(expr, expr)
+	if err != nil {
+		return WhereCond{}, err
 	}
-	return WhereCond{Key: key, Op: WhereOpExists, Value: ""}, nil
+	return WhereCond{Key: key, CoalesceKeys: coalesceKeys, Op: WhereOpExists, Value: ""}, nil
+}
+
+func normalizeWhereValue(key string, coalesceKeys []string, value string, metaCfg MetaConfig) (string, string, map[string]whereValue, error) {
+	// Relative date tokens (today, today-90d, ...) are sugar for an absolute
+	// date literal on the right-hand side. Range comparisons also carry a
+	// value_type="date" guard, so undeclared keys keep the existing single-key
+	// behavior: their string-stored values are skipped rather than coerced.
+	expandedValue := value
+	forceDate := false
+	if expanded, ok := expandRelativeDate(value, time.Now()); ok {
+		expandedValue = expanded
+		forceDate = true
+	}
+
+	if len(coalesceKeys) == 0 {
+		typeInfo, _ := metaCfg.LookupType(key)
+		if forceDate {
+			typeInfo = MetaTypeInfo{Name: MetaTypeDate}
+		}
+		sortValue, warning := NormalizeSortValue(expandedValue, typeInfo)
+		if warning != "" {
+			return "", "", nil, fmt.Errorf("where: %s (key=%s, value=%s)", warning, key, expandedValue)
+		}
+		return sortValue, string(typeInfo.Name), nil, nil
+	}
+
+	keyValues := make(map[string]whereValue, len(coalesceKeys))
+	normalizedByType := make(map[string]whereValue)
+	for _, k := range coalesceKeys {
+		typeInfo, _ := metaCfg.LookupType(k)
+		if forceDate {
+			typeInfo = MetaTypeInfo{Name: MetaTypeDate}
+		}
+		cacheKey := metaTypeCacheKey(typeInfo)
+		kv, ok := normalizedByType[cacheKey]
+		if !ok {
+			sortValue, warning := NormalizeSortValue(expandedValue, typeInfo)
+			if warning != "" {
+				return "", "", nil, fmt.Errorf("where: %s (key=%s, value=%s)", warning, k, expandedValue)
+			}
+			kv = whereValue{value: sortValue, valueType: string(typeInfo.Name)}
+			normalizedByType[cacheKey] = kv
+		}
+		keyValues[k] = kv
+	}
+	first := keyValues[coalesceKeys[0]]
+	return first.value, first.valueType, keyValues, nil
+}
+
+func metaTypeCacheKey(typeInfo MetaTypeInfo) string {
+	return string(typeInfo.Name) + "\x00" + strings.Join(typeInfo.OrderedValues, "\x00")
 }
 
 func parseNotExistsWhere(expr string) (string, bool) {
@@ -161,6 +216,42 @@ func parseNotExistsWhere(expr string) (string, bool) {
 	}
 	key := strings.TrimSpace(expr[:len(expr)-len(suffix)])
 	return key, true
+}
+
+func parseWhereKey(key, expr string) (string, []string, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", nil, fmt.Errorf("where: empty key in %q", expr)
+	}
+	lowerKey := strings.ToLower(key)
+	if !strings.HasPrefix(lowerKey, "coalesce(") {
+		return key, nil, nil
+	}
+	if !strings.HasSuffix(key, ")") {
+		return "", nil, fmt.Errorf("where: unclosed coalesce in %q", expr)
+	}
+	inner := strings.TrimSpace(key[len("coalesce(") : len(key)-1])
+	if inner == "" {
+		return "", nil, fmt.Errorf("where: empty coalesce key list in %q", expr)
+	}
+	rawKeys := strings.Split(inner, ",")
+	keys := make([]string, 0, len(rawKeys))
+	seen := make(map[string]struct{}, len(rawKeys))
+	for _, raw := range rawKeys {
+		k := strings.TrimSpace(raw)
+		if k == "" {
+			return "", nil, fmt.Errorf("where: empty coalesce key in %q", expr)
+		}
+		if _, ok := seen[k]; ok {
+			return "", nil, fmt.Errorf("where: coalesce keys must be unique in %q", expr)
+		}
+		seen[k] = struct{}{}
+		keys = append(keys, k)
+	}
+	if len(keys) < 2 {
+		return "", nil, fmt.Errorf("where: coalesce requires at least 2 keys in %q", expr)
+	}
+	return "coalesce(" + strings.Join(keys, ", ") + ")", keys, nil
 }
 
 // MetaFilterSQL generates a SQL fragment to filter nodes by meta conditions.
@@ -214,6 +305,11 @@ func (wc *WhereClause) MetaFilterSQL(alias string) (string, []any) {
 }
 
 func buildKeyGroupSQL(key string, conds []WhereCond) (string, []any) {
+	keys := []string{key}
+	if len(conds) > 0 && len(conds[0].CoalesceKeys) > 0 {
+		keys = conds[0].CoalesceKeys
+	}
+
 	// Check if EXISTS is present — it absorbs all other present-key conditions.
 	hasExists := false
 	hasNotExists := false
@@ -232,14 +328,15 @@ func buildKeyGroupSQL(key string, conds []WhereCond) (string, []any) {
 		return "SELECT n2.id FROM nodes n2 WHERE n2.type = 'note' AND n2.exists_flag = 1", nil
 	}
 	if hasExists {
-		return "SELECT m.node_id FROM meta m WHERE m.key = ?", []any{key}
+		return buildExistsSQL(keys)
 	}
 
 	var unionSQL []string
 	var unionArgs []any
 	if hasNotExists {
-		unionSQL = append(unionSQL, "SELECT n2.id FROM nodes n2 WHERE n2.type = 'note' AND n2.exists_flag = 1 AND NOT EXISTS (SELECT 1 FROM meta m WHERE m.node_id = n2.id AND m.key = ?)")
-		unionArgs = append(unionArgs, key)
+		sql, args := buildNotExistsSQL(keys)
+		unionSQL = append(unionSQL, sql)
+		unionArgs = append(unionArgs, args...)
 	}
 	if len(presentConds) == 0 {
 		return strings.Join(unionSQL, " UNION "), unionArgs
@@ -258,19 +355,19 @@ func buildKeyGroupSQL(key string, conds []WhereCond) (string, []any) {
 
 	// If only != conditions: "key exists AND not matching any excluded value".
 	if len(others) == 0 {
-		sql, args := buildNeqSQL(key, neqs)
+		sql, args := buildNeqSQL(keys, neqs)
 		unionSQL = append(unionSQL, sql)
 		unionArgs = append(unionArgs, args...)
 		return strings.Join(unionSQL, " UNION "), unionArgs
 	}
 
 	// Build OR conditions for positive matches.
-	sql, args := buildPositiveSQL(key, others)
+	sql, args := buildPositiveSQL(keys, others)
 
 	// If there are also != conditions, INTERSECT with neq filter.
 	if len(neqs) > 0 {
-		neqSQL, neqArgs := buildNeqSQL(key, neqs)
-		sql = sql + " INTERSECT " + neqSQL
+		neqSQL, neqArgs := buildNeqSQL(keys, neqs)
+		sql = "SELECT * FROM (" + sql + ") INTERSECT SELECT * FROM (" + neqSQL + ")"
 		args = append(args, neqArgs...)
 	}
 
@@ -279,7 +376,28 @@ func buildKeyGroupSQL(key string, conds []WhereCond) (string, []any) {
 	return strings.Join(unionSQL, " UNION "), unionArgs
 }
 
-func buildNeqSQL(key string, neqs []WhereCond) (string, []any) {
+func buildExistsSQL(keys []string) (string, []any) {
+	if len(keys) == 1 {
+		return "SELECT m.node_id FROM meta m WHERE m.key = ?", []any{keys[0]}
+	}
+	return fmt.Sprintf("SELECT m.node_id FROM meta m WHERE m.key IN (%s)", placeholders(len(keys))), anySlice(keys)
+}
+
+func buildNotExistsSQL(keys []string) (string, []any) {
+	if len(keys) == 1 {
+		return "SELECT n2.id FROM nodes n2 WHERE n2.type = 'note' AND n2.exists_flag = 1 AND NOT EXISTS (SELECT 1 FROM meta m WHERE m.node_id = n2.id AND m.key = ?)", []any{keys[0]}
+	}
+	return fmt.Sprintf(
+		"SELECT n2.id FROM nodes n2 WHERE n2.type = 'note' AND n2.exists_flag = 1 AND NOT EXISTS (SELECT 1 FROM meta m WHERE m.node_id = n2.id AND m.key IN (%s))",
+		placeholders(len(keys)),
+	), anySlice(keys)
+}
+
+func buildNeqSQL(keys []string, neqs []WhereCond) (string, []any) {
+	if len(keys) > 1 {
+		return buildCoalesceNeqSQL(keys, neqs)
+	}
+	key := keys[0]
 	// "key exists AND node not in (nodes with excluded values)"
 	// SELECT m.node_id FROM meta m WHERE m.key = ?
 	//   AND m.node_id NOT IN (SELECT m2.node_id FROM meta m2 WHERE m2.key = ? AND (m2.sort_value = ? OR ...))
@@ -295,6 +413,31 @@ func buildNeqSQL(key string, neqs []WhereCond) (string, []any) {
 	), args
 }
 
+func buildCoalesceNeqSQL(keys []string, neqs []WhereCond) (string, []any) {
+	var unionSQL []string
+	var args []any
+	for i, key := range keys {
+		var excludeParts []string
+		branchArgs := []any{key, key}
+		for _, c := range neqs {
+			kv := c.whereValueForKey(key)
+			excludeParts = append(excludeParts, "m2.sort_value = ?")
+			branchArgs = append(branchArgs, kv.value)
+		}
+		sql := fmt.Sprintf(
+			"SELECT m.node_id FROM meta m WHERE m.key = ? AND m.node_id NOT IN (SELECT m2.node_id FROM meta m2 WHERE m2.key = ? AND (%s))",
+			strings.Join(excludeParts, " OR "),
+		)
+		if i > 0 {
+			sql += fmt.Sprintf(" AND NOT EXISTS (SELECT 1 FROM meta mh WHERE mh.node_id = m.node_id AND mh.key IN (%s))", placeholders(i))
+			branchArgs = append(branchArgs, anySlice(keys[:i])...)
+		}
+		unionSQL = append(unionSQL, sql)
+		args = append(args, branchArgs...)
+	}
+	return strings.Join(unionSQL, " UNION "), args
+}
+
 // comparisonOpSQL maps comparison operators to their SQL representation.
 var comparisonOpSQL = map[WhereOp]string{
 	WhereOpGt:  ">",
@@ -303,7 +446,11 @@ var comparisonOpSQL = map[WhereOp]string{
 	WhereOpLte: "<=",
 }
 
-func buildPositiveSQL(key string, conds []WhereCond) (string, []any) {
+func buildPositiveSQL(keys []string, conds []WhereCond) (string, []any) {
+	if len(keys) > 1 {
+		return buildCoalescePositiveSQL(keys, conds)
+	}
+	key := keys[0]
 	// SELECT m.node_id FROM meta m WHERE m.key = ? AND (cond1 OR cond2 OR ...)
 	args := []any{key}
 	var parts []string
@@ -321,6 +468,61 @@ func buildPositiveSQL(key string, conds []WhereCond) (string, []any) {
 		}
 	}
 	return fmt.Sprintf("SELECT m.node_id FROM meta m WHERE m.key = ? AND (%s)", strings.Join(parts, " OR ")), args
+}
+
+func buildCoalescePositiveSQL(keys []string, conds []WhereCond) (string, []any) {
+	var unionSQL []string
+	var args []any
+	for i, key := range keys {
+		branchArgs := []any{key}
+		var parts []string
+		for _, c := range conds {
+			kv := c.whereValueForKey(key)
+			switch c.Op {
+			case WhereOpEq:
+				parts = append(parts, "m.sort_value = ?")
+				branchArgs = append(branchArgs, kv.value)
+			case WhereOpLike:
+				parts = append(parts, "m.value LIKE ? ESCAPE '\\'")
+				branchArgs = append(branchArgs, c.Value)
+			case WhereOpGt, WhereOpLt, WhereOpGte, WhereOpLte:
+				parts = append(parts, fmt.Sprintf("(m.sort_value %s ? AND m.value_type = ?)", comparisonOpSQL[c.Op]))
+				branchArgs = append(branchArgs, kv.value, kv.valueType)
+			}
+		}
+		sql := fmt.Sprintf("SELECT m.node_id FROM meta m WHERE m.key = ? AND (%s)", strings.Join(parts, " OR "))
+		if i > 0 {
+			sql += fmt.Sprintf(" AND NOT EXISTS (SELECT 1 FROM meta mh WHERE mh.node_id = m.node_id AND mh.key IN (%s))", placeholders(i))
+			branchArgs = append(branchArgs, anySlice(keys[:i])...)
+		}
+		unionSQL = append(unionSQL, sql)
+		args = append(args, branchArgs...)
+	}
+	return strings.Join(unionSQL, " UNION "), args
+}
+
+func (c WhereCond) whereValueForKey(key string) whereValue {
+	if c.keyValues != nil {
+		if kv, ok := c.keyValues[key]; ok {
+			return kv
+		}
+	}
+	return whereValue{value: c.Value, valueType: c.valueType}
+}
+
+func placeholders(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
+}
+
+func anySlice(values []string) []any {
+	args := make([]any, len(values))
+	for i, v := range values {
+		args[i] = v
+	}
+	return args
 }
 
 // expandRelativeDate expands a relative date token into an absolute date string

@@ -72,6 +72,8 @@ Operators:
 | EXISTS | `key` | Key exists (any value) |
 | NOT EXISTS | `key NOT EXISTS` | Key does not exist |
 
+The left-hand side may also be `coalesce(key1, key2, ...)`. Comparisons use the first key that exists on each note, in the listed priority order. `coalesce(reviewed, updated)` means either key exists; `coalesce(reviewed, updated) NOT EXISTS` means neither key exists. Type-safe comparisons use each key's own `meta.types` declaration (a relative-date value like `today-1y` forces every key to be treated as `date`).
+
 **Logic:**
 - Multiple `--where` with the same key: OR (match any)
 - Multiple `--where` with different keys: AND (match all)
@@ -136,6 +138,9 @@ mdhop query --file Notes/Design.md --where "priority NOT EXISTS" --fields backli
 
 # Date range filter (same-key AND via && syntax)
 mdhop query --tag project --where "created>=2024-01-01 && created<=2024-03-31" --fields backlinks --format json
+
+# Prefer reviewed date, falling back to updated date
+mdhop query --tag project --where "coalesce(reviewed, updated)<=today-1y" --fields backlinks --format json
 ```
 
 ### JSON Output Example
@@ -264,6 +269,9 @@ mdhop search --no-incoming --format json
 
 # Stale notes: not updated in the last 90 days
 mdhop search --where "updated<today-90d" --format json
+
+# Prefer reviewed date, falling back to updated date
+mdhop search --where "coalesce(reviewed, updated)<=today-1y" --format json
 
 # Biggest notes with computed fields and a single meta key
 mdhop search --sort -lines --limit 10 --fields lines,outgoing_count,meta.status --format json
