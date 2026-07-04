@@ -11,6 +11,8 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
   - 手続きの重さは作業の大きさとリスクに合わせる。
   - 判断に影響する `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）は推測で済ませず実物を確認する。
   - 仕様・UX に関わる判断は、現在の要求、`docs/rules/` / `docs/specs/` / `docs/decisions/`、既存コード、調査・検証結果から最善案を選ぶ。ユーザーが別方針を選ぶ可能性がある重要な判断は、進められるなら採用案で進め、Goal 完了報告の `ユーザー判断が必要` に残す。
+  - UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える可能性がある場合は、`.agents/workflow/design-decision-record.md` の Product Decision Ledger / Alternative Check に従う。カテゴリの正本は同ファイル。
+  - Product Decision Ledger の報告対象は、現在の要求 / backlog / docs / decisions に明記がなく、判断系 skill でも実装判断として明確に決まらず、Codex がステークホルダー判断に近い選択をしたものに限る。
 - **Acceptance**:
   - ユーザーの要求が満たされている。
   - 必要な情報源が同期されている。
@@ -24,6 +26,7 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
   - `.agents/workflow/change/verify.md`
   - `.agents/workflow/change/review.md`
   - `.agents/workflow/change/finish.md`
+  - `.agents/workflow/design-decision-record.md`
   - `.agents/workflow/maintenance.md`
 
 ## Intake
@@ -63,6 +66,8 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 独立した調査・レビュー・実装は並列化してよい。領域固有の判断は各 phase の workflow に従って skill を使う。
 
 既存 worktree 差分向けの特別な snapshot / staging / clean check フローは作らない。通常の差分確認と commit discipline で巻き込みを防ぐ。
+
+Product Decision Ledger は新しい正本ではない。Goal、長い Change、委任、review 指摘対応をまたぐ判断候補がある場合は、必要に応じて `tmp/product-decision-ledger/<scope>.md` に残す。finish では記憶ではなく ledger、review 結果、同期済み docs から `ユーザー判断が必要` を判断する。
 
 横断のスコープ制御を全 phase に効かせる。今回の要求の外へ作業を広げそうな時、隣接作業が見つかった時、scope を変える編集の前に、その行為が active scope 内か判定する。active scope は「ユーザーの明示指示 + 起動 workflow / skill の Intent・Acceptance + phase の要件 + workflow が要求する review 対応・同期・記録」で構成し、ユーザーの一文だけで決めない。判定順は workflow-required（手順が要求）→ incidental-required（やらないと Acceptance を満たせない最小行為）→ adjacent-candidate（関連・有益だが達成には不要、実行しない）→ blocked（進められない、止めて報告）。adjacent-candidate は実行せず、project-relevant なら backlog / decision log 等へ capture するか最終報告で report する。この制御で自動進行する workflow を細切れに止めない。
 

@@ -14,6 +14,8 @@
   - Goal 全体を 1 plan / 1 commit に押し込まない。次に扱う 1 commit 分を毎回明確に切り出す。
   - 複数案があるだけでは止まらない。現在の要求、`docs/rules/` / `docs/specs/` / `docs/decisions/`、コード、調査・検証結果から最善案を選んで進める。
   - Goal 中に、ユーザーが違う選択をする可能性がある重要な仕様・UX・設計上の選択が発生したら、適切に進められる範囲では採用案を選んで実装し、Goal 完了報告で `ユーザー判断が必要` として選択肢、主な利点・欠点、採用結果を提示する。なければ `ユーザー判断が必要: なし` と明示する。
+  - `ユーザー判断が必要` の対象は、現在の要求 / backlog / docs / decisions に明記されておらず、判断系 skill でも実装判断として明確に決まらず、Codex がステークホルダー判断に近い product decision を選んだものに限る。
+  - ユーザー判断候補は完了時の記憶に頼らず、各 Change の Product Decision Ledger、review 結果、同期済み docs から集める。
   - 報告対象になる判断の書き方は `.agents/workflow/design-decision-record.md` を参考にする。
   - 進捗・完了の報告は、このセッションのツール結果で裏取りできる事実だけを書く。テストが失敗していれば出力ごと報告し、未検証の項目は未検証と明示する。
   - 後から制約になる判断、仕様変更、未着手作業は、画面出力だけで終わらせず `docs/rules/` / `docs/specs/` / `docs/decisions/` / `backlog/backlog.md` の適切な情報源へ同期する。
@@ -24,7 +26,7 @@
   - 各 commit が `change/workflow.md` の workflow を満たしている。
   - Goal 開始時 base 以降の commit 済み内容が Cross-Agent Review 済み。レビュー上限に到達した場合は、最終修正が未レビューであることを含めて `レビュー上限超過` として報告されている。
   - 必要な仕様・backlog・判断記録が同期されている。
-  - ユーザー判断が必要な項目の有無が完了時に明示されている。
+  - ユーザー判断が必要な項目の有無が、各 Change から引き継いだ記録に基づいて完了時に明示されている。
   - 作業ツリーの残差分がない、または残す理由が明確。
 - **Relevant**:
   - `goal-workflow` skill
@@ -62,7 +64,7 @@
 - Change worker は渡された Change だけを active scope とし、Goal 全体を再計画・再分割しない。
 - 通常は `change/workflow.md` に従い、調査から commit まで完了して戻る。
 - 1 commit として不自然だと分かった場合は、作業を広げず事実を Goal main に返す。Goal main が commit 単位を切り直す。
-- 戻りの固定 schema は作らない。commit、検証、残作業、停止理由が理解できればよい。
+- 戻りの固定 schema は作らない。commit、検証、残作業、停止理由、Product Decision Ledger のうちユーザー判断候補として引き継ぐものが理解できればよい。
 - 直接実行の例外は Goal 経由の作業には適用しない。Goal を経由しない単発 Change だけは、現在の agent が直接実行してよい。
 - Change worker は、独立委任が効率または品質を高める調査・実装補助・検証を必要に応じて下位 subagent に任せてよい。
 
@@ -71,6 +73,7 @@
 - 完了時も停止時も、報告形式は状況に合わせて分かりやすく整える。固定テンプレートに無理に合わせない。
 - `ユーザー判断が必要: なし` または必要な判断内容を必ず明示する。
 - ユーザー判断が必要な項目は、複数の仕様・UX・設計選択肢があり、ユーザーが違う選択をする可能性があるものに限る。
+- 完了報告では、各 Change から引き継いだ Product Decision Ledger、review 結果、同期済み docs を読んで判断する。記憶だけで `なし` と判断しない。
 - 既存 `docs/rules/` / `docs/specs/` / `backlog/` から自然に決まること、要求どおり実装しただけの内容、単なる実装上の判断、未実装 TODO は毎回の報告対象にしない。
 - `レビュー上限超過: なし` または対象単位・回数・最後の指摘・行った修正・最終修正が未レビューであること・残リスクを状況に合わせて明示する。収束した review も、どの review が通ったかを状況に合わせて報告する。
 - 停止時は、停止理由と解決すべきことが分かるようにする。
@@ -79,6 +82,7 @@
 
 - Goal Review は、通常の `change/review.md` とは別に Goal 完了条件として扱う。
 - Goal Review は Cross-Agent Review だけを行う。各 commit の Self Review は `change/review.md` で完了済みとして扱い、Goal range に対して通常の Self Review / `change-review` 相当は再実行しない。
+- reviewer は Goal range を実装した系統と別系統で、実装文脈を引き継がない fresh reviewer とする。この workflow では Codex が実装するため、`cross-agent-review` で Claude Code に依頼する。
 - レビュー対象は未コミット差分ではなく、未レビュー範囲の commit range とする（分割しない場合は `review_cursor == base`）。Cross-Agent Review の実行直前に `review_start = review_cursor`、`review_end = 現在の HEAD の実 SHA` を確定し、1 回の review 中は `<review_start>..<review_end>` を動かさない。ブランチは切らないので range で対象を表す。
 - 1 commit ごとではなく、関連する数 commit をまとめてレビューする。毎回でなくてよい。PASS 相当なら `review_cursor` を `review_end` まで進める（`base` は動かさない）。
 - 差分が大きい、または永続化 / 同期 / 外部 API / 広い UI 挙動に触れる場合は、数 commit を待たずにその時点までの range で早めにレビューする。

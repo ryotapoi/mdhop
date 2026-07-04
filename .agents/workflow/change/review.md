@@ -9,7 +9,9 @@
   - Small 以外の実装差分は fresh Review subagent を起動し、`change-review` と必要な領域固有 skill の観点で確認する。
   - テスト可能な振る舞い変更や bug fix に unit test / regression test がない場合は、原則 blocker として扱う。
   - review 開始前に、commit に含める code / tests / `backlog/backlog.md` / `docs/specs/` / `llm-wiki/` / `docs/decisions/` / ADR の内容変更が完了していることを確認する。未完了なら review せず `change/implement.md` に戻る。
-  - 公開 API / 削除 / 並行性 / 永続化 / 広い UI 挙動などは、`change-review` に加えて `project-risk-check` や別視点レビューを使う。<!-- slot: project-risk-check 以外に足す領域固有レビュー観点があれば追記する（例: SwiftUI / TCA boundary なら該当 skill）。 --><!-- /slot -->
+  - 差分が UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える場合、現在の要求 / backlog / docs / decisions に明記されているか、Product Decision Ledger から採用案・別案・理由を追えることを確認する。カテゴリの正本は `.agents/workflow/design-decision-record.md`。どちらも満たさない場合は blocker として扱う。
+  - レビュー指摘対応で新しい product decision が発生した場合も `change/implement.md` に戻して、ledger と必要な同期を更新する。
+  - 公開 API / 削除 / 並行性 / 永続化 / 広い UI 挙動などは、`change-review` に加えて `project-risk-check` や別視点レビューを使う。<!-- slot: project-risk-check 以外に足す領域固有レビュー観点があれば追記する（例: UI 層に触れるなら対応する specialist skill）。 --><!-- /slot -->
   - 構造劣化リスクがある場合は `thermo-nuclear-code-quality-review` を必ず使う。
   - 指摘に対応しない場合は理由を残す。
   - Review subagent はファイルを変更しない。Change worker が採否、修正、再検証、必要なら再レビュー、commit を担当する。
@@ -18,6 +20,7 @@
 - **Acceptance**:
   - 選んだレビュー深度と理由が説明できる。
   - review 対象が commit 予定差分全体（code / tests / docs / `backlog/backlog.md` / `docs/decisions/` を含む）である。
+  - product decision を含む差分では、報告対象と報告不要な実装判断が分かれている。
   - 指摘があれば対応済み、または対応しない理由が明確。
   - レビュー後に変更した場合、必要な再検証が済んでいる。
 - **Relevant**:

@@ -23,6 +23,7 @@ goal-workflow skill（Goal の入口）
         ├── change/verify.md
         ├── change/review.md
         ├── change/finish.md
+        ├── design-decision-record.md
         └── maintenance.md
 ```
 

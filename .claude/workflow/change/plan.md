@@ -32,12 +32,16 @@ UI / 出力に関わる変更なら、Before / After / 操作手順を 1 つの�
 
 ユーザーへの確認は plan の必須ステップではない。仕様・UX に複数案があっても、現在の要求と情報源から適切に選べるなら止まらず進める。見た目・操作の確認は実装後に `change/verify.md` の方針で自動検証を優先し、確定できない場合だけ Stop Condition または残存リスクとして扱う。
 
+UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える plan では、Product Decision Ledger の Alternative Check を行う。カテゴリの正本は `.claude/workflow/design-decision-record.md`。
+現在の要求 / backlog / docs / decisions に明記済みの内容や、判断系 skill で実装判断として解ける内容は、Goal 完了報告の `ユーザー判断が必要` に混ぜない。
+
 ## 設計判断
 
 - 設計判断の前に `design-decision` スキルを呼ぶ
 - ルールに当てはめても適切に決められず、ユーザー判断や不足情報なしに進めること自体が不適切なときだけユーザー確認
 - モジュール配置・共通化方針・型選択を判断する
 - プロジェクト固有制約に触れるなら `project-risk-check` で確認する。観点は skill 側が持つ。
+- 採用案・却下案・理由・残リスクを plan に残す。実装寄りの設計判断と、ステークホルダーに報告すべき product decision を混ぜない。
 
 ## 先行リファクタ判定
 
@@ -61,7 +65,7 @@ UI / 出力に関わる変更なら、Before / After / 操作手順を 1 つの�
 - 通常は実装後レビュー（`change/review.md`）を標準とし、plan review は self-check でよい。
 - 実装差分レビューでは Small 以外を原則 `/code-review xhigh` 観点ベースのレビューに通すため、plan 時点でもレビュー深度と追加 skill の要否を明記する。
 - 領域固有リスクがあれば該当観点の skill を plan に当てる。`project-risk-check` 以外で固有制約に触れる場合は次の slot のマッピングに従う。
-  <!-- slot: project-risk-check 以外の領域固有レビュー skill があれば追記する（例: SwiftUI を触るなら swiftui-pro を使う）。 -->
+  <!-- slot: project-risk-check 以外の領域固有レビュー skill があれば追記する（例: UI 層を触るなら対応する specialist skill）。 -->
   <!-- /slot -->
 - High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`codex-review` でプランファイルを別系統レビューに回す。
 - plan review 後に再レビューするかは、指摘対応で plan の構造・risk・検証方針・設計判断が大きく変わったかで判断する。機械的な反映だけなら再レビューせず実装へ進んでよい。
@@ -73,7 +77,7 @@ UI / 出力に関わる変更なら、Before / After / 操作手順を 1 つの�
 - 必要な仕様・backlog・decision の更新方針が明確
 - レビュー指摘への対応が済んでいる、または対応しない理由が plan に書かれている
 - レビュー指摘に対応しない場合は、plan に**考慮したこと**（不要と判断した理由・別タスクに切り出す理由・トレードオフ）を事実と理由で書く（「対処済み」だけの完了宣言は不可）
-- 実装に進めるだけの判断材料が揃っている。重要なユーザー判断候補が残る場合は、進めた採用案と残した判断内容を説明できる。
+- 実装に進めるだけの判断材料が揃っている。重要なユーザー判断候補が残る場合は、Product Decision Ledger から採用案、別案、報告が必要な理由を説明できる。
 
 ## Stop Conditions
 

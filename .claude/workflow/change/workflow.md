@@ -25,6 +25,7 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 ## Routing
 
 - Exploratory → `change/investigate.md` で事実を揃えてから判断し直す
+- execution mode `delegate` → 調査・実装の委譲は `change/delegate.md` に従う（Change 全体の進行は下記の各 phase をそのまま使う）
 - Plan が必要な変更 → `change/plan.md`（plan mode は使わず、内部で計画を立ててそのまま `change/implement.md` へ進む。詳細は `change/plan.md`）
 - Plan 省略可な変更 → そのまま `change/implement.md`
 - 検証 → `change/verify.md`
@@ -40,6 +41,8 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 - 仕様・UX・データモデル・複数ファイル変更・設計判断を伴うなら plan を作る。
 - High-risk は plan・検証・必要なレビューを明示する。
 - 実装判断に影響する不明点は、調査・検証・既存情報で潰してから進む。複数案があっても、現在の要求と情報源から適切に選べるなら止まらず進める。
+- UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える可能性がある場合は、`.claude/workflow/design-decision-record.md` の Product Decision Ledger / Alternative Check に従う。カテゴリの正本は同ファイル。
+- Product Decision Ledger の報告対象は、現在の要求 / backlog / docs / decisions に明記がなく、判断系 skill でも実装判断として明確に決まらず、Claude がステークホルダー判断に近い選択をしたものに限る。
 - 途中でタスクの性質が変わったら、Intake からやり直す（格上げは許容）。
 - 既存 worktree 差分向けの特別な snapshot / staging / clean check フローは作らない。通常の差分確認と commit discipline で巻き込みを防ぐ。
 
@@ -54,6 +57,8 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 5. tests
 
 仕様・UX に関わる判断は、現在の要求、`docs/rules/` / `docs/specs/` / `docs/decisions/`、既存コード、調査・検証結果から最善案を選ぶ。ユーザーが別方針を選ぶ可能性がある重要な判断は、進められるなら採用案で進め、Goal 完了報告の `ユーザー判断が必要` に残す。
+
+Product Decision Ledger は新しい正本ではない。Goal、長い Change、委任、review 指摘対応をまたぐ判断候補がある場合は、必要に応じて `tmp/product-decision-ledger/<scope>.md` に残す。finish では記憶ではなく ledger、review 結果、同期済み docs から `ユーザー判断が必要` を判断する。
 
 ## Acceptance
 
@@ -76,3 +81,4 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 - skill は各 phase の workflow の指示に従って使う。
 - `boundary-control` は横断チェックとして全 phase に効く。今回の要求の外へ作業を広げそうな時、隣接作業が見つかった時、scope を変える編集の前に使い、active scope 内か（workflow-required / incidental-required）を判定する。active workflow を止めたり置き換えたりはしない
 - 詳細は各 phase のファイル参照
+- Product Decision Ledger の判断基準は `.claude/workflow/design-decision-record.md` を参照する

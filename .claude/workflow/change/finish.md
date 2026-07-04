@@ -14,6 +14,7 @@ review を通過した変更を、コミットまで含めて完了状態にす�
 
 - コミットは `commit` スキルで作成する。finish では tracked file の内容を追加・変更・削除しない
 - 文書同期（`backlog/backlog.md` / `docs/decisions/` / `llm-wiki/` / `docs/specs/`）や ADR が不足していると分かった場合は、commit せず `change/implement.md` に戻り、verify と review をやり直す
+- commit 前に差分、review 結果、Product Decision Ledger、同期済み docs を照合する。UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える差分（カテゴリの正本は `.claude/workflow/design-decision-record.md`）が、現在の要求 / backlog / docs / decisions に明記されておらず、ledger から採用案・別案・理由も追えない場合は commit せず `change/implement.md` に戻る
 - コミットメッセージ規約は `commit` スキル側が判断する
 - このファイルでは commit スキルを呼ぶこと自体を担保する
 - Goal 実行中の場合、commit 後に Goal 全体が完了したか、次の 1 commit workflow に進むかを `goal.md` で確認する
@@ -23,7 +24,7 @@ review を通過した変更を、コミットまで含めて完了状態にす�
 
 - コミット済みで、作業ツリーの残差分が意図したものだけ
 - Goal 実行中は次の 1 commit workflow に進むか Goal 完了かを `goal.md` で判断する。Goal 外の単発依頼の場合はコミット完了後に次のタスクへ進まない（ユーザー指示待ち）
-- Goal が完了する場合は、ユーザー判断が必要な事項と Cross-Agent Review のレビュー上限超過の有無が明示されている
+- Goal が完了する場合は、記憶ではなく Product Decision Ledger / review 結果 / 同期済み docs から、ユーザー判断が必要な事項と Cross-Agent Review のレビュー上限超過の有無が明示されている
 
 ## Stop Conditions
 

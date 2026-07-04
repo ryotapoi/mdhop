@@ -17,10 +17,12 @@ goal-workflow skill（Goal の入口）
     └── change/workflow.md（各 commit / 単発依頼の Intake・Routing）
         ├── change/investigate.md — Exploratory 用の事実集め
         ├── change/plan.md — 計画作成（省略可条件含む。plan mode は使わない）
+        ├── change/delegate.md — execution mode `delegate` の外部エージェント委譲
         ├── change/implement.md — 実装
         ├── change/verify.md — 動作確認
         ├── change/review.md — リスクベースの review depth 選択
         ├── change/finish.md — global commit skill でコミット
+        ├── design-decision-record.md — 設計判断の記録と Product Decision Ledger の正本
         └── maintenance.md — L3、節目で呼ぶ構造棚卸し
 ```
 

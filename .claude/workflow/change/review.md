@@ -17,9 +17,11 @@
 - **Small 以外の実装差分は原則 `/code-review`（`high` / `xhigh`）の観点を通す**（Standard、How To Run の Review Lane Delegation 参照）。避ける余地を減らす。effort は差分の性質で使い分ける（基本 `xhigh`、docs 中心など小差分は `high`）。`/code-review` は観点取得に使い、Phase 0 の差分指定はそのまま使わず現在のレビュー対象の差分に置き換える。実レビューは standard-review-coordinator が観点ごとに起動する finder subagent に隔離する。`ultra` はクラウド・billed・ユーザー手動起動なので自動進行では使わない。
 - 構造劣化リスク（巨大化、分岐増加、責務境界の濁り、薄い抽象化、型境界の曖昧さ、canonical layer 逸脱）があれば `thermo-nuclear-code-quality-review` を**必須**で使う。
 - review 開始前に、commit に含める code / tests / `backlog/backlog.md` / `docs/specs/` / `llm-wiki/` / `docs/decisions/` / ADR の内容変更が完了していることを確認する。未完了なら review せず `change/implement.md` に戻る。
+- 差分が UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える場合、現在の要求 / backlog / docs / decisions に明記されているか、Product Decision Ledger から採用案・別案・理由を追えることを確認する。カテゴリの正本は `.claude/workflow/design-decision-record.md`。どちらも満たさない場合は blocker として扱う。
+- レビュー指摘対応で新しい product decision が発生した場合も `change/implement.md` に戻して、ledger と必要な同期を更新する。
 - 領域固有 supplement の対象:
   - プロジェクト固有制約に触れる差分 → `project-risk-check`（何が固有制約かは skill 側が判定する）
-  <!-- slot: project-risk-check 以外の領域固有レビューのマッピングがあれば追記する（例: 「View 層 → swiftui-pro」）。 -->
+  <!-- slot: project-risk-check 以外の領域固有レビューのマッピングがあれば追記する（例: 「UI 層 → 対応する specialist skill」）。 -->
   <!-- /slot -->
 - **テスト可能な振る舞い変更や bug fix に unit test / regression test がない場合は、原則 blocker として扱う**（`change/verify.md` で未完了。理由がある例外のみ許容）。
 - review は粗探しではなく、実害・仕様逸脱・テスト不足・設計劣化を探す。
@@ -63,12 +65,13 @@ review lane はレビュー実行と候補整理だけを担当する。Change w
 
 Change worker が全 lane の戻りを統合して最終採否を行い、修正・テスト・コミットはすべて Change worker で行う。再レビューは、差分の大きさ、risk、MUST 指摘の内容、新しい設計判断の有無から必要な lane だけをもう一周起動する。
 
-Goal 全体の commit range では、ここでの Self Review / `/code-review` を再実行しない。Goal range は `goal.md` に従い、実行直前に固定した `<review_cursor>..<review_end>` への Cross-Agent Review（Codex レビュー）だけを行う。
+Goal 全体の commit range では、ここでの Self Review / `/code-review` を再実行しない。Goal range は `goal.md` に従い、実行直前に固定した `<review_cursor>..<review_end>` への Cross-Agent Review だけを行う。
 
 ## Acceptance
 
 - 選んだ review depth と理由が説明できる
 - review 対象が commit 予定差分全体（code / tests / docs / `backlog/backlog.md` / `docs/decisions/` を含む）である
+- product decision を含む差分では、報告対象と報告不要な実装判断が分かれている
 - テスト可能な振る舞い変更 / bug fix に unit / regression test がある、または追加しない理由が明確
 - 指摘があれば対応済み、または対応しない理由が明確
 - レビュー後の変更に対して必要な再検証が済んでいる

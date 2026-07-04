@@ -12,6 +12,8 @@
   - 振る舞い変更や bug fix では、同じ commit に unit test / regression test を追加または更新する。テストできない場合は理由を明記する。
   - 振る舞い変更があるなら、必要に応じて `docs/specs/` とテストを同期する。
   - commit に含める内容変更（code / tests / `backlog/backlog.md` / `docs/specs/` / `llm-wiki/` / `docs/decisions/` / ADR）は、この phase で完了する。review 後の finish / commit では tracked file の内容を追加・変更・削除しない。
+  - 実装中またはレビュー指摘対応中に、UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変更する必要が出た場合は、Product Decision Ledger の Alternative Check を行う。カテゴリの正本は `.claude/workflow/design-decision-record.md`。
+  - 現在の要求 / backlog / docs / decisions にない挙動を Claude が選ぶ場合は、採用案で進められる場合でも Product Decision Ledger に残す。判断系 skill で実装判断として明確に決まるものは、通常の設計メモに留め、ユーザー判断候補にしない。
   - 実装中に見つかった別タスクは、今やる理由がなければ `backlog/backlog.md` に逃がす。今回の commit の active scope 内か迷う作業は `boundary-control` で分類してから着手する（adjacent なら実行せず capture / report）。
   - ループ内で時刻を扱う場合は各反復で取得する（ループ外で 1 回だけ取得しない）。
 - **Acceptance**:
@@ -29,6 +31,7 @@
 
 - **Intent**: 要求された振る舞いを最小十分な差分で実装する。
 - **Constraints**:
+  - execution mode が `delegate` の場合、Code Change は `change/delegate.md` に従って外部実装エージェントへ委譲する。Documentation Sync、diff レビュー、commit 内容の完了責任は Change worker に残る。
   - テストファーストで進める場合は `tdd` スキルに従う。
   - 構造の悪さが実装を歪める場合は、同じ変更で直すか、別リファクタ plan に切るかを判断する。
 - **Acceptance**: plan と実装上の事実が食い違っていない。
@@ -62,6 +65,6 @@
 ## Stop Conditions
 
 - plan と実装上の事実が食い違う。
-- 実装中に仕様判断が必要になった。
+- 実装中に、その時点の情報では適切に決められない重要な仕様・UX・プロダクト判断が必要になった。
 - リファクタなしでは変更が不自然または危険になる。
 - module / package / target / folder 境界の判断なしに、新しい責務や外部依存を既存構造へ押し込む必要が出た。

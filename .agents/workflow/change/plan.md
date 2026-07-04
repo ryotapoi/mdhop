@@ -9,12 +9,14 @@
   - 1 commit 単位は、途中段階でも「その単位として完了している」状態にする。Goal 全体の完了とは別に判断する。
   - 仕様・UX・設計方針に複数案があっても、現在の要求と情報源から適切に選べるなら止まらず進める。
   - 設計判断は `.agents/workflow/design-decision-record.md` に従い、採用案・却下案・理由を残す。
+  - UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える plan では、Product Decision Ledger の Alternative Check を行う。カテゴリの正本は `.agents/workflow/design-decision-record.md`。
+  - 現在の要求 / backlog / docs / decisions に明記済みの内容や、判断系 skill で実装判断として解ける内容は、Goal 完了報告の `ユーザー判断が必要` に混ぜない。
   - 検証方針（自動 / ユーザー確認）を plan に明記する。
 - **Acceptance**:
   - 実装対象、非対象、検証方針が明確。
   - 必要な `docs/specs/`, `backlog/backlog.md`, `docs/decisions/` の更新方針、および知見をソースコメント / `llm-wiki/` のどこへ残すかが明確。
   - レビュー指摘への対応が済んでいる、または対応しない理由が plan に書かれている。
-  - 実装に進めるだけの判断材料が揃っている。重要なユーザー判断候補が残る場合は、進めた採用案と残した判断内容を説明できる。
+  - 実装に進めるだけの判断材料が揃っている。重要なユーザー判断候補が残る場合は、Product Decision Ledger から採用案、別案、報告が必要な理由を説明できる。
 - **Relevant**:
   - ユーザー依頼
   - `backlog/backlog.md`
@@ -37,7 +39,7 @@ Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追�
 
 - **Intent**: UI 変更の Before / After / 操作手順を、具体的な 1 状態で確認できるようにする。
 - **Constraints**: ロジックのみの変更なら「N/A — UI 変更なし」と明記してスキップする。
-- **Acceptance**: UI / 挙動の確認方法と、重要なユーザー判断候補として残すべきものが plan 上で明確になっている。
+- **Acceptance**: UI / 挙動の確認方法と、Product Decision Ledger へ残すべきステークホルダー判断候補の有無が plan 上で明確になっている。
 - **Relevant**: `docs/specs/`（該当する UX / シナリオ仕様）、対象 View / 画面。
 
 ### Design
@@ -50,7 +52,7 @@ Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追�
   - モジュール配置は依存方向と既存責務で判断する。
   - 共通化は「片方だけ変更したくなったとき、もう片方に影響なく変更できるか？」で判断する。
   - プロジェクト固有制約に触れるなら `project-risk-check` で確認する。観点は skill 側が持つ。
-- **Acceptance**: 採用案・却下案・理由・残リスクが plan に残っている。
+- **Acceptance**: 採用案・却下案・理由・残リスクが plan に残っている。実装寄りの設計判断と、ステークホルダーに報告すべき product decision が混ざっていない。
 - **Relevant**: `docs/rules/`（アーキテクチャ・制約）, `llm-wiki/`（作業地図）, 関連コード。
 
 ### Refactor Scope
@@ -73,7 +75,7 @@ Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追�
   - 実装差分レビューでは Small 以外を原則 `change-review` に通すため、plan 時点でもレビュー深度と追加 skill の要否を明記する。
   - 設計判断には `design-decision` を使う。
   - プロジェクト固有制約に触れるなら `project-risk-check` を使う。
-    <!-- slot: project-risk-check 以外の領域固有レビュー skill があれば追記する（例: SwiftUI を触るなら swiftui-pro を使う）。 -->
+    <!-- slot: project-risk-check 以外の領域固有レビュー skill があれば追記する（例: UI 層を触るなら対応する specialist skill）。 -->
     <!-- /slot -->
   - High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`change-review` などの別視点を plan レビューにも入れる。
   - plan review 後に再レビューするかは、指摘対応で plan の構造・risk・検証方針・設計判断が大きく変わったかで判断する。機械的な反映だけなら再レビューせず実装へ進んでよい。
