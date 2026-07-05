@@ -1,15 +1,8 @@
 # Backlog
 
-## v0.16.0
+## v0.16.1
 
-`--where` 結合ルールの統一（2026-07-05 確定）。
-
-- [x] search/query: 複数 `--where` フラグを常に AND にする（同一キー OR の暗黙ルールを廃止）
-  - **現状**: 複数 `--where` の条件はキーでグループ化され、同一キーは OR・異なるキーは AND（INTERSECT）で結合される（`internal/core/where.go:286` の `MetaFilterSQL`）。このルールは v0.6.0 計画時（f7fa44f）、` && ` も ` || ` もなかった「1 フラグ = 1 条件」の世界で「同一キーの等値 AND は常に空集合なので OR 以外に意図がありえない」というキー一致からの意図推測として入ったもので、明文化された設計記録はない。` && `（dbe3aca）と ` || `（2be48c3）の追加で明示演算子が揃い、役目を終えた。`!=` は同一キーでも除外の積（実質 AND）でルール自体に例外があった
-  - **確定仕様**: 複数 `--where` フラグ間は常に AND（キーの一致を見ない）。OR は 1 つの式内の ` || ` で明示する。`!=` の除外セマンティクス（キーが存在し、かつ該当値を一切含まない）は変更しない
-  - **破壊的変更**: `--where "k=a" --where "k=b"` が OR → AND（スカラーキーでは空集合）に変わる。v1.0 前に実施する
-  - **対処案**: `MetaFilterSQL` のキー単位グループ化をフラグ（式）単位のグループ化に変更し、式グループ間を INTERSECT で結合。同一キー OR を検証している既存テストは AND 検証 + ` || ` 書き換え例に差し替え
-  - **ドキュメント同期**（同一コミット）: `docs/specs/overview.md` の `--where` 結合ルール節、`docs/rules/02-requirements.md:78`、`docs/rules/03-data-model.md:193-194` の SQL 生成パターン、`cmd/mdhop/usage.go`（query / search の `--where` 説明に「複数フラグは AND」を明記）。README と `examples/skills/mdhop/` は結合ルールを記述していないことを確認済み（2026-07-05）だが、実装時に念のため再確認する
+- [x] GitHub Actions の macOS CI を `macos-15` に固定し、`macos-latest` の macOS 26 移行で Go 1.22 系テストバイナリが `dyld: missing LC_UUID load command` で起動前に落ちる問題を回避する
 
 ## Later
 
