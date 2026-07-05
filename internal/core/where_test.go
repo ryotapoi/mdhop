@@ -634,22 +634,20 @@ func TestWhereClause_SingleEq(t *testing.T) {
 	}
 }
 
-func TestWhereClause_SameKeyOR(t *testing.T) {
+func TestWhereClause_MultipleFlagsSameKeyAND(t *testing.T) {
 	wc := &WhereClause{Conditions: []WhereCond{
 		{Key: "priority", Op: WhereOpEq, Value: "2"},
 		{Key: "priority", Op: WhereOpEq, Value: "3"},
 	}}
 	sql, args := wc.MetaFilterSQL("n.id")
-	// Should have a single subquery (not INTERSECT).
-	if strings.Contains(sql, "INTERSECT") {
-		t.Errorf("same-key should not use INTERSECT: %q", sql)
+	if !strings.Contains(sql, "INTERSECT") {
+		t.Errorf("same-key repeated flags should use INTERSECT: %q", sql)
 	}
-	// Should have OR.
-	if !strings.Contains(sql, " OR ") {
-		t.Errorf("same-key should use OR: %q", sql)
+	if strings.Contains(sql, " OR ") {
+		t.Errorf("same-key repeated flags should not use implicit OR: %q", sql)
 	}
-	if len(args) != 3 { // key + value1 + value2
-		t.Errorf("args = %v, want 3 elements", args)
+	if len(args) != 4 { // key + value for each flag
+		t.Errorf("args = %v, want 4 elements", args)
 	}
 }
 
@@ -862,13 +860,13 @@ func TestWhereClause_AndGroup_WithSingles(t *testing.T) {
 		},
 	}
 	sql, args := wc.MetaFilterSQL("n.id")
-	// Should have INTERSECT (Conditions subquery INTERSECT created>= INTERSECT created<=).
+	// Should have INTERSECT (each single flag plus created>= plus created<=).
 	if !strings.Contains(sql, "INTERSECT") {
 		t.Errorf("mixed should use INTERSECT: %q", sql)
 	}
-	// Conditions: key + val1 + val2 = 3, AndGroup: (key+val+type)*2 = 6, total 9.
-	if len(args) != 9 {
-		t.Errorf("args len = %d, want 9", len(args))
+	// Conditions: (key+val)*2 = 4, AndGroup: (key+val+type)*2 = 6, total 10.
+	if len(args) != 10 {
+		t.Errorf("args len = %d, want 10", len(args))
 	}
 }
 
@@ -1052,7 +1050,7 @@ func TestQueryBacklinksWhere_PriorityGt(t *testing.T) {
 	assertNames(t, "priority>1", res.Backlinks, []string{"B", "C"})
 }
 
-func TestQueryBacklinksWhere_SameKeyOR(t *testing.T) {
+func TestQueryBacklinksWhere_MultipleFlagsSameKeyAND(t *testing.T) {
 	vault := setupWhereVault(t)
 	metaCfg := loadMetaCfg(t, vault)
 	wc, err := ParseWhere([]string{"priority=2", "priority=3"}, metaCfg)
@@ -1066,7 +1064,24 @@ func TestQueryBacklinksWhere_SameKeyOR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	assertNames(t, "priority=2 OR priority=3", res.Backlinks, []string{"B", "C"})
+	assertNames(t, "priority=2 AND priority=3", res.Backlinks, nil)
+}
+
+func TestQueryBacklinksWhere_SameKeyOrExpression(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"priority=2 || priority=3"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  wc,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	assertNames(t, "priority=2 || priority=3", res.Backlinks, []string{"B", "C"})
 }
 
 func TestQueryBacklinksWhere_OrExpression(t *testing.T) {
@@ -1463,6 +1478,26 @@ func TestSearchWhere_AndSameKey(t *testing.T) {
 		nodes = append(nodes, item.Node)
 	}
 	assertNames(t, "created range", nodes, []string{"B", "C"})
+}
+
+func TestSearchWhere_MultipleFlagsSameKeyAND(t *testing.T) {
+	vault := setupWhereVault(t)
+	metaCfg := loadMetaCfg(t, vault)
+	wc, err := ParseWhere([]string{"status=active", "status=done"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := Search(vault, SearchOptions{
+		Where: wc,
+	})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	var nodes []NodeInfo
+	for _, item := range res.Items {
+		nodes = append(nodes, item.Node)
+	}
+	assertNames(t, "search status active AND status done", nodes, nil)
 }
 
 func TestSearchWhere_OrExpression(t *testing.T) {

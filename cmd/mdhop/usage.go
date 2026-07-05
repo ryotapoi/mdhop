@@ -298,7 +298,7 @@ Options:
   --exclude <glob>            Optional, repeatable. Exclude result paths matching the glob.
   --exclude-tag <tag>         Optional, repeatable. Exclude matching tags.
   --no-exclude                Ignore mdhop.yaml exclude settings.
-  --where <expr>              Optional, repeatable. Metadata filter using =,!=,~,>,<,>=,<=, EXISTS/NOT EXISTS, coalesce(...), &&, ||, and today±N d/w/m/y dates.
+  --where <expr>              Optional, repeatable. Metadata filter using =,!=,~,>,<,>=,<=, EXISTS/NOT EXISTS, coalesce(...), &&, ||, and today±N d/w/m/y dates. Multiple --where flags are ANDed; use " || " inside one expression for OR.
   --vault <path>              Optional. Vault root directory. Default: ".".
   --format json|text          Optional. Output format. Default: text.
 
@@ -324,7 +324,7 @@ const searchHelp = `Usage: mdhop search [--where <expr>...] [--path <glob>...] [
 Search existing notes without an entry node.
 
 Options:
-  --where <expr>       Optional, repeatable. Metadata filter using the same syntax as query, including && and || separators.
+  --where <expr>       Optional, repeatable. Metadata filter using the same syntax as query. Multiple --where flags are ANDed; use " || " inside one expression for OR.
   --path <glob>        Optional, repeatable. Include note paths matching any glob.
   --exclude <glob>     Optional, repeatable. Exclude note paths matching the glob.
   --no-exclude         Ignore mdhop.yaml exclude settings.

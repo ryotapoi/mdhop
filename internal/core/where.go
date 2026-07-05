@@ -38,7 +38,7 @@ type whereValue struct {
 
 // WhereClause holds parsed where conditions.
 type WhereClause struct {
-	Conditions []WhereCond   // from non-&& --where flags (same-key = OR)
+	Conditions []WhereCond   // from single-condition --where flags (each flag = AND)
 	AndGroups  [][]WhereCond // from && --where flags (each group = all AND)
 	OrGroups   [][]WhereCond // from || --where flags (each group = any OR)
 }
@@ -112,7 +112,7 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 			}
 			orGroups = append(orGroups, group)
 		default:
-			// Single condition — append to Conditions (same-key = OR).
+			// Single condition — append as its own ANDed flag.
 			c, err := parseOneWhere(expr, metaCfg)
 			if err != nil {
 				return nil, err
@@ -291,28 +291,12 @@ func (wc *WhereClause) MetaFilterSQL(alias string) (string, []any) {
 	var subqueries []string
 	var allArgs []any
 
-	// Process single conditions (same-key = OR, cross-key = INTERSECT).
-	if len(wc.Conditions) > 0 {
-		type keyGroup struct {
-			key   string
-			conds []WhereCond
-		}
-		orderMap := make(map[string]int)
-		var groups []keyGroup
-		for _, c := range wc.Conditions {
-			idx, ok := orderMap[c.Key]
-			if !ok {
-				idx = len(groups)
-				orderMap[c.Key] = idx
-				groups = append(groups, keyGroup{key: c.Key})
-			}
-			groups[idx].conds = append(groups[idx].conds, c)
-		}
-		for _, g := range groups {
-			sq, args := buildKeyGroupSQL(g.key, g.conds)
-			subqueries = append(subqueries, sq)
-			allArgs = append(allArgs, args...)
-		}
+	// Process single-condition flags: every repeated --where flag is ANDed,
+	// regardless of whether keys match. Explicit OR stays available via " || ".
+	for _, c := range wc.Conditions {
+		sq, args := buildKeyGroupSQL(c.Key, []WhereCond{c})
+		subqueries = append(subqueries, sq)
+		allArgs = append(allArgs, args...)
 	}
 
 	// Process AND groups: each condition → own subquery, INTERSECT within group.

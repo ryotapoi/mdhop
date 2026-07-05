@@ -171,11 +171,12 @@ meta:
     - `coalesce(reviewed, updated)` は reviewed または updated のどちらかが存在する note、`coalesce(reviewed, updated) NOT EXISTS` はどちらも存在しない note にマッチする
     - 型安全な比較は各キー自身の `meta.types` 宣言を使う（reviewed と updated で宣言型が異なっていても、それぞれ自分の型でガードされる）。ただし相対日付（`today` 等）を使った場合は全キー共通で date 型として扱う
   - 結合ルール:
-    - 複数 `--where` で同一キー → OR（いずれかの条件にマッチ）
-    - 複数 `--where` で異なるキー → AND（全キーの条件にマッチ）
+    - 複数 `--where` フラグ → 常に AND（キーの一致・不一致を問わず、全フラグの条件にマッチ）
     - 1 つの `--where` 内で ` && ` 区切り → AND（同一キーでも AND。日付範囲等に使用）
     - 1 つの `--where` 内で ` || ` 区切り → OR（異なるキーでも OR）
     - 1 つの `--where` 内で ` && ` と ` || ` を混在させた場合は **エラー**（優先順位・括弧解釈は未対応）
+    - 例: `--where "status=active" --where "priority>1"` → status が active かつ priority が 1 より大きい
+    - 例: `--where "status=active" --where "status=review"` → status が active かつ review（スカラー値では通常マッチしない）
     - 例: `--where "created>=2025-02-01 && created<=2025-02-28"` → created が 2 月の範囲内
     - 例: `--where "status=active || status=review"` → status が active または review
     - ` && ` / ` || ` は前後スペース必須（スペースなしの `&&` / `||` は区切りとみなされない）

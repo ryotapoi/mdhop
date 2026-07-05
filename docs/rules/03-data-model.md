@@ -190,12 +190,11 @@ phantom クエリ用 seed:
 ### 4.4 メタデータフィルタ（--where）
 
 SQL 生成パターン:
-- 同一キーの条件 = OR（1 つの `SELECT m.node_id FROM meta m WHERE m.key = ? AND ...` にまとめる）
-  - 例外: `&&` 構文（1 つの `--where` 内で ` && ` 区切り）で指定された条件は同一キーでも AND。各条件を個別サブクエリにして `INTERSECT` で結合する
-- 異なるキーの条件 = AND（各キーの subquery を `INTERSECT` で結合）
+- 複数 `--where` フラグ = AND。キーの一致・不一致を問わず、各フラグを node_id subquery にして `INTERSECT` で結合する
+- `&&` 構文（1 つの `--where` 内で ` && ` 区切り）で指定された条件 = AND。各条件を個別サブクエリにして `INTERSECT` で結合する
 - `||` 構文（1 つの `--where` 内で ` || ` 区切り）で指定された条件 = OR。各条件を個別サブクエリにして `UNION` で結合し、その `--where` 全体を他の `--where` 条件とは `INTERSECT` で結合する
 - 1 つの `--where` 内で ` && ` と ` || ` を混在させた式は、優先順位・括弧解釈を持たないためエラー
-- `coalesce(key1, key2, ...)` は同一の pseudo-key として上記の OR / AND 結合に参加する。SQL では優先順ごとに branch を作り、低優先キーの branch には高優先キーが同一 node に存在しないことを `NOT EXISTS` でガードする。各 branch の `value_type` ガードはそのキー自身の `meta.types` 宣言を使う（相対日付使用時は全キー共通で `date` 型を強制）
+- `coalesce(key1, key2, ...)` は 1 条件として上記の AND / OR 結合に参加する。SQL では優先順ごとに branch を作り、低優先キーの branch には高優先キーが同一 node に存在しないことを `NOT EXISTS` でガードする。各 branch の `value_type` ガードはそのキー自身の `meta.types` 宣言を使う（相対日付使用時は全キー共通で `date` 型を強制）
 - フィルタ適用: backlinks/outgoing/twohop の結果ノードに `AND n.id IN (...)` を付加
 
 演算子と対象カラム:

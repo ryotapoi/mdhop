@@ -1389,6 +1389,57 @@ func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
 	}
 }
 
+func TestRunSearch_MultipleWhereFlagsAreAND(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_where")
+
+	out := captureStdout(t, func() error {
+		return runSearch([]string{
+			"--vault", vault,
+			"--format", "json",
+			"--where", "status=active",
+			"--where", "status=done",
+		})
+	})
+
+	var m struct {
+		Total int `json:"total"`
+		Items []struct {
+			Path string `json:"path"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if m.Total != 0 || len(m.Items) != 0 {
+		t.Fatalf("search repeated --where total/items = %d/%d, want 0/0; output: %s", m.Total, len(m.Items), out)
+	}
+}
+
+func TestRunSearch_WhereOrExpression(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_query_where")
+
+	out := captureStdout(t, func() error {
+		return runSearch([]string{
+			"--vault", vault,
+			"--format", "json",
+			"--where", "status=active || status=done",
+		})
+	})
+
+	var m struct {
+		Total int `json:"total"`
+		Items []struct {
+			Path string `json:"path"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if m.Total != 4 {
+		t.Fatalf("search OR expression total = %d, want 4; output: %s", m.Total, out)
+	}
+}
+
 func TestRunSearch_ComputedFieldsAndMetaKey(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_query_where")
 
