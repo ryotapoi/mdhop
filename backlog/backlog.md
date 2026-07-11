@@ -5,7 +5,7 @@
 2026-07-08 の maintenance-audit deep（7 観点 + 8 観点の 2 run）の結果から。機能追加なし。エラー報告の改善とテスト安全網（挙動が良くなる系）。タスクは上から順に実施する（依存: 骨格共通化 → ロールバック統一 → restoreSetBackup テスト）。
 
 - [x] `move_template.go:210` の `err == sql.ErrNoRows` を `errors.Is` に統一: 他 17 箇所は `errors.Is` で、この 1 箇所だけ `==` 比較。将来ラップ層が入ると「source must be a registered note」分岐を素通りして生 error が漏れる（maintenance-audit deep 2026-07-08 第 2 run・HC3 由来）
-- [ ] link_type の Go / SQL 一致検証テスト: `isPathLinkType`（Go の switch）と `pathLinkTypeSQLList` / `traversalLinkTypeSQLList`（SQL リテラル列挙）が別管理で、新 link_type 追加時に片方を忘れると rewrite 系だけがサイレントに新型を無視する。全 link_type で両者が一致することを表明するテストを追加
+- [x] link_type の Go / SQL 一致検証テスト: `isPathLinkType`（Go の switch）と `pathLinkTypeSQLList` / `traversalLinkTypeSQLList`（SQL リテラル列挙）が別管理で、新 link_type 追加時に片方を忘れると rewrite 系だけがサイレントに新型を無視する。全 link_type で両者が一致することを表明するテストを追加
 - [ ] meta-check / meta-validate の text 出力テスト追加: `printMetaCheckText` / `printMetaValidateText` が coverage 0%。text はデフォルト format で、無指定実行時に必ず通る経路が未検証。format_test.go の既存方式（結果構造体 → bytes.Buffer）で低コストに追加できる
 - [ ] `removeOrPhantomize` の「既存 phantom へのエッジ付け替え」分岐（db.go:385-393）のテスト追加: coverage 64.3% の未カバーがこの分岐と疑われる。delete / update 両方から呼ばれる状態遷移（maintenance-audit deep 2026-07-08 第 2 run・HC4 由来）
 - [ ] resolveMaps の mutate 直接操作をメソッドへ集約: `update.go:258-265` が `resolveMaps.addNote` の本体を、`update.go:300-311` が `rebuildBasenameToPath` をほぼ逐語コピーしてフィールドを直接変更している（`add.go:101` は正しくメソッド呼び出しで、経路間で流儀が割れている）。メソッド呼び出しに置換し、他ファイルにも内部マップを直接変更する箇所が残っていれば同様にメソッドへ寄せる。読み取りの直接参照は不変条件を壊さず package 内イディオムの範囲なので間接化しない（全面アクセサ化は design-decision で不採用判断 2026-07-08）（maintenance-audit deep 2026-07-08 第 2 run・RS2 由来）
