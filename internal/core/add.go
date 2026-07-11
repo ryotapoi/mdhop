@@ -374,7 +374,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 	// Update DB for rewritten edges.
 	if len(allRewrites) > 0 {
 		for _, re := range allRewrites {
-			if _, err := tx.Exec("UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
+			if _, err := rewriteTxExec(tx, "UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
 				return nil, err
 			}
 			result.Rewritten = append(result.Rewritten, RewrittenLink{
@@ -391,7 +391,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 			}
 			mtimeUpdated[re.sourceID] = true
 			mt := newMtimes[re.sourceID]
-			if _, err := tx.Exec("UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
+			if _, err := rewriteTxExec(tx, "UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
 				return nil, err
 			}
 		}

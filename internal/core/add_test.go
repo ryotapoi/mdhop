@@ -1,6 +1,7 @@
 package core
 
 import (
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -39,6 +40,59 @@ func TestAddReportsRewriteRollbackFailure(t *testing.T) {
 
 	_, err := Add(vault, AddOptions{Files: []string{"B.md"}, AutoDisambiguate: true})
 	assertRollbackFailureReported(t, err, "primary rewrite blocked", "restore blocked")
+}
+
+func TestAddReportsRestoreFailureAfterTransactionError(t *testing.T) {
+	vault := copyVault(t, "vault_add_disambiguate")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	primaryErr := errors.New("transaction update blocked")
+	oldRewriteWriteFile := rewriteWriteFile
+	applySucceeded := false
+	rewriteWriteFile = func(path string, data []byte, perm os.FileMode) error {
+		err := oldRewriteWriteFile(path, data, perm)
+		if err == nil && filepath.Base(path) == "A.md" && strings.Contains(string(data), "[[sub/B]]") {
+			applySucceeded = true
+		}
+		return err
+	}
+	t.Cleanup(func() { rewriteWriteFile = oldRewriteWriteFile })
+
+	oldRewriteTxExec := rewriteTxExec
+	txAttempted := false
+	rewriteTxExec = func(*sql.Tx, string, ...any) (sql.Result, error) {
+		txAttempted = true
+		return nil, primaryErr
+	}
+	t.Cleanup(func() { rewriteTxExec = oldRewriteTxExec })
+
+	oldRollbackWriteFile := rollbackWriteFile
+	restoreAttempted := false
+	rollbackWriteFile = func(string, []byte, os.FileMode) error {
+		restoreAttempted = true
+		return errors.New("restore blocked")
+	}
+	t.Cleanup(func() { rollbackWriteFile = oldRollbackWriteFile })
+
+	_, err := Add(vault, AddOptions{Files: []string{"B.md"}, AutoDisambiguate: true})
+	if !applySucceeded {
+		t.Error("expected file rewrite to succeed before transaction failure")
+	}
+	if !txAttempted {
+		t.Error("expected transaction update after file rewrite")
+	}
+	if !restoreAttempted {
+		t.Error("expected deferred backup restore after transaction failure")
+	}
+	if !errors.Is(err, primaryErr) {
+		t.Errorf("errors.Is(err, primaryErr) = false; err = %v", err)
+	}
+	assertRollbackFailureReported(t, err, primaryErr.Error(), "restore blocked")
 }
 
 func TestAddNewFile(t *testing.T) {

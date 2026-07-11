@@ -214,7 +214,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 
 	result = &DisambiguateResult{}
 	for _, re := range rewrites {
-		if _, err := tx.Exec("UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
+		if _, err := rewriteTxExec(tx, "UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
 			return nil, err
 		}
 		result.Rewritten = append(result.Rewritten, RewrittenLink{
@@ -232,7 +232,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 		}
 		mtimeUpdated[re.sourceID] = true
 		mt := newMtimes[re.sourceID]
-		if _, err := tx.Exec("UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
+		if _, err := rewriteTxExec(tx, "UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
 			return nil, err
 		}
 	}

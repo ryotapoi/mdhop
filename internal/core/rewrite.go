@@ -1,6 +1,7 @@
 package core
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,6 +43,9 @@ type rollbackFailure struct {
 
 var rewriteWriteFile = writeFilePreservePerm
 var rollbackWriteFile = writeFilePreservePerm
+var rewriteTxExec = func(tx *sql.Tx, query string, args ...any) (sql.Result, error) {
+	return tx.Exec(query, args...)
+}
 
 // rewriteEntry holds information needed to rewrite a single edge.
 type rewriteEntry struct {
