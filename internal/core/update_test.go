@@ -541,6 +541,11 @@ func TestUpdateDeletedFileExistingPhantom(t *testing.T) {
 		db.Close()
 		t.Fatalf("query phantom id: %v", err)
 	}
+	var removedNoteID int64
+	if err := db.QueryRow("SELECT id FROM nodes WHERE type = 'note' AND path = 'B.md'").Scan(&removedNoteID); err != nil {
+		db.Close()
+		t.Fatalf("query B note id: %v", err)
+	}
 	db.Close()
 
 	// Remove B.md from disk.
@@ -554,6 +559,9 @@ func TestUpdateDeletedFileExistingPhantom(t *testing.T) {
 	}
 	if len(result.Phantomed) != 1 || result.Phantomed[0] != "B.md" {
 		t.Errorf("Phantomed = %v, want [B.md]", result.Phantomed)
+	}
+	if len(result.Deleted) != 0 {
+		t.Errorf("Deleted = %v, want []", result.Deleted)
 	}
 
 	// Note B should be deleted (edges reassigned to existing phantom).
@@ -574,6 +582,27 @@ func TestUpdateDeletedFileExistingPhantom(t *testing.T) {
 	}
 	if inCount != 1 {
 		t.Errorf("existing phantom should have 1 incoming edge, got %d", inCount)
+	}
+	var reassignedEdgeCount int
+	if err := db2.QueryRow(`
+		SELECT COUNT(*)
+		FROM edges e
+		JOIN nodes source ON source.id = e.source_id
+		WHERE e.target_id = ? AND source.path = 'A.md' AND e.raw_link = '[[B]]' AND e.link_type = 'wikilink'
+	`, existingPhantomID).Scan(&reassignedEdgeCount); err != nil {
+		t.Fatalf("query reassigned edge: %v", err)
+	}
+	if reassignedEdgeCount != 1 {
+		t.Errorf("expected A.md [[B]] wikilink to be reassigned to existing phantom, got %d", reassignedEdgeCount)
+	}
+
+	// The old note ID must no longer be referenced after its incoming edge was moved.
+	var oldNodeEdges int
+	if err := db2.QueryRow("SELECT COUNT(*) FROM edges WHERE source_id = ? OR target_id = ?", removedNoteID, removedNoteID).Scan(&oldNodeEdges); err != nil {
+		t.Fatalf("count edges for removed note: %v", err)
+	}
+	if oldNodeEdges != 0 {
+		t.Errorf("removed note ID %d still has %d edges", removedNoteID, oldNodeEdges)
 	}
 }
 
