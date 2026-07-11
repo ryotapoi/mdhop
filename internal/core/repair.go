@@ -1,7 +1,6 @@
 package core
 
 import (
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -40,122 +39,104 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 		return nil, err
 	}
 
-	// Collect all .md files.
-	files, err := collectMarkdownFiles(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg, err := LoadConfig(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
-		return nil, err
-	}
-	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
-
-	sort.Strings(files)
-	diskPaths := newVaultDiskPathResolver(vaultPath)
-
-	// Build path set (lowercase) and basename map.
-	pathSetLower := make(map[string]bool, len(files))
-	basenameMap := make(map[string][]string) // lowercase basename (with ext stripped only .md) → []vault-relative paths
-	for _, f := range files {
-		pathSetLower[strings.ToLower(f)] = true
-		// Use lowercase of filepath.Base minus .md extension as key.
-		base := filepath.Base(f)
-		key := strings.ToLower(base)
-		if strings.HasSuffix(key, ".md") {
-			key = key[:len(key)-3]
-		}
-		basenameMap[key] = append(basenameMap[key], f)
-	}
-
 	result := &RepairResult{}
-	var rewrites []rewriteEntry
-	skippedSet := make(map[string]bool) // "file\x00rawLink" dedup
-
-	for _, sourcePath := range files {
-		if !pathMatchesFilters(sourcePath, opts.Path, opts.Exclude) {
-			continue
-		}
-		fullPath, err := diskPaths.existingPath(sourcePath)
-		if err != nil {
-			return nil, err
-		}
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		links := parseLinks(string(content)).Links
-
-		for _, lo := range links {
-			// Body links only. repair targets broken/escaping path links by
-			// rewriting them to basename form, but frontmatter wikilinks are
-			// routinely authored as full vault-relative paths and "broken"
-			// detection there would produce noisy rewrites that change YAML
-			// semantics.
-			if !isBodyPathLinkType(lo.linkType) {
-				continue
+	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
+		DryRun: opts.DryRun,
+		ExcludePaths: func() ([]string, error) {
+			cfg, err := LoadConfig(vaultPath)
+			return cfg.Build.ExcludePaths, err
+		},
+		Prepare: func(files []string) (scanRewritePlan, error) {
+			diskPaths := newVaultDiskPathResolver(vaultPath)
+			pathSetLower := make(map[string]bool, len(files))
+			basenameMap := make(map[string][]string)
+			for _, f := range files {
+				pathSetLower[strings.ToLower(f)] = true
+				key := strings.TrimSuffix(strings.ToLower(filepath.Base(f)), ".md")
+				basenameMap[key] = append(basenameMap[key], f)
 			}
-			if lo.target == "" {
-				continue // self-link [[#Heading]]
-			}
-			if lo.isBasename {
-				continue // already basename form
-			}
-
-			escaping := isLinkEscaping(sourcePath, lo)
-			if escaping {
-				// vault-escape → always a repair candidate (don't os.Stat outside vault)
-			} else if isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
-				// Broken path link → protect links to excluded files that exist on disk
-				if linkTargetExistsRaw(diskPaths, sourcePath, lo) {
-					continue
+			var scanFiles []string
+			for _, f := range files {
+				if pathMatchesFilters(f, opts.Path, opts.Exclude) {
+					scanFiles = append(scanFiles, f)
 				}
-			} else {
-				continue // normal path link → skip
 			}
+			skippedSet := make(map[string]bool) // "file\x00rawLink" dedup
+			return scanRewritePlan{Files: scanFiles, Rewrite: func(sourcePath string, content []byte) ([]rewriteEntry, error) {
+				links := parseLinks(string(content)).Links
+				var entries []rewriteEntry
+				for _, lo := range links {
+					// Body links only. repair targets broken/escaping path links by
+					// rewriting them to basename form, but frontmatter wikilinks are
+					// routinely authored as full vault-relative paths and "broken"
+					// detection there would produce noisy rewrites that change YAML
+					// semantics.
+					if !isBodyPathLinkType(lo.linkType) {
+						continue
+					}
+					if lo.target == "" {
+						continue // self-link [[#Heading]]
+					}
+					if lo.isBasename {
+						continue // already basename form
+					}
 
-			// Extract basename preserving original case. parseLinks already stripped .md via normalizeBasename.
-			bn := filepath.Base(lo.target)
-			bk := strings.ToLower(bn) // lookup key (don't use basenameKey — it strips all extensions)
-			candidates := basenameMap[bk]
+					escaping := isLinkEscaping(sourcePath, lo)
+					if escaping {
+						// vault-escape → always a repair candidate (don't os.Stat outside vault)
+					} else if isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
+						// Broken path link → protect links to excluded files that exist on disk
+						if linkTargetExistsRaw(diskPaths, sourcePath, lo) {
+							continue
+						}
+					} else {
+						continue // normal path link → skip
+					}
 
-			if !escaping && len(candidates) >= 2 {
-				// Broken path link + 2+ candidates → skip, report with dedup
-				key := sourcePath + "\x00" + lo.rawLink
-				if !skippedSet[key] {
-					skippedSet[key] = true
-					sorted := make([]string, len(candidates))
-					copy(sorted, candidates)
-					sort.Strings(sorted)
-					result.Skipped = append(result.Skipped, SkippedLink{
-						File:       sourcePath,
-						RawLink:    lo.rawLink,
-						Basename:   bn,
-						Candidates: sorted,
+					// Extract basename preserving original case. parseLinks already stripped .md via normalizeBasename.
+					bn := filepath.Base(lo.target)
+					bk := strings.ToLower(bn) // lookup key (don't use basenameKey — it strips all extensions)
+					candidates := basenameMap[bk]
+
+					if !escaping && len(candidates) >= 2 {
+						// Broken path link + 2+ candidates → skip, report with dedup
+						key := sourcePath + "\x00" + lo.rawLink
+						if !skippedSet[key] {
+							skippedSet[key] = true
+							sorted := make([]string, len(candidates))
+							copy(sorted, candidates)
+							sort.Strings(sorted)
+							result.Skipped = append(result.Skipped, SkippedLink{
+								File:       sourcePath,
+								RawLink:    lo.rawLink,
+								Basename:   bn,
+								Candidates: sorted,
+							})
+						}
+						continue
+					}
+
+					// vault-escape: always basename-ify regardless of candidate count
+					// broken path link: 0-1 candidates → basename-ify
+					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, bn+".md")
+					if newRawLink == lo.rawLink {
+						continue
+					}
+
+					entries = append(entries, rewriteEntry{
+						rawLink:    lo.rawLink,
+						linkType:   lo.linkType,
+						lineStart:  lo.lineStart,
+						sourcePath: sourcePath,
+						newRawLink: newRawLink,
 					})
 				}
-				continue
-			}
-
-			// vault-escape: always basename-ify regardless of candidate count
-			// broken path link: 0-1 candidates → basename-ify
-			newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, bn+".md")
-			if newRawLink == lo.rawLink {
-				continue
-			}
-
-			rewrites = append(rewrites, rewriteEntry{
-				rawLink:    lo.rawLink,
-				linkType:   lo.linkType,
-				lineStart:  lo.lineStart,
-				sourcePath: sourcePath,
-				newRawLink: newRawLink,
-			})
-		}
+				return entries, nil
+			}}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Build rewritten result entries.
@@ -165,20 +146,6 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 			OldLink: re.rawLink,
 			NewLink: re.newRawLink,
 		})
-	}
-
-	if opts.DryRun || len(rewrites) == 0 {
-		return result, nil
-	}
-
-	// Apply disk rewrites.
-	groups := make(map[string][]rewriteEntry)
-	for _, re := range rewrites {
-		groups[re.sourcePath] = append(groups[re.sourcePath], re)
-	}
-	_, _, applyErr := applyFileRewrites(vaultPath, groups)
-	if applyErr != nil {
-		return nil, applyErr
 	}
 
 	return result, nil

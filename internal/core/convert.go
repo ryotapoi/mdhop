@@ -2,9 +2,7 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -27,108 +25,88 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 		return nil, fmt.Errorf("invalid ToFormat: %q (must be wikilink or markdown)", opts.ToFormat)
 	}
 
-	files, err := collectMarkdownFiles(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg, err := LoadConfig(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
-		return nil, err
-	}
-	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
-
-	sort.Strings(files)
-	diskPaths := newVaultDiskPathResolver(vaultPath)
-
-	// Build fileSet for existence checks.
-	fileSet := make(map[string]bool, len(files))
-	for _, f := range files {
-		fileSet[f] = true
-	}
-
-	// Build file scope if --file is specified.
-	var fileScope map[string]bool
-	if len(opts.Files) > 0 {
-		fileScope = make(map[string]bool, len(opts.Files))
-		for _, f := range opts.Files {
-			np := NormalizePath(f)
-			if !fileSet[np] {
-				return nil, fmt.Errorf("file not found or excluded: %s", f)
-			}
-			fileScope[np] = true
-		}
-	}
-
-	// For wikilink → markdown, build note name set and isAssetTarget closure.
-	var isAssetTarget func(string) bool
-	if opts.ToFormat == "markdown" {
-		noteNameSet := make(map[string]bool, len(files))
-		for _, f := range files {
-			base := filepath.Base(f)
-			name := strings.TrimSuffix(base, ".md")
-			noteNameSet[strings.ToLower(name)] = true
-		}
-		isAssetTarget = func(target string) bool {
-			return !isNoteTarget(target, noteNameSet)
-		}
-	}
-
 	result := &ConvertResult{}
-	var rewrites []rewriteEntry
-
-	for _, sourcePath := range files {
-		if fileScope != nil && !fileScope[sourcePath] {
-			continue
-		}
-
-		fullPath, err := diskPaths.existingPath(sourcePath)
-		if err != nil {
-			return nil, err
-		}
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			return nil, err
-		}
-
-		var links []linkOccur
-		if opts.ToFormat == "wikilink" {
-			links = parseLinksForConvert(string(content)).Links
-		} else {
-			links = parseLinks(string(content)).Links
-		}
-
-		for _, lo := range links {
-			var newRawLink string
-
-			switch opts.ToFormat {
-			case "wikilink":
-				if lo.linkType != LinkTypeMarkdown {
-					continue
+	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
+		DryRun: opts.DryRun,
+		ExcludePaths: func() ([]string, error) {
+			cfg, err := LoadConfig(vaultPath)
+			return cfg.Build.ExcludePaths, err
+		},
+		Prepare: func(files []string) (scanRewritePlan, error) {
+			fileSet := make(map[string]bool, len(files))
+			for _, f := range files {
+				fileSet[f] = true
+			}
+			fileScope := make(map[string]bool, len(opts.Files))
+			for _, f := range opts.Files {
+				np := NormalizePath(f)
+				if !fileSet[np] {
+					return scanRewritePlan{}, fmt.Errorf("file not found or excluded: %s", f)
 				}
-				newRawLink = convertMarkdownToWikilink(lo.rawLink)
-			case "markdown":
-				if lo.linkType != LinkTypeWikilink {
-					continue
-				}
-				newRawLink = convertWikilinkToMarkdown(lo.rawLink, isAssetTarget)
+				fileScope[np] = true
 			}
 
-			if newRawLink == lo.rawLink || newRawLink == "" {
-				continue
+			var isAssetTarget func(string) bool
+			if opts.ToFormat == "markdown" {
+				noteNameSet := make(map[string]bool, len(files))
+				for _, f := range files {
+					name := strings.TrimSuffix(filepath.Base(f), ".md")
+					noteNameSet[strings.ToLower(name)] = true
+				}
+				isAssetTarget = func(target string) bool { return !isNoteTarget(target, noteNameSet) }
 			}
 
-			rewrites = append(rewrites, rewriteEntry{
-				rawLink:    lo.rawLink,
-				linkType:   lo.linkType,
-				lineStart:  lo.lineStart,
-				sourcePath: sourcePath,
-				newRawLink: newRawLink,
-			})
-		}
+			scanFiles := files
+			if len(fileScope) > 0 {
+				scanFiles = nil
+				for _, f := range files {
+					if fileScope[f] {
+						scanFiles = append(scanFiles, f)
+					}
+				}
+			}
+			return scanRewritePlan{Files: scanFiles, Rewrite: func(sourcePath string, content []byte) ([]rewriteEntry, error) {
+				var links []linkOccur
+				if opts.ToFormat == "wikilink" {
+					links = parseLinksForConvert(string(content)).Links
+				} else {
+					links = parseLinks(string(content)).Links
+				}
+				var entries []rewriteEntry
+				for _, lo := range links {
+					var newRawLink string
+
+					switch opts.ToFormat {
+					case "wikilink":
+						if lo.linkType != LinkTypeMarkdown {
+							continue
+						}
+						newRawLink = convertMarkdownToWikilink(lo.rawLink)
+					case "markdown":
+						if lo.linkType != LinkTypeWikilink {
+							continue
+						}
+						newRawLink = convertWikilinkToMarkdown(lo.rawLink, isAssetTarget)
+					}
+
+					if newRawLink == lo.rawLink || newRawLink == "" {
+						continue
+					}
+
+					entries = append(entries, rewriteEntry{
+						rawLink:    lo.rawLink,
+						linkType:   lo.linkType,
+						lineStart:  lo.lineStart,
+						sourcePath: sourcePath,
+						newRawLink: newRawLink,
+					})
+				}
+				return entries, nil
+			}}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Build rewritten result entries.
@@ -138,20 +116,6 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 			OldLink: re.rawLink,
 			NewLink: re.newRawLink,
 		})
-	}
-
-	if opts.DryRun || len(rewrites) == 0 {
-		return result, nil
-	}
-
-	// Apply disk rewrites.
-	groups := make(map[string][]rewriteEntry)
-	for _, re := range rewrites {
-		groups[re.sourcePath] = append(groups[re.sourcePath], re)
-	}
-	_, _, applyErr := applyFileRewrites(vaultPath, groups)
-	if applyErr != nil {
-		return nil, applyErr
 	}
 
 	return result, nil

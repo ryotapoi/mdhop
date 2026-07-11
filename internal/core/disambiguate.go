@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -278,143 +277,104 @@ func resolveDisambiguateTarget(name string, candidates []string, target string) 
 // DisambiguateScan rewrites basename links to full paths without using the DB.
 // It scans all .md files in the vault directly.
 func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
-	// Collect all .md files.
-	files, err := collectMarkdownFiles(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg, err := LoadConfig(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
-		return nil, err
-	}
-	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
-
-	sort.Strings(files)
-	diskPaths := newVaultDiskPathResolver(vaultPath)
-
-	fileSet := make(map[string]bool, len(files))
-	for _, f := range files {
-		fileSet[f] = true
-	}
-
-	// Find candidates matching the basename.
-	nameKey := strings.TrimSuffix(strings.ToLower(opts.Name), ".md")
-
-	var candidates []string
-	for _, f := range files {
-		if basenameKey(f) == nameKey {
-			candidates = append(candidates, f)
-		}
-	}
-
-	// Determine target.
-	targetPath, err := resolveDisambiguateTarget(opts.Name, candidates, opts.Target)
-	if err != nil {
-		return nil, err
-	}
-
-	// Validate --file flags.
-	fileScope := make(map[string]bool)
-	for _, f := range opts.Files {
-		np := NormalizePath(f)
-		if !fileSet[np] {
-			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, np)
-		}
-		fileScope[np] = true
-	}
-
-	// Scan files for basename links matching nameKey.
-	scanFiles := files
-	if len(fileScope) > 0 {
-		scanFiles = nil
-		for _, f := range files {
-			if fileScope[f] {
-				scanFiles = append(scanFiles, f)
+	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
+		ExcludePaths: func() ([]string, error) {
+			cfg, err := LoadConfig(vaultPath)
+			return cfg.Build.ExcludePaths, err
+		},
+		Prepare: func(files []string) (scanRewritePlan, error) {
+			fileSet := make(map[string]bool, len(files))
+			pathSetLower := make(map[string]bool, len(files))
+			var candidates []string
+			for _, f := range files {
+				fileSet[f] = true
+				pathSetLower[strings.ToLower(f)] = true
+				if basenameKey(f) == strings.TrimSuffix(strings.ToLower(opts.Name), ".md") {
+					candidates = append(candidates, f)
+				}
 			}
-		}
-	}
-
-	// Build a lowercase path set for broken-link detection.
-	pathSetLower := make(map[string]bool, len(files))
-	for _, f := range files {
-		pathSetLower[strings.ToLower(f)] = true
-	}
-
-	var rewrites []rewriteEntry
-	for _, sourcePath := range scanFiles {
-		// Skip self-references (source is the target itself).
-		if sourcePath == targetPath {
-			continue
-		}
-
-		fullPath, err := diskPaths.existingPath(sourcePath)
-		if err != nil {
-			return nil, err
-		}
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			return nil, err
-		}
-
-		links := parseLinks(string(content)).Links
-		for _, lo := range links {
-			if !isPathLinkType(lo.linkType) {
-				continue
+			nameKey := strings.TrimSuffix(strings.ToLower(opts.Name), ".md")
+			targetPath, err := resolveDisambiguateTarget(opts.Name, candidates, opts.Target)
+			if err != nil {
+				return scanRewritePlan{}, err
 			}
-			// basenameKey strips any extension, not just .md. This is intentional:
-			// wikilink targets have no extension (e.g. "Note Name"), while path
-			// links like [text](sub/note.md) reduce to the stem ("note"), matching
-			// nameKey (built from opts.Name with .md stripped). Asset filenames
-			// (e.g. "image.png") never reach here because DisambiguateScan only
-			// processes .md sources and nameKey always comes from a note name.
-			if lo.isBasename {
-				// Basename link: check if it matches the target name.
-				if basenameKey(lo.target) != nameKey {
-					continue
+			fileScope := make(map[string]bool, len(opts.Files))
+			for _, f := range opts.Files {
+				np := NormalizePath(f)
+				if !fileSet[np] {
+					return scanRewritePlan{}, fmt.Errorf("%w: %s", ErrFileNotFound, np)
+				}
+				fileScope[np] = true
+			}
+			scanFiles := files
+			if len(fileScope) > 0 {
+				scanFiles = nil
+				for _, f := range files {
+					if fileScope[f] && f != targetPath {
+						scanFiles = append(scanFiles, f)
+					}
 				}
 			} else {
-				// Path link: only include if the link is broken AND
-				// the basename matches the target name.
-				if basenameKey(lo.target) != nameKey {
-					continue
-				}
-				if !isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
-					continue
+				scanFiles = nil
+				for _, f := range files {
+					if f != targetPath {
+						scanFiles = append(scanFiles, f)
+					}
 				}
 			}
+			return scanRewritePlan{Files: scanFiles, Rewrite: func(sourcePath string, content []byte) ([]rewriteEntry, error) {
+				links := parseLinks(string(content)).Links
+				var entries []rewriteEntry
+				for _, lo := range links {
+					if !isPathLinkType(lo.linkType) {
+						continue
+					}
+					// basenameKey strips any extension, not just .md. This is intentional:
+					// wikilink targets have no extension (e.g. "Note Name"), while path
+					// links like [text](sub/note.md) reduce to the stem ("note"), matching
+					// nameKey (built from opts.Name with .md stripped). Asset filenames
+					// (e.g. "image.png") never reach here because DisambiguateScan only
+					// processes .md sources and nameKey always comes from a note name.
+					if lo.isBasename {
+						// Basename link: check if it matches the target name.
+						if basenameKey(lo.target) != nameKey {
+							continue
+						}
+					} else {
+						// Path link: only include if the link is broken AND
+						// the basename matches the target name.
+						if basenameKey(lo.target) != nameKey {
+							continue
+						}
+						if !isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
+							continue
+						}
+					}
 
-			newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, targetPath)
-			if newRawLink == lo.rawLink {
-				continue
-			}
+					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, targetPath)
+					if newRawLink == lo.rawLink {
+						continue
+					}
 
-			rewrites = append(rewrites, rewriteEntry{
-				rawLink:    lo.rawLink,
-				linkType:   lo.linkType,
-				lineStart:  lo.lineStart,
-				sourcePath: sourcePath,
-				sourceID:   0,
-				newRawLink: newRawLink,
-			})
-		}
+					entries = append(entries, rewriteEntry{
+						rawLink:    lo.rawLink,
+						linkType:   lo.linkType,
+						lineStart:  lo.lineStart,
+						sourcePath: sourcePath,
+						sourceID:   0,
+						newRawLink: newRawLink,
+					})
+				}
+				return entries, nil
+			}}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	if len(rewrites) == 0 {
 		return &DisambiguateResult{}, nil
-	}
-
-	// Apply disk rewrites.
-	groups := make(map[string][]rewriteEntry)
-	for _, re := range rewrites {
-		groups[re.sourcePath] = append(groups[re.sourcePath], re)
-	}
-	_, _, applyErr := applyFileRewrites(vaultPath, groups)
-	if applyErr != nil {
-		return nil, applyErr
 	}
 
 	// Build result.

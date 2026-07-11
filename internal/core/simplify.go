@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -24,166 +23,145 @@ type SimplifyResult struct {
 // or can be resolved via root-priority. It works by scanning files directly
 // (no DB required).
 func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
-	files, err := collectMarkdownFiles(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg, err := LoadConfig(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
-		return nil, err
-	}
-	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
-
-	assetFiles, err := collectAssetFiles(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
-
-	sort.Strings(files)
-	diskPaths := newVaultDiskPathResolver(vaultPath)
-
-	// Build resolve maps.
-	nm := buildNoteResolveMaps(files)
-	am := buildAssetResolveMaps(assetFiles)
-
-	// Build file set for validation.
-	fileSet := make(map[string]bool, len(files))
-	for _, f := range files {
-		fileSet[f] = true
-	}
-
-	// Validate --file flags.
-	fileScope := make(map[string]bool)
-	for _, f := range opts.Files {
-		np := NormalizePath(f)
-		if !fileSet[np] {
-			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, np)
-		}
-		fileScope[np] = true
-	}
-
-	// Determine scan files.
-	scanFiles := files
-	if len(fileScope) > 0 {
-		scanFiles = nil
-		for _, f := range files {
-			if fileScope[f] {
-				scanFiles = append(scanFiles, f)
-			}
-		}
-	}
-
 	result := &SimplifyResult{}
-	var rewrites []rewriteEntry
-	skippedSet := make(map[string]bool) // "file\x00rawLink" dedup
-
-	for _, sourcePath := range scanFiles {
-		fullPath, err := diskPaths.existingPath(sourcePath)
-		if err != nil {
-			return nil, err
-		}
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		links := parseLinks(string(content)).Links
-
-		for _, lo := range links {
-			if !isPathLinkType(lo.linkType) {
-				continue
+	var excludePaths []string
+	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
+		DryRun: opts.DryRun,
+		ExcludePaths: func() ([]string, error) {
+			cfg, err := LoadConfig(vaultPath)
+			excludePaths = cfg.Build.ExcludePaths
+			return excludePaths, err
+		},
+		Prepare: func(files []string) (scanRewritePlan, error) {
+			assetFiles, err := collectAssetFiles(vaultPath)
+			if err != nil {
+				return scanRewritePlan{}, err
 			}
-			if lo.target == "" {
-				continue // self-link
+			assetFiles = filterBuildExcludes(assetFiles, excludePaths)
+			nm := buildNoteResolveMaps(files)
+			am := buildAssetResolveMaps(assetFiles)
+			fileSet := make(map[string]bool, len(files))
+			for _, f := range files {
+				fileSet[f] = true
 			}
-			if lo.isBasename {
-				continue // already basename
-			}
-
-			// Skip vault-escape links.
-			if isLinkEscaping(sourcePath, lo) {
-				continue
-			}
-
-			// Resolve to vault-relative path.
-			resolved := resolveToVaultRelative(sourcePath, lo)
-			lower := strings.ToLower(resolved)
-
-			// Determine namespace: note first, then asset.
-			var resolvedPath string
-			isAsset := false
-
-			if actual, ok := nm.pathSetLower[lower]; ok {
-				resolvedPath = actual
-			} else if actual, ok := nm.pathSetLower[lower+".md"]; ok {
-				resolvedPath = actual
-			} else if actual, ok := am.pathSetLower[lower]; ok {
-				resolvedPath = actual
-				isAsset = true
-			} else {
-				continue // broken link, skip
-			}
-
-			// Check if simplification is possible.
-			var basenameTarget string
-			var canSimplify bool
-			var skippedCandidates []string
-
-			if isAsset {
-				// Asset namespace collision check: if a note has the same basename key,
-				// simplifying would change resolution from asset to note.
-				abk := assetBasenameKey(resolvedPath)
-				if nm.basenameCounts[abk] > 0 {
-					continue // namespace conflict, skip silently
+			fileScope := make(map[string]bool, len(opts.Files))
+			for _, f := range opts.Files {
+				np := NormalizePath(f)
+				if !fileSet[np] {
+					return scanRewritePlan{}, fmt.Errorf("%w: %s", ErrFileNotFound, np)
 				}
-
-				canSimplify, skippedCandidates = canSimplifyAsset(resolvedPath, am)
-				basenameTarget = filepath.Base(resolvedPath)
-			} else {
-				canSimplify, skippedCandidates = canSimplifyNote(resolvedPath, nm)
-				basenameTarget = filepath.Base(resolvedPath)
+				fileScope[np] = true
 			}
-
-			if !canSimplify {
-				if len(skippedCandidates) > 0 {
-					key := sourcePath + "\x00" + lo.rawLink
-					if !skippedSet[key] {
-						skippedSet[key] = true
-						bn := filepath.Base(resolvedPath)
-						if !isAsset {
-							bn = basename(resolvedPath)
-						}
-						sorted := make([]string, len(skippedCandidates))
-						copy(sorted, skippedCandidates)
-						sort.Strings(sorted)
-						result.Skipped = append(result.Skipped, SkippedLink{
-							File:       sourcePath,
-							RawLink:    lo.rawLink,
-							Basename:   bn,
-							Candidates: sorted,
-						})
+			scanFiles := files
+			if len(fileScope) > 0 {
+				scanFiles = nil
+				for _, f := range files {
+					if fileScope[f] {
+						scanFiles = append(scanFiles, f)
 					}
 				}
-				continue
 			}
+			skippedSet := make(map[string]bool) // "file\x00rawLink" dedup
+			return scanRewritePlan{Files: scanFiles, Rewrite: func(sourcePath string, content []byte) ([]rewriteEntry, error) {
+				links := parseLinks(string(content)).Links
+				var entries []rewriteEntry
+				for _, lo := range links {
+					if !isPathLinkType(lo.linkType) {
+						continue
+					}
+					if lo.target == "" {
+						continue // self-link
+					}
+					if lo.isBasename {
+						continue // already basename
+					}
 
-			newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, basenameTarget)
-			if newRawLink == lo.rawLink {
-				continue
-			}
+					// Skip vault-escape links.
+					if isLinkEscaping(sourcePath, lo) {
+						continue
+					}
 
-			rewrites = append(rewrites, rewriteEntry{
-				rawLink:    lo.rawLink,
-				linkType:   lo.linkType,
-				lineStart:  lo.lineStart,
-				sourcePath: sourcePath,
-				newRawLink: newRawLink,
-			})
-		}
+					// Resolve to vault-relative path.
+					resolved := resolveToVaultRelative(sourcePath, lo)
+					lower := strings.ToLower(resolved)
+
+					// Determine namespace: note first, then asset.
+					var resolvedPath string
+					isAsset := false
+
+					if actual, ok := nm.pathSetLower[lower]; ok {
+						resolvedPath = actual
+					} else if actual, ok := nm.pathSetLower[lower+".md"]; ok {
+						resolvedPath = actual
+					} else if actual, ok := am.pathSetLower[lower]; ok {
+						resolvedPath = actual
+						isAsset = true
+					} else {
+						continue // broken link, skip
+					}
+
+					// Check if simplification is possible.
+					var basenameTarget string
+					var canSimplify bool
+					var skippedCandidates []string
+
+					if isAsset {
+						// Asset namespace collision check: if a note has the same basename key,
+						// simplifying would change resolution from asset to note.
+						abk := assetBasenameKey(resolvedPath)
+						if nm.basenameCounts[abk] > 0 {
+							continue // namespace conflict, skip silently
+						}
+
+						canSimplify, skippedCandidates = canSimplifyAsset(resolvedPath, am)
+						basenameTarget = filepath.Base(resolvedPath)
+					} else {
+						canSimplify, skippedCandidates = canSimplifyNote(resolvedPath, nm)
+						basenameTarget = filepath.Base(resolvedPath)
+					}
+
+					if !canSimplify {
+						if len(skippedCandidates) > 0 {
+							key := sourcePath + "\x00" + lo.rawLink
+							if !skippedSet[key] {
+								skippedSet[key] = true
+								bn := filepath.Base(resolvedPath)
+								if !isAsset {
+									bn = basename(resolvedPath)
+								}
+								sorted := make([]string, len(skippedCandidates))
+								copy(sorted, skippedCandidates)
+								sort.Strings(sorted)
+								result.Skipped = append(result.Skipped, SkippedLink{
+									File:       sourcePath,
+									RawLink:    lo.rawLink,
+									Basename:   bn,
+									Candidates: sorted,
+								})
+							}
+						}
+						continue
+					}
+
+					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, basenameTarget)
+					if newRawLink == lo.rawLink {
+						continue
+					}
+
+					entries = append(entries, rewriteEntry{
+						rawLink:    lo.rawLink,
+						linkType:   lo.linkType,
+						lineStart:  lo.lineStart,
+						sourcePath: sourcePath,
+						newRawLink: newRawLink,
+					})
+				}
+				return entries, nil
+			}}, nil
+		},
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Build rewritten result entries.
@@ -193,20 +171,6 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 			OldLink: re.rawLink,
 			NewLink: re.newRawLink,
 		})
-	}
-
-	if opts.DryRun || len(rewrites) == 0 {
-		return result, nil
-	}
-
-	// Apply disk rewrites.
-	groups := make(map[string][]rewriteEntry)
-	for _, re := range rewrites {
-		groups[re.sourcePath] = append(groups[re.sourcePath], re)
-	}
-	_, _, applyErr := applyFileRewrites(vaultPath, groups)
-	if applyErr != nil {
-		return nil, applyErr
 	}
 
 	return result, nil
