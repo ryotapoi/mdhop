@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -85,53 +84,12 @@ func validateFrontmatterPathEdges(db dbExecer, rm *resolveMaps, movedFromTo map[
 
 // resolveFrontmatterPathDry resolves a frontmatter_path link against rm
 // without creating phantom nodes, returning the resolved vault path ("" if
-// the value would become a phantom). Mirrors the path branches of
-// resolveLinkWithBackend; keep the two in sync.
+// the value would become a phantom).
 func resolveFrontmatterPathDry(sourcePath string, link linkOccur, rm *resolveMaps) (string, error) {
-	target := normalizeTextNFC(link.target)
-	if link.isRelative {
-		if escapesVault(sourcePath, target) {
-			return "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
-		}
-		return lookupPathDry(NormalizePath(filepath.Join(filepath.Dir(sourcePath), target)), rm), nil
+	backend := newDryLinkResolver(rm)
+	id, _, err := resolveLinkWithBackend(sourcePath, link, backend)
+	if err != nil {
+		return "", err
 	}
-	if !link.isBasename && pathEscapesVault(target) {
-		return "", fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
-	}
-	if strings.HasPrefix(target, "/") {
-		return lookupPathDry(strings.TrimPrefix(target, "/"), rm), nil
-	}
-	if link.isBasename {
-		lower := strings.ToLower(target)
-		if p, ok := rm.basenameToPath[lower]; ok {
-			return p, nil
-		}
-		if p, ok := rm.rootBasenameToPath[lower]; ok {
-			return p, nil
-		}
-		if p, ok := rm.assetBasenameToPath[lower]; ok {
-			return p, nil
-		}
-		if p, ok := rm.assetRootBasenameToPath[lower]; ok {
-			return p, nil
-		}
-		return "", nil
-	}
-	return lookupPathDry(target, rm), nil
-}
-
-// lookupPathDry resolves a normalized vault-relative path against the maps:
-// note exact, note + ".md", then asset exact. Returns "" if nothing matches.
-func lookupPathDry(resolved string, rm *resolveMaps) string {
-	lower := strings.ToLower(NormalizePath(resolved))
-	if p, ok := rm.pathSet[lower]; ok {
-		return p
-	}
-	if p, ok := rm.pathSet[lower+".md"]; ok {
-		return p
-	}
-	if p, ok := rm.assetPathSet[lower]; ok {
-		return p
-	}
-	return ""
+	return backend.pathForID(id), nil
 }

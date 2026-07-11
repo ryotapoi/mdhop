@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,6 +137,44 @@ func TestBuildLinkKeysVaultEscapeFails(t *testing.T) {
 	_, err := Build(vault)
 	if err == nil || !strings.Contains(err.Error(), "escapes vault") {
 		t.Errorf("error = %v, want escapes vault", err)
+	}
+}
+
+func TestResolveFrontmatterPathDryUsesCanonicalResolverWithoutPhantoms(t *testing.T) {
+	rm := newResolveMaps(
+		[]string{"A.md", "sub/A.md", "sub/B.md"},
+		[]string{"assets/image.png"},
+	)
+
+	tests := []struct {
+		name       string
+		sourcePath string
+		raw        string
+		want       string
+		wantErr    error
+	}{
+		{name: "root priority", sourcePath: "Source.md", raw: "A.md", want: "A.md"},
+		{name: "relative note", sourcePath: "sub/Source.md", raw: "./B.md", want: "sub/B.md"},
+		{name: "vault absolute", sourcePath: "sub/Source.md", raw: "/sub/B.md", want: "sub/B.md"},
+		{name: "asset", sourcePath: "Source.md", raw: "assets/image.png", want: "assets/image.png"},
+		{name: "phantom", sourcePath: "Source.md", raw: "missing.md", want: ""},
+		{name: "escape", sourcePath: "sub/Source.md", raw: "../../outside.md", wantErr: ErrLinkEscapesVault},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			link, ok := frontmatterPathOccur(tt.raw, 0)
+			if !ok {
+				t.Fatalf("frontmatterPathOccur(%q) = false", tt.raw)
+			}
+			got, err := resolveFrontmatterPathDry(tt.sourcePath, link, rm)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("resolveFrontmatterPathDry() error = %v, want %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("resolveFrontmatterPathDry() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 

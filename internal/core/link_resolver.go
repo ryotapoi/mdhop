@@ -17,6 +17,79 @@ type linkResolverBackend interface {
 	resolvePath(resolved string, link linkOccur) (int64, string, error)
 }
 
+// dryLinkResolver resolves only existing note and asset paths. It assigns
+// ephemeral IDs so it can use the same dispatcher as index-backed resolvers
+// without creating phantom or tag nodes.
+type dryLinkResolver struct {
+	rm       *resolveMaps
+	pathToID map[string]int64
+	idToPath map[int64]string
+	nextID   int64
+}
+
+func newDryLinkResolver(rm *resolveMaps) *dryLinkResolver {
+	r := &dryLinkResolver{
+		rm:       rm,
+		pathToID: make(map[string]int64),
+		idToPath: make(map[int64]string),
+		nextID:   1,
+	}
+	return r
+}
+
+func (r *dryLinkResolver) pathID(path string) int64 {
+	if id, ok := r.pathToID[path]; ok {
+		return id
+	}
+	r.pathToID[path] = r.nextID
+	r.idToPath[r.nextID] = path
+	r.nextID++
+	return r.nextID - 1
+}
+
+func (r *dryLinkResolver) pathForID(id int64) string {
+	return r.idToPath[id]
+}
+
+func (r *dryLinkResolver) resolveSelf(sourcePath string, link linkOccur) (int64, string, error) {
+	return r.pathID(sourcePath), link.subpath, nil
+}
+
+func (r *dryLinkResolver) resolveTag(link linkOccur) (int64, string, error) {
+	return 0, "", nil
+}
+
+func (r *dryLinkResolver) resolvePath(resolved string, link linkOccur) (int64, string, error) {
+	lower := strings.ToLower(NormalizePath(resolved))
+	if path, ok := r.rm.pathSet[lower]; ok {
+		return r.pathID(path), link.subpath, nil
+	}
+	if path, ok := r.rm.pathSet[lower+".md"]; ok {
+		return r.pathID(path), link.subpath, nil
+	}
+	if path, ok := r.rm.assetPathSet[lower]; ok {
+		return r.pathID(path), link.subpath, nil
+	}
+	return 0, link.subpath, nil
+}
+
+func (r *dryLinkResolver) resolveBasename(target string, link linkOccur) (int64, string, error) {
+	lower := strings.ToLower(normalizeTextNFC(target))
+	if path, ok := r.rm.basenameToPath[lower]; ok {
+		return r.pathID(path), link.subpath, nil
+	}
+	if path, ok := r.rm.rootBasenameToPath[lower]; ok {
+		return r.pathID(path), link.subpath, nil
+	}
+	if path, ok := r.rm.assetBasenameToPath[lower]; ok {
+		return r.pathID(path), link.subpath, nil
+	}
+	if path, ok := r.rm.assetRootBasenameToPath[lower]; ok {
+		return r.pathID(path), link.subpath, nil
+	}
+	return 0, link.subpath, nil
+}
+
 // resolveLinkWithBackend owns the link-kind dispatch order. Backends provide
 // storage-specific lookups while preserving the shared resolution semantics.
 func resolveLinkWithBackend(sourcePath string, link linkOccur, backend linkResolverBackend) (int64, string, error) {
