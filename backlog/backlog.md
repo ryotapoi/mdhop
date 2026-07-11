@@ -12,7 +12,7 @@
 - [x] resolveFrontmatterPathDry の手動同期複製の解消: `frontmatter_path_guard.go:86-121` が `resolveLinkWithBackend`（link_resolver.go:22-67）の分岐 4 段を「keep the two in sync」コメント頼みで再現している。phantom を作らない dry-run backend を `linkResolverBackend` の第 3 実装として相乗りさせ、分岐の二重管理を消す（maintenance-audit deep 2026-07-08 第 2 run・RS2 由来）
 - [x] scan-and-rewrite 骨組みの共通化: `Convert` / `Simplify` / `Repair` / `DisambiguateScan` が「vault 走査 → exclude 適用 → リンク判定 → rewriteEntry 蓄積 → DryRun 判定 → grouping → applyFileRewrites」の同一骨格を各自で書き下している。可変部はリンク判定コールバック 1 つ。`groups := make(map[string][]rewriteEntry)` の grouping は計 7 箇所で字面重複。exclude 設定の扱いの差が「意図的か揃え忘れか」判別できない状態の解消。実施判断（2026-07-08、BSSN 適用で存続確定）: 横断変更の需要は将来仮説ではなく同リリース内に実在する（次のロールバック失敗報告の統一がこの 4 コマンドの apply 経路を全部触る）ため、ロールバック統一より先に実施すると統一が 1 箇所で済む。パラメータ化は現 4 コマンドが必要とする差分（判定コールバック・exclude 設定・fileSet 検証）に限定し、将来コマンド用のフック点は作らない。微差は共通化前に 1 個ずつ意図的か揃え忘れかを確定する
 - [x] ロールバック失敗報告の統一: 同じ書き換え基盤（`applyFileRewritesWithRollbackFailures`）を使うのに、復元失敗（ファイルが原本でも新版でもない状態で残る）を move / MoveDir だけが `wrapRollbackFailures` で報告し、convert / repair / simplify / add / disambiguate は `applyFileRewrites` / `restoreBackups` の `_` 破棄で握り潰している。move 方式に統一し、破棄ラッパ 2 種を廃止する。`set` の `restoreSetBackup`（復元失敗を呼び出し側に伝えていない）も同じ判断対象に含める
-- [ ] `restoreSetBackup` のテスト追加: coverage 0%。`set` は vault ファイルを直接書き換える破壊的操作なのに、Update 失敗時に内容・パーミッション・mtime が復元される経路が未検証。既存の失敗系テストは全て書き込み前 return で、ロールバックに到達しない（ロールバック統一の後に、統一後の報告挙動でテストする）
+- [x] `restoreSetBackup` のテスト追加: coverage 0%。`set` は vault ファイルを直接書き換える破壊的操作なのに、Update 失敗時に内容・パーミッション・mtime が復元される経路が未検証。既存の失敗系テストは全て書き込み前 return で、ロールバックに到達しない（ロールバック統一の後に、統一後の報告挙動でテストする）
 
 ## v0.16.3
 

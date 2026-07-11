@@ -27,6 +27,9 @@ type SetResult struct {
 	Warnings []string
 }
 
+var setUpdate = Update
+var setChtimes = os.Chtimes
+
 // Set rewrites one scalar frontmatter key in a registered note and refreshes
 // the index entry for that note.
 func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
@@ -89,7 +92,7 @@ func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 		return nil, err
 	}
 
-	updateResult, err := Update(vaultPath, UpdateOptions{Files: []string{file}})
+	updateResult, err := setUpdate(vaultPath, UpdateOptions{Files: []string{file}})
 	if err != nil {
 		return nil, wrapRollbackFailures(err, restoreSetBackup(fullPath, file, backup))
 	}
@@ -114,7 +117,7 @@ func restoreSetBackup(fullPath, path string, backup setBackup) []rollbackFailure
 	if err := rollbackWriteFile(fullPath, backup.content, backup.perm); err != nil {
 		failures = append(failures, rollbackFailure{action: "restore", path: path, err: err})
 	}
-	if err := os.Chtimes(fullPath, backup.modTime, backup.modTime); err != nil {
+	if err := setChtimes(fullPath, backup.modTime, backup.modTime); err != nil {
 		failures = append(failures, rollbackFailure{action: "restore modification time for", path: path, err: err})
 	}
 	return failures

@@ -184,6 +184,143 @@ func TestSetStaleFileError(t *testing.T) {
 	}
 }
 
+func TestSetRestoresContentPermissionAndMtimeWhenUpdateFails(t *testing.T) {
+	vault := t.TempDir()
+	path := filepath.Join(vault, "A.md")
+	original := "---\ntitle: A\n---\n# A\n"
+	originalMtime := time.Date(2026, time.January, 2, 3, 4, 5, 123456789, time.UTC)
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if err := os.Chtimes(path, originalMtime, originalMtime); err != nil {
+		t.Fatalf("set original mtime: %v", err)
+	}
+	baseline, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat original file: %v", err)
+	}
+	baselineMode := baseline.Mode().Perm()
+	baselineMtime := baseline.ModTime()
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	primaryErr := errors.New("update blocked")
+	oldSetUpdate := setUpdate
+	setUpdate = func(_ string, _ UpdateOptions) (*UpdateResult, error) {
+		got := readTestFile(t, path)
+		if !strings.Contains(got, "reviewed: done") {
+			t.Fatalf("Update reached before Set wrote new content:\n%s", got)
+		}
+		return nil, primaryErr
+	}
+	t.Cleanup(func() { setUpdate = oldSetUpdate })
+
+	_, err = Set(vault, SetOptions{File: "A.md", Key: "reviewed", Value: "done"})
+	if !errors.Is(err, primaryErr) {
+		t.Fatalf("error = %v, want to retain primary error", err)
+	}
+	if got := readTestFile(t, path); got != original {
+		t.Fatalf("content after rollback = %q, want %q", got, original)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat after rollback: %v", err)
+	}
+	if got := info.Mode().Perm(); got != baselineMode {
+		t.Errorf("mode after rollback = %o, want baseline %o", got, baselineMode)
+	}
+	if got := info.ModTime(); !got.Equal(baselineMtime) {
+		t.Errorf("mtime after rollback = %s, want baseline %s", got, baselineMtime)
+	}
+}
+
+func TestSetReportsRestoreContentOrPermissionFailure(t *testing.T) {
+	vault := t.TempDir()
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte("---\ntitle: A\n---\n"), 0o600); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	primaryErr := errors.New("update blocked")
+	oldSetUpdate := setUpdate
+	setUpdate = func(_ string, _ UpdateOptions) (*UpdateResult, error) {
+		if got := readTestFile(t, path); !strings.Contains(got, "reviewed: done") {
+			t.Fatalf("Update reached before Set wrote new content:\n%s", got)
+		}
+		return nil, primaryErr
+	}
+	t.Cleanup(func() { setUpdate = oldSetUpdate })
+	oldRollbackWriteFile := rollbackWriteFile
+	rollbackWriteFile = func(string, []byte, os.FileMode) error {
+		return errors.New("restore content blocked")
+	}
+	t.Cleanup(func() { rollbackWriteFile = oldRollbackWriteFile })
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "reviewed", Value: "done"})
+	if !errors.Is(err, primaryErr) {
+		t.Fatalf("error = %v, want to retain primary error", err)
+	}
+	assertRollbackFailureReported(t, err, "update blocked", "restore content blocked")
+	if !strings.Contains(err.Error(), "could not restore A.md") {
+		t.Fatalf("error missing restore detail:\n%s", err)
+	}
+}
+
+func TestSetReportsRestoreMtimeFailure(t *testing.T) {
+	vault := t.TempDir()
+	path := filepath.Join(vault, "A.md")
+	original := "---\ntitle: A\n---\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	baseline, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat original file: %v", err)
+	}
+	baselineMode := baseline.Mode().Perm()
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	primaryErr := errors.New("update blocked")
+	oldSetUpdate := setUpdate
+	setUpdate = func(_ string, _ UpdateOptions) (*UpdateResult, error) {
+		if got := readTestFile(t, path); !strings.Contains(got, "reviewed: done") {
+			t.Fatalf("Update reached before Set wrote new content:\n%s", got)
+		}
+		return nil, primaryErr
+	}
+	t.Cleanup(func() { setUpdate = oldSetUpdate })
+	oldSetChtimes := setChtimes
+	setChtimes = func(string, time.Time, time.Time) error {
+		return errors.New("restore mtime blocked")
+	}
+	t.Cleanup(func() { setChtimes = oldSetChtimes })
+
+	_, err = Set(vault, SetOptions{File: "A.md", Key: "reviewed", Value: "done"})
+	if !errors.Is(err, primaryErr) {
+		t.Fatalf("error = %v, want to retain primary error", err)
+	}
+	assertRollbackFailureReported(t, err, "update blocked", "restore mtime blocked")
+	if !strings.Contains(err.Error(), "could not restore modification time for A.md") {
+		t.Fatalf("error missing mtime restore detail:\n%s", err)
+	}
+	if got := readTestFile(t, path); got != original {
+		t.Fatalf("content after failed mtime restore = %q, want %q", got, original)
+	}
+	info, statErr := os.Stat(path)
+	if statErr != nil {
+		t.Fatalf("stat after failed mtime restore: %v", statErr)
+	}
+	if got := info.Mode().Perm(); got != baselineMode {
+		t.Errorf("mode after failed mtime restore = %o, want baseline %o", got, baselineMode)
+	}
+}
+
 // TestSetQuotesValuesWithYAMLIndicatorPrefix guards a regression where a
 // value starting with a YAML plain-scalar indicator (e.g. "- ", "[", "*")
 // was written unquoted. "probe: - leading dash" reparses as a YAML block
