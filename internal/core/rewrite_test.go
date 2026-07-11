@@ -1,6 +1,8 @@
 package core
 
 import (
+	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -51,6 +53,18 @@ func TestPathLinkTypeClassificationsCoverAllLinkTypes(t *testing.T) {
 		}
 		if got := traversalTypes[linkType]; got != want.traversal {
 			t.Errorf("traversalLinkTypeSQLList contains %q = %v, want %v", linkType, got, want.traversal)
+		}
+	}
+}
+
+func assertRollbackFailureReported(t *testing.T, err error, primary, rollback string) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected operation to fail")
+	}
+	for _, want := range []string{primary, "rollback failed", "could not restore", rollback, "mdhop build"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error missing %q:\n%s", want, err)
 		}
 	}
 }
@@ -137,7 +151,9 @@ func TestRestoreBackupsPreservesPermission(t *testing.T) {
 		{path: filePath, content: []byte("original\n"), perm: 0o600},
 	}
 
-	restoreBackups(dir, backups)
+	if failures := restoreBackupFiles(dir, backups); len(failures) != 0 {
+		t.Fatalf("restoreBackupFiles failures: %#v", failures)
+	}
 
 	// Verify content restored.
 	content, err := os.ReadFile(fullPath)
@@ -187,9 +203,12 @@ func TestApplyFileRewritesPreservesPermission(t *testing.T) {
 		},
 	}
 
-	_, backups, err := applyFileRewrites(vault, groups)
+	_, backups, rollbackFailures, err := applyFileRewritesWithRollbackFailures(vault, groups)
 	if err != nil {
-		t.Fatalf("applyFileRewrites: %v", err)
+		t.Fatalf("applyFileRewritesWithRollbackFailures: %v", err)
+	}
+	if len(rollbackFailures) != 0 {
+		t.Fatalf("unexpected rollback failures: %#v", rollbackFailures)
 	}
 
 	// Verify file content was rewritten.
@@ -216,5 +235,63 @@ func TestApplyFileRewritesPreservesPermission(t *testing.T) {
 	}
 	if backups[0].perm != 0o600 {
 		t.Errorf("backup perm = %o, want %o", backups[0].perm, 0o600)
+	}
+}
+
+func TestApplyFileRewritesRollbackFailuresHaveDeterministicPathOrder(t *testing.T) {
+	vault := t.TempDir()
+	groups := make(map[string][]rewriteEntry)
+	for i, path := range []string{"Two.md", "Three.md", "One.md"} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte("[[Old]]\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		groups[path] = []rewriteEntry{{
+			rawLink:    "[[Old]]",
+			linkType:   LinkTypeWikilink,
+			lineStart:  1,
+			sourcePath: path,
+			sourceID:   int64(i + 1),
+			newRawLink: "[[New]]",
+		}}
+	}
+
+	oldRewriteWriteFile := rewriteWriteFile
+	writeCalls := 0
+	primaryErr := errors.New("primary rewrite blocked")
+	rewriteWriteFile = func(path string, data []byte, perm os.FileMode) error {
+		writeCalls++
+		if writeCalls == 3 {
+			return primaryErr
+		}
+		return oldRewriteWriteFile(path, data, perm)
+	}
+	t.Cleanup(func() { rewriteWriteFile = oldRewriteWriteFile })
+
+	oldRollbackWriteFile := rollbackWriteFile
+	rollbackWriteFile = func(path string, _ []byte, _ os.FileMode) error {
+		return fmt.Errorf("restore blocked for %s", filepath.Base(path))
+	}
+	t.Cleanup(func() { rollbackWriteFile = oldRollbackWriteFile })
+
+	_, _, failures, err := applyFileRewritesWithRollbackFailures(vault, groups)
+	if err == nil || !strings.Contains(err.Error(), "primary rewrite blocked") {
+		t.Fatalf("primary error = %v", err)
+	}
+	if len(failures) != 2 {
+		t.Fatalf("rollback failures = %#v, want 2", failures)
+	}
+	if failures[0].path != "One.md" || failures[1].path != "Three.md" {
+		t.Fatalf("rollback failure paths = [%s, %s], want [One.md, Three.md]", failures[0].path, failures[1].path)
+	}
+
+	wrappedErr := wrapRollbackFailures(err, failures)
+	if !errors.Is(wrappedErr, primaryErr) {
+		t.Fatalf("wrapped error does not retain primary error: %v", wrappedErr)
+	}
+	wrapped := wrappedErr.Error()
+	oneIndex := strings.Index(wrapped, "could not restore One.md")
+	threeIndex := strings.Index(wrapped, "could not restore Three.md")
+	if oneIndex < 0 || threeIndex < 0 || oneIndex >= threeIndex {
+		t.Fatalf("rollback detail order is not deterministic:\n%s", wrapped)
 	}
 }

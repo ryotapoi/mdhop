@@ -91,8 +91,7 @@ func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 
 	updateResult, err := Update(vaultPath, UpdateOptions{Files: []string{file}})
 	if err != nil {
-		restoreSetBackup(fullPath, backup)
-		return nil, err
+		return nil, wrapRollbackFailures(err, restoreSetBackup(fullPath, file, backup))
 	}
 
 	return &SetResult{
@@ -110,9 +109,15 @@ type setBackup struct {
 	modTime time.Time
 }
 
-func restoreSetBackup(fullPath string, backup setBackup) {
-	_ = writeFilePreservePerm(fullPath, backup.content, backup.perm)
-	_ = os.Chtimes(fullPath, backup.modTime, backup.modTime)
+func restoreSetBackup(fullPath, path string, backup setBackup) []rollbackFailure {
+	var failures []rollbackFailure
+	if err := rollbackWriteFile(fullPath, backup.content, backup.perm); err != nil {
+		failures = append(failures, rollbackFailure{action: "restore", path: path, err: err})
+	}
+	if err := os.Chtimes(fullPath, backup.modTime, backup.modTime); err != nil {
+		failures = append(failures, rollbackFailure{action: "restore modification time for", path: path, err: err})
+	}
+	return failures
 }
 
 func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, error) {

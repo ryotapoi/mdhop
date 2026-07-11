@@ -1,11 +1,45 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestAddReportsRewriteRollbackFailure(t *testing.T) {
+	vault := copyVault(t, "vault_add_disambiguate")
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("[[B]]\n"), 0o644); err != nil {
+		t.Fatalf("write C.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
+		t.Fatalf("write B.md: %v", err)
+	}
+
+	oldRewriteWriteFile := rewriteWriteFile
+	writeCalls := 0
+	rewriteWriteFile = func(path string, data []byte, perm os.FileMode) error {
+		writeCalls++
+		if writeCalls == 2 {
+			return errors.New("primary rewrite blocked")
+		}
+		return oldRewriteWriteFile(path, data, perm)
+	}
+	t.Cleanup(func() { rewriteWriteFile = oldRewriteWriteFile })
+
+	oldRollbackWriteFile := rollbackWriteFile
+	rollbackWriteFile = func(string, []byte, os.FileMode) error {
+		return errors.New("restore blocked")
+	}
+	t.Cleanup(func() { rollbackWriteFile = oldRollbackWriteFile })
+
+	_, err := Add(vault, AddOptions{Files: []string{"B.md"}, AutoDisambiguate: true})
+	assertRollbackFailureReported(t, err, "primary rewrite blocked", "restore blocked")
+}
 
 func TestAddNewFile(t *testing.T) {
 	vault := copyVault(t, "vault_add")
@@ -1033,7 +1067,9 @@ func TestAddAutoDisambiguateRestoreBackups(t *testing.T) {
 	backups := []rewriteBackup{
 		{path: filePath, content: original, perm: 0o644},
 	}
-	restoreBackups(dir, backups)
+	if failures := restoreBackupFiles(dir, backups); len(failures) != 0 {
+		t.Fatalf("restoreBackupFiles failures: %#v", failures)
+	}
 
 	restored, err := os.ReadFile(filepath.Join(dir, filePath))
 	if err != nil {

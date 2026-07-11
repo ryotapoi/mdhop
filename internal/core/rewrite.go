@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -156,11 +157,6 @@ func writeFilePreservePerm(path string, data []byte, perm os.FileMode) error {
 	return os.Chmod(path, perm)
 }
 
-// restoreBackups restores files to their original content (best-effort).
-func restoreBackups(vaultPath string, backups []rewriteBackup) {
-	_ = restoreBackupFiles(vaultPath, backups)
-}
-
 func restoreBackupFiles(vaultPath string, backups []rewriteBackup) []rollbackFailure {
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 	var failures []rollbackFailure
@@ -192,28 +188,25 @@ func wrapRollbackFailures(primary error, failures []rollbackFailure) error {
 	return fmt.Errorf("%w; rollback failed: %s. Manually resolve vault state, then run `mdhop build` to rebuild the index", primary, strings.Join(parts, "; "))
 }
 
-// applyFileRewrites applies rewrite entries to source files on disk.
-// Returns a map of sourceID → new mtime after writing, and backups for rollback.
-// On error during write, restores already-written files (best-effort).
-//
-// When entries carry sourceID=0 (e.g. scan-mode callers with no DB node), all
-// their mtimes collapse onto key 0 in the returned map. This is safe only when
-// the caller discards the mtime map; callers that need per-file mtimes must set
-// sourceID to the real DB node ID.
-func applyFileRewrites(vaultPath string, groups map[string][]rewriteEntry) (map[int64]int64, []rewriteBackup, error) {
-	newMtimes, backups, _, err := applyFileRewritesWithRollbackFailures(vaultPath, groups)
-	return newMtimes, backups, err
-}
-
+// applyFileRewritesWithRollbackFailures applies rewrite entries to source files.
+// On a write or stat error it restores already-written files and returns both
+// the primary error and any rollback failures for the caller to report together.
+// When entries carry sourceID=0 (scan-mode callers), their mtimes collapse onto
+// key 0; this is safe only for callers that discard the mtime map.
 func applyFileRewritesWithRollbackFailures(vaultPath string, groups map[string][]rewriteEntry) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {
 	newMtimes := make(map[int64]int64)
 	diskPaths := newVaultDiskPathResolver(vaultPath)
+	sourcePaths := make([]string, 0, len(groups))
+	for sourcePath := range groups {
+		sourcePaths = append(sourcePaths, sourcePath)
+	}
+	sort.Strings(sourcePaths)
 
 	// Phase 1: read all originals before any writes.
 	originals := make(map[string][]byte, len(groups))
 	perms := make(map[string]os.FileMode, len(groups))
 	fullPaths := make(map[string]string, len(groups))
-	for sourcePath := range groups {
+	for _, sourcePath := range sourcePaths {
 		fullPath, err := diskPaths.existingPath(sourcePath)
 		if err != nil {
 			return nil, nil, nil, err
@@ -252,7 +245,8 @@ func applyFileRewritesWithRollbackFailures(vaultPath string, groups map[string][
 		return failures
 	}
 
-	for sourcePath, entries := range groups {
+	for _, sourcePath := range sourcePaths {
+		entries := groups[sourcePath]
 		fullPath := fullPaths[sourcePath]
 		original := originals[sourcePath]
 		lines := strings.Split(string(original), "\n")

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,35 @@ import (
 
 	"github.com/ryotapoi/mdhop/internal/testutil"
 )
+
+func TestConvertReportsRollbackFailure(t *testing.T) {
+	vault := t.TempDir()
+	for _, name := range []string{"One.md", "Two.md"} {
+		if err := os.WriteFile(filepath.Join(vault, name), []byte("[A](A.md)\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	oldRewriteWriteFile := rewriteWriteFile
+	writeCalls := 0
+	rewriteWriteFile = func(path string, data []byte, perm os.FileMode) error {
+		writeCalls++
+		if writeCalls == 2 {
+			return errors.New("primary rewrite blocked")
+		}
+		return oldRewriteWriteFile(path, data, perm)
+	}
+	t.Cleanup(func() { rewriteWriteFile = oldRewriteWriteFile })
+
+	oldRollbackWriteFile := rollbackWriteFile
+	rollbackWriteFile = func(string, []byte, os.FileMode) error {
+		return errors.New("restore blocked")
+	}
+	t.Cleanup(func() { rollbackWriteFile = oldRollbackWriteFile })
+
+	_, err := Convert(vault, ConvertOptions{ToFormat: "wikilink"})
+	assertRollbackFailureReported(t, err, "primary rewrite blocked", "restore blocked")
+}
 
 // --- Unit tests ---
 

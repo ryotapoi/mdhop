@@ -22,7 +22,7 @@ type DisambiguateResult struct {
 }
 
 // Disambiguate rewrites basename links to full paths for the given basename.
-func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
+func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *DisambiguateResult, resultErr error) {
 	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
@@ -194,26 +194,25 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (*DisambiguateResu
 	for _, re := range rewrites {
 		groups[re.sourcePath] = append(groups[re.sourcePath], re)
 	}
-	newMtimes, backups, applyErr := applyFileRewrites(vaultPath, groups)
+	newMtimes, backups, rollbackFailures, applyErr := applyFileRewritesWithRollbackFailures(vaultPath, groups)
 	if applyErr != nil {
-		return nil, applyErr
+		return nil, wrapRollbackFailures(applyErr, rollbackFailures)
 	}
 
 	// DB transaction — update edges and mtimes.
 	tx, err := db.Begin()
 	if err != nil {
-		restoreBackups(vaultPath, backups)
-		return nil, err
+		return nil, wrapRollbackFailures(err, restoreBackupFiles(vaultPath, backups))
 	}
 	committed := false
 	defer func() {
 		if !committed {
 			tx.Rollback()
-			restoreBackups(vaultPath, backups)
+			resultErr = wrapRollbackFailures(resultErr, restoreBackupFiles(vaultPath, backups))
 		}
 	}()
 
-	result := &DisambiguateResult{}
+	result = &DisambiguateResult{}
 	for _, re := range rewrites {
 		if _, err := tx.Exec("UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
 			return nil, err

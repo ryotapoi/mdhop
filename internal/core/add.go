@@ -29,7 +29,7 @@ type AddResult struct {
 }
 
 // Add inserts new files into the existing index DB.
-func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
+func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error) {
 	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
@@ -279,10 +279,11 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 		for _, re := range allRewrites {
 			groups[re.sourcePath] = append(groups[re.sourcePath], re)
 		}
+		var rollbackFailures []rollbackFailure
 		var applyErr error
-		newMtimes, backups, applyErr = applyFileRewrites(vaultPath, groups)
+		newMtimes, backups, rollbackFailures, applyErr = applyFileRewritesWithRollbackFailures(vaultPath, groups)
 		if applyErr != nil {
-			return nil, applyErr
+			return nil, wrapRollbackFailures(applyErr, rollbackFailures)
 		}
 	}
 
@@ -290,19 +291,17 @@ func Add(vaultPath string, opts AddOptions) (*AddResult, error) {
 	tx, err := db.Begin()
 	if err != nil {
 		// Restore disk changes if transaction start fails.
-		restoreBackups(vaultPath, backups)
-		return nil, err
+		return nil, wrapRollbackFailures(err, restoreBackupFiles(vaultPath, backups))
 	}
 	committed := false
 	defer func() {
 		if !committed {
 			tx.Rollback()
-			// Restore disk changes on failure (best-effort).
-			restoreBackups(vaultPath, backups)
+			resultErr = wrapRollbackFailures(resultErr, restoreBackupFiles(vaultPath, backups))
 		}
 	}()
 
-	result := &AddResult{}
+	result = &AddResult{}
 
 	// Insert all note nodes.
 	for _, pf := range parsed {
