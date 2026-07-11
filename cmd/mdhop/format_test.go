@@ -1016,3 +1016,74 @@ func TestPrintSearchText_Empty(t *testing.T) {
 		t.Errorf("got:\n%s\nwant:\n%s", buf.String(), want)
 	}
 }
+
+func TestPrintMetaCheckText(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := printMetaCheckText(&buf, &core.MetaCheckResult{}); err != nil {
+			t.Fatal(err)
+		}
+		if got := buf.String(); got != "" {
+			t.Errorf("got %q, want empty output", got)
+		}
+	})
+
+	t.Run("issues", func(t *testing.T) {
+		r := &core.MetaCheckResult{Issues: []core.MetaIssue{
+			{SourcePath: "Notes/A.md", Key: "related", Value: "Missing.md", Reason: core.ReasonNotFound},
+			{SourcePath: "Notes/B.md", Key: "parent", Value: "../outside.md", Reason: core.ReasonVaultEscape},
+		}}
+		var buf bytes.Buffer
+		if err := printMetaCheckText(&buf, r); err != nil {
+			t.Fatal(err)
+		}
+		want := `issues:
+- source_path: Notes/A.md
+  key: related
+  value: Missing.md
+  reason: not_found
+- source_path: Notes/B.md
+  key: parent
+  value: ../outside.md
+  reason: vault_escape
+`
+		if got := buf.String(); got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+}
+
+func TestPrintMetaValidateText(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := printMetaValidateText(&buf, &core.MetaValidateResult{}); err != nil {
+			t.Fatal(err)
+		}
+		if got := buf.String(); got != "" {
+			t.Errorf("got %q, want empty output", got)
+		}
+	})
+
+	t.Run("violations", func(t *testing.T) {
+		r := &core.MetaValidateResult{Violations: []core.MetaViolation{
+			{SourcePath: "Notes/A.md", Key: "status", Value: "", Reason: core.ReasonMissing},
+			{SourcePath: "Notes/B.md", Key: "due", Value: "tomorrow", Reason: core.ReasonType},
+		}}
+		var buf bytes.Buffer
+		if err := printMetaValidateText(&buf, r); err != nil {
+			t.Fatal(err)
+		}
+		want := `violations:
+- source_path: Notes/A.md
+  key: status
+  value:` + " \n" + `  reason: missing
+- source_path: Notes/B.md
+  key: due
+  value: tomorrow
+  reason: type
+`
+		if got := buf.String(); got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+}
