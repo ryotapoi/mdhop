@@ -1,6 +1,8 @@
 package core
 
 import (
+	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -286,5 +288,15 @@ func TestExpandMoveTemplate_RequiresRegisteredNote(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "registered note") {
 		t.Fatalf("error = %v, want registered note error", err)
+	}
+}
+
+func TestTemplateSourceNoteError_WrappedNoRows(t *testing.T) {
+	err := templateSourceNoteError(
+		fmt.Errorf("lookup source note: %w", sql.ErrNoRows),
+		"missing.md",
+	)
+	if got, want := err.Error(), "source must be a registered note for --to-template: missing.md"; got != want {
+		t.Fatalf("error = %q, want %q", got, want)
 	}
 }

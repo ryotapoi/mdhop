@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -207,10 +208,14 @@ func lookupTemplateSourceNote(db dbExecer, from string) (int64, error) {
 	if err == nil {
 		return id, nil
 	}
-	if err == sql.ErrNoRows {
-		return 0, fmt.Errorf("source must be a registered note for --to-template: %s", from)
+	return 0, templateSourceNoteError(err, from)
+}
+
+func templateSourceNoteError(err error, from string) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("source must be a registered note for --to-template: %s", from)
 	}
-	return 0, err
+	return err
 }
 
 func metaRowsByKey(rows []MetaRow) map[string][]MetaRow {
