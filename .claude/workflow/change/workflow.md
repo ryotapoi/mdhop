@@ -25,7 +25,7 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 ## Routing
 
 - Exploratory → `change/investigate.md` で事実を揃えてから判断し直す
-- execution mode `delegate` → 調査・実装の委譲は `change/delegate.md` に従う（Change 全体の進行は下記の各 phase をそのまま使う）
+- 実装 → execution mode で決める。既定 `solo` = Implementer が計画と実装を一体で行う。`delegate` = Implementer は外部実装エージェントで、Orchestrator が直接委譲する（`change/delegate.md`。この場合、下記の各 phase の Claude 側 Implementer の責務は Orchestrator が担う）。Change 全体の進行は mode によらず下記の各 phase をそのまま使う
 - Plan が必要な変更 → `change/plan.md`（plan mode は使わず、内部で計画を立ててそのまま `change/implement.md` へ進む。詳細は `change/plan.md`）
 - Plan 省略可な変更 → そのまま `change/implement.md`
 - 検証 → `change/verify.md`
@@ -36,29 +36,29 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 ## Decision Criteria
 
 - workflow は 1 つの commit 単位で回す。1 commit に独立した複数作業を混ぜない。
-- 実行中に 1 commit として不自然だと分かったら、作業を広げず、Goal 実行中は Goal main に事実を返して commit 単位を切り直す。単発 Change では今回扱う単位を切り直す。
+- 実行中に 1 commit として不自然だと分かったら、作業を広げず、Goal 実行中は Orchestrator に事実を返して commit 単位を切り直す。単発 Change では今回扱う単位を切り直す。
 - Small は plan を省略してよい。作業内容と検証だけ簡潔に示す。
 - 仕様・UX・データモデル・複数ファイル変更・設計判断を伴うなら plan を作る。
 - High-risk は plan・検証・必要なレビューを明示する。
-- 実装判断に影響する不明点は、調査・検証・既存情報で潰してから進む。複数案があっても、現在の要求と情報源から適切に選べるなら止まらず進める。
-- UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える可能性がある場合は、`.claude/workflow/design-decision-record.md` の Product Decision Ledger / Alternative Check に従う。カテゴリの正本は同ファイル。
-- Product Decision Ledger の報告対象は、現在の要求 / backlog / docs / decisions に明記がなく、判断系 skill でも実装判断として明確に決まらず、Claude がステークホルダー判断に近い選択をしたものに限る。
+- 実装判断に影響する不明点は、調査・検証・既存情報で潰してから進む。仕様・UX の不明点は、現在の要求、正本、既存コード、調査・検証結果から採用案を選んで進める。可逆で影響が小さい選択は、Product Decision Ledger の対象なら ledger に残す。複数の妥当案が残り、かつ選択が非可逆（データ保持・削除・マイグレーション・外部公開契約）またはやり直しコストが大きい場合、または正本と矛盾する場合は Stop Conditions に従う。
+- Product Decision Ledger の対象・Alternative Check・報告基準（UX・データ意味・cross-surface 等。カテゴリ一覧は同ファイル）は `.claude/workflow/design-decision-record.md` を唯一の正本とする。
 - 途中でタスクの性質が変わったら、Intake からやり直す（格上げは許容）。
 - 既存 worktree 差分向けの特別な snapshot / staging / clean check フローは作らない。通常の差分確認と commit discipline で巻き込みを防ぐ。
 
-## Specs Priority
+## Source Resolution
 
-複数情報源が矛盾した場合、新しい順で照合する。古い方を直す。
-
-1. 現在のユーザー依頼
-2. `docs/rules/`
-3. `docs/decisions/`
-4. `docs/specs/`
-5. tests
-
-仕様・UX に関わる判断は、現在の要求、`docs/rules/` / `docs/specs/` / `docs/decisions/`、既存コード、調査・検証結果から最善案を選ぶ。ユーザーが別方針を選ぶ可能性がある重要な判断は、進められるなら採用案で進め、Goal 完了報告の `ユーザー判断が必要` に残す。
+現在のユーザー依頼は作業の目的を定める。`docs/rules/`、`docs/decisions/`、`docs/specs/`、tests は正本と根拠として照合する。矛盾した場合は依頼を理由に正本を黙って上書きせず、Stop Conditions に従ってどの情報源が古いかを確定してから同期する。
 
 Product Decision Ledger は新しい正本ではない。Goal、長い Change、委任、review 指摘対応をまたぐ判断候補がある場合は、必要に応じて `tmp/product-decision-ledger/<scope>.md` に残す。finish では記憶ではなく ledger、review 結果、同期済み docs から `ユーザー判断が必要` を判断する。
+
+## Phase Handoff
+
+固定テンプレートは要求しないが、phase を移る時は次に必要な事実を欠落させない。
+
+- 扱った scope と result
+- commit SHA、または未 commit / stop の理由
+- 検証コマンド・結果と review status
+- docs / backlog 同期、Product Decision Ledger、follow-up、残存リスクの有無
 
 ## Acceptance
 
@@ -70,7 +70,7 @@ Product Decision Ledger は新しい正本ではない。Goal、長い Change、
 
 ## Stop Conditions
 
-- その時点の情報では適切な仕様・UX・データ保持・削除方針を決められず、ユーザー判断や不足情報なしに進めること自体が不適切
+- Decision Criteria の判断境界で Stop に該当する仕様・UX・データ保持・削除方針が残っている
 - 要求と `docs/rules/` / `docs/specs/` / `docs/decisions/` が矛盾している
 - High-risk 変更で必須の検証を代替手段でも裏付けられない
 - ユーザーが停止・相談・計画のみを指示している
@@ -78,7 +78,9 @@ Product Decision Ledger は新しい正本ではない。Goal、長い Change、
 ## Subagent / Skill
 
 - 複数ファイル横断・キーワードのファンアウト調査は Explore subagent に委譲する
+- 互いに独立した read-only 調査・レビューは並列化してよい。同一 worktree の実装 writer は 1 つに限る
+- subagent の完了通知は配信されない・大幅に遅延することがある。background 起動して完了通知を待つ形を避け、結果は起動呼び出しの戻り値で受け取る。background になった・結果が返らない場合は通知を待たず `SendMessage` で能動的に結果を請求する。通知待ちの待機ループ（no-op の Monitor / sleep の積み増し）は行わない
 - skill は各 phase の workflow の指示に従って使う。
-- `boundary-control` は横断チェックとして全 phase に効く。今回の要求の外へ作業を広げそうな時、隣接作業が見つかった時、scope を変える編集の前に使い、active scope 内か（workflow-required / incidental-required）を判定する。active workflow を止めたり置き換えたりはしない
+- 横断のスコープ判定は `boundary-control` を正本とし、全 phase に効かせる。今回の要求の外へ作業を広げそうな時、隣接作業が見つかった時、scope を変える編集の前に使い、active scope 内か（workflow-required / incidental-required）を判定する。隣接作業は現在の commit に広げず、project-relevant なら workflow が認める正本へ capture するか最終報告で report する。active workflow を止めたり置き換えたりはしない
 - 詳細は各 phase のファイル参照
 - Product Decision Ledger の判断基準は `.claude/workflow/design-decision-record.md` を参照する

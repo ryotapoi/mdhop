@@ -7,9 +7,9 @@
   - 原則 1 plan = 1 workflow = 1 commit。独立した成果が混ざるなら plan を分ける。
   - backlog item や Goal が大きくても、そのまま 1 plan にしない。review / revert / bisect できる 1 commit 単位へ切る。
   - 1 commit 単位は、途中段階でも「その単位として完了している」状態にする。Goal 全体の完了とは別に判断する。
-  - 仕様・UX・設計方針に複数案があっても、現在の要求と情報源から適切に選べるなら止まらず進める。
+  - 仕様・UX・設計方針の複数案は `change/workflow.md` の判断境界に従う。可逆で影響が小さい選択は採用案で進め、複数の妥当案が残って非可逆またはやり直しコストが大きい、または正本と矛盾する場合は Stop Conditions に従う。
   - 設計判断は `.agents/workflow/design-decision-record.md` に従い、採用案・却下案・理由を残す。
-  - UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える plan では、Product Decision Ledger の Alternative Check を行う。カテゴリの正本は `.agents/workflow/design-decision-record.md`。
+  - product decision（UX・データ意味・cross-surface 等）を変える plan では Product Decision Ledger の Alternative Check を行う。カテゴリ一覧と記録・報告基準の正本は `.agents/workflow/design-decision-record.md`。
   - 現在の要求 / backlog / docs / decisions に明記済みの内容や、判断系 skill で実装判断として解ける内容は、Goal 完了報告の `ユーザー判断が必要` に混ぜない。
   - 検証方針（自動 / ユーザー確認）を plan に明記する。
 - **Acceptance**:
@@ -46,7 +46,7 @@ Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追�
 
 - **Intent**: モジュール配置・共通化方針・型選択を、既存設計と長期保守性に沿って決める。
 - **Constraints**:
-  - `design-decision` を使い、ルールに当てはめても適切に決められず、ユーザー判断や不足情報なしに進めること自体が不適切なときだけユーザー確認する。
+  - `design-decision` を使い、判断境界は `change/workflow.md` に従う。
   - 新しい型・ファイル・外部依存・責務配置・module/package/target/folder 境界を扱う場合は `module-boundary` を使い、分割レベルと分割しない理由を明確にする。
   - 設計判断の残し方は `.agents/workflow/design-decision-record.md` に従う。
   - モジュール配置は依存方向と既存責務で判断する。
@@ -77,7 +77,7 @@ Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追�
   - プロジェクト固有制約に触れるなら `project-risk-check` を使う。
     <!-- slot: project-risk-check 以外の領域固有レビュー skill があれば追記する（例: UI 層を触るなら対応する specialist skill）。 -->
     <!-- /slot -->
-  - High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`change-review` などの別視点を plan レビューにも入れる。
+  - High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`change-review` などの別視点を plan レビューにも入れる。別系統エージェントへのクロスレビューは plan 段階では行わず、Goal Review 側に置く。
   - plan review 後に再レビューするかは、指摘対応で plan の構造・risk・検証方針・設計判断が大きく変わったかで判断する。機械的な反映だけなら再レビューせず実装へ進んでよい。
   - plan review では `レビュー上限超過` を使わない。残る懸念は plan の残リスク、追加検証、または実装後 review で見る観点として残す。
 - **Acceptance**: 指摘が plan に反映済み、または対応しない理由が事実と理由で残っている。
@@ -88,4 +88,4 @@ Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追�
 - 1 commit に収まらない。
 - 今回の plan が Goal / backlog item 全体をまとめようとしており、自然な commit 単位へ切れていない。
 - High-risk なのに必須の検証方針を代替手段も含めて立てられない。
-- その時点の情報では適切な仕様・UX・設計方針を決められず、ユーザー判断や不足情報なしに進めること自体が不適切。
+- `change/workflow.md` の判断境界で Stop に該当する仕様・UX・設計方針が残っている。

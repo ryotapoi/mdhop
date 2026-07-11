@@ -10,20 +10,19 @@
 
 - 実装作業は `goal-workflow` skill を入口にし、この workflow を正本として読む。
 - `/goal` の呼び出し文は、原則として skill への参照と完了対象だけでよい。例: `/goal goal-workflow skill に従い、backlog/backlog.md の「v0.x」を完了して。`
-- `/goal` の呼び出し文で execution mode を指定できる。既定は `self`（Change worker が自分で調査・実装する）。`delegate` を指定した場合、Change worker は調査・実装を外部実装エージェントへ委譲する（`change/delegate.md`）。mode は原則 Goal 全体で固定し、委譲が実行不能な場合の扱いは `change/delegate.md` の Stop Conditions に従う。
+- 役割は 2 層で固定する: **Orchestrator**（この workflow を進める main セッション。進行管理・commit slicing・検品・レビュー・最終報告を担い、実装は書かない）と **Implementer**（実装担当）。
+- `/goal` の呼び出し文で execution mode を指定できる。execution mode は Implementer が誰かを決める。既定は `solo`（Implementer は Claude subagent。計画と実装を一体で行う。実装前の plan 書き出しは `change/plan.md` に従う）。`delegate` は Implementer を外部実装エージェント（Codex CLI）とし、Orchestrator が Change 単位で直接委譲する（`change/delegate.md`）。execution mode はこの 2 つだけ。使い分けの目安: 重要部分（High-risk 相当が中心の Goal）は `solo`、それ以外で Claude 側の使用量を抑えたい Goal は `delegate`。mode は原則 Goal 全体で固定する。例外として、`delegate` 中に個別 Change の Intake が High-risk になった場合は `change/delegate.md` に従いその Change だけ `solo` に切り替えてよい。委譲が実行不能な場合の扱いは `change/delegate.md` の Stop Conditions に従う。
 - ブランチは切らず、いるブランチ（通常 main）上にそのまま 1 commit ずつ積む。Goal 開始時の `HEAD` を base SHA として記録する（Goal Review の range 起点）。
-- 1 回の実装 workflow は 1 commit 単位に限る。Goal main は実装を直接担当せず、Goal が 1 commit だけで完了する場合も、次の 1 Change を選んで fresh subagent を Change worker として 1 つずつ直列起動する。
+- 1 回の実装 workflow は 1 commit 単位に限る。Orchestrator は実装を直接担当せず、Goal が 1 commit だけで完了する場合も、次の 1 Change を選んで fresh subagent を Implementer として 1 つずつ直列起動する。例外は `delegate` で、Claude 側の Implementer を起動せず Orchestrator が Change 単位で `change/delegate.md` に従い直接委譲する（この場合も実装そのものは外部エージェントが行い、Orchestrator は実装を書かない）。
 - 各 commit は、Goal 全体の途中でも、その commit 単位では review / revert / bisect できる完了状態にする。
 - Goal 全体を 1 plan / 1 commit に押し込まない。次に扱う 1 commit 分を毎回明確に切り出す。
 - Goal 前提では都度のユーザー確認を避け、自動進行する。止まるのは Stop Conditions に該当する場合だけ。
 - plan mode（`EnterPlanMode` / `ExitPlanMode`）は使わない。承認待ちが自動進行と噛み合わないため。計画が必要な場合は内部で立ててそのまま実装する。詳細は `change/plan.md`。
-- 複数案があるだけでは止まらない。現在の要求、`docs/rules/` / `docs/specs/` / `docs/decisions/`、コード、調査・検証結果から最善案を選んで進める。
-- Goal 中に、ユーザーが違う選択をする可能性がある重要な仕様・UX・設計上の選択が発生したら、適切に進められる範囲では採用案を選んで実装し、Goal 完了報告で `ユーザー判断が必要` として選択肢、主な利点・欠点、採用結果を提示する。なければ `ユーザー判断が必要: なし` と明示する。
-- `ユーザー判断が必要` の対象は、現在の要求 / backlog / docs / decisions に明記されておらず、判断系 skill でも実装判断として明確に決まらず、Claude がステークホルダー判断に近い product decision を選んだものに限る。
-- ユーザー判断候補は完了時の記憶に頼らず、各 Change の Product Decision Ledger、review 結果、同期済み docs から集める。
+- 複数案の判断は `change/workflow.md` の境界に従う。可逆で影響が小さい選択は採用案で進め、複数の妥当案が残り、かつ選択が非可逆またはやり直しコストが大きい場合、または正本と矛盾する場合は Stop Conditions に従う。
+- 仕様・UX の不明点は `change/workflow.md` の判断境界に従う。Product Decision Ledger の対象・記録・報告基準は `.claude/workflow/design-decision-record.md` を正本とし、Goal 完了時は各 Change の ledger、review 結果、同期済み docs から `ユーザー判断が必要` の有無を集約する。
 - 進捗・完了の報告は、このセッションのツール結果で裏取りできる事実だけを書く。テストが失敗していれば出力ごと報告し、未検証の項目は未検証と明示する。
 - 後から制約になる判断、仕様変更、未着手作業は、画面出力だけで終わらせず `docs/rules/` / `docs/specs/` / `docs/decisions/` / `backlog/backlog.md` の適切な情報源へ同期する。
-- 各 commit 内の Self Review とは別に、Goal の commit range に対する Goal Review を Goal 完了条件に含める（Goal Review 参照）。reviewer は Goal range を実装した系統と別系統で、実装文脈を引き継がない fresh reviewer とする。Goal range に `/code-review` 観点ベースの Self Review を再実行しない。
+- 各 commit 内の Self Review とは別に、Goal の commit range に対する Goal Review を Goal 完了条件に含める（Goal Review 参照）。reviewer は実装文脈を引き継がない fresh reviewer とする。fresh であることを必須とし、実装と同系統でも fresh なら reviewer になれる（reviewer の選定は Goal Review 参照）。Goal range に `/code-review` 観点ベースの Self Review を再実行しない。
 
 ## Acceptance
 
@@ -39,18 +38,18 @@
 
 - `goal-workflow` skill
 - `.claude/workflow/change/workflow.md`
-- `.claude/workflow/change/delegate.md`（execution mode `delegate` 時）
+- `.claude/workflow/change/delegate.md`（`delegate` の直接委譲手順）
 - `.claude/workflow/design-decision-record.md`
 - `design-decision` skill
-- `cross-agent-review` skill（execution mode `self` の Goal Review）
-- `fresh-agent-review` skill（execution mode `delegate` の Goal Review）
+- `codex-fresh-review` skill（全 mode の Goal Review で使う）
+- `claude-fresh-review` skill（Goal Review では既定で使わない。ユーザーが Goal 指定で明示した場合のみ `codex-fresh-review` に追加する）
 - `backlog/backlog.md`
 
 ## Flow
 
-1. Goal の目的、制約、完了条件、execution mode（既定 `self`）を確認し、ブランチは切らず開始時の `HEAD` を base SHA として記録する。
+1. Goal の目的、制約、完了条件、execution mode（既定 `solo`）を確認し、ブランチは切らず開始時の `HEAD` を base SHA として記録する。
 2. Goal を 1 commit 単位の候補へ分割する（Commit Slicing 参照）。
-3. 次に扱う 1 commit 分を選び、fresh Change worker に渡す。Goal が 1 commit だけの場合も同じ。
+3. 次に扱う 1 commit 分を選び、fresh Implementer に渡す（`delegate` では `change/delegate.md` に従い Orchestrator が直接委譲する）。Goal が 1 commit だけの場合も同じ。
 4. commit 後、Goal の残りと Goal Review の実施タイミングを確認する。
 5. 残りがあれば次の 1 commit 分に戻る。
 6. 必要な Goal Review と対応が済んでいなければ実施する。実行直前の `HEAD` を `review_end` として固定し、PASS 相当なら `review_cursor` を `review_end` まで進めてよい（`base` は動かさない）。
@@ -73,45 +72,62 @@
 - 途中で 1 commit として不自然になったら、作業を広げず commit 単位を切り直す。
 - Goal に必要な残作業は、次の Change として続けるか、別タスクが適切なら `backlog/backlog.md` に残す。どちらの場合も漏らさない。
 
-## Change Worker
+## Implementer（solo）
 
-- Goal 経由の Change は、commit 数に関わらず、原則 fresh Change worker に渡す。
-- Goal main は実装を直接担当しない。Goal main の責務は、base / review_cursor 管理、commit slicing、次の Change 選定、Goal Review、最終報告に限る。
-- Goal main は次の 1 Change を選び、fresh subagent を Change worker として 1 つずつ直列起動する。同じ worktree で複数の Change worker を並行実行しない。Goal が 1 commit だけで完了する場合も Change worker を 1 つ起動する。
-- Change worker は渡された Change だけを担当し、Goal 全体を再計画・再分割しない。
+- この節は execution mode `solo` に適用する。`delegate` では Claude 側の Implementer を起動せず、進行は `change/delegate.md` に従う。
+- Goal 経由の Change は、commit 数に関わらず、原則 fresh Implementer に渡す。
+- Orchestrator は実装を直接担当しない。Orchestrator の責務は、base / review_cursor 管理、commit slicing、次の Change 選定、Goal Review、最終報告に限る。
+- Orchestrator は次の 1 Change を選び、fresh subagent を Implementer として 1 つずつ直列起動する。同じ worktree で複数の Implementer を並行実行しない。Goal が 1 commit だけで完了する場合も Implementer を 1 つ起動する。
+- Implementer の起動も、結果を起動呼び出しの戻り値で受け取る同期実行を基本とする。background になった場合は完了通知を待たず、`SendMessage` で能動的に結果を回収する（`change/workflow.md` の Subagent / Skill 参照）。
+- Implementer のモデルは `sonnet` 固定とする。難度を理由に引き上げない。ユーザーが Implementer のモデルを明示指定した場合のみ、それを優先する。
+- advisor が設定されている環境（Claude Code の `advisorModel` 等。subagent は設定を継承する）では、Implementer の起動プロンプトに advisor の相談条件を含める: 非自明な設計判断にコミットする前、同じエラー・失敗が繰り返す時、アプローチの変更を検討する時に advisor に相談する。自明な作業では呼ばない。
+- High-risk や設計判断の厚い Change は、advisor 相談を厚くして進める: 相談条件に加えて、実装方針の確定前と完了宣言前の相談を必須と明記する。advisor が使えない環境で High-risk Change に当たった場合は、モデルを引き上げて代替せず停止してユーザーに確認する（Stop Conditions 参照）。
+- Implementer は渡された Change だけを担当し、Goal 全体を再計画・再分割しない。
 - 通常は `change/workflow.md` に従い、調査から commit まで完了して戻る。
-- 1 commit として不自然だと分かった場合は、作業を広げず事実を Goal main に返す。Goal main が commit 単位を切り直す。
-- 戻りの固定 schema は作らない。commit、検証、残作業、停止理由、Product Decision Ledger のうちユーザー判断候補として引き継ぐものが理解できればよい。
+- 1 commit として不自然だと分かった場合は、作業を広げず事実を Orchestrator に返す。Orchestrator が commit 単位を切り直す。
+- 戻りの表示形式は固定しないが、scope / result、commit SHA または stop 理由、検証コマンドと結果、review status、ledger / follow-up / 残存リスクの有無は必ず引き継ぐ。
+- Implementer がセッション上限などで中断した場合、fresh 再起動より先に同一 Implementer への追加入力（`SendMessage`）で再開を試みてよい。再開できれば中断時点の文脈のまま完了させる。subagent の完了通知待ちで停止した Implementer も同様に `SendMessage` で能動的に再開させる（完了通知は配信されない・大幅に遅延することがある）。
+- Implementer / subagent の報告どうしが食い違う場合、Orchestrator はどちらかを採用する前に実ソース・実測で裏取りしてから記録・報告する。
 - 直接実行の例外は Goal 経由の作業には適用しない。Goal を経由しない単発 Change だけは、現在の agent が直接実行してよい。
+
+## Unresponsive Implementer
+
+- Implementer の結果が返らない・完了通知が来ない場合、Orchestrator はまず同一 Implementer へ `SendMessage` で status request を送り、現在 phase / 実行中の作業 / 残作業 / blocker の短い報告を求める。
+- status request にも応答がない場合は、Orchestrator が `git status --short`、`git diff --stat`、必要な `git diff`、`git log --oneline -n` で実状態を確認する。元 Implementer がまだ実行中の可能性がある場合は明示的に停止（`TaskStop`）し、終了を確認するまで別 writer を起動しない。
+- 元 Implementer の終了を確認でき、未コミット差分が今回の Change scope 内にあると判断できる場合は、その差分と同じ Change scope を 1 つの fresh recovery Implementer に渡し、review / verify / 必要修正 / commit を続行させる。Orchestrator は実状態の確認と引き継ぎに留め、実装を代行しない。元 Implementer の終了を確認できない場合は停止する。
+- 差分が scope 外、破壊的、または完了状態を判断できない場合は、差分を破棄せず停止してユーザー確認する。
+- この回収手順は例外処理であり、通常の Implementer に定期報告ファイルや常時 ledger を要求しない。
 
 ## Goal Review
 
 各 commit 内の Self Review とは別に、Goal の commit range を対象に Goal Review を Goal 完了条件として実施する。ブランチは切らないので、レビュー range は commit range で表す。分割レビューの未レビュー対象は実行直前に固定する `<review_cursor>..<review_end>`、Goal 全体の差分は `<base>..HEAD`。Goal range に対して `/code-review` 観点ベースの Self Review は再実行しない。
 
-- **reviewer の選定（必須）**: reviewer は Goal range を実装した系統と別系統で、実装文脈を引き継がない fresh reviewer とする。Goal main 自身は Goal Review を行わない（自分が指示・監督した実装の盲点を引き継ぐため）。
-  - execution mode `self`（Claude が実装）: `cross-agent-review` skill で別系統エージェントに依頼する。
-  - execution mode `delegate`（外部エージェントが実装）: `fresh-agent-review` skill で fresh Claude subagent に依頼する（セッション文脈非継承）。
+Change Review は個々の commit の局所的な correctness / spec / tests を見る。Goal Review は commit 間の統合、Goal Acceptance、構築・read / write site の貫通、docs / backlog 整合を見る。
+
+- **reviewer の選定（必須）**: reviewer は実装文脈を引き継がない fresh reviewer とする。fresh であることを必須とし、実装と同系統でも fresh なら reviewer になれる。Orchestrator 自身は Goal Review を行わない（自分が指示・監督した実装の盲点を引き継ぐため）。
+  - 全 execution mode 共通: `codex-fresh-review` skill（実装文脈を引き継がない fresh な Codex）に依頼し、その PASS 相当を Goal Review 通過とする。実装が Codex の mode（`delegate`）では reviewer が実装と同系統になるが、fresh な別インスタンスであれば可。
+  - ユーザーが Goal 指定で明示した場合のみ、`claude-fresh-review` skill（fresh Claude subagent、セッション文脈非継承）を追加し、その場合は両方の PASS 相当を通過条件とする。既定では追加しない。
+- **レビュー依頼に含める観点（必須）**: レビュー依頼には「変更したフィールド・型・メッセージについて、全構築サイト・全 read / write サイトを列挙して貫通漏れがないか確認する」観点を含める（複数ある組み立て経路の一部だけ修正される欠陥クラスに直効するため）。
 - **Goal Review の実行（必須）**: 選定した reviewer skill を未レビュー range 対象で実行する。実行直前に `review_start = review_cursor`、`review_end = 現在の HEAD の実 SHA` を確定し、1 回の review 中は `<review_start>..<review_end>` を動かさない。
 - **分割レビュー**: 一気に全部ではなく、適当なコミットのまとまりごとにレビューしてよい（毎回でなくてよい）。PASS 相当なら `review_cursor` を `review_end` まで進める（`base` は動かさない）。次のレビューは新しい `review_cursor` から、実行直前に新しい終点 SHA を取り直す。
 - 1 commit ごとではなく、関連する数 commit をまとめてレビューする。
 - 差分が大きい、または永続化 / 同期 / 外部 API / 広い UI 挙動に触れる場合は、数 commit を待たずにその時点までの commit range で早めにレビューする。
 - 指摘対応は別 commit として作成し、対応 commit を含む range で再レビューする。follow-up review でも実行直前に新しい `review_end` を取り直す。
-- 各レビュー単位につき reviewer を呼ぶ回数は、初回を含めて合計最大 3 回。`Review 1 -> Fix 1 -> Review 2 -> Fix 2 -> Review 3 -> Fix 3` まで行ったら Review 4 は行わない。Review 3 後の Fix 3 は未レビューの最終修正になるため、同じ review 単位を上限到達として打ち切り、Goal 作業は続ける。
+- 各レビュー単位につき reviewer を呼ぶ回数は、初回を含めて合計最大 3 回。`Review 1 -> Fix 1 -> Review 2 -> Fix 2 -> Review 3 -> Fix 3` まで行ったら Review 4 は行わない。Review 3 後の Fix 3 は未レビューの最終修正になるため、同じ review 単位を上限到達として打ち切り、Goal 作業は続ける。reviewer を追加している場合、回数上限と PASS / 指摘 / 上限到達は reviewer ごとに数え、最終報告で個別に分かるようにする。
 
 ## Final Report
 
 - 完了時も停止時も、報告形式は状況に合わせて分かりやすく整える。固定テンプレートに無理に合わせない。
 - `ユーザー判断が必要: なし` または必要な判断内容を必ず明示する。
-- ユーザー判断が必要な項目は、複数の仕様・UX・設計選択肢があり、ユーザーが違う選択をする可能性があるものに限る。
-- 完了報告では、各 Change から引き継いだ Product Decision Ledger、review 結果、同期済み docs を読んで判断する。記憶だけで `なし` と判断しない。
-- 既存 `docs/rules/` / `docs/specs/` / `backlog/` から自然に決まること、要求どおり実装しただけの内容、単なる実装上の判断、未実装 TODO は毎回の報告対象にしない。
+- `ユーザー判断が必要` は `.claude/workflow/design-decision-record.md` の基準で、各 Change の ledger、review 結果、同期済み docs から判断する。記憶だけで `なし` と判断しない。
 - `レビュー上限超過: なし` または対象単位・回数・最後の指摘・行った修正・最終修正が未レビューであること・残リスクを状況に合わせて明示する。収束した review も、どの review が通ったかを状況に合わせて報告する。
 - 停止時は、停止理由と解決すべきことが分かるようにする。
 
 ## Stop Conditions
 
 - Goal の完了条件が曖昧で、1 commit 単位へ切れない。
-- 次の commit が、その時点の情報では適切に決められない重要な仕様・UX・データ保持・削除方針に依存しており、ユーザー判断や不足情報なしに進めること自体が不適切。
+- 次の commit が `change/workflow.md` の判断境界で Stop に該当する重要な仕様・UX・データ保持・削除方針に依存している。
 - Goal の途中で、現在の目的と `docs/rules/` / `docs/specs/` / `docs/decisions/` が矛盾している。
 - 必須の検証を代替手段でも裏付けられず、完了扱いにできない。
 - Goal Review を完全に実施できない。
+- advisor が使えない環境で High-risk や設計判断の厚い Change に当たった。

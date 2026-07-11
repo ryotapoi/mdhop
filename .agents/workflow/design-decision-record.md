@@ -30,7 +30,7 @@ Product decision ledger は、PM / デザインリード / QA / ユーザーな�
 - 判断系 skill の基準で自動判断できる実装寄りの設計判断。例: module / folder / helper / private API / test structure / 局所 refactor。
 - 単なる未実装 TODO や、今回の scope 外の adjacent work。
 
-進めること自体が不適切なほど情報が足りない場合は、ledger に仮案を書いて押し切らず、呼び出し元 workflow の Stop Conditions に従う。
+可逆で影響が小さい選択は採用案で進め、Product Decision Ledger の対象なら ledger に残す。複数の妥当案が残り、かつ選択が非可逆（データ保持・削除・マイグレーション・外部公開契約）またはやり直しコストが大きい場合、または正本と矛盾する場合は、ledger に仮案を書いて押し切らず、呼び出し元 workflow の Stop Conditions に従う。
 
 ledger には次を残す:
 

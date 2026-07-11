@@ -15,7 +15,7 @@ mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdo
 
 ```text
 goal-workflow skill（Goal の入口）
-└── .agents/workflow/goal.md（正本: commit slicing / Cross-Agent Review / 完了条件）
+└── .agents/workflow/goal.md（正本: commit slicing / Goal Review / 完了条件）
     └── change/workflow.md（各 commit / 単発依頼の Intake・Routing）
         ├── change/investigate.md
         ├── change/plan.md

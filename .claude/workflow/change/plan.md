@@ -18,6 +18,14 @@ plan mode（`EnterPlanMode` / `ExitPlanMode`）は使わない。承認待ちが
 
 Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追加だけ、1 ファイルの明確なバグ修正 — は plan を省略してよい。
 
+## Solo Plan File
+
+execution mode `solo`（Implementer が計画と実装を一体で行う）では、plan を作る Change は実装前に plan を `tmp/solo-plan-<change>.md` へ書き出す。
+
+- 内容は変更意図・触るファイル・設計判断・検証方針。仕様の記述が薄いタスクほど、このファイルが実装意図の記録の主役になる。
+- 実装後に書き直さない。「実装前の意図」の記録として、review lane への文脈提供（`change/review.md` の Review Lane Delegation）と後続 Change の参照に使うため。Goal Review には渡さない（Goal Review は commit range だけを対象にする）。
+- plan を省略した Small では書き出しも不要（review 側も L0 self-check のみ）。
+
 ## Inputs
 
 - ユーザー依頼
@@ -30,15 +38,14 @@ Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追�
 UI / 出力に関わる変更なら、Before / After / 操作手順を 1 つの具体的な状態で plan に書く。
 ロジックのみの変更なら「N/A — UI 変更なし」と明記してスキップ。
 
-ユーザーへの確認は plan の必須ステップではない。仕様・UX に複数案があっても、現在の要求と情報源から適切に選べるなら止まらず進める。見た目・操作の確認は実装後に `change/verify.md` の方針で自動検証を優先し、確定できない場合だけ Stop Condition または残存リスクとして扱う。
+ユーザーへの確認は plan の必須ステップではない。仕様・UX・設計方針の複数案は `change/workflow.md` の判断境界に従う。可逆で影響が小さい選択は採用案で進め、複数の妥当案が残って非可逆またはやり直しコストが大きい、または正本と矛盾する場合は Stop Conditions に従う。見た目・操作の確認は実装後に `change/verify.md` の方針で自動検証を優先し、確定できない場合だけ Stop Condition または残存リスクとして扱う。
 
-UX の意味、ユーザー操作の結果、データ意味、cross-surface 契約、QA expectation、プロダクト概念を変える plan では、Product Decision Ledger の Alternative Check を行う。カテゴリの正本は `.claude/workflow/design-decision-record.md`。
+product decision（UX・データ意味・cross-surface 等）を変える plan では、Product Decision Ledger の Alternative Check を行う。カテゴリ一覧と記録・報告基準の正本は `.claude/workflow/design-decision-record.md`。
 現在の要求 / backlog / docs / decisions に明記済みの内容や、判断系 skill で実装判断として解ける内容は、Goal 完了報告の `ユーザー判断が必要` に混ぜない。
 
 ## 設計判断
 
-- 設計判断の前に `design-decision` スキルを呼ぶ
-- ルールに当てはめても適切に決められず、ユーザー判断や不足情報なしに進めること自体が不適切なときだけユーザー確認
+- 設計判断の前に `design-decision` スキルを呼ぶ。判断境界は `change/workflow.md` に従う
 - モジュール配置・共通化方針・型選択を判断する
 - プロジェクト固有制約に触れるなら `project-risk-check` で確認する。観点は skill 側が持つ。
 - 採用案・却下案・理由・残リスクを plan に残す。実装寄りの設計判断と、ステークホルダーに報告すべき product decision を混ぜない。
@@ -67,7 +74,7 @@ UX の意味、ユーザー操作の結果、データ意味、cross-surface 契
 - 領域固有リスクがあれば該当観点の skill を plan に当てる。`project-risk-check` 以外で固有制約に触れる場合は次の slot のマッピングに従う。
   <!-- slot: project-risk-check 以外の領域固有レビュー skill があれば追記する（例: UI 層を触るなら対応する specialist skill）。 -->
   <!-- /slot -->
-- High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`codex-review` でプランファイルを別系統レビューに回す。
+- High-risk / 設計判断が重い / 曖昧 / 実装後では手戻りが大きい場合だけ、`claude-fresh-review` でプランファイルを実装文脈を引き継がない fresh reviewer に回す。別系統エージェントへのクロスレビューは plan 段階では行わず、Goal Review 側に置く。
 - plan review 後に再レビューするかは、指摘対応で plan の構造・risk・検証方針・設計判断が大きく変わったかで判断する。機械的な反映だけなら再レビューせず実装へ進んでよい。
 - plan review では `レビュー上限超過` を使わない。残る懸念は plan の残リスク、追加検証、または実装後 review で見る観点として残す。
 
@@ -81,6 +88,6 @@ UX の意味、ユーザー操作の結果、データ意味、cross-surface 契
 
 ## Stop Conditions
 
-- その時点の情報では適切な仕様・UX・設計方針を決められず、ユーザー判断や不足情報なしに進めること自体が不適切
+- `change/workflow.md` の判断境界で Stop に該当する仕様・UX・設計方針が残っている
 - 1 commit に収まらない（plan を分ける）
 - High-risk なのに必須の検証方針を代替手段も含めて立てられない
