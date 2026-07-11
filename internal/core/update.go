@@ -3,8 +3,6 @@ package core
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 // UpdateOptions controls which files to re-parse and update in the index.
@@ -253,17 +251,7 @@ func buildMapsFromDB(db dbExecer) (*resolveMaps, error) {
 		}
 		path = NormalizePath(path)
 		rm.registerNote(path, id)
-
-		rel := strings.ToLower(path)
-		rm.pathSet[rel] = path
-		noExt := strings.TrimSuffix(path, filepath.Ext(path))
-		rm.pathSet[strings.ToLower(noExt)] = path
-
-		bk := basenameKey(path)
-		rm.basenameCounts[bk]++
-		if isRootFile(path) {
-			rm.rootBasenameToPath[bk] = path
-		}
+		rm.addNote(path)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -284,33 +272,14 @@ func buildMapsFromDB(db dbExecer) (*resolveMaps, error) {
 		}
 		path = NormalizePath(path)
 		rm.registerAsset(path, id)
-		rm.assetPathSet[strings.ToLower(path)] = path
-
-		abk := assetBasenameKey(path)
-		rm.assetBasenameCounts[abk]++
-		if isRootFile(path) {
-			rm.assetRootBasenameToPath[abk] = path
-		}
+		rm.addAsset(path)
 	}
 	if err := arows.Err(); err != nil {
 		return nil, err
 	}
 
-	// Build basenameToPath for notes (unique only).
-	for p := range rm.pathToID {
-		bk := basenameKey(p)
-		if rm.basenameCounts[bk] == 1 {
-			rm.basenameToPath[bk] = p
-		}
-	}
-
-	// Build assetBasenameToPath for assets (unique only).
-	for p := range rm.assetPathToID {
-		abk := assetBasenameKey(p)
-		if rm.assetBasenameCounts[abk] == 1 {
-			rm.assetBasenameToPath[abk] = p
-		}
-	}
+	rm.rebuildBasenameToPath(nil)
+	rm.rebuildAssetBasenameToPath()
 
 	return rm, nil
 }
