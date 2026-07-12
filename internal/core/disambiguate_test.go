@@ -60,7 +60,7 @@ func TestDisambiguateReportsRestoreFailureAfterTransactionError(t *testing.T) {
 
 	oldRewriteTxExec := rewriteTxExec
 	txAttempted := false
-	rewriteTxExec = func(*sql.Tx, string, ...any) (sql.Result, error) {
+	rewriteTxExec = func(dbExecer, string, ...any) (sql.Result, error) {
 		txAttempted = true
 		return nil, primaryErr
 	}

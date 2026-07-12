@@ -373,28 +373,11 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 
 	// Update DB for rewritten edges.
 	if len(allRewrites) > 0 {
-		for _, re := range allRewrites {
-			if _, err := rewriteTxExec(tx, "UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
-				return nil, err
-			}
-			result.Rewritten = append(result.Rewritten, RewrittenLink{
-				File:    re.sourcePath,
-				OldLink: re.rawLink,
-				NewLink: re.newRawLink,
-			})
+		rewritten, err := updateExternalEdgesAndMtimes(tx, allRewrites, newMtimes)
+		if err != nil {
+			return nil, err
 		}
-		// Update source mtime in DB.
-		mtimeUpdated := make(map[int64]bool)
-		for _, re := range allRewrites {
-			if mtimeUpdated[re.sourceID] {
-				continue
-			}
-			mtimeUpdated[re.sourceID] = true
-			mt := newMtimes[re.sourceID]
-			if _, err := rewriteTxExec(tx, "UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
-				return nil, err
-			}
-		}
+		result.Rewritten = append(result.Rewritten, rewritten...)
 	}
 
 	// Orphan cleanup.

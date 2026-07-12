@@ -213,29 +213,11 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 	}()
 
 	result = &DisambiguateResult{}
-	for _, re := range rewrites {
-		if _, err := rewriteTxExec(tx, "UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
-			return nil, err
-		}
-		result.Rewritten = append(result.Rewritten, RewrittenLink{
-			File:    re.sourcePath,
-			OldLink: re.rawLink,
-			NewLink: re.newRawLink,
-		})
+	rewritten, err := updateExternalEdgesAndMtimes(tx, rewrites, newMtimes)
+	if err != nil {
+		return nil, err
 	}
-
-	// Update source mtime in DB.
-	mtimeUpdated := make(map[int64]bool)
-	for _, re := range rewrites {
-		if mtimeUpdated[re.sourceID] {
-			continue
-		}
-		mtimeUpdated[re.sourceID] = true
-		mt := newMtimes[re.sourceID]
-		if _, err := rewriteTxExec(tx, "UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
-			return nil, err
-		}
-	}
+	result.Rewritten = append(result.Rewritten, rewritten...)
 
 	if err := tx.Commit(); err != nil {
 		return nil, err

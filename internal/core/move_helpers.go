@@ -835,7 +835,7 @@ func applyMovedFileRewrites(vaultPath string, moves []moveInfo, movedFileRewrite
 func updateExternalEdgesAndMtimes(tx dbExecer, rewrites []rewriteEntry, mtimes map[int64]int64) ([]RewrittenLink, error) {
 	var result []RewrittenLink
 	for _, re := range rewrites {
-		if _, err := tx.Exec("UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
+		if _, err := rewriteTxExec(tx, "UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
 			return nil, err
 		}
 		result = append(result, RewrittenLink{
@@ -852,7 +852,7 @@ func updateExternalEdgesAndMtimes(tx dbExecer, rewrites []rewriteEntry, mtimes m
 			}
 			mtimeUpdated[re.sourceID] = true
 			mt := mtimes[re.sourceID]
-			if _, err := tx.Exec("UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
+			if _, err := rewriteTxExec(tx, "UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
 				return nil, err
 			}
 		}
