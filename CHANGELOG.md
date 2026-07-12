@@ -4,11 +4,11 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.16.3] - 2026-07-12
+
 ### Changed
 
-- Split `--where` parsing and SQL generation into separate core files.
-- Colocated CLI command help text with the corresponding command implementations.
-- Unified external-edge and modification-time update handling.
+- Refined internal maintainability through focused refactoring and strengthened regression contracts; CLI behavior is unchanged.
 
 ## [v0.16.2] - 2026-07-12
 

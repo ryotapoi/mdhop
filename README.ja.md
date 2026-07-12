@@ -64,9 +64,9 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `meta-validate` | frontmatter を必須 key・profiles・`meta.types` 宣言に照らして検査 |
 | `init-meta` | `mdhop.yaml` の frontmatter 型定義を生成 |
 
-共通オプション: `--vault <path>`（省略時はカレントディレクトリ）、`--format json|text`、`--fields <comma-separated>`
+`--vault <path>`（省略時はカレントディレクトリ）は各コマンドに共通。出力・field 系のフラグはコマンドごとに異なる。
 
-各コマンドの詳細は `mdhop <command> --help` を参照。
+正確なコマンド別フラグ・出力フィールド・使用例は `mdhop <command> --help` を参照。導入済みのバージョンは `mdhop --version` で確認できる。
 
 ## Agent Skill の例
 

@@ -64,9 +64,9 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `meta-validate` | Check frontmatter against required keys, profiles, and declared `meta.types` |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.yaml` |
 
-Common options: `--vault <path>` (defaults to current directory), `--format json|text`, `--fields <comma-separated>`
+`--vault <path>` (defaults to the current directory) is common to commands. Output and field flags vary by command.
 
-Run `mdhop <command> --help` for command-specific details.
+Run `mdhop <command> --help` for authoritative command-specific flags, output fields, and examples. Run `mdhop --version` to discover the installed version.
 
 ## Agent Skill Example
 
