@@ -4,6 +4,8 @@
 
 Markdown リポジトリ内のリンク関係を SQLite にインデックス化する CLI ツール。Obsidian Vault 相当のディレクトリで wikilink / markdown link / tag / frontmatter を解析し、grep に頼らず関連ノートへ辿れるようにする。Coding Agent（Claude Code, Codex 等）と CLI ユーザーの両方で使える。
 
+[English README](README.md) · [English changelog](CHANGELOG.md) · [日本語の変更履歴](CHANGELOG.ja.md)
+
 ## 特徴
 
 - **事前解析・即応答** — Vault 全体を SQLite にインデックス化。クエリは数ミリ秒で返る

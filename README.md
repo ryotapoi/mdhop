@@ -4,7 +4,7 @@
 
 A CLI tool that indexes link relationships in Markdown repositories into SQLite. It parses wikilinks, markdown links, tags, and frontmatter in Obsidian Vault-compatible directories, enabling fast navigation to related notes without relying on grep. Designed for both Coding Agents (Claude Code, Codex, etc.) and CLI users.
 
-[日本語版 README](README.ja.md)
+[日本語版 README](README.ja.md) · [Changelog](CHANGELOG.md) · [日本語の変更履歴](CHANGELOG.ja.md)
 
 ## Features
 
