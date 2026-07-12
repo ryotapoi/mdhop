@@ -39,6 +39,5 @@
 ## 登録見送り（maintenance audit。再判断トリガー付きのものだけ残す）
 
 - where.go の single / coalesce SQL 生成 4 関数の統合（2026-07-08）: 意見が割れた（「coalesce 版に吸収すれば 4→2 関数」vs「coalesce 版は優先順位ロジックが本質的に追加されており分離が妥当」）。新演算子追加が実際に来た時に再判断。`comparisonOpSQL` 等の SQL 断片生成の一本化だけなら低リスク
-- resolveMaps / noteResolveMaps / assetResolveMaps のフィールド名不一致（2026-07-08。`pathSetLower` が型により lower→actual マップと存在集合の別物を指す）: 混乱源だが実害未発生。v0.16.3 の move_helpers 分割に触れる時に同時にやると安い
 - sentinel error 14 個が本番コードで未使用（2026-07-08。テスト専用 fixture 化）: exit code 分岐等の要求が来た時に初めて活きる。error 文言変更時の二重管理だけ注意
 - meta_check.go / meta_validate.go のリネーム（2026-07-03）: 不採用。mdhop の慣例「CLI コマンド名 = ソースファイル名」を壊し、`mdhop meta-check` の実装を探す際の新しい乖離を作る。責務の判別問題は各ファイル先頭の doc comment で解決する（v0.13.0 の meta-validate プロファイル実装時に付与）

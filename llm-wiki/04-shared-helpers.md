@@ -312,7 +312,9 @@ sources:
 
 | ファイル | 行 | 用途 |
 |----------|----|------|
-| `internal/core/move_dir.go` | 231 | move / dir-move の DB 更新（`executeMoves`） |
+| `internal/core/add.go` | 376 | add 時の外部エッジと mtime の DB 更新 |
+| `internal/core/disambiguate.go` | 216 | 曖昧解消時の外部エッジと mtime の DB 更新 |
+| `internal/core/move_dir.go` | 241 | move / dir-move の DB 更新（`executeMoves`） |
 
 ---
 
