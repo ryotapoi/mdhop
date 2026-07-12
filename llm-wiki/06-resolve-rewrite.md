@@ -10,6 +10,9 @@ sources:
   - internal/core/build.go
   - internal/core/disambiguate.go
   - internal/core/move.go
+  - internal/core/move_load.go
+  - internal/core/move_rewrite.go
+  - internal/core/move_apply.go
   - internal/core/simplify.go
   - internal/core/repair.go
   - internal/core/util.go
@@ -131,9 +134,9 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 | `replaceOutsideInlineCode(line, old, new)` | `rewrite.go:109` | インラインコードスパン外のみ置換 |
 | `applyFileRewrites(vaultPath, groups)` | `rewrite.go:159` | 全ファイルへの書き込み（フェーズ1: 読む、フェーズ2: 書く、失敗時ロールバック） |
 | `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:231` | rawLink が basename 形式かを判定 |
-| `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo)` | `move_helpers.go:616` | 相対リンク（`./` `../`）を移動後の新パスへ `filepath.Rel` で再計算 |
+| `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo)` | `move_rewrite.go:490` | 相対リンク（`./` `../`）を移動後の新パスへ `filepath.Rel` で再計算 |
 
-**絶対 vs 相対の使い分け**: `buildRewritePath` は vault-relative の target パスを受け取りそのままリンク構文へ埋める（`.md` 除去後）。移動先への絶対（vault-relative）リライトに使う。一方、相対リンク（`./` `../` prefix）は `rewriteOutgoingRelativeLink` (`move_helpers.go:616`) が `filepath.Rel(filepath.Dir(to), resolvedTarget)` で新パスを再計算するため `buildRewritePath` を呼ばない。
+**絶対 vs 相対の使い分け**: `buildRewritePath` は vault-relative の target パスを受け取りそのままリンク構文へ埋める（`.md` 除去後）。移動先への絶対（vault-relative）リライトに使う。一方、相対リンク（`./` `../` prefix）は `rewriteOutgoingRelativeLink` (`move_rewrite.go:490`) が `filepath.Rel(filepath.Dir(to), resolvedTarget)` で新パスを再計算するため `buildRewritePath` を呼ばない。
 
 **wikilink のリライト規則** (`rewrite.go:58`): 常に .md なし（`buildRewritePath` が除去）。
 **markdown のリライト規則** (`rewrite.go:77`): 元の URL に `.md` があれば `newPath + ".md"` を維持。

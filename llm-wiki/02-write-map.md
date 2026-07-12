@@ -7,6 +7,9 @@ sources:
   - internal/core/delete.go
   - internal/core/move.go
   - internal/core/move_dir.go
+  - internal/core/move_load.go
+  - internal/core/move_rewrite.go
+  - internal/core/move_apply.go
   - internal/core/disambiguate.go
   - internal/core/simplify.go
   - internal/core/convert.go
@@ -66,7 +69,7 @@ sources:
 
 ### 3-1. add
 
-- **phantom 変換**: 追加するファイルの basename に一致する phantom が存在すれば `promotePhantom`（`move_helpers.go:830`）で note に昇格 → `AddResult.Promoted`
+- **phantom 変換**: 追加するファイルの basename に一致する phantom が存在すれば `promotePhantom`（`move_apply.go:110`）で note に昇格 → `AddResult.Promoted`
 - **basename 再カウント**: `rm.addNote` で in-memory カウントを更新し、既存リンクが ambiguous になるか検査（`add.go:111–196`）
 - **auto-disambiguate**: デフォルト ON（`--no-auto-disambiguate` で無効化。CLI フラグは `cmd/mdhop/add.go:17`、`AutoDisambiguate: !*noAutoDisambiguate` が `add.go:30`）。pattern A（既存ユニーク note が重複になる場合）は、既存の basename リンクをフルパスに書き換える。pattern B（phantom が ambiguous になる場合）は auto-disambiguate が効かずエラー（`add.go:185–195`）
 - **ルート優先ルール**: 追加ファイルがルート直下なら basename collision でもエラーにしない → ADR 0004
@@ -87,11 +90,11 @@ sources:
 
 - **実行経路**: 単体 `move` は `move.go:25–56` で 1 件の `moveInfo` を作り、`move_dir.go:68` の `executeMoves` に委譲する。directory mode も同じ executor を使う
 - **`--to-template`**: CLI で `--to` の代わりに指定できる単体 note move mode。`internal/core/move_template.go` が source note の indexed frontmatter と source filename `{basename}` から destination path を先に展開し、その path を通常の `Move` に渡す。directory mode / asset move / `--to` 併用は不可。展開エラー（missing field、複数値、invalid date year extraction、空・vault escape・directory path）は mutation 前に失敗する
-- **incoming rewrite（Phase 2）**: 移動元への path リンクをすべて書き換える。basename リンクは basename が変わった場合か、ambiguous になった場合のみ書き換える（`move_helpers.go:314–405`）
-- **collateral rewrite（Phase 2.5）**: 移動先 basename と一致する他の note / asset への basename リンクが ambiguous になる場合に、それらを full path に書き換える → ADR 0008（`move_helpers.go:412–482`）
-- **outgoing rewrite（Phase 3）**: 移動したノートの outgoing basename リンクのうち、移動後に解決先が変わるものと、relative リンクを書き換える（`move_helpers.go:483–593`）
-- **ルート優先ルール**: incoming/collateral の書き換えスキップ判定に `hasRootInPathSet` を使用（`move_helpers.go:393–397`, `move_helpers.go:434–438`, `move_helpers.go:468–472`）→ ADR 0004
-- **ディスク移動自動検知**: from 不在・to 存在なら Rename スキップ（`move_helpers.go:216–235`）→ ADR 0003
+- **incoming rewrite（Phase 2）**: 移動元への path リンクをすべて書き換える。basename リンクは basename が変わった場合か、ambiguous になった場合のみ書き換える（`move_rewrite.go:90–184`）
+- **collateral rewrite（Phase 2.5）**: 移動先 basename と一致する他の note / asset への basename リンクが ambiguous になる場合に、それらを full path に書き換える → ADR 0008（`move_rewrite.go:191–255`）
+- **outgoing rewrite（Phase 3）**: 移動したノートの outgoing basename リンクのうち、移動後に解決先が変わるものと、relative リンクを書き換える（`move_rewrite.go:259–365`）
+- **ルート優先ルール**: incoming/collateral の書き換えスキップ判定に `hasRootInPathSet` を使用（`move_rewrite.go:166–171`, `move_rewrite.go:206–209`, `move_rewrite.go:236–239`）→ ADR 0004
+- **ディスク移動自動検知**: from 不在・to 存在なら Rename スキップ（`move_load.go:192–212`）→ ADR 0003
 - **外部リライト stale チェック**: v0.12 で削除済み。ミスマッチ時は silent no-op で DB のみ更新（`build` で復旧）→ ADR 0012
 - **move-dir**: `executeMoves` を複数ファイルに適用する。directory mode だけ disk-only ファイル（DB 未登録）も `os.Rename` するが DB 更新はしない（`move_dir.go:152–163`）
 
@@ -127,5 +130,5 @@ sources:
 
 - `rewriteBackup`（`rewrite.go:29`）: 書き換え前のファイル内容と permissions を保持
 - `restoreBackups`（`rewrite.go:150`）: best-effort でディスク書き換えを元に戻す
-- DB は `tx.Rollback()` を `defer` で保証。ディスクのロールバックは DB ロールバック `defer` の後に続けて呼ぶ（`add.go:290–303`、`move_dir.go:125–137`）。move の移動ファイル本体は `applyMovedFileRewrites`（`move_helpers.go:805`）が `rewriteBackup` を返し、失敗時は best-effort で復元する。move / move-dir は、ロールバック自体が失敗した場合でも残りのロールバックを続行し、返却エラーに復元・移動し戻しに失敗したファイルと `mdhop build` の復旧ヒントを含める
+- DB は `tx.Rollback()` を `defer` で保証。ディスクのロールバックは DB ロールバック `defer` の後に続けて呼ぶ（`add.go:290–303`、`move_dir.go:125–137`）。move の移動ファイル本体は `applyMovedFileRewrites`（`move_apply.go:47`）が `rewriteBackup` を返し、失敗時は best-effort で復元する。move / move-dir は、ロールバック自体が失敗した場合でも残りのロールバックを続行し、返却エラーに復元・移動し戻しに失敗したファイルと `mdhop build` の復旧ヒントを含める
 - `build` は temp DB（`.mdhop/index.sqlite.tmp`）に全書き込み後 rename する。失敗時は temp ファイルを `defer os.Remove` で除去（`build.go:123–126`）

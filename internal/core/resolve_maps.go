@@ -133,7 +133,7 @@ type noteResolveMaps struct {
 	basenameCounts     map[string]int
 	basenameToPath     map[string]string // lower basename → path (count==1 only)
 	rootBasenameToPath map[string]string // lower basename → root path
-	pathSetLower       map[string]string // lower path → actual path
+	pathSet            map[string]string // lower path → actual path
 }
 
 // newResolveMaps assembles a resolveMaps from note and asset file lists. The
@@ -144,12 +144,12 @@ func newResolveMaps(files, assetFiles []string) *resolveMaps {
 	nm := buildNoteResolveMaps(files)
 	am := buildAssetResolveMaps(assetFiles)
 	return &resolveMaps{
-		pathSet:                 nm.pathSetLower,
+		pathSet:                 nm.pathSet,
 		basenameToPath:          nm.basenameToPath,
 		rootBasenameToPath:      nm.rootBasenameToPath,
 		pathToID:                make(map[string]int64),
 		basenameCounts:          nm.basenameCounts,
-		assetPathSet:            am.pathSetLower,
+		assetPathSet:            am.pathSet,
 		assetBasenameToPath:     am.basenameToPath,
 		assetRootBasenameToPath: am.rootBasenameToPath,
 		assetPathToID:           make(map[string]int64),
@@ -183,7 +183,7 @@ func buildNoteResolveMaps(files []string) noteResolveMaps {
 		basenameCounts:     counts,
 		basenameToPath:     btp,
 		rootBasenameToPath: rbtp,
-		pathSetLower:       ps,
+		pathSet:            ps,
 	}
 }
 
@@ -192,7 +192,7 @@ type assetResolveMaps struct {
 	basenameCounts     map[string]int
 	basenameToPath     map[string]string // lower asset basename → path (count==1 only)
 	rootBasenameToPath map[string]string // lower asset basename → root path
-	pathSetLower       map[string]string // lower path → actual path
+	pathSet            map[string]string // lower path → actual path
 }
 
 // buildAssetResolveMaps builds asset resolve maps from a list of vault-relative asset file paths.
@@ -219,6 +219,6 @@ func buildAssetResolveMaps(assetFiles []string) assetResolveMaps {
 		basenameCounts:     counts,
 		basenameToPath:     btp,
 		rootBasenameToPath: rbtp,
-		pathSetLower:       ps,
+		pathSet:            ps,
 	}
 }

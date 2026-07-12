@@ -89,11 +89,11 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 					var resolvedPath string
 					isAsset := false
 
-					if actual, ok := nm.pathSetLower[lower]; ok {
+					if actual, ok := nm.pathSet[lower]; ok {
 						resolvedPath = actual
-					} else if actual, ok := nm.pathSetLower[lower+".md"]; ok {
+					} else if actual, ok := nm.pathSet[lower+".md"]; ok {
 						resolvedPath = actual
-					} else if actual, ok := am.pathSetLower[lower]; ok {
+					} else if actual, ok := am.pathSet[lower]; ok {
 						resolvedPath = actual
 						isAsset = true
 					} else {
@@ -218,7 +218,7 @@ func canSimplifyAsset(resolvedPath string, am assetResolveMaps) (bool, []string)
 // collectNoteBasenameFiles returns all note paths matching a basename key.
 func collectNoteBasenameFiles(bk string, nm noteResolveMaps) []string {
 	var paths []string
-	for lower, actual := range nm.pathSetLower {
+	for lower, actual := range nm.pathSet {
 		if basenameKey(actual) == bk && strings.HasSuffix(lower, ".md") {
 			paths = append(paths, actual)
 		}
@@ -229,7 +229,7 @@ func collectNoteBasenameFiles(bk string, nm noteResolveMaps) []string {
 // collectAssetBasenameFiles returns all asset paths matching an asset basename key.
 func collectAssetBasenameFiles(abk string, am assetResolveMaps) []string {
 	var paths []string
-	for _, actual := range am.pathSetLower {
+	for _, actual := range am.pathSet {
 		if assetBasenameKey(actual) == abk {
 			paths = append(paths, actual)
 		}
