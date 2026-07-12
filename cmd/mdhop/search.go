@@ -8,6 +8,43 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const searchHelp = `Usage: mdhop search [--where <expr>...] [--path <glob>...] [options]
+
+Search existing notes without an entry node.
+
+Options:
+  --where <expr>       Optional, repeatable. Metadata filter using the same syntax as query. Multiple --where flags are ANDed; use " || " inside one expression for OR.
+  --path <glob>        Optional, repeatable. Include note paths matching any glob.
+  --exclude <glob>     Optional, repeatable. Exclude note paths matching the glob.
+  --no-exclude         Ignore mdhop.yaml exclude settings.
+  --sort <key|-key>    Sort by metadata key or computed field; prefix - for descending.
+  --limit <N>          Limit result count.
+  --offset <N>         Skip result rows before returning results.
+  --sample <N>         Randomly sample N matches; cannot be combined with --limit, --offset, or --sort.
+  --count              Return only the match count; cannot be combined with --fields, --include-head, --sample, --sort, --limit, or --offset.
+  --no-tags            Only notes with no tag edges.
+  --no-outgoing        Only notes with no outgoing edges.
+  --no-incoming        Only notes with no incoming edges.
+  --include-head <N>   Include the first N content lines.
+  --fields <list>      Optional. meta, meta.<key>, lines, outgoing_count, incoming_count.
+  --vault <path>       Optional. Vault root directory. Default: ".".
+  --format json|text   Optional. Output format. Default: text.
+
+Fields:
+  meta            All frontmatter metadata.
+  meta.<key>      One frontmatter key.
+  lines           File line count recorded at build/update time.
+  outgoing_count  Count of outgoing edges, including tag edges.
+  incoming_count  Count of incoming edges.
+
+Examples:
+  mdhop search --where "status=active" --sort "-priority" --fields meta --format json
+  mdhop search --where "status=active || status=review" --format json
+  mdhop search --where "updated<today-90d" --count --format json
+  mdhop search --where "status=active" --sample 10 --format json
+
+`
+
 func runSearch(args []string) error {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, searchHelp)

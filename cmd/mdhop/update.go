@@ -8,6 +8,26 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const updateHelp = `Usage: mdhop update --file <path> [--file <path>...] [--vault <path>] [--format json|text]
+
+Re-index registered files after editing them. If a registered file is missing on disk, it is handled like delete.
+
+Options:
+  --file <path>       Required, repeatable. Vault-relative registered file path to update.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Output fields:
+  updated    Files re-indexed from disk.
+  deleted    Registered nodes removed because no references remain.
+  phantomed  Missing files kept as phantom nodes because references remain.
+
+Examples:
+  mdhop update --file Notes/Design.md --format json
+  mdhop update --file Notes/A.md --file Notes/B.md --format json
+
+`
+
 func runUpdate(args []string) error {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, updateHelp)

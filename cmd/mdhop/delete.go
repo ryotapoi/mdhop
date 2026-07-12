@@ -10,6 +10,27 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const deleteHelp = `Usage: mdhop delete --file <path> [--file <path>...] [--rm] [--vault <path>] [--format json|text]
+
+Remove registered files from the index. With --rm, remove them from disk as well.
+
+Options:
+  --file <path>       Required, repeatable. Vault-relative file or directory. A trailing / or disk directory enables directory mode.
+  --rm                Optional. Also delete registered files from disk.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Output fields:
+  deleted    Nodes removed from the index.
+  phantomed  Deleted files kept as phantom nodes because references remain.
+
+Examples:
+  mdhop delete --file Notes/Obsolete.md --rm --format json
+  mdhop delete --file Notes/archive/ --rm --format json
+  mdhop delete --file Notes/Obsolete.md
+
+`
+
 // isDirArg returns true if the argument refers to a directory
 // (trailing slash or existing directory on disk).
 func isDirArg(vaultPath, arg string) bool {

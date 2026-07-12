@@ -7,6 +7,29 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const statsHelp = `Usage: mdhop stats [--fields <list>] [--vault <path>] [--format json|text]
+
+Show index statistics for the vault.
+
+Options:
+  --fields <list>     Optional. Comma-separated fields.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Fields:
+  notes_total     Total note nodes.
+  notes_exists    Existing note nodes.
+  edges_total     Total edge occurrences.
+  tags_total      Tag nodes.
+  phantoms_total  Phantom nodes.
+  assets_total    Asset nodes.
+
+Examples:
+  mdhop stats --format json
+  mdhop stats --fields notes_exists,edges_total --format json
+
+`
+
 func runStats(args []string) error {
 	fs := flag.NewFlagSet("stats", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, statsHelp)

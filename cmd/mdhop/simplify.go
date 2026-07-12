@@ -8,6 +8,27 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const simplifyHelp = `Usage: mdhop simplify [--dry-run] [--file <path>...] [--vault <path>] [--format json|text]
+
+Shorten path links to basename links when the shortened form remains unambiguous.
+
+Options:
+  --dry-run           Optional. Report changes without writing files.
+  --file <path>       Optional, repeatable. Limit rewriting to specific vault-relative files.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Output fields:
+  rewritten  Files whose links were rewritten.
+  skipped    Links or files skipped because they could not be simplified safely.
+
+Examples:
+  mdhop simplify --dry-run --format json
+  mdhop simplify --file Notes/Design.md --format json
+  mdhop simplify
+
+`
+
 func runSimplify(args []string) error {
 	fs := flag.NewFlagSet("simplify", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, simplifyHelp)

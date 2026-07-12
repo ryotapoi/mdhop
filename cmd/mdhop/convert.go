@@ -8,6 +8,27 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const convertHelp = `Usage: mdhop convert --to <wikilink|markdown> [--dry-run] [--file <path>...] [--vault <path>] [--format json|text]
+
+Convert between wikilink and Markdown link syntax.
+
+Options:
+  --to <wikilink|markdown>  Required. Target link syntax.
+  --dry-run                 Optional. Report changes without writing files.
+  --file <path>             Optional, repeatable. Limit conversion to specific vault-relative files.
+  --vault <path>            Optional. Vault root directory. Default: ".".
+  --format json|text        Optional. Output format. Default: text.
+
+Output fields:
+  rewritten  Files whose links were converted.
+
+Examples:
+  mdhop convert --to wikilink --dry-run --format json
+  mdhop convert --to markdown --file Notes/Design.md --format json
+  mdhop convert --to wikilink
+
+`
+
 func runConvert(args []string) error {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, convertHelp)

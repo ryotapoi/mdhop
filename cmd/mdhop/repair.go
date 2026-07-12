@@ -8,6 +8,28 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const repairHelp = `Usage: mdhop repair [--dry-run] [--path <glob>...] [--exclude <glob>...] [--vault <path>] [--format json|text]
+
+Rewrite broken path links and vault-escape links to basename links when safe.
+
+Options:
+  --dry-run           Optional. Report changes without writing files.
+  --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.
+  --exclude <glob>    Optional, repeatable. Exclude source notes whose paths match the glob.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Output fields:
+  rewritten  Files whose links were rewritten.
+  skipped    Links skipped because no safe repair target was available.
+
+Examples:
+  mdhop repair --dry-run --format json
+  mdhop repair --path "docs/*" --exclude "docs/archive/*" --dry-run --format json
+  mdhop repair
+
+`
+
 func runRepair(args []string) error {
 	fs := flag.NewFlagSet("repair", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, repairHelp)

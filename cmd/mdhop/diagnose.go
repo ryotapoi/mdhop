@@ -7,6 +7,30 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const diagnoseHelp = `Usage: mdhop diagnose [--path <glob>...] [--exclude <glob>...] [--fields <list>] [--vault <path>] [--format json|text]
+
+Report basename conflicts, asset basename conflicts, phantom references, and optional broken anchors.
+
+Options:
+  --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.
+  --exclude <glob>    Optional, repeatable. Exclude source notes whose paths match the glob.
+  --fields <list>     Optional. basename_conflicts,asset_basename_conflicts,phantoms,anchors.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Fields:
+  basename_conflicts        Note basename collision groups.
+  asset_basename_conflicts  Asset filename collision groups.
+  phantoms                  Phantom names referenced from notes.
+  anchors                   Broken heading anchors; opt-in and not included when --fields is omitted.
+
+Examples:
+  mdhop diagnose --format json
+  mdhop diagnose --fields anchors --format json
+  mdhop diagnose --path "projects/*" --format json
+
+`
+
 func runDiagnose(args []string) error {
 	fs := flag.NewFlagSet("diagnose", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, diagnoseHelp)

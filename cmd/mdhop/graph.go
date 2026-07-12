@@ -8,6 +8,27 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const graphHelp = `Usage: mdhop graph [--path <glob>...] [--exclude <glob>...] [--include-phantoms] [--vault <path>] [--format json|dot]
+
+Export an induced link graph for existing notes and assets.
+
+Options:
+  --path <glob>       Optional, repeatable. Include node paths matching any glob.
+  --exclude <glob>    Optional, repeatable. Exclude node paths matching the glob.
+  --include-phantoms  Optional. Include phantom nodes referenced from included notes.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|dot   Optional. Output format. Default: json. This command has no text format and no --fields.
+
+Output:
+  json  Object with nodes[] and edges[] for machine processing.
+  dot   Graphviz digraph for visualization.
+
+Examples:
+  mdhop graph --path "docs/*" --format json
+  mdhop graph --format dot --include-phantoms
+
+`
+
 func runGraph(args []string) error {
 	fs := flag.NewFlagSet("graph", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, graphHelp)

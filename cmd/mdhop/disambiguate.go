@@ -8,6 +8,28 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const disambiguateHelp = `Usage: mdhop disambiguate --name <basename> [--target <path>] [--file <path>] [--scan] [--vault <path>] [--format json|text]
+
+Rewrite ambiguous basename links to full paths.
+
+Options:
+  --name <basename>   Required. Basename link name to rewrite.
+  --target <path>     Optional. Required when the basename has multiple candidates.
+  --file <path>       Optional. Limit rewriting to one vault-relative file.
+  --scan              Optional. Scan files without requiring an existing DB; useful before build.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Output fields:
+  rewritten  Files whose links were rewritten.
+
+Examples:
+  mdhop disambiguate --name a --target Notes/a.md --format json
+  mdhop disambiguate --name a --scan --format json
+  mdhop disambiguate --name a --file Notes/Design.md --target Notes/a.md
+
+`
+
 func runDisambiguate(args []string) error {
 	fs := flag.NewFlagSet("disambiguate", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, disambiguateHelp)

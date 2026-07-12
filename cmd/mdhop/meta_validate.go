@@ -7,6 +7,33 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const metaValidateHelp = `Usage: mdhop meta-validate [--require <key>...] [--path <glob>...] [--exclude <glob>...] [--vault <path>] [--format json|text]
+
+Validate frontmatter against required keys and mdhop.yaml meta type declarations.
+
+Options:
+  --require <key>     Optional, repeatable. Require a non-empty value for this key; overrides mdhop.yaml meta.profiles for this run only.
+  --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.
+  --exclude <glob>    Optional, repeatable. Exclude source notes whose paths match the glob.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Behavior notes:
+  Fails if there is no --require, no mdhop.yaml meta.profiles, and no non-string meta.types declaration.
+
+Output fields:
+  violations[]  One item per schema violation.
+  source_path   Note containing the violation.
+  key           Frontmatter key.
+  value         Invalid value when applicable.
+  reason        missing, type, or enum.
+
+Examples:
+  mdhop meta-validate --require type --require status --format json
+  mdhop meta-validate --format json
+
+`
+
 func runMetaValidate(args []string) error {
 	fs := flag.NewFlagSet("meta-validate", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, metaValidateHelp)

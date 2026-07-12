@@ -7,6 +7,48 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const queryHelp = `Usage: mdhop query (--file <path>|--tag <name>|--phantom <name>|--name <name>) [options]
+
+Return related information for one entry note, tag, phantom, or auto-detected name.
+
+Entry options:
+  --file <path>     Note entry by vault-relative path.
+  --tag <name>      Tag entry. Leading # is optional.
+  --phantom <name>  Phantom entry.
+  --name <name>     Auto-detect note, phantom, or tag. Ambiguous names fail.
+
+Options:
+  --fields <list>             Optional. Comma-separated fields: backlinks,tags,twohop,outgoing,head,snippet,meta.
+  --include-head <N>          Include the first N content lines as head.
+  --include-snippet <N>       Include N context lines around matching links as snippet.
+  --max-backlinks <N>         Backlinks limit. Default: 100.
+  --max-twohop <N>            Two-hop result limit. Default: 100.
+  --max-via-per-target <N>    Via entries per two-hop target. Default: 10.
+  --path <glob>               Optional, repeatable. Include result paths matching any glob.
+  --exclude <glob>            Optional, repeatable. Exclude result paths matching the glob.
+  --exclude-tag <tag>         Optional, repeatable. Exclude matching tags.
+  --no-exclude                Ignore mdhop.yaml exclude settings.
+  --where <expr>              Optional, repeatable. Metadata filter using =,!=,~,>,<,>=,<=, EXISTS/NOT EXISTS, coalesce(...), &&, ||, and today±N d/w/m/y dates. Multiple --where flags are ANDed; use " || " inside one expression for OR.
+  --vault <path>              Optional. Vault root directory. Default: ".".
+  --format json|text          Optional. Output format. Default: text.
+
+Fields:
+  backlinks  Notes linking to the entry.
+  outgoing   Links from the entry note.
+  twohop     Related notes sharing outgoing targets with the entry; includes via targets.
+  tags       Tags on the entry note.
+  head       First N content lines, enabled by --include-head.
+  snippet    Link-adjacent context, enabled by --include-snippet.
+  meta       Entry frontmatter metadata; opt-in via --fields.
+
+Examples:
+  mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
+  mdhop query --tag architecture --fields backlinks --format json
+  mdhop query --file Notes/Design.md --where "status=active" --fields backlinks,meta --format json
+  mdhop query --file Notes/Design.md --where "status=active || status=review" --format json
+
+`
+
 func runQuery(args []string) error {
 	fs := flag.NewFlagSet("query", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, queryHelp)

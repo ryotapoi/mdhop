@@ -7,6 +7,32 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const metaCheckHelp = `Usage: mdhop meta-check --key <name> [--key <name>...] [--kind path|wikilink] [--path <glob>...] [--exclude <glob>...] [--vault <path>] [--format json|text]
+
+Check whether frontmatter values resolve to real vault paths or wikilinks.
+
+Options:
+  --key <name>          Required, repeatable. Frontmatter key to inspect.
+  --kind path|wikilink  Optional. Interpret values as raw paths or wikilinks. Default: path.
+  --path <glob>         Optional, repeatable. Include source notes whose paths match any glob.
+  --exclude <glob>      Optional, repeatable. Exclude source notes whose paths match the glob.
+  --vault <path>        Optional. Vault root directory. Default: ".".
+  --format json|text    Optional. Output format. Default: text.
+
+Output fields:
+  issues[]     One item per unresolved value.
+  source_path  Note containing the frontmatter value.
+  key          Frontmatter key.
+  value        Unresolved value.
+  reason       not_found, ambiguous, vault_escape, or not_wikilink.
+
+Examples:
+  mdhop meta-check --key sources --kind path --format json
+  mdhop meta-check --key related --kind wikilink --format json
+  mdhop meta-check --key sources --path "docs/*" --format json
+
+`
+
 func runMetaCheck(args []string) error {
 	fs := flag.NewFlagSet("meta-check", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, metaCheckHelp)

@@ -9,6 +9,38 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const setHelp = `Usage: mdhop set --file <path> --key <name> (--value <value>|--date <expr>) [--vault <path>] [--format json|text]
+
+Set one frontmatter document key and update the index.
+
+Options:
+  --file <path>       Required. Vault-relative Markdown file to edit.
+  --key <name>        Required. Frontmatter key to set.
+  --value <value>     YAML scalar value to write exactly as provided.
+  --date <expr>       Relative date expression to expand and write as YYYY-MM-DD. Mutually exclusive with --value.
+  --vault <path>      Optional. Vault root directory. Default: ".".
+  --format json|text  Optional. Output format. Default: text.
+
+Behavior notes:
+  Exactly one of --value or --date is required.
+  --date supports today, today-90d, today+1d, today-2w, today+3m, and today+1y.
+  Files without frontmatter get a new frontmatter block at the start of the file.
+  Missing keys are inserted before the closing ---.
+  List values, multi-line values, and duplicate keys are rejected.
+
+Output fields:
+  file     Edited file path.
+  key      Updated key.
+  value    Written value.
+  created  Whether the key was newly inserted.
+
+Examples:
+  mdhop set --file Notes/Design.md --key reviewed --value 2026-07-04 --format json
+  mdhop set --file Notes/Design.md --key reviewed --date today-90d
+  mdhop set --file Notes/Design.md --key status --value active
+
+`
+
 func runSet(args []string) error {
 	fs := flag.NewFlagSet("set", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, setHelp)
