@@ -436,17 +436,8 @@ type relativeLinkParts struct {
 func parseRelativeLink(rawLink string, linkType LinkType) (relativeLinkParts, bool) {
 	switch linkType {
 	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
-		inner := strings.TrimSuffix(strings.TrimPrefix(rawLink, "[["), "]]")
-		var alias, subpath string
-		if idx := strings.Index(inner, "|"); idx >= 0 {
-			alias = inner[idx:]
-			inner = inner[:idx]
-		}
-		if idx := strings.Index(inner, "#"); idx >= 0 {
-			subpath = inner[idx:]
-			inner = inner[:idx]
-		}
-		return relativeLinkParts{prefix: "[[", target: inner, suffix: subpath + alias + "]]", stripMovedMD: true}, true
+		parts := splitWikilinkParts(rawLink)
+		return relativeLinkParts{prefix: "[[", target: parts.target, suffix: parts.subpath + parts.alias + "]]", stripMovedMD: true}, true
 	case LinkTypeMarkdown:
 		start := strings.Index(rawLink, "](")
 		if start < 0 {

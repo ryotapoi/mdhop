@@ -72,22 +72,10 @@ func rewriteRawLink(rawLink string, linkType LinkType, targetPath string) string
 	switch linkType {
 	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
 		// rawLink: [[Target]], [[Target|alias]], [[Target#Heading]], [[Target#Heading|alias]]
-		inner := strings.TrimPrefix(rawLink, "[[")
-		inner = strings.TrimSuffix(inner, "]]")
-
-		var alias, subpath string
-		// Extract alias (after |).
-		if idx := strings.Index(inner, "|"); idx >= 0 {
-			alias = inner[idx:] // includes |
-			inner = inner[:idx]
-		}
-		// Extract subpath (after #).
-		if idx := strings.Index(inner, "#"); idx >= 0 {
-			subpath = inner[idx:] // includes #
-		}
+		parts := splitWikilinkParts(rawLink)
 
 		newPath := buildRewritePath(targetPath)
-		return "[[" + newPath + subpath + alias + "]]"
+		return "[[" + newPath + parts.subpath + parts.alias + "]]"
 
 	case LinkTypeMarkdown:
 		// rawLink: [text](url), [text](url#frag)
@@ -297,16 +285,7 @@ func isBasenameRawLink(rawLink string, linkType LinkType) bool {
 	switch linkType {
 	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
 		// raw_link is like "[[Target]]" or "[[Target|alias]]" or "[[Target#heading]]"
-		inner := strings.TrimPrefix(rawLink, "[[")
-		inner = strings.TrimSuffix(inner, "]]")
-		// Remove alias part.
-		if idx := strings.Index(inner, "|"); idx >= 0 {
-			inner = inner[:idx]
-		}
-		// Remove subpath (heading).
-		if idx := strings.Index(inner, "#"); idx >= 0 {
-			inner = inner[:idx]
-		}
+		inner := splitWikilinkParts(rawLink).target
 		// Empty target means self-link like [[#Heading]], not a basename link.
 		if inner == "" {
 			return false

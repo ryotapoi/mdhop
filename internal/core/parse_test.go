@@ -8,6 +8,32 @@ func parseLinksSlice(content string) []linkOccur {
 	return parseLinks(content).Links
 }
 
+func TestSplitWikilinkParts(t *testing.T) {
+	tests := []struct {
+		rawLink       string
+		wantTarget    string
+		wantSubpath   string
+		wantAliasPart string
+	}{
+		{rawLink: "[[Target]]", wantTarget: "Target"},
+		{rawLink: "[[Target|alias]]", wantTarget: "Target", wantAliasPart: "|alias"},
+		{rawLink: "[[Target#Heading|alias]]", wantTarget: "Target", wantSubpath: "#Heading", wantAliasPart: "|alias"},
+		{rawLink: "[[#Heading|]]", wantSubpath: "#Heading", wantAliasPart: "|"},
+		{rawLink: "[[Target", wantTarget: "Target"},
+		{rawLink: "Target]]", wantTarget: "Target"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.rawLink, func(t *testing.T) {
+			got := splitWikilinkParts(tt.rawLink)
+			if got.target != tt.wantTarget || got.subpath != tt.wantSubpath || got.alias != tt.wantAliasPart {
+				t.Errorf("splitWikilinkParts(%q) = %#v, want target=%q subpath=%q alias=%q",
+					tt.rawLink, got, tt.wantTarget, tt.wantSubpath, tt.wantAliasPart)
+			}
+		})
+	}
+}
+
 func TestParseWikiLinkBasic(t *testing.T) {
 	links := parseLinksSlice("# A\n\n[[B]]\n")
 	var found bool

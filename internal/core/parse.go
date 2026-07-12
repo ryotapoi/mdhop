@@ -327,6 +327,28 @@ func splitAlias(input string) string {
 	return input
 }
 
+// wikilinkParts contains the structural pieces of a raw wikilink.
+// alias retains the leading "|" so callers can preserve an explicitly empty
+// alias (for example, [[Target|]]) when reconstructing their own syntax.
+type wikilinkParts struct {
+	target  string
+	subpath string
+	alias   string
+}
+
+// splitWikilinkParts strips wikilink wrappers and splits its target, subpath,
+// and alias. It intentionally does not apply any path or extension policy.
+func splitWikilinkParts(rawLink string) wikilinkParts {
+	inner := strings.TrimSuffix(strings.TrimPrefix(rawLink, "[["), "]]")
+	withoutAlias := splitAlias(inner)
+	target, subpath := extractSubpath(withoutAlias)
+	return wikilinkParts{
+		target:  target,
+		subpath: subpath,
+		alias:   inner[len(withoutAlias):],
+	}
+}
+
 // extractSubpath splits "target#subpath" into (target, "#subpath").
 // Returns (input, "") if no subpath.
 func extractSubpath(input string) (string, string) {

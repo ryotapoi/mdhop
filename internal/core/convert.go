@@ -169,20 +169,13 @@ func convertMarkdownToWikilink(rawLink string) string {
 // isAssetTarget determines if a target should be treated as an asset (no .md added).
 // Returns the original rawLink if conversion is not possible.
 func convertWikilinkToMarkdown(rawLink string, isAssetTarget func(string) bool) string {
-	inner := strings.TrimPrefix(rawLink, "[[")
-	inner = strings.TrimSuffix(inner, "]]")
-	if inner == "" {
+	parts := splitWikilinkParts(rawLink)
+	if parts.target == "" && parts.subpath == "" && parts.alias == "" {
 		return rawLink
 	}
 
-	// Extract alias.
-	var alias string
-	if idx := strings.Index(inner, "|"); idx >= 0 {
-		alias = inner[idx+1:]
-		inner = inner[:idx]
-	}
-
-	target, subpath := extractSubpath(inner)
+	target, subpath := parts.target, parts.subpath
+	alias := strings.TrimPrefix(parts.alias, "|")
 
 	// Self-link: [[#Heading]] or [[#Heading|alias]]
 	if target == "" && subpath != "" {
