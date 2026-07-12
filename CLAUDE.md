@@ -63,10 +63,6 @@ go build -o bin/mdhop ./cmd/mdhop      # CLI 動作確認用バイナリ
 - 独立した作業は並列でサブエージェントを起動する
 - 1 サブエージェント = 1 タスクに絞り、焦点を明確にする
 
-### ユーザーへの質問
-
-ユーザーに質問することになった場合は `~/.claude/resources/rules/asking-user.md` を Read してから質問を組み立てる。
-
 ## ドキュメント管理
 
 - 同じ情報を複数のドキュメントに書かない。各情報の置き場所は1箇所に限定する（DRY / SSoT は `docs/rules/information-management.md` 参照）
