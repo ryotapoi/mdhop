@@ -252,7 +252,6 @@ exclude:
 	if cfg.Build.ExcludePaths[0] != "daily/*" {
 		t.Errorf("build.exclude_paths[0] = %q, want %q", cfg.Build.ExcludePaths[0], "daily/*")
 	}
-	// Ensure query exclude is also parsed.
 	if len(cfg.Exclude.Paths) != 1 {
 		t.Errorf("exclude.paths = %v, want 1 item", cfg.Exclude.Paths)
 	}

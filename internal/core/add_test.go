@@ -101,7 +101,6 @@ func TestAddNewFile(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Create a new file to add.
 	newPath := filepath.Join(vault, "C.md")
 	if err := os.WriteFile(newPath, []byte("[[A]]\n#newtag\n"), 0o644); err != nil {
 		t.Fatalf("write C.md: %v", err)
@@ -116,7 +115,6 @@ func TestAddNewFile(t *testing.T) {
 		t.Errorf("Added = %v, want [C.md]", result.Added)
 	}
 
-	// Verify note node exists.
 	notes := queryNodes(t, dbPath(vault), "note")
 	var foundC bool
 	for _, n := range notes {
@@ -131,13 +129,11 @@ func TestAddNewFile(t *testing.T) {
 		t.Error("C.md note not found after add")
 	}
 
-	// Verify edges from C.
 	edges := queryEdges(t, dbPath(vault), "C.md")
 	if len(edges) != 2 {
 		t.Fatalf("C.md edges = %d, want 2", len(edges))
 	}
 
-	// Check wikilink to A.
 	var hasA bool
 	for _, e := range edges {
 		if e.targetName == "A" && e.linkType == LinkTypeWikilink {
@@ -148,7 +144,6 @@ func TestAddNewFile(t *testing.T) {
 		t.Error("expected edge C→A (wikilink)")
 	}
 
-	// Check tag edge.
 	var hasTag bool
 	for _, e := range edges {
 		if e.targetName == "#newtag" && e.linkType == LinkTypeTag {
@@ -241,7 +236,6 @@ func TestAddMultipleFiles(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Create two new files that reference each other.
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("[[D]]\n"), 0o644); err != nil {
 		t.Fatalf("write C.md: %v", err)
 	}
@@ -326,7 +320,6 @@ func TestAddPhantomPromotion(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Verify phantom "NonExistent" exists before add.
 	phantomsBefore := queryNodes(t, dbPath(vault), "phantom")
 	var hasPhantom bool
 	for _, p := range phantomsBefore {
@@ -338,7 +331,6 @@ func TestAddPhantomPromotion(t *testing.T) {
 		t.Fatal("phantom NonExistent should exist before add")
 	}
 
-	// Get incoming edge count for phantom before add.
 	db := openTestDB(t, dbPath(vault))
 	var phantomID int64
 	if err := db.QueryRow("SELECT id FROM nodes WHERE type='phantom' AND name='NonExistent'").Scan(&phantomID); err != nil {
@@ -352,7 +344,6 @@ func TestAddPhantomPromotion(t *testing.T) {
 	}
 	db.Close()
 
-	// Create the file and add it.
 	if err := os.WriteFile(filepath.Join(vault, "NonExistent.md"), []byte("# NonExistent\n\nNow I exist.\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -366,7 +357,6 @@ func TestAddPhantomPromotion(t *testing.T) {
 		t.Errorf("Promoted = %v, want [NonExistent.md]", result.Promoted)
 	}
 
-	// Phantom should be gone.
 	phantomsAfter := queryNodes(t, dbPath(vault), "phantom")
 	for _, p := range phantomsAfter {
 		if p.name == "NonExistent" {
@@ -374,7 +364,6 @@ func TestAddPhantomPromotion(t *testing.T) {
 		}
 	}
 
-	// Note should exist.
 	notes := queryNodes(t, dbPath(vault), "note")
 	var foundNote bool
 	for _, n := range notes {
@@ -534,7 +523,6 @@ func TestAddPartialErrorNoChanges(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Create one valid file and one already-registered file.
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("# C\n"), 0o644); err != nil {
 		t.Fatalf("write C.md: %v", err)
 	}
@@ -563,7 +551,6 @@ func TestAddVaultEscape(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Create a file with a vault-escaping link.
 	if err := os.WriteFile(filepath.Join(vault, "Escape.md"), []byte("[link](../outside.md)\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -580,7 +567,6 @@ func TestAddEscapeVaultNonRelative(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Create a file with a non-relative vault-escaping link.
 	if err := os.WriteFile(filepath.Join(vault, "Escape.md"),
 		[]byte("[link](sub/../../outside.md)\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
@@ -617,12 +603,10 @@ func TestAddAutoDisambiguateBasic(t *testing.T) {
 		t.Errorf("Added = %v, want [B.md]", result.Added)
 	}
 
-	// Check rewritten links.
 	if len(result.Rewritten) != 5 {
 		t.Fatalf("Rewritten = %d, want 5", len(result.Rewritten))
 	}
 
-	// Verify A.md file content was rewritten.
 	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
 	if err != nil {
 		t.Fatalf("read A.md: %v", err)
@@ -658,7 +642,6 @@ func TestAddAutoDisambiguateRootTarget(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Create sub/B.md to cause collision.
 	if err := os.WriteFile(filepath.Join(vault, "sub", "B.md"), []byte("# B sub\n"), 0o644); err != nil {
 		t.Fatalf("write sub/B.md: %v", err)
 	}
@@ -1016,7 +999,6 @@ func TestAddAutoDisambiguateExtensionPreserved(t *testing.T) {
 	// markdown link extension preservation + wikilink .md removal.
 	vault := copyVault(t, "vault_add_disambiguate")
 
-	// A.md with mixed extension patterns.
 	aContent := "[[B.md]]\n[text](B)\n[text2](B.md)\n"
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
@@ -1075,11 +1057,9 @@ func TestAddAutoDisambiguateRebuildConsistent(t *testing.T) {
 		t.Fatalf("add: %v", err)
 	}
 
-	// Collect state after add.
 	addEdges := countEdges(t, dbPath(vault))
 	addNotes := countNotes(t, dbPath(vault))
 
-	// Rebuild.
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}
@@ -1111,7 +1091,6 @@ func TestAddAutoDisambiguateRestoreBackups(t *testing.T) {
 	// Verify restoreBackups correctly restores file content.
 	dir := t.TempDir()
 
-	// Create a file and modify it, then restore.
 	original := []byte("original content\n")
 	filePath := "test.md"
 	if err := os.WriteFile(filepath.Join(dir, filePath), []byte("modified content\n"), 0o644); err != nil {
@@ -1152,7 +1131,6 @@ func TestAddOrphanCleanup(t *testing.T) {
 		t.Fatalf("add: %v", err)
 	}
 
-	// NonExistent should be promoted.
 	if len(result.Promoted) != 1 || result.Promoted[0] != "NonExistent.md" {
 		t.Errorf("Promoted = %v, want [NonExistent.md]", result.Promoted)
 	}
@@ -1169,7 +1147,6 @@ func TestAddOrphanCleanup(t *testing.T) {
 		t.Error("phantom Missing should still exist (A.md references it)")
 	}
 
-	// "NonExistent" phantom should not exist.
 	for _, p := range phantoms {
 		if p.name == "NonExistent" {
 			t.Error("phantom NonExistent should be gone after promotion")
@@ -1182,7 +1159,6 @@ func TestAddSelfLinkNotBlockedByAmbiguity(t *testing.T) {
 	// so adding a file with the same basename should be allowed.
 	vault := copyVault(t, "vault_add")
 
-	// Create a file with a self-link and build.
 	if err := os.WriteFile(filepath.Join(vault, "Note.md"), []byte("# Note\n\n[[#Heading]]\n[self](#other)\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -1318,7 +1294,6 @@ func TestAddMetaInsert(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Add a file with frontmatter.
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("---\ntitle: Hello\nauthor: Alice\n---\ncontent\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1395,7 +1370,6 @@ func TestAddInvalidConfig(t *testing.T) {
 	}
 	beforeNotes := countNotes(t, dbPath(vault))
 
-	// Write invalid config after build.
 	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  types:\n    date: invalid_type\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1452,7 +1426,6 @@ func TestAddAutoDisambiguateSubdirTarget(t *testing.T) {
 		t.Errorf("line 1 = %q, want [[sub/B]]", lines[0])
 	}
 
-	// Rebuild should succeed.
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("rebuild after auto-disambiguate: %v", err)
 	}

@@ -53,7 +53,6 @@ func runInitMeta(args []string) error {
 
 	if *write {
 		configPath := filepath.Join(*vault, "mdhop.yaml")
-		// Atomic write: temp file + rename
 		tmpPath := configPath + ".tmp"
 		if err := os.WriteFile(tmpPath, []byte(result.YAML), 0644); err != nil {
 			return fmt.Errorf("write temp file: %w", err)
@@ -62,7 +61,6 @@ func runInitMeta(args []string) error {
 			os.Remove(tmpPath)
 			return fmt.Errorf("rename: %w", err)
 		}
-		// Report to stderr
 		if len(result.Added) > 0 {
 			fmt.Fprintf(os.Stderr, "added %d type(s) to %s\n", len(result.Added), configPath)
 		}

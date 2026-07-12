@@ -16,8 +16,7 @@ func TestCollectHeadings(t *testing.T) {
 		"#NoSpace is not a heading\n" +
 		"####### Too many hashes\n"
 	got := collectHeadings(content)
-	// Backticked text inside a heading must be preserved (Obsidian builds the
-	// anchor from the full heading text, not the inline-code-stripped form).
+	// Spec: docs/specs/overview.md — anchor 正規化とインラインコードの扱い。
 	want := []string{"Top", "Sub Section", "Deep", "API `v2` Reference"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("collectHeadings = %v, want %v", got, want)

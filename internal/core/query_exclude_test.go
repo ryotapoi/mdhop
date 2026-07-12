@@ -28,7 +28,6 @@ func TestQueryBacklinksExcludePath(t *testing.T) {
 			t.Error("daily/D.md should be excluded from backlinks")
 		}
 	}
-	// B.md and C.md should remain.
 	names := nodeNames(res.Backlinks)
 	expectContains(t, names, "B")
 	expectContains(t, names, "C")
@@ -247,7 +246,6 @@ func TestQueryEntryNodeNeverExcluded(t *testing.T) {
 
 func TestQueryNoExcludeIgnoresConfig(t *testing.T) {
 	vault := setupExcludeVault(t)
-	// Write config with exclusion.
 	content := `exclude:
   paths:
     - "daily/*"

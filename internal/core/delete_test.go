@@ -479,7 +479,6 @@ func TestDeleteRemoveFiles(t *testing.T) {
 		t.Errorf("Deleted = %v, want [C.md]", result.Deleted)
 	}
 
-	// File should be gone from disk.
 	if _, err := os.Stat(filepath.Join(vault, "C.md")); !os.IsNotExist(err) {
 		t.Error("C.md should not exist on disk after RemoveFiles")
 	}
@@ -518,7 +517,6 @@ func TestDeleteRemoveFiles_Phantomize(t *testing.T) {
 		t.Errorf("Phantomed = %v, want [B.md]", result.Phantomed)
 	}
 
-	// File should be gone from disk.
 	if _, err := os.Stat(filepath.Join(vault, "B.md")); !os.IsNotExist(err) {
 		t.Error("B.md should not exist on disk after RemoveFiles")
 	}
@@ -556,7 +554,6 @@ func TestDeleteRemoveFiles_VaultEscape(t *testing.T) {
 		t.Errorf("expected 'path escapes vault' error, got: %v", err)
 	}
 
-	// File outside vault should still exist.
 	if _, err := os.Stat(evilPath); err != nil {
 		t.Error("evil.md outside vault should not be deleted")
 	}
@@ -659,7 +656,6 @@ func TestDelete_DirExpansion(t *testing.T) {
 		t.Fatalf("ListDirNotes: %v", err)
 	}
 
-	// Delete with --rm.
 	result, err := Delete(vault, DeleteOptions{Files: notes, RemoveFiles: true})
 	if err != nil {
 		t.Fatalf("delete: %v", err)
@@ -715,7 +711,6 @@ func TestDelete_DirNoRm(t *testing.T) {
 		}
 	}
 
-	// Delete without --rm.
 	result, err := Delete(vault, DeleteOptions{Files: notes, RemoveFiles: false})
 	if err != nil {
 		t.Fatalf("delete: %v", err)
@@ -737,13 +732,11 @@ func TestDelete_DirRm_CleanupEmptyDirs(t *testing.T) {
 		t.Fatalf("ListDirNotes: %v", err)
 	}
 
-	// Delete with --rm.
 	_, err = Delete(vault, DeleteOptions{Files: notes, RemoveFiles: true})
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
-	// Cleanup empty dirs.
 	var allPaths []string
 	allPaths = append(allPaths, notes...)
 	if err := CleanupEmptyDirs(vault, allPaths); err != nil {
@@ -822,7 +815,6 @@ func TestCleanupEmptyDirs_VaultRoot(t *testing.T) {
 		t.Fatalf("cleanup: %v", err)
 	}
 
-	// Vault root should still exist.
 	if _, err := os.Stat(vault); os.IsNotExist(err) {
 		t.Error("vault root should not be removed")
 	}

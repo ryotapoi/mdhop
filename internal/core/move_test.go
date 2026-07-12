@@ -45,7 +45,6 @@ func TestMove_TargetExistsOnDisk(t *testing.T) {
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	// Create an unregistered file at the destination.
 	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatalf("write C.md: %v", err)
 	}
@@ -170,7 +169,6 @@ func TestMove_AmbiguousAfterMoveNoRoot(t *testing.T) {
 		t.Error("outgoing [[C]] should be rewritten")
 	}
 
-	// Verify disk content.
 	content, err := os.ReadFile(filepath.Join(vault, "sub2", "C.md"))
 	if err != nil {
 		t.Fatalf("read sub2/C.md: %v", err)
@@ -179,7 +177,6 @@ func TestMove_AmbiguousAfterMoveNoRoot(t *testing.T) {
 		t.Errorf("disk should contain [[sub/C]], got: %s", string(content))
 	}
 
-	// Verify DB edge.
 	edges := queryEdges(t, dbPath(vault), "sub2/C.md")
 	var edgeFound bool
 	for _, e := range edges {
@@ -212,7 +209,6 @@ func TestMove_BasenameUnchanged(t *testing.T) {
 		}
 	}
 
-	// Verify file moved on disk.
 	if fileExists(filepath.Join(vault, "A.md")) {
 		t.Error("A.md should not exist on disk after move")
 	}
@@ -295,7 +291,6 @@ func TestMove_PathLinkAlwaysRewritten(t *testing.T) {
 		t.Error("sub/D.md path link should be rewritten")
 	}
 
-	// Verify file content was actually rewritten on disk.
 	cContent, err := os.ReadFile(filepath.Join(vault, "C.md"))
 	if err != nil {
 		t.Fatalf("read C.md: %v", err)
@@ -349,7 +344,6 @@ func TestMove_BasenameChanged(t *testing.T) {
 		t.Error("sub/D.md [[A]] should be rewritten when basename changes")
 	}
 
-	// Verify DB has new path.
 	notes := queryNodes(t, dbPath(vault), "note")
 	var foundX bool
 	for _, n := range notes {
@@ -401,7 +395,6 @@ func TestMove_OutgoingRelativeRewritten(t *testing.T) {
 		t.Error("outgoing link to C should be rewritten")
 	}
 
-	// Verify the file content on disk.
 	content, err := os.ReadFile(filepath.Join(vault, "sub", "A.md"))
 	if err != nil {
 		t.Fatalf("read sub/A.md: %v", err)
@@ -520,7 +513,6 @@ func TestMove_PhantomPromotion(t *testing.T) {
 		}
 	}
 
-	// Note X.md should exist.
 	notes := queryNodes(t, dbp, "note")
 	var noteXFound bool
 	for _, n := range notes {
@@ -532,7 +524,6 @@ func TestMove_PhantomPromotion(t *testing.T) {
 		t.Error("note X.md should exist after move")
 	}
 
-	// B.md's edge should now point to note X.md.
 	edges := queryEdges(t, dbp, "B.md")
 	var bToX bool
 	for _, e := range edges {
@@ -559,7 +550,6 @@ func TestMove_PhantomPromotionAndOrphanCleanup(t *testing.T) {
 	}
 	dbp := dbPath(vault)
 
-	// Both Phantom1 and Phantom2 should exist.
 	phantoms := queryNodes(t, dbp, "phantom")
 	if len(phantoms) != 2 {
 		t.Fatalf("expected 2 phantoms, got %d", len(phantoms))
@@ -616,7 +606,6 @@ func TestMove_StaleFromError(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Modify A.md after build to make it stale.
 	time.Sleep(1100 * time.Millisecond) // ensure mtime changes
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("modified\n"), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
@@ -650,7 +639,6 @@ func TestMove_ExternalRewriteWithStaleFile(t *testing.T) {
 		t.Fatalf("expected success despite stale C.md, got: %v", err)
 	}
 
-	// Verify C.md was rewritten correctly.
 	content, err := os.ReadFile(filepath.Join(vault, "C.md"))
 	if err != nil {
 		t.Fatalf("read C.md: %v", err)
@@ -663,7 +651,6 @@ func TestMove_ExternalRewriteWithStaleFile(t *testing.T) {
 // --- Test 14: self-reference in moved file ---
 func TestMove_SelfReference(t *testing.T) {
 	vault := t.TempDir()
-	// A.md references itself via [[#Heading]].
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[#Heading]]\n## Heading\ncontent\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -679,7 +666,6 @@ func TestMove_SelfReference(t *testing.T) {
 		t.Fatalf("move with self-reference: %v", err)
 	}
 
-	// Self-reference should be preserved.
 	content, err := os.ReadFile(filepath.Join(vault, "sub", "A.md"))
 	if err != nil {
 		t.Fatalf("read sub/A.md: %v", err)
@@ -813,7 +799,6 @@ func TestMove_AmbiguousThirdPartyNoRoot(t *testing.T) {
 		t.Error("B.md [[A]] should be collateral-rewritten to [[sub1/A]]")
 	}
 
-	// Verify disk.
 	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
 	if err != nil {
 		t.Fatalf("read B.md: %v", err)
@@ -822,7 +807,6 @@ func TestMove_AmbiguousThirdPartyNoRoot(t *testing.T) {
 		t.Errorf("B.md disk should contain [[sub1/A]], got: %s", string(bContent))
 	}
 
-	// Verify DB edge.
 	edges := queryEdges(t, dbPath(vault), "B.md")
 	var edgeFound bool
 	for _, e := range edges {
@@ -842,7 +826,6 @@ func TestMove_BothAbsentOnDisk(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Remove A.md from disk after build.
 	if err := os.Remove(filepath.Join(vault, "A.md")); err != nil {
 		t.Fatalf("remove A.md: %v", err)
 	}
@@ -1015,7 +998,6 @@ func TestMove_AlreadyMovedStale(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Modify the file content to change mtime.
 	time.Sleep(1100 * time.Millisecond)
 	if err := os.WriteFile(filepath.Join(vault, "newsub", "A.md"), []byte("modified content\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -1051,7 +1033,6 @@ func TestMove_AlreadyMoved(t *testing.T) {
 		t.Fatalf("move (already moved): %v", err)
 	}
 
-	// File should remain at newsub/A.md.
 	if !fileExists(filepath.Join(vault, "newsub", "A.md")) {
 		t.Error("newsub/A.md should exist")
 	}
@@ -1059,7 +1040,6 @@ func TestMove_AlreadyMoved(t *testing.T) {
 		t.Error("A.md should not exist")
 	}
 
-	// DB should be updated.
 	notes := queryNodes(t, dbPath(vault), "note")
 	var found bool
 	for _, n := range notes {
@@ -1109,7 +1089,6 @@ func TestMovePreservesPermission(t *testing.T) {
 		t.Fatalf("move: %v", err)
 	}
 
-	// Verify moved file has preserved permission.
 	info, err := os.Stat(filepath.Join(vault, "sub", "A.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -1239,7 +1218,6 @@ func TestMove_RootFileMovedOutThirdParty(t *testing.T) {
 		t.Error("B.md [[A]] should be collateral-rewritten to [[sub/A]]")
 	}
 
-	// Verify disk.
 	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
 	if err != nil {
 		t.Fatalf("read B.md: %v", err)
@@ -1248,7 +1226,6 @@ func TestMove_RootFileMovedOutThirdParty(t *testing.T) {
 		t.Errorf("B.md disk should contain [[sub/A]], got: %s", string(bContent))
 	}
 
-	// Verify DB edge.
 	edges := queryEdges(t, dbPath(vault), "B.md")
 	var edgeFound bool
 	for _, e := range edges {
@@ -1335,7 +1312,6 @@ func TestMove_MeaningChangeNewRoot(t *testing.T) {
 		t.Error("B.md [[A]] should be collateral-rewritten to [[sub/A]]")
 	}
 
-	// Verify disk.
 	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
 	if err != nil {
 		t.Fatalf("read B.md: %v", err)
@@ -1344,7 +1320,6 @@ func TestMove_MeaningChangeNewRoot(t *testing.T) {
 		t.Errorf("B.md disk should contain [[sub/A]], got: %s", string(bContent))
 	}
 
-	// Verify DB edge.
 	edges := queryEdges(t, dbPath(vault), "B.md")
 	var edgeFound bool
 	for _, e := range edges {
@@ -1607,7 +1582,6 @@ func TestMove_OutgoingBasenameDisambiguation(t *testing.T) {
 		t.Error("outgoing [[B]] should be rewritten to [[sub1/B]]")
 	}
 
-	// Verify disk.
 	content, err := os.ReadFile(filepath.Join(vault, "sub2", "B.md"))
 	if err != nil {
 		t.Fatalf("read sub2/B.md: %v", err)
@@ -1616,7 +1590,6 @@ func TestMove_OutgoingBasenameDisambiguation(t *testing.T) {
 		t.Errorf("disk should contain [[sub1/B]], got: %s", string(content))
 	}
 
-	// Verify DB edge.
 	edges := queryEdges(t, dbPath(vault), "sub2/B.md")
 	var edgeFound bool
 	for _, e := range edges {
@@ -1666,7 +1639,6 @@ func TestMove_OutgoingMeaningChangeRoot(t *testing.T) {
 		t.Error("outgoing [[B]] should be rewritten to [[sub/B]]")
 	}
 
-	// Verify disk.
 	content, err := os.ReadFile(filepath.Join(vault, "B.md"))
 	if err != nil {
 		t.Fatalf("read B.md: %v", err)
@@ -1675,7 +1647,6 @@ func TestMove_OutgoingMeaningChangeRoot(t *testing.T) {
 		t.Errorf("disk should contain [[sub/B]], got: %s", string(content))
 	}
 
-	// Verify DB edge.
 	edges := queryEdges(t, dbPath(vault), "B.md")
 	var edgeFound bool
 	for _, e := range edges {
@@ -1714,7 +1685,6 @@ func TestMove_CollateralRewriteWithStaleFile(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Make B.md stale.
 	time.Sleep(1100 * time.Millisecond)
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\nmodified\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -1750,12 +1720,10 @@ func TestMoveDir_Basic(t *testing.T) {
 		t.Fatalf("MoveDir: %v", err)
 	}
 
-	// Verify moved files.
 	if len(result.Moved) != 3 {
 		t.Fatalf("expected 3 moved files, got %d", len(result.Moved))
 	}
 
-	// Verify disk.
 	for _, m := range result.Moved {
 		if fileExists(filepath.Join(vault, m.From)) {
 			t.Errorf("%s should not exist on disk", m.From)
@@ -1850,7 +1818,6 @@ func TestMoveDir_IncomingRewrite(t *testing.T) {
 		t.Error("Other.md [[sub/B]] should be rewritten")
 	}
 
-	// Verify disk.
 	otherContent, err := os.ReadFile(filepath.Join(vault, "Other.md"))
 	if err != nil {
 		t.Fatalf("read Other.md: %v", err)
@@ -1902,7 +1869,6 @@ func TestMoveDir_IncomingMultiplePathLinks(t *testing.T) {
 		t.Errorf("expected [[sub/B]] → [[newdir/B]], got %v", rewrittenLinks)
 	}
 
-	// Verify disk.
 	extContent, err := os.ReadFile(filepath.Join(vault, "Ext.md"))
 	if err != nil {
 		t.Fatalf("read Ext.md: %v", err)
@@ -1946,7 +1912,6 @@ func TestMoveDir_CollateralRewrite(t *testing.T) {
 		}
 	}
 
-	// Verify disk: B.md unchanged.
 	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
 	if err != nil {
 		t.Fatalf("read B.md: %v", err)
@@ -2077,7 +2042,6 @@ func TestMoveDir_OutgoingPathToMoved(t *testing.T) {
 		t.Fatalf("MoveDir: %v", err)
 	}
 
-	// Verify Other.md's [[sub/B]] was rewritten.
 	var found bool
 	for _, rw := range result.Rewritten {
 		if rw.File == "Other.md" && rw.OldLink == "[[sub/B]]" {
@@ -2108,7 +2072,6 @@ func TestMoveDir_RelativeBetweenMoved(t *testing.T) {
 		}
 	}
 
-	// Verify disk.
 	content, err := os.ReadFile(filepath.Join(vault, "newdir", "A.md"))
 	if err != nil {
 		t.Fatalf("read newdir/A.md: %v", err)
@@ -2247,19 +2210,16 @@ func TestMoveDir_ExternalRewriteWithStaleFile(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Make Other.md stale.
 	time.Sleep(1100 * time.Millisecond)
 	if err := os.WriteFile(filepath.Join(vault, "Other.md"), []byte("[[A]]\n[[sub/B]]\nmodified\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	// MoveDir should succeed despite stale Other.md.
 	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
 	if err != nil {
 		t.Fatalf("expected success despite stale Other.md, got: %v", err)
 	}
 
-	// Verify Other.md was rewritten.
 	content, err := os.ReadFile(filepath.Join(vault, "Other.md"))
 	if err != nil {
 		t.Fatalf("read Other.md: %v", err)
@@ -2303,7 +2263,6 @@ func TestMoveDir_AlreadyMoved(t *testing.T) {
 		t.Errorf("expected 3 moved files, got %d", len(result.Moved))
 	}
 
-	// Verify DB updated.
 	notes := queryNodes(t, dbPath(vault), "note")
 	var found bool
 	for _, n := range notes {
@@ -2322,7 +2281,6 @@ func TestMoveDir_Stale(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Make a source file stale.
 	time.Sleep(1100 * time.Millisecond)
 	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("modified\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -2348,7 +2306,6 @@ func TestMoveDir_Nested(t *testing.T) {
 		t.Fatalf("MoveDir: %v", err)
 	}
 
-	// Verify nested file moved.
 	var foundNested bool
 	for _, m := range result.Moved {
 		if m.From == "sub/inner/X.md" && m.To == "newdir/inner/X.md" {
@@ -2450,7 +2407,6 @@ func TestMoveDir_PhantomPromotion(t *testing.T) {
 
 func TestMoveDir_NonMDFileMovedAlong(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	// Add a non-.md file to the source directory.
 	if err := os.WriteFile(filepath.Join(vault, "sub", "image.png"), []byte("png data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -2463,12 +2419,10 @@ func TestMoveDir_NonMDFileMovedAlong(t *testing.T) {
 		t.Fatalf("MoveDir should succeed with non-.md files: %v", err)
 	}
 
-	// Verify the non-.md file was moved.
 	if _, err := os.Stat(filepath.Join(vault, "newdir", "image.png")); err != nil {
 		t.Error("newdir/image.png should exist after move")
 	}
 
-	// Verify at least the notes were moved.
 	if len(result.Moved) == 0 {
 		t.Error("expected files to be moved")
 	}
@@ -2501,14 +2455,12 @@ func TestMoveDir_HiddenFilesIgnored(t *testing.T) {
 func TestMoveDir_ConsecutiveMovesNoStale(t *testing.T) {
 	vault := t.TempDir()
 
-	// Create directories.
 	for _, d := range []string{"dirA", "dirB", "notes"} {
 		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	// Create files.
 	files := map[string]string{
 		"dirA/Alpha.md":   "alpha content\n",
 		"dirB/Beta.md":    "beta content\n",
@@ -2520,7 +2472,6 @@ func TestMoveDir_ConsecutiveMovesNoStale(t *testing.T) {
 		}
 	}
 
-	// Build index.
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -2534,7 +2485,6 @@ func TestMoveDir_ConsecutiveMovesNoStale(t *testing.T) {
 		t.Fatalf("first MoveDir: %v", err)
 	}
 
-	// Verify Linker.md was rewritten.
 	var linkerRewritten bool
 	for _, rw := range result1.Rewritten {
 		if rw.File == "notes/Linker.md" {
@@ -2553,7 +2503,6 @@ func TestMoveDir_ConsecutiveMovesNoStale(t *testing.T) {
 		t.Fatalf("second MoveDir should succeed but got: %v", err)
 	}
 
-	// Verify final state of Linker.md on disk.
 	content, err := os.ReadFile(filepath.Join(vault, "notes", "Linker.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -2603,7 +2552,6 @@ func TestMoveDir_ConsecutiveMergeNoStale(t *testing.T) {
 		t.Fatalf("first MoveDir (resources → notes): %v", err)
 	}
 
-	// Hub.md should have [[resources/ResA]] rewritten.
 	var hubRewritten bool
 	for _, rw := range result1.Rewritten {
 		if rw.File == "notes/Hub.md" {
@@ -2620,7 +2568,6 @@ func TestMoveDir_ConsecutiveMergeNoStale(t *testing.T) {
 		t.Fatalf("second MoveDir (thoughts → notes) should succeed but got: %v", err)
 	}
 
-	// Verify final state.
 	content, err := os.ReadFile(filepath.Join(vault, "notes", "Hub.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -2691,7 +2638,6 @@ func TestMoveDir_ConsecutiveWithCrossLinks(t *testing.T) {
 		t.Fatalf("second MoveDir should succeed but got: %v", err)
 	}
 
-	// Verify final state.
 	resA, err := os.ReadFile(filepath.Join(vault, "notes", "ResA.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -2767,7 +2713,6 @@ func TestMoveDir_CollateralSkipsPathLink(t *testing.T) {
 		}
 	}
 
-	// Verify disk: X.md unchanged.
 	xContent, err := os.ReadFile(filepath.Join(vault, "X.md"))
 	if err != nil {
 		t.Fatalf("read X.md: %v", err)

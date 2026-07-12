@@ -130,7 +130,6 @@ func TestBuildAssets_AmbiguousAssetLink(t *testing.T) {
 
 func TestBuildAssets_HiddenFilesExcluded(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	// Create hidden file and .git directory.
 	os.WriteFile(filepath.Join(vault, ".hidden"), []byte("hidden"), 0o644)
 	os.MkdirAll(filepath.Join(vault, ".git", "objects"), 0o755)
 	os.WriteFile(filepath.Join(vault, ".git", "objects", "abc"), []byte("obj"), 0o644)
@@ -368,7 +367,6 @@ func TestDeleteAssetWithRm(t *testing.T) {
 	if len(result.Deleted) != 1 {
 		t.Fatalf("expected 1 deleted, got %d", len(result.Deleted))
 	}
-	// File should be removed from disk.
 	if _, err := os.Stat(filepath.Join(vault, "orphan.txt")); !os.IsNotExist(err) {
 		t.Fatal("orphan.txt should be deleted from disk")
 	}
@@ -436,7 +434,6 @@ func TestMoveAsset_BasenameUnchanged_NoRewrite(t *testing.T) {
 		t.Fatalf("expected no rewrites (basename unchanged, unique), got %v", result.Rewritten)
 	}
 
-	// Asset node should be updated.
 	if !assetNodeExists(t, dbPath(vault), "images/image.png") {
 		t.Fatal("asset node should exist at new path")
 	}
@@ -472,7 +469,6 @@ func TestMoveAsset_BasenameChanged_Rewrite(t *testing.T) {
 		t.Fatalf("expected rewrite [[image.png]] → [[photo.png]] in A.md, got %v", result.Rewritten)
 	}
 
-	// Read A.md and verify disk content.
 	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -542,7 +538,6 @@ func TestMoveDirWithAssets(t *testing.T) {
 		t.Fatal("expected sub/photo.jpg in moved files")
 	}
 
-	// Asset node should be updated.
 	if !assetNodeExists(t, dbPath(vault), "archive/sub/photo.jpg") {
 		t.Fatal("photo.jpg should be at new path")
 	}
@@ -607,7 +602,6 @@ func TestIsAmbiguousBasenameLink_NoteAndAssetSeparateKeySpaces(t *testing.T) {
 
 func TestPhantomPreservesNonMdExtension(t *testing.T) {
 	vault := copyVault(t, "vault_build_basic")
-	// Add a note that links to a non-existent asset.
 	os.WriteFile(filepath.Join(vault, "Linker.md"), []byte("![[missing.png]]\n"), 0o644)
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
@@ -646,7 +640,6 @@ func TestAddAssetLinkResolvesToAsset(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Add a new .md file that links to an existing asset.
 	os.WriteFile(filepath.Join(vault, "Linker.md"), []byte("![[doc.pdf]]\n"), 0o644)
 	result, err := Add(vault, AddOptions{Files: []string{"Linker.md"}})
 	if err != nil {
@@ -680,9 +673,7 @@ func TestAddNewAssetOnDiskResolvedAsPhantom(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Add a new asset on disk (not in DB since build has already run).
 	os.WriteFile(filepath.Join(vault, "new_asset.png"), []byte("NEW"), 0o644)
-	// Add a new .md file that links to the new (unregistered) asset.
 	os.WriteFile(filepath.Join(vault, "NewLinker.md"), []byte("![[new_asset.png]]\n"), 0o644)
 	result, err := Add(vault, AddOptions{Files: []string{"NewLinker.md"}})
 	if err != nil {
@@ -712,7 +703,6 @@ func TestUpdateRemovesOrphanAsset(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// A.md links to image.png. Remove the link from A.md.
 	os.WriteFile(filepath.Join(vault, "A.md"), []byte("no links anymore\n"), 0o644)
 	_, err := Update(vault, UpdateOptions{Files: []string{"A.md"}})
 	if err != nil {
@@ -739,13 +729,11 @@ func TestUpdateRemovesOrphanAsset(t *testing.T) {
 
 func TestQueryAssetTwoHop(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	// Add C.md that also links to image.png, enabling twohop via A.md.
 	os.WriteFile(filepath.Join(vault, "C.md"), []byte("![[image.png]]\n"), 0o644)
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Query A.md with twohop. A.md → image.png ← C.md should appear.
 	result, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
 		Fields:          []string{"twohop"},
 		MaxTwoHop:       10,
@@ -777,7 +765,6 @@ func TestQueryAssetSnippet(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Query image.png with snippet. Snippet should come from A.md (the source note).
 	result, err := Query(vault, EntrySpec{File: "image.png"}, QueryOptions{
 		Fields:         []string{"snippet"},
 		IncludeSnippet: 3,
@@ -796,13 +783,11 @@ func TestQueryAssetSnippet(t *testing.T) {
 
 func TestQueryAssetExcludeIntegration(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	// Add C.md that links to image.png.
 	os.WriteFile(filepath.Join(vault, "C.md"), []byte("![[image.png]]\n"), 0o644)
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Query A.md with twohop, excluding image.png via exclude filter.
 	ef, err := NewExcludeFilter(ExcludeConfig{}, []string{"image.png"}, nil)
 	if err != nil {
 		t.Fatalf("NewExcludeFilter: %v", err)

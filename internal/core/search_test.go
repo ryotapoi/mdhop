@@ -61,7 +61,6 @@ func TestSearch_AllNotes(t *testing.T) {
 		}
 	}
 
-	// Meta should be nil when not requested.
 	for i, item := range result.Items {
 		if item.Meta != nil {
 			t.Errorf("items[%d].meta should be nil when not requested", i)

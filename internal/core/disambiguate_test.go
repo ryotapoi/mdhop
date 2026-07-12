@@ -137,7 +137,6 @@ func TestDisambiguatePathLinkNotRewritten(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Read C.md original content.
 	origContent, err := os.ReadFile(filepath.Join(vault, "C.md"))
 	if err != nil {
 		t.Fatalf("read C.md: %v", err)
@@ -369,14 +368,12 @@ func TestDisambiguateDBUpdated(t *testing.T) {
 	db := openTestDB(t, dbPath(vault))
 	defer db.Close()
 
-	// Get target node ID for sub/A.md.
 	var targetID int64
 	err = db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", noteKey("sub/A.md")).Scan(&targetID)
 	if err != nil {
 		t.Fatalf("query target: %v", err)
 	}
 
-	// Get all edges from B.md → sub/A.md.
 	var sourceID int64
 	err = db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", noteKey("B.md")).Scan(&sourceID)
 	if err != nil {
@@ -426,7 +423,6 @@ func TestDisambiguateDBUpdated(t *testing.T) {
 func TestDisambiguateInlineCodeIgnored(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
 
-	// Overwrite B.md to include inline code.
 	bPath := filepath.Join(vault, "B.md")
 	if err := os.WriteFile(bPath, []byte("[[A]]\n`[[A]]` should not change\n"), 0o644); err != nil {
 		t.Fatalf("write B.md: %v", err)
@@ -515,7 +511,6 @@ func TestDisambiguateScanBasic(t *testing.T) {
 func TestDisambiguateScanMultipleCandidatesNoTarget(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
 
-	// Create another A.md in root.
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# root A\n"), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
 	}

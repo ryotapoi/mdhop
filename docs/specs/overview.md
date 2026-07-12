@@ -165,6 +165,7 @@ meta:
 - `--no-exclude` : `mdhop.yaml` の除外設定を無視する
 - `--where <expr>` : frontmatter メタデータによるフィルタ（複数回指定可）
   - 演算子: `=`, `!=`, `~`（LIKE）, `>`, `<`, `>=`, `<=`, EXISTS（演算子なし）, NOT EXISTS
+    - `~` の右辺（LIKE パターン）は前後の空白を保持する。トリムされるのはキー名のみ
   - 例: `--where "status=active"`, `--where "priority>1"`, `--where "status"`, `--where "status!=done"`, `--where "priority NOT EXISTS"`
   - 左辺には `coalesce(key1, key2, ...)` を書ける。比較演算子では、左から順に最初に存在するキーの値を使って比較する
     - 例: `--where "coalesce(reviewed, updated)<=today-1y"` → reviewed があれば reviewed、なければ updated を基準に古い note を探す
@@ -320,7 +321,7 @@ meta:
   - 必須: `--to`（`wikilink` or `markdown`）
   - 任意: `--vault`, `--format`, `--dry-run`, `--file`（複数回指定可）
   - 補足: DB 不要（ファイル走査ベース）。build 前に実行可能
-  - 補足: wikilink ↔ markdown link を相互変換する
+  - 補足: wikilink ↔ markdown link を相互変換する。embed（`![[x]]` ↔ `![x](x)`）も対象
   - 補足: URL リンク、tag、frontmatter リンクは対象外
   - 補足: `build.exclude_paths` に従う（除外ファイルは走査しない）
   - 補足: `--file` 指定時は対象ファイルのみ変換する
@@ -361,6 +362,7 @@ meta:
   - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は diagnose に適用されない。フィルタ未指定時の挙動は従来どおり
   - 補足: `--fields anchors` で anchor 切れ検出（`broken_anchors`）を有効化する。これは **opt-in**（`--fields` 未指定時は他フィールドと違って出力されない。対象 note をディスクから読むため）。`[[note#見出し]]` / `[text](note.md#fragment)` の fragment が target note（実在 note）の見出しに存在しないものを報告する
   - 補足: anchor 一致は Obsidian 互換正規化（`#` 除去・句読点／記号除去・空白畳み込み、大小文字とアクセントは保持）。block reference（`#^id`）は対象外。target が phantom / asset のものは対象外（note 切れは phantom 検出側の領分）
+  - 補足: 見出し内のバッククォート（インラインコード）はアンカー化前に剥がされず、見出しテキスト全体（バッククォート含む）からアンカーを生成する。リンク側の fragment には元々バッククォートが付かないため、両者は句読点除去後のテキストで一致する
 - `meta-check`
   - 必須: `--key`（検査する frontmatter key。複数回指定可）
   - 任意: `--vault`, `--format`, `--kind`, `--path`, `--exclude`
@@ -394,6 +396,7 @@ meta:
   - 補足: tag node は出力しない（tag edge も出力されない）。tag を含めた可視化が必要になったら将来拡張する（ADR 0016）
   - 補足: `--include-phantoms` で node 集合内の note から参照されている phantom を node / edge に含める（default は除外）
   - 補足: node の `id` は出力スコープの参照キー（edge の `source` / `target` が指す）。build をまたいだ安定性は保証しない
+  - 補足: node の出力順は type（asset → note → phantom）、次に path（phantom は name）の昇順
   - 補足: dot のラベルは note / asset が path、phantom が `(phantom) <name>`
   - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は適用されない
 - `stats`
@@ -424,6 +427,7 @@ meta:
 - 指定ファイルが削除されていた場合は、参照の有無で扱いが変わる
   - 参照がある場合: phantom として扱う
   - 参照がない場合: ノードを完全に削除する
+- `--rm`（`RemoveFiles`）は vault の外に出るパスの削除を拒否する（`path escapes vault` エラー）
 
 ## リンク解釈（互換性）
 

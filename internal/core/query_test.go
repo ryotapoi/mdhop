@@ -640,7 +640,6 @@ func TestQuerySnippet(t *testing.T) {
 	if !sourcePaths["sub/Impl.md"] {
 		t.Error("expected snippet from sub/Impl.md")
 	}
-	// Check that lines are populated.
 	for _, s := range res.Snippets {
 		if len(s.Lines) == 0 {
 			t.Errorf("snippet from %s has 0 lines", s.SourcePath)

@@ -98,7 +98,6 @@ func printQueryJSON(w io.Writer, r *core.QueryResult) error {
 }
 
 func printQueryText(w io.Writer, r *core.QueryResult) error {
-	// entry (always present)
 	fmt.Fprintln(w, "entry:")
 	writeNodeInfoText(w, r.Entry, "  ", "  ")
 

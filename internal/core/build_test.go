@@ -222,7 +222,6 @@ func TestBuildRebuildOverwritesDB(t *testing.T) {
 	}
 	before := countNotes(t, dbPath(vault))
 
-	// Add a new note to force node count change.
 	newPath := filepath.Join(vault, "C.md")
 	if err := os.WriteFile(newPath, []byte("# C\n"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
@@ -303,7 +302,6 @@ func TestBuildFailureKeepsExistingDB(t *testing.T) {
 	}
 	before := countNotes(t, dbPath(vault))
 
-	// Add conflicting file to trigger failure.
 	conflictDir := filepath.Join(vault, "sub2")
 	if err := os.MkdirAll(conflictDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -311,7 +309,6 @@ func TestBuildFailureKeepsExistingDB(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(conflictDir, "B.md"), []byte("# B in sub2\n"), 0o644); err != nil {
 		t.Fatalf("write conflict: %v", err)
 	}
-	// Introduce ambiguous link.
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A\n\nLink to [[B]]\n"), 0o644); err != nil {
 		t.Fatalf("write link: %v", err)
 	}
@@ -1114,7 +1111,6 @@ func TestBuildRootPriorityRoundTrip(t *testing.T) {
 		t.Fatalf("first build: %v", err)
 	}
 
-	// Add another file with same basename at subdir.
 	sub2 := filepath.Join(vault, "sub2")
 	if err := os.MkdirAll(sub2, 0o755); err != nil {
 		t.Fatal(err)
@@ -1175,7 +1171,6 @@ func TestBuildEdgeLineEnd(t *testing.T) {
 func TestBuildIdempotent(t *testing.T) {
 	vault := copyVault(t, "vault_build_full")
 
-	// Build twice.
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("first build: %v", err)
 	}
@@ -1256,11 +1251,9 @@ func TestBuildSingleErrorFormatUnchanged(t *testing.T) {
 	if !strings.Contains(msg, "ambiguous link") {
 		t.Errorf("expected ambiguous link error, got: %s", msg)
 	}
-	// Single error should NOT contain "errors" summary.
 	if strings.Contains(msg, "errors") {
 		t.Errorf("single error should not have summary line, got: %s", msg)
 	}
-	// Single ambiguous error should still have hint.
 	if !strings.Contains(msg, "hint: run 'mdhop disambiguate") {
 		t.Errorf("expected disambiguate hint, got: %s", msg)
 	}
@@ -1282,7 +1275,6 @@ func TestBuildErrorCapAtMax(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		// Reference file with ambiguous link.
 		refPath := filepath.Join(vault, "Ref_"+name+".md")
 		if err := os.WriteFile(refPath, []byte("[["+name+"]]\n"), 0o644); err != nil {
 			t.Fatal(err)
@@ -1293,7 +1285,6 @@ func TestBuildErrorCapAtMax(t *testing.T) {
 		t.Fatal("expected build error")
 	}
 	msg := err.Error()
-	// Should be capped at maxBuildErrors (5).
 	lines := strings.Split(strings.TrimSpace(msg), "\n")
 	// 5 error lines + 1 summary line + 1 hint line = 7 lines.
 	if len(lines) != 7 {

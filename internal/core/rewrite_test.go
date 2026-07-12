@@ -142,7 +142,6 @@ func TestRestoreBackupsPreservesPermission(t *testing.T) {
 	filePath := "test.md"
 	fullPath := filepath.Join(dir, filePath)
 
-	// Create file with 0o600.
 	if err := os.WriteFile(fullPath, []byte("modified\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +154,6 @@ func TestRestoreBackupsPreservesPermission(t *testing.T) {
 		t.Fatalf("restoreBackupFiles failures: %#v", failures)
 	}
 
-	// Verify content restored.
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
 		t.Fatal(err)
@@ -164,7 +162,6 @@ func TestRestoreBackupsPreservesPermission(t *testing.T) {
 		t.Errorf("content = %q, want %q", string(content), "original\n")
 	}
 
-	// Verify permission preserved.
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		t.Fatal(err)
@@ -211,7 +208,6 @@ func TestApplyFileRewritesPreservesPermission(t *testing.T) {
 		t.Fatalf("unexpected rollback failures: %#v", rollbackFailures)
 	}
 
-	// Verify file content was rewritten.
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
 		t.Fatal(err)
@@ -220,7 +216,6 @@ func TestApplyFileRewritesPreservesPermission(t *testing.T) {
 		t.Errorf("content = %q, want %q", string(content), "[[NewTarget]]\n")
 	}
 
-	// Verify file permission preserved.
 	info, err := os.Stat(fullPath)
 	if err != nil {
 		t.Fatal(err)

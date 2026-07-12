@@ -96,7 +96,6 @@ func runMove(args []string) error {
 	}
 
 	if fromIsDir {
-		// Directory mode.
 		toIsFile := strings.HasSuffix(strings.ToLower(*to), ".md")
 		if toIsFile {
 			return fmt.Errorf("--to looks like a file path, use trailing / for directory move")
@@ -119,7 +118,6 @@ func runMove(args []string) error {
 		}
 	}
 
-	// Single file mode.
 	toIsDir := strings.HasSuffix(*to, "/")
 	if toIsDir {
 		return fmt.Errorf("cannot use directory destination for single file move")

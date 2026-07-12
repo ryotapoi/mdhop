@@ -256,7 +256,6 @@ func TestRunDelete_Integration(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 
-	// Verify C.md is gone from the index.
 	result, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
 	if err != nil {
 		t.Fatalf("stats: %v", err)
@@ -279,12 +278,10 @@ func TestRunDelete_Rm_FileExists(t *testing.T) {
 		t.Fatalf("delete --rm: %v", err)
 	}
 
-	// Verify file is gone from disk.
 	if _, err := os.Stat(filepath.Join(vault, "C.md")); !os.IsNotExist(err) {
 		t.Error("C.md should not exist on disk after --rm")
 	}
 
-	// Verify gone from index.
 	result, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
 	if err != nil {
 		t.Fatalf("stats: %v", err)
@@ -317,7 +314,6 @@ func TestRunDelete_Rm_FileAlreadyGone(t *testing.T) {
 func TestRunDelete_Rm_UnregisteredFile(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_delete")
 
-	// Create an unregistered file.
 	unregistered := filepath.Join(vault, "unregistered.md")
 	if err := os.WriteFile(unregistered, []byte("test"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
@@ -329,7 +325,6 @@ func TestRunDelete_Rm_UnregisteredFile(t *testing.T) {
 		t.Errorf("expected 'file not registered' error, got: %v", err)
 	}
 
-	// File should still exist on disk.
 	if _, err := os.Stat(unregistered); err != nil {
 		t.Error("unregistered file should still exist after failed --rm")
 	}
@@ -354,13 +349,11 @@ func TestRunUpdate_MissingFile(t *testing.T) {
 func TestRunUpdate_Integration(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_update")
 
-	// Get baseline edge count.
 	before, err := core.Stats(vault, core.StatsOptions{Fields: []string{"edges_total"}})
 	if err != nil {
 		t.Fatalf("stats before: %v", err)
 	}
 
-	// Modify A.md: add a link to C.
 	aPath := filepath.Join(vault, "A.md")
 	content, err := os.ReadFile(aPath)
 	if err != nil {
@@ -370,12 +363,10 @@ func TestRunUpdate_Integration(t *testing.T) {
 		t.Fatalf("write A.md: %v", err)
 	}
 
-	// Run update.
 	if err := runUpdate([]string{"--vault", vault, "--file", "A.md"}); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 
-	// Verify edges increased.
 	after, err := core.Stats(vault, core.StatsOptions{Fields: []string{"edges_total"}})
 	if err != nil {
 		t.Fatalf("stats after: %v", err)
@@ -545,24 +536,20 @@ func TestRunAdd_MissingFile(t *testing.T) {
 func TestRunAdd_Integration(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_add")
 
-	// Get baseline notes count.
 	before, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
 	if err != nil {
 		t.Fatalf("stats before: %v", err)
 	}
 
-	// Create a new file on disk.
 	newFile := filepath.Join(vault, "C.md")
 	if err := os.WriteFile(newFile, []byte("[[A]]\n"), 0o644); err != nil {
 		t.Fatalf("write C.md: %v", err)
 	}
 
-	// Run add.
 	if err := runAdd([]string{"--vault", vault, "--file", "C.md"}); err != nil {
 		t.Fatalf("add: %v", err)
 	}
 
-	// Verify notes_total increased.
 	after, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
 	if err != nil {
 		t.Fatalf("stats after: %v", err)
@@ -617,7 +604,6 @@ func TestRunMove_Integration(t *testing.T) {
 		t.Fatalf("move: %v", err)
 	}
 
-	// Verify A.md moved on disk.
 	if _, err := os.Stat(filepath.Join(vault, "A.md")); err == nil {
 		t.Error("A.md should not exist on disk after move")
 	}
@@ -625,7 +611,6 @@ func TestRunMove_Integration(t *testing.T) {
 		t.Error("sub/A.md should exist on disk after move")
 	}
 
-	// Verify DB updated: old path should be gone, new path should exist.
 	_, err = core.Query(vault, core.EntrySpec{File: "A.md"}, core.QueryOptions{})
 	if err == nil {
 		t.Error("querying A.md should fail after move")
@@ -907,7 +892,6 @@ func TestRunDiagnose_JSONOutput(t *testing.T) {
 		t.Fatalf("json unmarshal: %v", err)
 	}
 
-	// Check basename_conflicts exists
 	if _, ok := m["basename_conflicts"]; !ok {
 		t.Fatal("JSON output missing basename_conflicts field")
 	}
@@ -1222,7 +1206,6 @@ func TestRunDelete_DirExpansion(t *testing.T) {
 		t.Fatalf("delete dir: %v", err)
 	}
 
-	// sub/ files should be gone from disk.
 	if _, err := os.Stat(filepath.Join(vault, "sub", "A.md")); !os.IsNotExist(err) {
 		t.Error("sub/A.md should be gone")
 	}
@@ -1250,7 +1233,6 @@ func TestRunMove_DirMode(t *testing.T) {
 		t.Fatalf("move dir: %v", err)
 	}
 
-	// Files should be at new location.
 	if _, err := os.Stat(filepath.Join(vault, "newdir", "A.md")); err != nil {
 		t.Error("newdir/A.md should exist")
 	}
@@ -1323,7 +1305,6 @@ func TestRunQuery_WhereWithNoExclude(t *testing.T) {
 func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_query_where")
 
-	// Capture stdout to verify JSON output
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
@@ -1376,7 +1357,6 @@ func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
 		t.Errorf("expected 2 backlinks, got %d: %v", len(backlinks), names)
 	}
 
-	// Meta should be present for entry node A
 	meta, ok := m["meta"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected meta object, got: %v", m["meta"])

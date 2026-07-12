@@ -87,7 +87,6 @@ func (r lastInsertIDZeroResult) RowsAffected() (int64, error) {
 func TestUpsertNote_ConflictUpdate(t *testing.T) {
 	db := newTestDB(t)
 
-	// First insert.
 	id1, err := upsertNote(db, "docs/hello.md", "hello", 100, 0)
 	if err != nil {
 		t.Fatalf("first upsertNote: %v", err)
@@ -96,7 +95,6 @@ func TestUpsertNote_ConflictUpdate(t *testing.T) {
 		t.Fatal("first upsertNote returned id 0")
 	}
 
-	// Second upsert with updated name and mtime — should return same id.
 	id2, err := upsertNote(db, "docs/hello.md", "hello-updated", 200, 0)
 	if err != nil {
 		t.Fatalf("second upsertNote: %v", err)
@@ -105,7 +103,6 @@ func TestUpsertNote_ConflictUpdate(t *testing.T) {
 		t.Fatalf("expected same id %d, got %d", id1, id2)
 	}
 
-	// Verify fields were updated.
 	var typ, name string
 	var mtime int64
 	row := db.QueryRow("SELECT type, name, mtime FROM nodes WHERE id = ?", id1)
@@ -163,7 +160,6 @@ func intPtr(v int) *int {
 func TestUpsertAsset_ConflictUpdate(t *testing.T) {
 	db := newTestDB(t)
 
-	// First insert.
 	id1, err := upsertAsset(db, "images/photo.png", "photo.png", 100)
 	if err != nil {
 		t.Fatalf("first upsertAsset: %v", err)
@@ -172,7 +168,6 @@ func TestUpsertAsset_ConflictUpdate(t *testing.T) {
 		t.Fatal("first upsertAsset returned id 0")
 	}
 
-	// Second upsert with updated name and mtime — should return same id.
 	id2, err := upsertAsset(db, "images/photo.png", "photo-updated.png", 300)
 	if err != nil {
 		t.Fatalf("second upsertAsset: %v", err)
@@ -181,7 +176,6 @@ func TestUpsertAsset_ConflictUpdate(t *testing.T) {
 		t.Fatalf("expected same id %d, got %d", id1, id2)
 	}
 
-	// Verify fields were updated.
 	var typ, name string
 	var mtime int64
 	row := db.QueryRow("SELECT type, name, mtime FROM nodes WHERE id = ?", id1)
@@ -273,7 +267,6 @@ func TestQueryMetaByNode(t *testing.T) {
 		t.Fatalf("upsertNote: %v", err)
 	}
 
-	// Insert various meta rows.
 	if err := insertMeta(db, nodeID, "date", "2024-01-15", "2024-01-15", "date"); err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +327,6 @@ func TestQueryMetaByNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("queryMetaByNode after null insert: %v", err)
 	}
-	// Find the nulltest row.
 	var found bool
 	for _, r := range rows3 {
 		if r.Key == "nulltest" {

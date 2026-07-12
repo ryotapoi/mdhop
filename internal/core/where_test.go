@@ -116,8 +116,7 @@ func TestParseWhere_Like(t *testing.T) {
 }
 
 func TestParseWhere_Like_PreservesWhitespace(t *testing.T) {
-	// LIKE patterns may have meaningful leading/trailing whitespace — only the
-	// key is trimmed, never the pattern itself.
+	// Spec: docs/specs/overview.md — `~` right-hand side whitespace handling.
 	wc, err := ParseWhere([]string{"status~ act%"}, MetaConfig{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -59,7 +59,6 @@ func runDelete(args []string) error {
 		return fmt.Errorf("--file is required")
 	}
 
-	// Expand directory arguments to individual files.
 	var hasDirArg bool
 	var expanded []string
 	for _, f := range files {
@@ -89,7 +88,6 @@ func runDelete(args []string) error {
 		return err
 	}
 
-	// Clean up after --rm with directory mode.
 	if *rm && hasDirArg {
 		// Remove any remaining unregistered files on disk (D5: disk-based deletion).
 		for _, f := range files {
@@ -120,7 +118,6 @@ func runDelete(args []string) error {
 			})
 		}
 
-		// Collect all deleted/phantomed files for directory cleanup.
 		var allPaths []string
 		allPaths = append(allPaths, result.Deleted...)
 		allPaths = append(allPaths, result.Phantomed...)

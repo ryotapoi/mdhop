@@ -70,7 +70,6 @@ func TestRepairBasic(t *testing.T) {
 func TestRepairDryRun(t *testing.T) {
 	vault := copyVault(t, "vault_repair")
 
-	// Read original content.
 	origA, err := os.ReadFile(filepath.Join(vault, "A.md"))
 	if err != nil {
 		t.Fatalf("read A.md: %v", err)
@@ -251,7 +250,6 @@ func TestRepairBasenameLinksUntouched(t *testing.T) {
 		}
 	}
 
-	// Verify D.md unchanged.
 	content, err := os.ReadFile(filepath.Join(vault, "D.md"))
 	if err != nil {
 		t.Fatalf("read D.md: %v", err)

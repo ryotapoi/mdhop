@@ -359,7 +359,6 @@ func TestConvertDryRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Read original content.
 	orig, err := os.ReadFile(filepath.Join(tmp, "Note.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -577,7 +576,6 @@ func TestConvertFileScopeBuildExcluded(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create mdhop.yaml that excludes Note.md.
 	err := os.WriteFile(filepath.Join(tmp, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - Note.md\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -659,7 +657,6 @@ func TestConvertBuildExclude(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create mdhop.yaml that excludes Note.md.
 	err := os.WriteFile(filepath.Join(tmp, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - Note.md\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -686,7 +683,6 @@ func TestConvertDottedBasename(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Convert wikilinks to markdown.
 	result, err := Convert(tmp, ConvertOptions{
 		ToFormat: "markdown",
 		DryRun:   true,
@@ -782,7 +778,6 @@ func TestConvertEmbedPreserved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Convert wikilink embeds to markdown.
 	_, err := Convert(tmp, ConvertOptions{
 		ToFormat: "markdown",
 		DryRun:   false,

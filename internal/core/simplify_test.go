@@ -83,7 +83,6 @@ func TestSimplifySkippedAmbiguous(t *testing.T) {
 		t.Error("expected [[dir1/M]] in skipped list")
 	}
 
-	// Ensure it's not in rewritten.
 	for _, r := range result.Rewritten {
 		if r.OldLink == "[[dir1/M]]" {
 			t.Error("[[dir1/M]] should not be rewritten")
@@ -148,7 +147,6 @@ func TestSimplifyDryRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Read original content.
 	origA, _ := os.ReadFile(filepath.Join(tmp, "A.md"))
 	origD, _ := os.ReadFile(filepath.Join(tmp, "deep/D.md"))
 

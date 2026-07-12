@@ -29,7 +29,6 @@ func TestAddNote_Basic(t *testing.T) {
 		t.Errorf("pathSet[sub/note] = %q, ok=%v; want sub/Note.md", got, ok)
 	}
 
-	// basenameCounts should be 1
 	if got := rm.basenameCounts["note"]; got != 1 {
 		t.Errorf("basenameCounts[note] = %d; want 1", got)
 	}
