@@ -9,6 +9,7 @@
   - 自分で確認できる UI / 操作 / Preview / 実行環境の挙動は先に確認する。
   - 複雑な GUI、見た目の好み、実機依存、ユーザー観察が必要な挙動は、完了判断に必須ならユーザー確認に回す。必須でなければ残存リスクまたは Goal 完了報告のユーザー判断候補に残す。
   - 検証不能な High-risk 変更は完了扱いにしない。
+  - Goal の Normal 以上では、Gatekeeper が Implementer の自己報告を証拠にせず、必要な test を再実行して command / exit code / duration を受け入れ証拠にする。
 - **Acceptance**:
   - 実行した検証と結果を説明できる。
   - 追加・更新した unit test / regression test、または追加しなかった理由を説明できる。

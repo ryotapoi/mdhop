@@ -26,7 +26,7 @@
   - CLI 挙動は `go build -o bin/mdhop ./cmd/mdhop` 後に `bin/mdhop <args>` を実行し、stdout / stderr / 終了コード / DB 副作用を確認する。
   <!-- /slot -->
 - 複数ファイル横断や広域 grep は Explore subagent に委譲する。ファイル 1〜2 個で済むなら main で Read する
-- 事実集めは execution mode に関わらず Change の完了責任者（Implementer、`delegate` では Orchestrator）の責務とする（広域調査は Explore subagent 等へ任せてよい）。ただし `delegate` の Orchestrator が自分で行うのは、Change slicing・scope・Acceptance を決めるための最小限の事実確認までとし、実装に必要な調査・全列挙・実装計画は委譲プロンプト経由で実装エージェントに委ねる。委譲前調査は行わない（`change/delegate.md` 参照）
+- 事実集めは execution mode に関わらず Implementer の責務とする（広域調査は Explore subagent 等へ任せてよい）。`delegate` では Implementer subagent が委譲プロンプト経由で実装エージェントに調査・全列挙・実装計画を委ねる（委譲前調査は Implementer subagent 自身では行わない。`change/delegate.md` 参照）。Conductor が Goal 側で自分で行うのは、Change slicing・scope・Acceptance を決めるための最小限の事実確認までに限る
 - 自力で取れる証拠や代替確認で確定できない UI / 挙動は、完了判断に必須なら Stop Conditions として報告し、必須でなければ残存リスクまたは Goal 完了報告のユーザー判断候補に残す
 - 調査結果が将来も効くなら、特定ソースに紐づく罠はそのコードのコメントへ、横断的な挙動・設計理解は `llm-wiki/` の該当地図へ残す。要求や粒度が変わるなら `backlog/backlog.md` に記録する
 - 調査用の一時コードは、残す理由がなければ最終成果に含めない

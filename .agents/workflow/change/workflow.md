@@ -7,6 +7,7 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 
 - **Intent**: 単発依頼、または Goal 内で切り出された 1 commit 分の作業を、必要十分な調査・計画・実装・検証・記録で完了させる。
 - **Constraints**:
+  - Goal 経由では Conductor → Implementer → Gatekeeper → Conductor と担当する。Implementer は plan・実装・検証だけ、Gatekeeper は full diff・brief / plan・test 再実行・review lane・acceptance だけ、Conductor は機械照合と commit だけを担う。
   - workflow は 1 つの commit 単位で回す。1 commit に独立した複数作業を混ぜない。Goal が複数 commit 単位を含む場合は、`goal-workflow` skill に戻って 1 commit に収まる単位へ切り直す。
   - 手続きの重さは作業の大きさとリスクに合わせる。
   - 判断に影響する `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）は推測で済ませず実物を確認する。
@@ -44,10 +45,10 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 - 実行中に 1 commit として不自然だと分かった場合 → 作業を広げず、Goal 実行中は `goal-workflow` skill に戻って commit 単位を切り直す。単発 Change では今回扱う単位を切り直す。
 - Plan が必要な変更 → `change/plan.md` で実装前の ICAR を揃える。
 - Plan 省略可な変更 → `change/implement.md` へ進み、局所 ICAR を満たす。
-- 実装 → `change/implement.md`
-- 検証 → `change/verify.md`
-- レビュー → `change/review.md`
-- 完了 → `change/finish.md`
+- 実装 → `change/implement.md`（Goal では Implementer）
+- 検証 → `change/verify.md`（Implementer 後に Gatekeeper が再実行）
+- レビュー → `change/review.md`（Normal 以上は Gatekeeper が差配・採否。Small は Conductor の限定 self-check）
+- 完了 → `change/finish.md`（Goal の commit は Conductor）
 - 節目で構造を見る → `maintenance.md`
 
 ## Source Resolution
@@ -56,7 +57,7 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 
 ## Execution Notes
 
-互いに独立した read-only 調査・レビューは並列化してよい。同一 worktree の実装 writer は 1 つに限る。領域固有の判断は各 phase の workflow に従って skill を使う。
+互いに独立した read-only 調査・レビューは並列化してよいが、tree-wide active subagent は 3 以下。同一 worktree の実装 writer は 1 つに限る。fresh worker は `spawn_agent` の `fork_turns: "none"`、探索は `scout`、running agent への連絡は `send_message`、completed / idle の再開は `followup_task` を使う。領域固有の判断は各 phase の workflow に従って skill を使う。
 
 既存 worktree 差分向けの特別な snapshot / staging / clean check フローは作らない。通常の差分確認と commit discipline で巻き込みを防ぐ。
 

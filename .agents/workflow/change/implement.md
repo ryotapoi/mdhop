@@ -4,6 +4,7 @@
 
 - **Intent**: 承認済み plan、または plan を省略できる軽微な変更の明確な要求を、既存設計と情報源に整合する形で実装する。
 - **Constraints**:
+  - Goal の Implementer は commit、review lane、受け入れ判定を行わない。Gatekeeper の return は Conductor 経由で受け、同じ Change 内で修正・再検証する。
   - plan を省略する場合でも、workflow は 1 commit に収まる軽微な変更だけにする。
   - 実装中に 1 commit として不自然だと分かったら、作業を広げず `change/plan.md` に戻るか、今回扱う 1 commit 単位へ切り直す。Goal 実行中は `goal-workflow` skill に戻って Goal 側で切り直す。
   - 既存の局所パターンに従う。変える場合は理由を説明できるようにする。

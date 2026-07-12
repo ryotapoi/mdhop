@@ -2,12 +2,12 @@
 
 ## Intent
 
-変更が要求・仕様・既存設計を壊していないことを、作業リスクに応じた深さで確認する。実装後レビューを標準とする。execution mode `delegate` では、このファイルで Claude 側の Implementer が担うとされる責務（採否判断・統合・完了責任）は Orchestrator が担う（`change/delegate.md`）。
+変更が要求・仕様・既存設計を壊していないことを、作業リスクに応じた深さで確認する。実装後レビューを標準とする。Goal 経由の Normal 以上の Change では、このファイルの review 差配・最終採否・完了責任は Gatekeeper（Change ごとの fresh subagent、実装文脈を引き継がない）が担う。Gatekeeper の照合は、Conductor が Implementer 起動時に確定して Gatekeeper にも不変入力として渡す Change brief（scope・Acceptance・非対象・設計制約）・plan との照合とする（要求文そのものへの再解釈ではなく、確定済み brief を基準にする）。Small は Conductor が直接照合する（Gatekeeper 省略）。execution mode（`solo` / `delegate`）は Implementer 内部の実装手段の違いに過ぎず、この phase の主体には影響しない。Goal を経由しない単発 Change では Gatekeeper / Conductor という役割分担自体が存在しないため、実行中の agent がこのファイルの主体（review 差配・最終採否）を兼ねる。
 
 ## Review Depth
 
-- **L0 self-check**: Small 変更（`change/workflow.md` の Intake 分類）。Implementer で `git diff` を読み、要求と検証結果を照合する。skill は呼ばない。
-- **Standard**: Small 以外の実装差分。`/code-review`（`high` / `xhigh`）は観点取得に使い、実レビューは standard-review-coordinator が起動する finder subagent に隔離する（How To Run の Review Lane Delegation 参照）。coordinator が返した採用候補を Implementer が採否判断し、採用分の修正は execution mode に従う（`solo` は Implementer が直接修正、`delegate` は `change/delegate.md` の実装エージェントへ再委譲。実装対象がない修正はどの mode でも直接編集してよい）。
+- **L0 self-check**: Small 変更（`change/workflow.md` の Intake 分類）。Conductor が `git diff` を読み、要求と検証結果を照合する。skill は呼ばない。
+- **Standard**: Small 以外の実装差分。`/code-review`（`high` / `xhigh`）は観点取得に使い、実レビューは standard-review-coordinator が起動する finder subagent に隔離する（How To Run の Review Lane Delegation 参照）。coordinator が返した採用候補を Gatekeeper が採否判断し、採用分の修正は execution mode に従って Implementer 側へ差し戻す（`solo` は Implementer が直接修正、`delegate` は Implementer subagent が実装エージェントへ再委譲。実装対象がない修正であっても Gatekeeper は直接編集せず Implementer へ差し戻す）。差し戻しは Conductor 経由で同一 Implementer を再開させる（上限 2 往復。上限超過時の扱いは `goal.md` の Gatekeeper 節を参照）。
 - **Targeted supplement**: 領域固有リスクがある変更。Standard に加えて該当観点の skill を使う。
 - **External supplement**: 大きい、曖昧、High-risk、または設計判断が重い変更。Standard に加えて必要な補助レビュー skill を入れる。
 
@@ -16,8 +16,8 @@
 - L0 で十分なケース: typo、docs、テスト追加だけ、1 ファイルの明確なバグ修正。
 - **Small 以外の実装差分は原則 `/code-review`（`high` / `xhigh`）の観点を通す**（Standard、How To Run の Review Lane Delegation 参照）。避ける余地を減らす。effort は差分の性質で使い分ける（基本 `xhigh`、docs 中心など小差分は `high`）。`/code-review` は観点取得に使い、Phase 0 の差分指定はそのまま使わず現在のレビュー対象の差分に置き換える。実レビューは standard-review-coordinator が観点ごとに起動する finder subagent に隔離する。`ultra` はクラウド・billed・ユーザー手動起動なので自動進行では使わない。
 - 構造劣化リスク（巨大化、分岐増加、責務境界の濁り、薄い抽象化、型境界の曖昧さ、canonical layer 逸脱）があれば `thermo-nuclear-code-quality-review` を**必須**で使う。
-- review 開始前に、commit に含める code / tests / `backlog/backlog.md` / `docs/specs/` / `llm-wiki/` / `docs/decisions/` / ADR の内容変更が完了していることを確認する。未完了なら review せず `change/implement.md` に戻る。
-- product decision（UX・データ意味・cross-surface 等。カテゴリ一覧は同ファイル）を含む差分は、`.claude/workflow/design-decision-record.md` の基準で現在の要求 / backlog / docs / decisions または Product Decision Ledger から採用案・別案・理由を追えることを確認する。追えない場合、または指摘対応で新しい product decision が発生した場合は `change/implement.md` に戻る。
+- review 開始前に、commit に含める code / tests / `backlog/backlog.md` / `docs/specs/` / `llm-wiki/` / `docs/decisions/` / ADR の内容変更が完了していることを確認する。未完了なら review せず、Gatekeeper は Conductor 経由で Implementer に差し戻す（`change/implement.md` の続き）。
+- product decision（UX・データ意味・cross-surface 等。カテゴリ一覧は同ファイル）を含む差分は、`.claude/workflow/design-decision-record.md` の基準で現在の要求 / backlog / docs / decisions または Product Decision Ledger から採用案・別案・理由を追えることを確認する。追えない場合、または指摘対応で新しい product decision が発生した場合は、Gatekeeper は Conductor 経由で Implementer に差し戻す。
 - 領域固有 supplement の対象:
   - プロジェクト固有制約に触れる差分 → `project-risk-check`（何が固有制約かは skill 側が判定する）
   <!-- slot: project-risk-check 以外の領域固有レビューのマッピングがあれば追記する（例: 「UI 層 → 対応する specialist skill」）。 -->
@@ -30,16 +30,16 @@
 
 ## How To Run
 
-- L0: Implementer で `git diff` を読み、acceptance と照合する。
-- Standard: 下の Review Lane Delegation に従い、standard-review-coordinator を起動する。coordinator は `/code-review` で観点を取得し、その観点で finder subagent を起動して結果を統合する。
+- L0: Conductor が `git diff` を読み、acceptance と照合する（Small のみ）。
+- Standard: 下の Review Lane Delegation に従い、Gatekeeper が standard-review-coordinator を起動する。coordinator は `/code-review` で観点を取得し、その観点で finder subagent を起動して結果を統合する。
 - Targeted supplement: 必要な領域ごとに別 lane coordinator を起動する。`project-risk-check` が必要なら project-risk-review-coordinator を起動し、skill に従って 2〜5 個の観点 subagent を起動・統合させる。
 - External supplement: `thermo-nuclear-code-quality-review` が必要なら structural-review-coordinator を起動し、構造品質レビュー結果を整理させる。ほかに補助レビュー skill が必要なら lane を分けてよい。
 - 必要な lane coordinator は 1 メッセージで並列起動してよい。
-- 戻りを全部受け取ってから Implementer で統合し、採用分をまとめて反映する。実行中に 1 件ずつ反映しない。
+- 戻りを全部受け取ってから Gatekeeper で統合し、採用分をまとめて反映する。実行中に 1 件ずつ反映しない。
 
 ### Review Lane Delegation
 
-review lane はレビュー実行と候補整理だけを担当する。Implementer の context を汚さず、最終採否・修正の差配・検証・コミットは Implementer に残す。
+review lane はレビュー実行と候補整理だけを担当する。Gatekeeper の context を汚さず、最終採否・修正の差配は Gatekeeper に残る（検証・コミットは Gatekeeper の責務ではなく、修正は Implementer へ差し戻し、コミットは Conductor が行う）。
 
 lane coordinator と finder subagent の起動は、結果を起動呼び出しの戻り値で受け取る同期実行を基本とする。background になった subagent の完了通知は待たず、返らなければ `SendMessage` で能動的に回収する（`change/workflow.md` の Subagent / Skill 参照）。
 
@@ -49,26 +49,27 @@ lane coordinator と finder subagent の起動は、結果を起動呼び出し�
 
 - `/code-review`（`high` / `xhigh`）で観点を取得する。Phase 0 が出す差分指定（`@{upstream}...HEAD` / `main...HEAD` / `HEAD~1`）はそのまま使わず、現在のレビュー対象の差分に置き換える。
 - standard-review-coordinator は `Agent` ツールで取得した観点ごとに finder subagent を起動する。`model` を必ず明示する（基本 `sonnet`、判断の重い観点のみ `opus`）。複数観点は 1 メッセージで並列起動してよい。各 subagent には対象差分（diff ファイルのパスまたは range）、担当観点、実装意図の文脈を渡す。実装意図の文脈は、execution mode `solo` で `tmp/solo-plan-<change>.md` があればそのパスを渡し、なければ直前の実装意図メモ（3 行以内、あれば）でよい。plan file は文脈提供であり、plan vs diff の照合は依頼しない。
+- `/code-review` の観点に加えて、全列挙観点の finder を常設で 1 体起動する。担当: diff が追加・変更した型・フィールド・enum ケースごとに、リポジトリ横断で全構築・全 read/write・全変換サイトを file:line で列挙し、1 箇所ずつ変更の反映を確認する。同じ意味論の変換関数が別経路に同型で存在しないかを、既存の兄弟フィールド・兄弟関数の消費サイトからの逆引きで探すことまで含める（欠落型欠陥＝diff 外の反映漏れは diff 実読と通常観点では検出できないことが実測されているため、この観点だけ列挙を義務化する）。
 - 各 subagent は修正せず、採用候補リスト（file:line / 問題 / failure scenario / 推奨対応一行）と却下リスト（指摘と却下理由）を返す。
-- standard-review-coordinator は全戻りを統合し、採用候補 / 却下候補を Implementer に返す。修正はしない。
+- standard-review-coordinator は全戻りを統合し、採用候補 / 却下候補を Gatekeeper に返す。修正はしない。
 - このレビューでの effort は Standard では `xhigh` を基本とし、docs 中心など小さい差分では `high` を選んでよい。
 
 #### project-risk-review-coordinator
 
 - `project-risk-check` を Read し、対象差分に必要な観点クラスタを 2〜5 個に分ける。
 - 観点クラスタごとに subagent を起動し、プロジェクト固有リスクの事実を集める。
-- 戻りを dedup し、重要度を付けて Implementer に返す。修正はしない。
+- 戻りを dedup し、重要度を付けて Gatekeeper に返す。修正はしない。
 
 #### structural-review-coordinator
 
 - `thermo-nuclear-code-quality-review` を Read し、対象差分に適用する。
-- 構造劣化リスクを finding 形式で整理して Implementer に返す。修正はしない。
+- 構造劣化リスクを finding 形式で整理して Gatekeeper に返す。修正はしない。
 
-Implementer が全 lane の戻りを統合して最終採否を行い、採用分の修正は execution mode に従って反映する（`solo` は直接修正、`delegate` は `change/delegate.md` の実装エージェントへ再委譲。実装対象がない修正はどの mode でも直接編集可）。検証・コミットは Change の完了責任者（Implementer、`delegate` では Orchestrator）が行う。再レビューは、差分の大きさ、risk、MUST 指摘の内容、新しい設計判断の有無から必要な lane だけをもう一周起動する。
+Gatekeeper が全 lane の戻りを統合して最終採否を行う。採用分の修正は execution mode に従って Implementer へ差し戻す（`solo` は Implementer が直接修正、`delegate` は Implementer subagent が実装エージェントへ再委譲）。実装対象がない修正であっても Gatekeeper は直接編集しない。自分の修正を自分で受け入れると採否の独立性が崩れ、`goal.md` の diff hash 照合の前提も壊れるため、すべて Conductor 経由で Implementer に差し戻す（複数の指摘は 1 回の差し戻しにまとめる）。差し戻しは Conductor 経由で同一 Implementer を `SendMessage` で再開させる（上限 2 往復。上限に達しても未解決の MUST が残る場合は commit せず停止してユーザーに確認する。残りが SHOULD 以下のみの場合に限り、Gatekeeper が残リスク受容を明示して accept したときだけ commit に進める）。検証は Implementer が再実行し、コミットは Conductor が行う。再レビューは、差分の大きさ、risk、MUST 指摘の内容、新しい設計判断の有無から必要な lane だけをもう一周起動する。
 
-Goal 全体の commit range では、ここでの Self Review / `/code-review` を再実行しない。Goal range は `goal.md` に従い、実行直前に固定した `<review_cursor>..<review_end>` への Goal Review（`goal.md` の reviewer 規定に従う fresh reviewer）だけを行う。
+Goal 全体の commit range では、ここでの Change Review / `/code-review` を再実行しない。Goal range は `goal.md` に従い、実行直前に固定した `<review_cursor>..<review_end>` への Goal Review（`goal.md` の reviewer 規定に従う fresh reviewer）だけを行う。
 
-Goal 経由の Change Review は局所的な correctness / spec / tests を担当し、commit 間の統合、Goal Acceptance、構築・read / write site の貫通、docs / backlog 整合は Goal Review が担当する。Goal を経由しない単発 Change では、Change Review がこれらの貫通・整合も担当する。
+Goal 経由の Change Review（Gatekeeper が担当）は局所的な correctness / spec / tests を担当し、commit 間の統合、Goal Acceptance、構築・read / write site の貫通、docs / backlog 整合は Goal Review が担当する。Goal を経由しない単発 Change では、Change Review がこれらの貫通・整合も担当する。
 
 ## Acceptance
 

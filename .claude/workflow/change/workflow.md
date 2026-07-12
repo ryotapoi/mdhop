@@ -24,19 +24,21 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 
 ## Routing
 
+三役の分担は Goal 経由でのみ成立する。Goal 経由では Implementer → Gatekeeper（Normal 以上）→ Conductor の順に担当し、commit は常に Conductor が行う。Goal を経由しない単発 Change では Gatekeeper / Conductor という役割分担自体が存在しないため、現在の agent が実装・review 差配・採否・commit のすべてを担う。以下の Routing 各項目は、断りがない限り Goal 経由の担当を示す。
+
 - Exploratory → `change/investigate.md` で事実を揃えてから判断し直す
-- 実装 → execution mode で決める。既定 `solo` = Implementer が計画と実装を一体で行う。`delegate` = Implementer は外部実装エージェントで、Orchestrator が直接委譲する（`change/delegate.md`。この場合、下記の各 phase の Claude 側 Implementer の責務は Orchestrator が担う）。Change 全体の進行は mode によらず下記の各 phase をそのまま使う
+- 実装 → execution mode で決める。既定 `solo` = Implementer 自身が計画と実装を一体で行う。`delegate` = Implementer が `codex exec` の起動・委譲プロンプト作成・escalation 応答・diff 一次確認の往復を subagent 内で行う（`change/delegate.md`）。execution mode は Implementer 内部の実装手段だけを決め、下記の各 phase・Gatekeeper・Conductor・commit の進行は mode によらず共通
 - Plan が必要な変更 → `change/plan.md`（plan mode は使わず、内部で計画を立ててそのまま `change/implement.md` へ進む。詳細は `change/plan.md`）
 - Plan 省略可な変更 → そのまま `change/implement.md`
 - 検証 → `change/verify.md`
-- レビュー → `change/review.md`
-- 完了 → `change/finish.md`
+- レビュー → `change/review.md`（Normal 以上は Gatekeeper が起動する。Small は Conductor が diff を直接実読して照合する。単発 Change では現在の agent が直接照合する）
+- 完了 → `change/finish.md`（commit は Conductor が行う。単発 Change では現在の agent が行う）
 - 節目で構造を見る → `maintenance.md`
 
 ## Decision Criteria
 
 - workflow は 1 つの commit 単位で回す。1 commit に独立した複数作業を混ぜない。
-- 実行中に 1 commit として不自然だと分かったら、作業を広げず、Goal 実行中は Orchestrator に事実を返して commit 単位を切り直す。単発 Change では今回扱う単位を切り直す。
+- 実行中に 1 commit として不自然だと分かったら、作業を広げず、Goal 実行中は Conductor に事実を返して commit 単位を切り直す。単発 Change では今回扱う単位を切り直す。
 - Small は plan を省略してよい。作業内容と検証だけ簡潔に示す。
 - 仕様・UX・データモデル・複数ファイル変更・設計判断を伴うなら plan を作る。
 - High-risk は plan・検証・必要なレビューを明示する。
@@ -53,11 +55,11 @@ Product Decision Ledger は新しい正本ではない。Goal、長い Change、
 
 ## Phase Handoff
 
-固定テンプレートは要求しないが、phase を移る時は次に必要な事実を欠落させない。
+固定テンプレートは要求しないが、phase を移る時は次に必要な事実を欠落させない。Goal 経由では Implementer → Gatekeeper（Normal 以上）→ Conductor の順に引き継ぐ（Small は Implementer → Conductor）。
 
-- 扱った scope と result
-- commit SHA、または未 commit / stop の理由
-- 検証コマンド・結果と review status
+- 扱った scope と result（Implementer が起点）
+- 検証コマンド・結果、review status（Implementer が実行し、Gatekeeper が裏取り・統合）
+- commit SHA、または未 commit / stop の理由（commit は Conductor が確定する）
 - docs / backlog 同期、Product Decision Ledger、follow-up、残存リスクの有無
 
 ## Acceptance

@@ -33,6 +33,16 @@
 
 Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追加だけ、1 ファイルの明確なバグ修正 — は plan を省略してよい。
 
+## Plan Artifact
+
+Goal 経由で plan を作る Change では、Implementer は実装を始める前に、実装前判断と plan を `tmp/implementer-plan-<change>.md` へ保存する。`<change>` は Conductor が Change brief とともに渡す、その Goal 内で一意な識別子とする。
+
+- 内容は変更意図、対象・非対象、触るファイル、設計判断、検証方針、review 深度と追加観点とする。
+- 実装後の結果に合わせて書き直さず、「実装前の意図」の記録として保持する。実装中に生じた逸脱・追加判断は Implementer の handoff で別に明示する。
+- Implementer は handoff で artifact の正確な path を Conductor に返す。Conductor は Gatekeeper 起動時に Change brief と同じ不変入力としてその path を渡し、Gatekeeper は brief / plan 照合に使う。
+- Gatekeeper は review lane を起動する際、finder が要求・設計意図・検証方針との照合に必要な場合に同じ artifact path を渡す。Goal Review には渡さない。
+- plan を省略した Small では artifact も不要とし、Gatekeeper へ切り替えた場合は Change brief と実差分・検証結果を照合元にする。
+
 ## Flow ICAR
 
 ### UX Scenario

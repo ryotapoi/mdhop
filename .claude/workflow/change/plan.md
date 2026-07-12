@@ -24,7 +24,9 @@ execution mode `solo`（Implementer が計画と実装を一体で行う）で�
 
 - 内容は変更意図・触るファイル・設計判断・検証方針。仕様の記述が薄いタスクほど、このファイルが実装意図の記録の主役になる。
 - 実装後に書き直さない。「実装前の意図」の記録として、review lane への文脈提供（`change/review.md` の Review Lane Delegation）と後続 Change の参照に使うため。Goal Review には渡さない（Goal Review は commit range だけを対象にする）。
+- Gatekeeper は実装文脈を引き継がない fresh subagent のため、diff だけでは意図が読み取りにくい変更では、このファイルが Gatekeeper への文脈提供にもなる（review lane への文脈提供と同じ経路）。
 - plan を省略した Small では書き出しも不要（review 側も L0 self-check のみ）。
+- execution mode `delegate` では plan file がなく、代わりに Implementer subagent が実装エージェントへ要求した実装前判断（全サイト列挙・責務配置・テスト方針）を `tmp/delegate-plan-<change>.md` に一時 artifact として保存し、Gatekeeper の照合元にする（`change/delegate.md` の委譲後節参照）。
 
 ## Inputs
 

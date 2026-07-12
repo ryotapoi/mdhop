@@ -2,6 +2,8 @@
 
 この workflow はこのプロジェクトの Goal 手順の正本。実装作業の発火入口は `goal-workflow` skill とし、`goal-workflow` skill はこのファイルを読んで進める。
 
+> 役割名の改名について: この canon は役割を 2 層（Orchestrator/Implementer）から 3 層（Conductor/Implementer/Gatekeeper）に変更した。旧 Orchestrator は Conductor に改名し、責務も「受け入れ判定」から「進行管理・機械照合・commit 実行」に変わっている（diff の実読と受け入れ判定は新設の Gatekeeper が担う）。canon 外（skills、agent 定義等）に Orchestrator 表記が残っている場合は、意味上は Conductor または Gatekeeper のどちらかに読み替える。
+
 ## Intent
 
 `/goal` で指定された目的を、複数の 1 commit workflow に分割して完了まで進める。
@@ -10,10 +12,13 @@
 
 - 実装作業は `goal-workflow` skill を入口にし、この workflow を正本として読む。
 - `/goal` の呼び出し文は、原則として skill への参照と完了対象だけでよい。例: `/goal goal-workflow skill に従い、backlog/backlog.md の「v0.x」を完了して。`
-- 役割は 2 層で固定する: **Orchestrator**（この workflow を進める main セッション。進行管理・commit slicing・検品・レビュー・最終報告を担い、実装は書かない）と **Implementer**（実装担当）。
-- `/goal` の呼び出し文で execution mode を指定できる。execution mode は Implementer が誰かを決める。既定は `solo`（Implementer は Claude subagent。計画と実装を一体で行う。実装前の plan 書き出しは `change/plan.md` に従う）。`delegate` は Implementer を外部実装エージェント（Codex CLI）とし、Orchestrator が Change 単位で直接委譲する（`change/delegate.md`）。execution mode はこの 2 つだけ。使い分けの目安: 重要部分（High-risk 相当が中心の Goal）は `solo`、それ以外で Claude 側の使用量を抑えたい Goal は `delegate`。mode は原則 Goal 全体で固定する。例外として、`delegate` 中に個別 Change の Intake が High-risk になった場合は `change/delegate.md` に従いその Change だけ `solo` に切り替えてよい。委譲が実行不能な場合の扱いは `change/delegate.md` の Stop Conditions に従う。
+- 役割は 3 層で固定する:
+  - **Conductor**（この workflow を進める main セッション。commit slicing・次 Change 選定・Change brief 確定・subagent 起動・機械照合・commit 実行・Goal Review 手配・停止判断・最終報告を担う。実装は書かず、per-commit の詳細（diff 本文、テストログ、review 往復）も読まない。受け取るのは Implementer / Gatekeeper からの構造化要約だけで、実物の diff を読むのは報告に食い違い・疑義がある例外時に限る。Small での直接 diff 照合は、この不変条件の明示的な例外である。詳細は Gatekeeper 節参照）。
+  - **Implementer**（Change ごとに fresh subagent。計画・実装・検証を担う。commit はしない。review lane は回さない）。
+  - **Gatekeeper**（Change ごとに fresh subagent、実装文脈を引き継がない。diff 全量の実読、Change brief・plan との照合、テスト再実行による裏取り、review lane の起動・統合、指摘の採否、受け入れ判定を担う。Implementer の報告は入力にせず、diff・テストという実物を直接見る。Gatekeeper の詳細は Gatekeeper 節を参照）。
+- `/goal` の呼び出し文で execution mode を指定できる。execution mode は Implementer の実装手段だけを決め、Gatekeeper・Conductor・commit・Goal Review は両 mode で完全共通。既定は `solo`（Implementer は Claude subagent。計画と実装を一体で行う。実装前の plan 書き出しは `change/plan.md` に従う）。`delegate` は Implementer が `codex exec` の起動・委譲プロンプト作成・escalation 応答・証拠要求・diff 一次確認の往復を subagent 内で行う（`change/delegate.md`）。execution mode はこの 2 つだけ。使い分けの目安: 重要部分（High-risk 相当が中心の Goal）は `solo`、それ以外で Claude 側の使用量を抑えたい Goal は `delegate`。mode は原則 Goal 全体で固定する。例外として、`delegate` 中に個別 Change の Intake が High-risk になった場合は `change/delegate.md` に従いその Change だけ `solo` に切り替えてよい。委譲が実行不能な場合の扱いは `change/delegate.md` の Stop Conditions に従う。
 - ブランチは切らず、いるブランチ（通常 main）上にそのまま 1 commit ずつ積む。Goal 開始時の `HEAD` を base SHA として記録する（Goal Review の range 起点）。
-- 1 回の実装 workflow は 1 commit 単位に限る。Orchestrator は実装を直接担当せず、Goal が 1 commit だけで完了する場合も、次の 1 Change を選んで fresh subagent を Implementer として 1 つずつ直列起動する。例外は `delegate` で、Claude 側の Implementer を起動せず Orchestrator が Change 単位で `change/delegate.md` に従い直接委譲する（この場合も実装そのものは外部エージェントが行い、Orchestrator は実装を書かない）。
+- 1 回の実装 workflow は 1 commit 単位に限る。Conductor は実装を直接担当せず、Goal が 1 commit だけで完了する場合も、次の 1 Change を選んで fresh subagent を Implementer として 1 つずつ直列起動する。Implementer の完了後は Gatekeeper（Normal 以上）を起動し、通過したら Conductor が機械照合のうえ commit する。execution mode に関わらずこのフローは共通（`delegate` では Implementer 内部での委譲手段が変わるだけ）。
 - 各 commit は、Goal 全体の途中でも、その commit 単位では review / revert / bisect できる完了状態にする。
 - Goal 全体を 1 plan / 1 commit に押し込まない。次に扱う 1 commit 分を毎回明確に切り出す。
 - Goal 前提では都度のユーザー確認を避け、自動進行する。止まるのは Stop Conditions に該当する場合だけ。
@@ -22,7 +27,8 @@
 - 仕様・UX の不明点は `change/workflow.md` の判断境界に従う。Product Decision Ledger の対象・記録・報告基準は `.claude/workflow/design-decision-record.md` を正本とし、Goal 完了時は各 Change の ledger、review 結果、同期済み docs から `ユーザー判断が必要` の有無を集約する。
 - 進捗・完了の報告は、このセッションのツール結果で裏取りできる事実だけを書く。テストが失敗していれば出力ごと報告し、未検証の項目は未検証と明示する。
 - 後から制約になる判断、仕様変更、未着手作業は、画面出力だけで終わらせず `docs/rules/` / `docs/specs/` / `docs/decisions/` / `backlog/backlog.md` の適切な情報源へ同期する。
-- 各 commit 内の Self Review とは別に、Goal の commit range に対する Goal Review を Goal 完了条件に含める（Goal Review 参照）。reviewer は実装文脈を引き継がない fresh reviewer とする。fresh であることを必須とし、実装と同系統でも fresh なら reviewer になれる（reviewer の選定は Goal Review 参照）。Goal range に `/code-review` 観点ベースの Self Review を再実行しない。
+- 各 commit の Gatekeeper 判定とは別に、Goal の commit range に対する Goal Review を Goal 完了条件に含める（Goal Review 参照）。reviewer は実装文脈を引き継がない fresh reviewer とする。fresh であることを必須とし、実装と同系統でも fresh なら reviewer になれる（reviewer の選定は Goal Review 参照）。Goal range に `/code-review` 観点ベースの再レビューは再実行しない。
+- Goal Review が MUST を出した場合、その欠陥がどのすり抜けに当たるかを Final Report に記録する（すり抜け記録義務）。分類: review lane の見逃し / テスト設計・再実行の不足 / diff・plan 照合の見逃し / handoff・Acceptance の欠落 / Gatekeeper 通過後の差分変異 / Change 単体では検出不能な Goal 統合問題 / 判定不能。
 
 ## Acceptance
 
@@ -38,7 +44,8 @@
 
 - `goal-workflow` skill
 - `.claude/workflow/change/workflow.md`
-- `.claude/workflow/change/delegate.md`（`delegate` の直接委譲手順）
+- `.claude/workflow/change/delegate.md`（`delegate` での Implementer 内部の委譲手順）
+- `.claude/workflow/change/review.md`（Gatekeeper が起動する review lane）
 - `.claude/workflow/design-decision-record.md`
 - `design-decision` skill
 - `codex-fresh-review` skill（全 mode の Goal Review で使う）
@@ -49,11 +56,12 @@
 
 1. Goal の目的、制約、完了条件、execution mode（既定 `solo`）を確認し、ブランチは切らず開始時の `HEAD` を base SHA として記録する。
 2. Goal を 1 commit 単位の候補へ分割する（Commit Slicing 参照）。
-3. 次に扱う 1 commit 分を選び、fresh Implementer に渡す（`delegate` では `change/delegate.md` に従い Orchestrator が直接委譲する）。Goal が 1 commit だけの場合も同じ。
-4. commit 後、Goal の残りと Goal Review の実施タイミングを確認する。
-5. 残りがあれば次の 1 commit 分に戻る。
-6. 必要な Goal Review と対応が済んでいなければ実施する。実行直前の `HEAD` を `review_end` として固定し、PASS 相当なら `review_cursor` を `review_end` まで進めてよい（`base` は動かさない）。
-7. 完了または停止する時は、Goal 全体の結果、残リスク、ユーザー判断が必要な項目、レビュー上限超過の有無をまとめる。停止時は停止理由と解決すべきことが分かるようにする。
+3. 次に扱う 1 commit 分を選び、Change brief（scope・Acceptance・非対象・設計制約）を確定して fresh Implementer に渡す（Goal が 1 commit だけの場合も同じ）。execution mode は Implementer 内部の実装手段を決めるだけで、起動手順そのものは両 mode 共通。同じ Change brief は Gatekeeper 起動時にも不変入力として渡す（Implementer の報告経由で伝えない）。
+4. Implementer の完了後、Intake が Small なら Conductor が diff を直接実読して照合する（Gatekeeper 省略）。Normal 以上なら fresh Gatekeeper を起動し、diff 実読・テスト再実行・review lane・受け入れ判定を行わせる。差し戻しがあれば Conductor 経由で同一 Implementer を `SendMessage` で再開させる（上限 2 往復。上限超過時の扱いは差し戻し上限の節を参照）。
+5. Gatekeeper が通過（または Small で Conductor が直接照合）したら、Conductor が機械照合（Gatekeeper 報告の baseline HEAD SHA の実在確認、意図しない git 書き込みの有無、diff --stat の一致、commit 予定差分全体のハッシュの再計算・一致確認、テストの自己実行〈exit code のみ確認〉）を行う。テスト自己実行が worktree を変更し得るため、実行後に `git status` と diff hash を再照合してから commit する。
+6. commit 後、Goal の残りと Goal Review の実施タイミングを確認する。残りがあれば手順 3 に戻る。
+7. 必要な Goal Review と対応が済んでいなければ実施する。実行直前の `HEAD` を `review_end` として固定し、PASS 相当なら `review_cursor` を `review_end` まで進めてよい（`base` は動かさない）。Goal Review が MUST を出した場合は、すり抜け記録義務に従い該当欠陥がどの Gatekeeper 手続きをすり抜けたかを記録する。
+8. 完了または停止する時は、Goal 全体の結果、残リスク、ユーザー判断が必要な項目、レビュー上限超過の有無をまとめる。停止時は停止理由と解決すべきことが分かるようにする。
 
 ## Branch
 
@@ -72,39 +80,53 @@
 - 途中で 1 commit として不自然になったら、作業を広げず commit 単位を切り直す。
 - Goal に必要な残作業は、次の Change として続けるか、別タスクが適切なら `backlog/backlog.md` に残す。どちらの場合も漏らさない。
 
-## Implementer（solo）
+## Implementer
 
-- この節は execution mode `solo` に適用する。`delegate` では Claude 側の Implementer を起動せず、進行は `change/delegate.md` に従う。
+- execution mode（`solo` / `delegate`）は Implementer 内部の実装手段だけを決める。`solo` は Implementer 自身が計画・実装する。`delegate` は Implementer が `codex exec` の起動・委譲・escalation 応答・diff 一次確認を subagent 内で行う（`change/delegate.md`）。どちらも Implementer は commit せず、review lane も回さない。
 - Goal 経由の Change は、commit 数に関わらず、原則 fresh Implementer に渡す。
-- Orchestrator は実装を直接担当しない。Orchestrator の責務は、base / review_cursor 管理、commit slicing、次の Change 選定、Goal Review、最終報告に限る。
-- Orchestrator は次の 1 Change を選び、fresh subagent を Implementer として 1 つずつ直列起動する。同じ worktree で複数の Implementer を並行実行しない。Goal が 1 commit だけで完了する場合も Implementer を 1 つ起動する。
+- Conductor は実装を直接担当しない。Conductor の責務は、base / review_cursor 管理、commit slicing、次の Change 選定、subagent 起動、機械照合、commit 実行、Goal Review 手配、最終報告に限る。
+- Conductor は次の 1 Change を選び、Change brief（scope・Acceptance・非対象・設計制約）を確定した上で fresh subagent を Implementer として 1 つずつ直列起動する。同じ worktree で複数の Implementer を並行実行しない。Goal が 1 commit だけで完了する場合も Implementer を 1 つ起動する。
 - Implementer の起動も、結果を起動呼び出しの戻り値で受け取る同期実行を基本とする。background になった場合は完了通知を待たず、`SendMessage` で能動的に結果を回収する（`change/workflow.md` の Subagent / Skill 参照）。
-- Implementer のモデルは `sonnet` 固定とする。難度を理由に引き上げない。ユーザーが Implementer のモデルを明示指定した場合のみ、それを優先する。
+- Implementer のモデルは `sonnet` を既定とする。引き上げてよいのは、ユーザーが Implementer のモデルを明示指定した場合、または High-risk Change で Conductor が明示的に判断した場合（最終報告に理由を記録する）のみ。それ以外では難度を理由に引き上げない。
 - advisor が設定されている環境（Claude Code の `advisorModel` 等。subagent は設定を継承する）では、Implementer の起動プロンプトに advisor の相談条件を含める: 非自明な設計判断にコミットする前、同じエラー・失敗が繰り返す時、アプローチの変更を検討する時に advisor に相談する。自明な作業では呼ばない。
 - High-risk や設計判断の厚い Change は、advisor 相談を厚くして進める: 相談条件に加えて、実装方針の確定前と完了宣言前の相談を必須と明記する。advisor が使えない環境で High-risk Change に当たった場合は、モデルを引き上げて代替せず停止してユーザーに確認する（Stop Conditions 参照）。
 - Implementer は渡された Change だけを担当し、Goal 全体を再計画・再分割しない。
-- 通常は `change/workflow.md` に従い、調査から commit まで完了して戻る。
-- 1 commit として不自然だと分かった場合は、作業を広げず事実を Orchestrator に返す。Orchestrator が commit 単位を切り直す。
-- 戻りの表示形式は固定しないが、scope / result、commit SHA または stop 理由、検証コマンドと結果、review status、ledger / follow-up / 残存リスクの有無は必ず引き継ぐ。
+- 通常は `change/workflow.md` に従い、調査から実装・検証まで完了して戻る（commit と review lane の起動は含まない）。
+- 1 commit として不自然だと分かった場合は、作業を広げず事実を Conductor に返す。Conductor が commit 単位を切り直す。
+- 戻りの表示形式は固定しないが、次を必ず引き継ぐ: plan 参照、変更ファイル一覧、実行した検証コマンドと結果、逸脱・自己判断した点、commit message の草案。stop する場合は stop 理由。
 - Implementer がセッション上限などで中断した場合、fresh 再起動より先に同一 Implementer への追加入力（`SendMessage`）で再開を試みてよい。再開できれば中断時点の文脈のまま完了させる。subagent の完了通知待ちで停止した Implementer も同様に `SendMessage` で能動的に再開させる（完了通知は配信されない・大幅に遅延することがある）。
-- Implementer / subagent の報告どうしが食い違う場合、Orchestrator はどちらかを採用する前に実ソース・実測で裏取りしてから記録・報告する。
+- Implementer / Gatekeeper / subagent の報告どうしが食い違う場合、Conductor はどれかを採用する前に実ソース・実測で裏取りしてから記録・報告する。
 - 直接実行の例外は Goal 経由の作業には適用しない。Goal を経由しない単発 Change だけは、現在の agent が直接実行してよい。
 
-## Unresponsive Implementer
+## Gatekeeper
 
-- Implementer の結果が返らない・完了通知が来ない場合、Orchestrator はまず同一 Implementer へ `SendMessage` で status request を送り、現在 phase / 実行中の作業 / 残作業 / blocker の短い報告を求める。
-- status request にも応答がない場合は、Orchestrator が `git status --short`、`git diff --stat`、必要な `git diff`、`git log --oneline -n` で実状態を確認する。元 Implementer がまだ実行中の可能性がある場合は明示的に停止（`TaskStop`）し、終了を確認するまで別 writer を起動しない。
-- 元 Implementer の終了を確認でき、未コミット差分が今回の Change scope 内にあると判断できる場合は、その差分と同じ Change scope を 1 つの fresh recovery Implementer に渡し、review / verify / 必要修正 / commit を続行させる。Orchestrator は実状態の確認と引き継ぎに留め、実装を代行しない。元 Implementer の終了を確認できない場合は停止する。
+- Gatekeeper は Change ごとに起動する fresh subagent で、実装文脈を引き継がない。モデルは `sonnet` 固定とする（モデル階級を上げてレビュー検出力が上がった実測がないため。Implementer の High-risk 昇格とは非対称だが、意図的な非対称）。
+- 適用範囲: Normal 以上の全 Change に入れる（暫定。planted-defect 実験の結果次第で High-risk 限定へ縮退する可能性がある）。Small は省略し、Conductor が diff を直接実読して照合する（縮退）。この縮退は「Conductor は per-commit 詳細を読まない」不変条件の明示的な例外である。Small の diff は小さく、Conductor が読む複利負荷が無視できることを根拠にした限定的な例外に限る。読み始めて Small の想定を超える差分量・複雑さだと分かった場合は、その場で Gatekeeper 起動に切り替える（Small 判定のまま Conductor が読み続けない）。
+- 責務: diff 全量の実読、Change brief（scope・Acceptance・非対象・設計制約。Conductor が Implementer 起動時に確定し、Gatekeeper にも不変入力として渡す）・plan との照合、テストの再実行による裏取り、review lane（`change/review.md` の Standard / Targeted supplement / External supplement）の起動と統合、指摘の採否、受け入れ判定。
+- Implementer の報告は入力にしない。diff・テストという実物を直接見る。Implementer とは会話せず、差し戻しは Conductor 経由で行う（Conductor が同一 Implementer を `SendMessage` で再開させる）。
+- **差し戻し上限（2 往復）**: 上限に達しても未解決の MUST が残る場合は commit せず停止してユーザーに確認する（Stop Conditions）。残りが SHOULD 以下のみの場合に限り、Gatekeeper が残リスク受容を明示して accept したときだけ commit に進める。「残リスクを記録すれば自動的に commit に進める」運用はしない。
+- 実装対象がない修正（docs のみ、typo 級等）であっても Gatekeeper は直接編集しない。すべての修正は Conductor 経由で Implementer に差し戻す（複数の指摘は 1 回の差し戻しにまとめる）。自分の修正を自分で受け入れると採否の独立性が崩れ、下記の diff hash 照合の前提（Gatekeeper 通過後に diff が変異しないこと）も壊れるため。
+- 戻り値には実行証拠を必須とする: baseline HEAD SHA、`git status --porcelain` の対象状態、commit 予定差分全体のハッシュ（算出方法は `change/finish.md` の機械照合を参照）、実行したテストコマンド・exit code・所要時間（成功時はこれのみ。生の出力 tail は失敗時に限り返す）、読んだ diff の stat、起動した review lane の記録、判定（accept / 差し戻し）、採用した指摘と対応要求、後続 Change への影響事実、残リスク、Product Decision Ledger 候補。「確認済み」という宣言だけの報告は受理しない。
+- 存在理由は検出力の高さそのものではなく、(i) 指摘採否を実装文脈から独立させること、(ii) 裏取り手続き（テスト再実行・diff 実読）の構造的な実行点を作ること、(iii) per-commit の詳細を Conductor の複利コンテキストから隔離すること、の 3 点にある。中身のバグ検出の主役は従来どおり review lane の finder subagent と Goal Review であり、Gatekeeper 自身の役割は独立した実行点の確保にある。
+- Goal Review が MUST を出した場合、その欠陥がどの Gatekeeper 手続きをすり抜けたかを Final Report に記録する（すり抜け記録義務、分類は goal.md 冒頭の Constraints 参照）。
+
+## Unresponsive Subagent
+
+この節は Implementer と Gatekeeper の両方に適用する。
+
+- subagent（Implementer または Gatekeeper）の結果が返らない・完了通知が来ない場合、Conductor はまず同一 subagent へ `SendMessage` で status request を送り、現在 phase / 実行中の作業 / 残作業 / blocker の短い報告を求める。
+- status request にも応答がない場合は、Conductor が `git status --short`、`git diff --stat`、必要な `git diff`、`git log --oneline -n` で実状態を確認する。元 subagent がまだ実行中の可能性がある場合は明示的に停止（`TaskStop`）し、終了を確認するまで別 writer を起動しない。
+- 元 subagent の終了を確認でき、未コミット差分が今回の Change scope 内にあると判断できる場合は、その差分と同じ Change scope を 1 つの fresh recovery subagent（中断したのが Implementer なら recovery Implementer、Gatekeeper なら recovery Gatekeeper）に渡し、担当していた作業（Implementer なら実装・検証、Gatekeeper なら diff 実読・review lane・受け入れ判定）を続行させる。commit は引き続き Conductor が行う。Conductor は実状態の確認と引き継ぎに留め、実装や判定を代行しない。元 subagent の終了を確認できない場合は停止する。
 - 差分が scope 外、破壊的、または完了状態を判断できない場合は、差分を破棄せず停止してユーザー確認する。
-- この回収手順は例外処理であり、通常の Implementer に定期報告ファイルや常時 ledger を要求しない。
+- この回収手順は例外処理であり、通常の Implementer / Gatekeeper に定期報告ファイルや常時 ledger を要求しない。
 
 ## Goal Review
 
-各 commit 内の Self Review とは別に、Goal の commit range を対象に Goal Review を Goal 完了条件として実施する。ブランチは切らないので、レビュー range は commit range で表す。分割レビューの未レビュー対象は実行直前に固定する `<review_cursor>..<review_end>`、Goal 全体の差分は `<base>..HEAD`。Goal range に対して `/code-review` 観点ベースの Self Review は再実行しない。
+各 commit の Gatekeeper 判定とは別に、Goal の commit range を対象に Goal Review を Goal 完了条件として実施する。ブランチは切らないので、レビュー range は commit range で表す。分割レビューの未レビュー対象は実行直前に固定する `<review_cursor>..<review_end>`、Goal 全体の差分は `<base>..HEAD`。Goal range に対して `/code-review` 観点ベースの再レビューは再実行しない。
 
-Change Review は個々の commit の局所的な correctness / spec / tests を見る。Goal Review は commit 間の統合、Goal Acceptance、構築・read / write site の貫通、docs / backlog 整合を見る。
+Change Review（Gatekeeper が起動する review lane を含む）は個々の commit の局所的な correctness / spec / tests を見る。Goal Review は commit 間の統合、Goal Acceptance、構築・read / write site の貫通、docs / backlog 整合を見る。
 
-- **reviewer の選定（必須）**: reviewer は実装文脈を引き継がない fresh reviewer とする。fresh であることを必須とし、実装と同系統でも fresh なら reviewer になれる。Orchestrator 自身は Goal Review を行わない（自分が指示・監督した実装の盲点を引き継ぐため）。
+- **reviewer の選定（必須）**: reviewer は実装文脈を引き継がない fresh reviewer とする。fresh であることを必須とし、実装と同系統でも fresh なら reviewer になれる。Conductor 自身は Goal Review を行わない（自分が指示・監督した実装の盲点を引き継ぐため）。Gatekeeper も Goal Review の reviewer にはしない（個々の Change の受け入れ判定者であり、commit 間の統合を見る立場と分けるため）。
   - 全 execution mode 共通: `codex-fresh-review` skill（実装文脈を引き継がない fresh な Codex）に依頼し、その PASS 相当を Goal Review 通過とする。実装が Codex の mode（`delegate`）では reviewer が実装と同系統になるが、fresh な別インスタンスであれば可。
   - ユーザーが Goal 指定で明示した場合のみ、`claude-fresh-review` skill（fresh Claude subagent、セッション文脈非継承）を追加し、その場合は両方の PASS 相当を通過条件とする。既定では追加しない。
 - **レビュー依頼に含める観点（必須）**: レビュー依頼には「変更したフィールド・型・メッセージについて、全構築サイト・全 read / write サイトを列挙して貫通漏れがないか確認する」観点を含める（複数ある組み立て経路の一部だけ修正される欠陥クラスに直効するため）。
@@ -131,3 +153,4 @@ Change Review は個々の commit の局所的な correctness / spec / tests を
 - 必須の検証を代替手段でも裏付けられず、完了扱いにできない。
 - Goal Review を完全に実施できない。
 - advisor が使えない環境で High-risk や設計判断の厚い Change に当たった。
+- Implementer ↔ Gatekeeper の差し戻しが上限 2 往復に達しても、未解決の MUST が残っている。

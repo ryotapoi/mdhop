@@ -5,7 +5,7 @@
 - **Intent**: 承認済み plan、または plan を省略できる軽微な変更の明確な要求を、既存設計と情報源に整合する形で実装する。
 - **Constraints**:
   - plan を省略する場合でも、workflow は 1 commit に収まる軽微な変更だけにする。
-  - 実装中に 1 commit として不自然だと分かったら、作業を広げず `change/plan.md` に戻るか、今回扱う 1 commit 単位へ切り直す。Goal 実行中の Implementer は事実を Orchestrator に返し、Orchestrator が切り直す。
+  - 実装中に 1 commit として不自然だと分かったら、作業を広げず `change/plan.md` に戻るか、今回扱う 1 commit 単位へ切り直す。Goal 実行中の Implementer は事実を Conductor に返し、Conductor が切り直す。
   - 既存の局所パターンに従う。変える場合は理由を説明できるようにする。
   - 新しい型・ファイル・外部依存・責務配置・module/package/target/folder 境界を扱う場合は、実装前に `module-boundary` で配置判断を確認する。
   - 型定義・API・依存方向は実物で確認する。
@@ -30,7 +30,7 @@
 
 - **Intent**: 要求された振る舞いを最小十分な差分で実装する。
 - **Constraints**:
-  - Goal 経由の Change の Code Change は execution mode に従う。既定の `solo` では Implementer 自身が実装する。`delegate` では `change/delegate.md` に従って実装エージェントへ委譲する。どの mode でも Documentation Sync、diff レビュー、commit 内容の完了責任は Change の完了責任者（Implementer、`delegate` では Orchestrator）に残る。
+  - Goal 経由の Change の Code Change は execution mode に従う。既定の `solo` では Implementer 自身が実装する。`delegate` では `change/delegate.md` に従い Implementer subagent が実装エージェントへ委譲する。どの mode でも Documentation Sync は Implementer の責務。diff 全量レビュー・受け入れ判定は Gatekeeper（Small では Conductor）が担い、commit は Conductor が行う。
   - テストファーストで進める場合は `tdd` スキルに従う。
   - 構造の悪さが実装を歪める場合は、同じ変更で直すか、別リファクタ plan に切るかを判断する。
 - **Acceptance**: plan と実装上の事実が食い違っていない。
@@ -40,6 +40,7 @@
 
 - **Intent**: 実装で変わった仕様・知見・未着手作業を正しい情報源に反映する。
 - **Constraints**:
+  - 責任分担: docs・ledger の作成は Implementer、内容の照合は Gatekeeper（Small では Conductor）、存在の機械照合と commit は Conductor が担う。
   - 完了した backlog 項目があれば `backlog/backlog.md` の該当行を `[x]` 等で更新する。
   - 技術的知見は、特定ソースに紐づく罠はそのコードのコメントへ、横断的な挙動・設計理解は `llm-wiki/` の該当地図へ残す。単一の集約知見ファイルは作らない。
   - 今回の変更で `llm-wiki/` の地図が古くなっていないか確認し、古くなった場合は同じ差分で追従する。各ページの更新方法（再生成するか手編集するか）は `regen` 区分に従い、その判断基準の正本は `docs/rules/information-management.md`（および `llm-wiki/` の索引）とする。区分ごとの手順はこの workflow に写経しない。
