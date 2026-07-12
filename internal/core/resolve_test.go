@@ -462,6 +462,147 @@ func TestResolveBasenameBackendAmbiguityPolicy(t *testing.T) {
 	}
 }
 
+func TestResolveBasenameBackendPriorityContract(t *testing.T) {
+	tests := []struct {
+		name          string
+		notes         []string
+		assets        []string
+		target        string
+		wantType      NodeType
+		wantPath      string
+		wantAmbiguous bool
+	}{
+		{
+			name:     "note unique wins over asset",
+			notes:    []string{"Note.md"},
+			assets:   []string{"Note"},
+			target:   "note",
+			wantType: NodeTypeNote,
+			wantPath: "Note.md",
+		},
+		{
+			name:     "note root priority wins over asset",
+			notes:    []string{"Note.md", "sub/Note.md"},
+			assets:   []string{"Note"},
+			target:   "Note",
+			wantType: NodeTypeNote,
+			wantPath: "Note.md",
+		},
+		{
+			name:     "asset unique",
+			assets:   []string{"sub/photo.png"},
+			target:   "photo.png",
+			wantType: NodeTypeAsset,
+			wantPath: "sub/photo.png",
+		},
+		{
+			name:     "asset root priority",
+			assets:   []string{"logo.png", "sub/logo.png"},
+			target:   "logo.png",
+			wantType: NodeTypeAsset,
+			wantPath: "logo.png",
+		},
+		{
+			name:     "phantom fallback",
+			target:   "Missing",
+			wantType: NodeTypePhantom,
+		},
+		{
+			name:          "ambiguous notes do not fall through in DB",
+			notes:         []string{"sub1/Note.md", "sub2/Note.md"},
+			target:        "Note",
+			wantAmbiguous: true,
+		},
+		{
+			name:          "ambiguous assets do not fall through in DB",
+			assets:        []string{"sub1/logo.png", "sub2/logo.png"},
+			target:        "logo.png",
+			wantAmbiguous: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := openTestDB(t, filepath.Join(t.TempDir(), "index.sqlite"))
+			defer db.Close()
+			if err := initSchema(db); err != nil {
+				t.Fatalf("init schema: %v", err)
+			}
+
+			rm := newResolveMaps(tt.notes, tt.assets)
+			for _, path := range tt.notes {
+				id, err := upsertNote(db, path, basename(path), 0, 1)
+				if err != nil {
+					t.Fatalf("insert note %s: %v", path, err)
+				}
+				rm.registerNote(path, id)
+			}
+			for _, path := range tt.assets {
+				id, err := upsertAsset(db, path, filepath.Base(path), 0)
+				if err != nil {
+					t.Fatalf("insert asset %s: %v", path, err)
+				}
+				rm.registerAsset(path, id)
+			}
+
+			link := linkOccur{
+				rawLink:    "[[" + tt.target + "#Heading]]",
+				target:     tt.target,
+				subpath:    "#Heading",
+				linkType:   LinkTypeWikilink,
+				isBasename: true,
+			}
+			mapID, mapSubpath, mapErr := resolveLink(db, "Source.md", link, rm)
+			dbID, dbSubpath, dbErr := resolveLinkFromDB(db, "Source.md", link)
+
+			if tt.wantAmbiguous {
+				// Build/add/update/move reject these links before map resolution;
+				// retain the internal map fallback while asserting resolve's
+				// strict ErrAmbiguousLink contract.
+				if mapErr != nil {
+					t.Fatalf("map resolver error = %v, want guarded phantom fallback", mapErr)
+				}
+				var mapType NodeType
+				if err := db.QueryRow(`SELECT type FROM nodes WHERE id = ?`, mapID).Scan(&mapType); err != nil {
+					t.Fatalf("query map target: %v", err)
+				}
+				if mapType != NodeTypePhantom {
+					t.Fatalf("map resolver type = %q, want phantom", mapType)
+				}
+				if mapSubpath != link.subpath {
+					t.Errorf("map subpath = %q, want %q", mapSubpath, link.subpath)
+				}
+				if !errors.Is(dbErr, ErrAmbiguousLink) {
+					t.Fatalf("DB resolver error = %v, want ErrAmbiguousLink", dbErr)
+				}
+				if dbID != 0 || dbSubpath != "" {
+					t.Errorf("DB resolver result = (%d, %q), want zero result on error", dbID, dbSubpath)
+				}
+				return
+			}
+
+			if mapErr != nil || dbErr != nil {
+				t.Fatalf("resolver errors: map=%v db=%v", mapErr, dbErr)
+			}
+			if mapID != dbID {
+				t.Fatalf("backend target IDs differ: map=%d db=%d", mapID, dbID)
+			}
+			if mapSubpath != link.subpath || dbSubpath != link.subpath {
+				t.Fatalf("subpaths = map:%q db:%q, want %q", mapSubpath, dbSubpath, link.subpath)
+			}
+
+			var gotType NodeType
+			var gotPath string
+			if err := db.QueryRow(`SELECT type, COALESCE(path, '') FROM nodes WHERE id = ?`, mapID).Scan(&gotType, &gotPath); err != nil {
+				t.Fatalf("query resolved target: %v", err)
+			}
+			if gotType != tt.wantType || gotPath != tt.wantPath {
+				t.Fatalf("resolved target = (%q, %q), want (%q, %q)", gotType, gotPath, tt.wantType, tt.wantPath)
+			}
+		})
+	}
+}
+
 func TestResolveAssetPathBased(t *testing.T) {
 	vault := copyVaultForResolve(t, "vault_build_assets")
 	// Add a markdown file that links to sub/photo.jpg via path-based markdown link.
