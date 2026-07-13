@@ -16,9 +16,9 @@
   - **Conductor**（この workflow を進める main セッション。commit slicing・次 Change 選定・Change brief 確定・subagent 起動・機械照合・commit 実行・Goal Review 手配・停止判断・最終報告を担う。実装は書かず、per-commit の詳細（diff 本文、テストログ、review 往復）も読まない。受け取るのは Implementer / Gatekeeper からの構造化要約だけで、実物の diff を読むのは報告に食い違い・疑義がある例外時に限る。Small での直接 diff 照合は、この不変条件の明示的な例外である。詳細は Gatekeeper 節参照）。
   - **Implementer**（Change ごとに fresh subagent。計画・実装・検証を担う。commit はしない。review lane は回さない）。
   - **Gatekeeper**（Change ごとに fresh subagent、実装文脈を引き継がない。diff 全量の実読、Change brief・plan との照合、テスト再実行による裏取り、review lane の起動・統合、指摘の採否、受け入れ判定を担う。Implementer の報告は入力にせず、diff・テストという実物を直接見る。Gatekeeper の詳細は Gatekeeper 節を参照）。
-- `/goal` の呼び出し文で execution mode を指定できる。execution mode は Implementer の実装手段だけを決め、Gatekeeper・Conductor・commit・Goal Review は両 mode で完全共通。既定は `solo`（Implementer は Claude subagent。計画と実装を一体で行う。実装前の plan 書き出しは `change/plan.md` に従う）。`delegate` は Implementer が `codex exec` の起動・委譲プロンプト作成・escalation 応答・証拠要求・diff 一次確認の往復を subagent 内で行う（`change/delegate.md`）。execution mode はこの 2 つだけ。使い分けの目安: 重要部分（High-risk 相当が中心の Goal）は `solo`、それ以外で Claude 側の使用量を抑えたい Goal は `delegate`。mode は原則 Goal 全体で固定する。例外として、`delegate` 中に個別 Change の Intake が High-risk になった場合は `change/delegate.md` に従いその Change だけ `solo` に切り替えてよい。委譲が実行不能な場合の扱いは `change/delegate.md` の Stop Conditions に従う。
+- `/goal` の呼び出し文で Implementer / Gatekeeper のモデルを役割ごとに指定できる（例: `implementer: terra, gatekeeper: sol`）。短名の後ろに reasoning effort を添えて役割ごとに明示してもよい（例: `implementer: luna xhigh`）。無指定は両役割とも既定（短名・序列・effort の有効値と既定は `models.md` を正とする）。transport はモデルの系統から自動で決まる: Claude 系はネイティブ subagent、GPT 系は codex exec + watchdog（`change/delegate.md`）。Conductor・commit・Goal Review はどの組み合わせでも完全共通。Claude 系 Implementer は計画と実装を一体で行い、実装前の plan 書き出しは `change/plan.md` に従う。旧語彙の読み替え: `solo` = 両役割とも Claude 系既定、`delegate` = Implementer に GPT 系を指定した状態。使い分けの目安: 重要部分（High-risk 相当が中心の Goal）は既定のまま、それ以外で Claude 側の使用量を抑えたい Goal は GPT 系を座らせる（さらに抑える場合は Gatekeeper にも GPT 系）。指定は原則 Goal 全体で固定し、Change 単位で黙って差し替えない（High-risk での引き上げは Implementer 節の条項に従う）。委譲が実行不能な場合の扱いは `change/delegate.md` の Stop Conditions に従う。
 - ブランチは切らず、いるブランチ（通常 main）上にそのまま 1 commit ずつ積む。Goal 開始時の `HEAD` を base SHA として記録する（Goal Review の range 起点）。
-- 1 回の実装 workflow は 1 commit 単位に限る。Conductor は実装を直接担当せず、Goal が 1 commit だけで完了する場合も、次の 1 Change を選んで fresh subagent を Implementer として 1 つずつ直列起動する。Implementer の完了後は Gatekeeper（Normal 以上）を起動し、通過したら Conductor が機械照合のうえ commit する。execution mode に関わらずこのフローは共通（`delegate` では Implementer 内部での委譲手段が変わるだけ）。
+- 1 回の実装 workflow は 1 commit 単位に限る。Conductor は実装を直接担当せず、Goal が 1 commit だけで完了する場合も、次の 1 Change を選んで fresh subagent を Implementer として 1 つずつ直列起動する。Implementer の完了後は Gatekeeper（Normal 以上）を起動し、通過したら Conductor が機械照合のうえ commit する。モデル指定に関わらずこのフローは共通（GPT 系では Implementer の transport が変わるだけ）。
 - 各 commit は、Goal 全体の途中でも、その commit 単位では review / revert / bisect できる完了状態にする。
 - Goal 全体を 1 plan / 1 commit に押し込まない。次に扱う 1 commit 分を毎回明確に切り出す。
 - Goal 前提では都度のユーザー確認を避け、自動進行する。止まるのは Stop Conditions に該当する場合だけ。
@@ -44,7 +44,8 @@
 
 - `goal-workflow` skill
 - `.claude/workflow/change/workflow.md`
-- `.claude/workflow/change/delegate.md`（`delegate` での Implementer 内部の委譲手順）
+- `.claude/workflow/change/delegate.md`（codex transport: GPT 系モデルを役割に指定したときの運転手順）
+- `.claude/workflow/models.md`（モデルの短名・序列・reasoning effort の正本）
 - `.claude/workflow/change/review.md`（Gatekeeper が起動する review lane）
 - `.claude/workflow/design-decision-record.md`
 - `design-decision` skill
@@ -54,9 +55,9 @@
 
 ## Flow
 
-1. Goal の目的、制約、完了条件、execution mode（既定 `solo`）を確認し、ブランチは切らず開始時の `HEAD` を base SHA として記録する。
+1. Goal の目的、制約、完了条件、役割ごとのモデル指定（無指定は `models.md` の役割既定）を確認し、ブランチは切らず開始時の `HEAD` を base SHA として記録する。
 2. Goal を 1 commit 単位の候補へ分割する（Commit Slicing 参照）。
-3. 次に扱う 1 commit 分を選び、Change brief（scope・Acceptance・非対象・設計制約）を確定して fresh Implementer に渡す（Goal が 1 commit だけの場合も同じ）。execution mode は Implementer 内部の実装手段を決めるだけで、起動手順そのものは両 mode 共通。同じ Change brief は Gatekeeper 起動時にも不変入力として渡す（Implementer の報告経由で伝えない）。
+3. 次に扱う 1 commit 分を選び、Change brief（scope・Acceptance・非対象・設計制約）を確定して fresh Implementer に渡す（Goal が 1 commit だけの場合も同じ）。モデル指定は Implementer の実体を決めるだけで、起動手順そのものは共通。同じ Change brief は Gatekeeper 起動時にも不変入力として渡す（Implementer の報告経由で伝えない）。
 4. Implementer の完了後、Intake が Small なら Conductor が diff を直接実読して照合する（Gatekeeper 省略）。Normal 以上なら fresh Gatekeeper を起動し、diff 実読・テスト再実行・review lane・受け入れ判定を行わせる。差し戻しがあれば Conductor 経由で同一 Implementer を `SendMessage` で再開させる（上限 2 往復。上限超過時の扱いは差し戻し上限の節を参照）。
 5. Gatekeeper が通過（または Small で Conductor が直接照合）したら、Conductor が機械照合（Gatekeeper 報告の baseline HEAD SHA の実在確認、意図しない git 書き込みの有無、diff --stat の一致、commit 予定差分全体のハッシュの再計算・一致確認、テストの自己実行〈exit code のみ確認〉）を行う。テスト自己実行が worktree を変更し得るため、実行後に `git status` と diff hash を再照合してから commit する。
 6. commit 後、Goal の残りと Goal Review の実施タイミングを確認する。残りがあれば手順 3 に戻る。
@@ -82,25 +83,25 @@
 
 ## Implementer
 
-- execution mode（`solo` / `delegate`）は Implementer 内部の実装手段だけを決める。`solo` は Implementer 自身が計画・実装する。`delegate` は Implementer が `codex exec` の起動・委譲・escalation 応答・diff 一次確認を subagent 内で行う（`change/delegate.md`）。どちらも Implementer は commit せず、review lane も回さない。
+- Implementer の実体は Goal 指定のモデルで決まる（無指定は `models.md` の役割既定）。Claude 系は Implementer（Claude subagent）自身が計画・実装する。GPT 系は Implementer が codex（外部実装エージェント）となり、調査・実装計画・実装・検証・設計質問の内部解決を一体で担い、Claude 側は watchdog subagent が運転だけを行う（`change/delegate.md`）。どちらも Implementer は commit せず、review lane も回さない。
 - Goal 経由の Change は、commit 数に関わらず、原則 fresh Implementer に渡す。
 - Conductor は実装を直接担当しない。Conductor の責務は、base / review_cursor 管理、commit slicing、次の Change 選定、subagent 起動、機械照合、commit 実行、Goal Review 手配、最終報告に限る。
 - Conductor は次の 1 Change を選び、Change brief（scope・Acceptance・非対象・設計制約）を確定した上で fresh subagent を Implementer として 1 つずつ直列起動する。同じ worktree で複数の Implementer を並行実行しない。Goal が 1 commit だけで完了する場合も Implementer を 1 つ起動する。
 - Implementer の起動も、結果を起動呼び出しの戻り値で受け取る同期実行を基本とする。background になった場合は完了通知を待たず、`SendMessage` で能動的に結果を回収する（`change/workflow.md` の Subagent / Skill 参照）。
-- Implementer のモデルは `sonnet` を既定とする。引き上げてよいのは、ユーザーが Implementer のモデルを明示指定した場合、または High-risk Change で Conductor が明示的に判断した場合（最終報告に理由を記録する）のみ。それ以外では難度を理由に引き上げない。
-- advisor が設定されている環境（Claude Code の `advisorModel` 等。subagent は設定を継承する）では、Implementer の起動プロンプトに advisor の相談条件を含める: 非自明な設計判断にコミットする前、同じエラー・失敗が繰り返す時、アプローチの変更を検討する時に advisor に相談する。自明な作業では呼ばない。
-- High-risk や設計判断の厚い Change は、advisor 相談を厚くして進める: 相談条件に加えて、実装方針の確定前と完了宣言前の相談を必須と明記する。advisor が使えない環境で High-risk Change に当たった場合は、モデルを引き上げて代替せず停止してユーザーに確認する（Stop Conditions 参照）。
+- モデルと effort はベンダー推奨既定で運用し、effort は動かさない（既定は `models.md` を正とする。watchdog は `sonnet` 固定）。ユーザーの明示指定（モデル・effort とも）が常に最優先で、呼び出し文で effort が明示された役割はその値で起動する。High-risk Change で、文脈を十分与えても誤る「問題が難しい」型の失敗が観測された場合に限り、Conductor は同系統の 1 段上のモデル（`models.md` の序列。最上位の場合は引き上げ先なし）への引き上げを検討してよい（既定は引き上げなし。実施したら最終報告に理由と結果を記録する。系統は跨がない）。読み飛ばし・検証不足など「頑張りが足りない」型の失敗は、引き上げでなく契約項目（全列挙・検証義務）と差し戻しで直す。この判断軸は Anthropic の公式ガイダンス（既定 effort で明確に試みても誤るならモデルのサイン）由来で、GPT 系への適用は未検証の作業仮説。それ以外では難度を理由に引き上げない。この引き上げは失敗観測後の是正であり、advisor（Claude 系の予防的相談、下記）とは別枠で併用する。advisor 不在の代替として引き上げを使わない。
+- advisor が設定されている環境（Claude Code の `advisorModel` 等。subagent は設定を継承する）では、Claude 系 Implementer の起動プロンプトに advisor の相談条件を含める（advisor は Claude 実装の精度向上手段であり、watchdog には含めない）: 非自明な設計判断にコミットする前、同じエラー・失敗が繰り返す時、アプローチの変更を検討する時に advisor に相談する。自明な作業では呼ばない。
+- High-risk や設計判断の厚い Change を Claude 系 Implementer で進める場合は、advisor 相談を厚くする: 相談条件に加えて、実装方針の確定前と完了宣言前の相談を必須と明記する。advisor が使えない環境で Claude 系 Implementer が High-risk Change に当たった場合は、モデルを引き上げて代替せず停止してユーザーに確認する（Stop Conditions 参照）。
 - Implementer は渡された Change だけを担当し、Goal 全体を再計画・再分割しない。
 - 通常は `change/workflow.md` に従い、調査から実装・検証まで完了して戻る（commit と review lane の起動は含まない）。
 - 1 commit として不自然だと分かった場合は、作業を広げず事実を Conductor に返す。Conductor が commit 単位を切り直す。
-- 戻りの表示形式は固定しないが、次を必ず引き継ぐ: plan 参照、変更ファイル一覧、実行した検証コマンドと結果、逸脱・自己判断した点、commit message の草案。stop する場合は stop 理由。
-- Implementer がセッション上限などで中断した場合、fresh 再起動より先に同一 Implementer への追加入力（`SendMessage`）で再開を試みてよい。再開できれば中断時点の文脈のまま完了させる。subagent の完了通知待ちで停止した Implementer も同様に `SendMessage` で能動的に再開させる（完了通知は配信されない・大幅に遅延することがある）。
+- 戻りの表示形式は固定しないが、次を必ず引き継ぐ: 終了種別（completed / stopped / blocked / interrupted のいずれか）、plan 参照、変更ファイル一覧、実行した検証コマンドと結果、逸脱・自己判断した点、commit message の草案。stopped / blocked の場合は理由と判断点。
+- Implementer が session / turn 上限、完了通知待ち、または未完了 handoff で止まった場合は、fresh 再起動より先に同一 Implementer へ `SendMessage`（GPT 系委譲は同一 codex session の resume）して再開する。再開条件と fresh recovery への切替条件は「Subagent Progress and Recovery」を正とする。
 - Implementer / Gatekeeper / subagent の報告どうしが食い違う場合、Conductor はどれかを採用する前に実ソース・実測で裏取りしてから記録・報告する。
 - 直接実行の例外は Goal 経由の作業には適用しない。Goal を経由しない単発 Change だけは、現在の agent が直接実行してよい。
 
 ## Gatekeeper
 
-- Gatekeeper は Change ごとに起動する fresh subagent で、実装文脈を引き継がない。モデルは `sonnet` 固定とする（モデル階級を上げてレビュー検出力が上がった実測がないため。Implementer の High-risk 昇格とは非対称だが、意図的な非対称）。
+- Gatekeeper は Change ごとに起動する fresh subagent で、実装文脈を引き継がない。実体は Goal 指定のモデルで決まる（無指定は `models.md` の役割既定。モデル階級を上げてレビュー検出力が上がった実測がないため、既定を上げない。Implementer の High-risk 引き上げとは非対称だが、意図的な非対称）。GPT 系を指定した場合は、実装セッションとは別の fresh codex セッションを Gatekeeper とし、起動・運転・review lane の代替は `change/delegate.md` の Gatekeeper 委譲に従う。実体がどちらでも、本節の責務・戻り値の実行証拠・差し戻し運用は変わらない。
 - 適用範囲: Normal 以上の全 Change に入れる（暫定。planted-defect 実験の結果次第で High-risk 限定へ縮退する可能性がある）。Small は省略し、Conductor が diff を直接実読して照合する（縮退）。この縮退は「Conductor は per-commit 詳細を読まない」不変条件の明示的な例外である。Small の diff は小さく、Conductor が読む複利負荷が無視できることを根拠にした限定的な例外に限る。読み始めて Small の想定を超える差分量・複雑さだと分かった場合は、その場で Gatekeeper 起動に切り替える（Small 判定のまま Conductor が読み続けない）。
 - 責務: diff 全量の実読、Change brief（scope・Acceptance・非対象・設計制約。Conductor が Implementer 起動時に確定し、Gatekeeper にも不変入力として渡す）・plan との照合、テストの再実行による裏取り、review lane（`change/review.md` の Standard / Targeted supplement / External supplement）の起動と統合、指摘の採否、受け入れ判定。
 - Implementer の報告は入力にしない。diff・テストという実物を直接見る。Implementer とは会話せず、差し戻しは Conductor 経由で行う（Conductor が同一 Implementer を `SendMessage` で再開させる）。
@@ -110,14 +111,17 @@
 - 存在理由は検出力の高さそのものではなく、(i) 指摘採否を実装文脈から独立させること、(ii) 裏取り手続き（テスト再実行・diff 実読）の構造的な実行点を作ること、(iii) per-commit の詳細を Conductor の複利コンテキストから隔離すること、の 3 点にある。中身のバグ検出の主役は従来どおり review lane の finder subagent と Goal Review であり、Gatekeeper 自身の役割は独立した実行点の確保にある。
 - Goal Review が MUST を出した場合、その欠陥がどの Gatekeeper 手続きをすり抜けたかを Final Report に記録する（すり抜け記録義務、分類は goal.md 冒頭の Constraints 参照）。
 
-## Unresponsive Subagent
+## Subagent Progress and Recovery
 
 この節は Implementer と Gatekeeper の両方に適用する。
 
-- subagent（Implementer または Gatekeeper）の結果が返らない・完了通知が来ない場合、Conductor はまず同一 subagent へ `SendMessage` で status request を送り、現在 phase / 実行中の作業 / 残作業 / blocker の短い報告を求める。
-- status request にも応答がない場合は、Conductor が `git status --short`、`git diff --stat`、必要な `git diff`、`git log --oneline -n` で実状態を確認する。元 subagent がまだ実行中の可能性がある場合は明示的に停止（`TaskStop`）し、終了を確認するまで別 writer を起動しない。
-- 元 subagent の終了を確認でき、未コミット差分が今回の Change scope 内にあると判断できる場合は、その差分と同じ Change scope を 1 つの fresh recovery subagent（中断したのが Implementer なら recovery Implementer、Gatekeeper なら recovery Gatekeeper）に渡し、担当していた作業（Implementer なら実装・検証、Gatekeeper なら diff 実読・review lane・受け入れ判定）を続行させる。commit は引き続き Conductor が行う。Conductor は実状態の確認と引き継ぎに留め、実装や判定を代行しない。元 subagent の終了を確認できない場合は停止する。
-- 差分が scope 外、破壊的、または完了状態を判断できない場合は、差分を破棄せず停止してユーザー確認する。
+- Task / Bash / delegate の timeout は Conductor または watchdog 側の polling / process window にすぎず、subagent の失敗・終了・session / turn 上限を自動的には意味しない。Goal workflow は固定の経過時間だけで agent を巻き取らない。
+- 結果や完了通知が返らない場合は、同一 subagent へ `SendMessage` で status request を送り、現在 phase / 実行中コマンド / 直近の実質進捗 / 残作業 / blocker を求める。既知の長時間コマンドが動いている、または応答に実質進捗がある場合は同じ subagent / codex session を継続し、fresh recovery を起動しない。コマンド状態が変わるまで同じ status request を反復しない。
+- running subagent が status request にも応答しない場合だけ `TaskStop` で停止する。終了を確認するまで別 writer を起動しない。終了確認後、Conductor は `git status --short`、`git diff --stat`、必要な `git diff`、`git log --oneline -n` で実状態を確認する。
+- completed / idle subagent が Acceptance 未達、session / turn 上限、時間切迫、または未完了 handoff を返した場合、待機では続行しないが、fresh agent より先に同じ subagent へ `SendMessage` する。GPT 系委譲は同じ codex session を resume する。残作業と優先順位だけを渡し、既に完了した調査・実装・検証を再実行させない。
+- fresh recovery へ切り替えるのは、同じ subagent / codex session を再開できない、文脈または差分が今回の Change と整合しない、または同じ session の再開 2 turn で実質進捗が観測できない場合に限る。実質進捗は、scope 内の diff / artifact の変化、新しい test / build / review evidence、または根拠付きで blocker・残作業が縮小したことのいずれかで判断し、status 文面の更新だけでは進捗とみなさない。単なる timeout、自己申告の時間切迫、正常な未完了 handoff は fresh recovery の条件にしない。
+- stopped / blocked は未完了 handoff と区別し、同じ入力のまま自動再開しない。Stop Conditions または不足する判断を解消してから再開する。
+- recovery が必要な場合、元 subagent の終了を確認し、未コミット差分が今回の Change scope 内にあると判断できた後だけ、元が Implementer なら fresh recovery Implementer、元が Gatekeeper なら fresh recovery Gatekeeper に同じ担当作業を続行させる。commit は引き続き Conductor が行う。Conductor は実状態の確認と引き継ぎに留め、実装・判定を代行しない。差分が scope 外、破壊的、または完了状態を判断できない場合は、差分を破棄せず停止してユーザー確認する。
 - この回収手順は例外処理であり、通常の Implementer / Gatekeeper に定期報告ファイルや常時 ledger を要求しない。
 
 ## Goal Review
@@ -127,7 +131,7 @@
 Change Review（Gatekeeper が起動する review lane を含む）は個々の commit の局所的な correctness / spec / tests を見る。Goal Review は commit 間の統合、Goal Acceptance、構築・read / write site の貫通、docs / backlog 整合を見る。
 
 - **reviewer の選定（必須）**: reviewer は実装文脈を引き継がない fresh reviewer とする。fresh であることを必須とし、実装と同系統でも fresh なら reviewer になれる。Conductor 自身は Goal Review を行わない（自分が指示・監督した実装の盲点を引き継ぐため）。Gatekeeper も Goal Review の reviewer にはしない（個々の Change の受け入れ判定者であり、commit 間の統合を見る立場と分けるため）。
-  - 全 execution mode 共通: `codex-fresh-review` skill（実装文脈を引き継がない fresh な Codex）に依頼し、その PASS 相当を Goal Review 通過とする。実装が Codex の mode（`delegate`）では reviewer が実装と同系統になるが、fresh な別インスタンスであれば可。
+  - 全モデル指定共通: `codex-fresh-review` skill（実装文脈を引き継がない fresh な Codex）に依頼し、その PASS 相当を Goal Review 通過とする。実装が GPT 系の場合は reviewer が実装と同系統になるが、fresh な別インスタンスであれば可。
   - ユーザーが Goal 指定で明示した場合のみ、`claude-fresh-review` skill（fresh Claude subagent、セッション文脈非継承）を追加し、その場合は両方の PASS 相当を通過条件とする。既定では追加しない。
 - **レビュー依頼に含める観点（必須）**: レビュー依頼には「変更したフィールド・型・メッセージについて、全構築サイト・全 read / write サイトを列挙して貫通漏れがないか確認する」観点を含める（複数ある組み立て経路の一部だけ修正される欠陥クラスに直効するため）。
 - **Goal Review の実行（必須）**: 選定した reviewer skill を未レビュー range 対象で実行する。実行直前に `review_start = review_cursor`、`review_end = 現在の HEAD の実 SHA` を確定し、1 回の review 中は `<review_start>..<review_end>` を動かさない。
@@ -152,5 +156,5 @@ Change Review（Gatekeeper が起動する review lane を含む）は個々の 
 - Goal の途中で、現在の目的と `docs/rules/` / `docs/specs/` / `docs/decisions/` が矛盾している。
 - 必須の検証を代替手段でも裏付けられず、完了扱いにできない。
 - Goal Review を完全に実施できない。
-- advisor が使えない環境で High-risk や設計判断の厚い Change に当たった。
+- advisor が使えない環境で、Claude 系 Implementer が High-risk や設計判断の厚い Change に当たった。
 - Implementer ↔ Gatekeeper の差し戻しが上限 2 往復に達しても、未解決の MUST が残っている。

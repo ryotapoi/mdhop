@@ -30,9 +30,10 @@
 
 - **Intent**: 要求された振る舞いを最小十分な差分で実装する。
 - **Constraints**:
-  - Goal 経由の Change の Code Change は execution mode に従う。既定の `solo` では Implementer 自身が実装する。`delegate` では `change/delegate.md` に従い Implementer subagent が実装エージェントへ委譲する。どの mode でも Documentation Sync は Implementer の責務。diff 全量レビュー・受け入れ判定は Gatekeeper（Small では Conductor）が担い、commit は Conductor が行う。
+  - Goal 経由の Change の Code Change は Implementer のモデル指定に従う。Claude 系では Implementer 自身が実装する。GPT 系では `change/delegate.md` に従い Implementer（codex）が実装する。どの mode でも Documentation Sync は Implementer の責務。diff 全量レビュー・受け入れ判定は Gatekeeper（Small では Conductor）が担い、commit は Conductor が行う。
   - テストファーストで進める場合は `tdd` スキルに従う。
   - 構造の悪さが実装を歪める場合は、同じ変更で直すか、別リファクタ plan に切るかを判断する。
+  - コードコメントに書くのは、コードから復元できず今後の変更判断に影響する制約・前提と、再導入されやすい代替案を採らない理由（Why not）だけ。コードの再説明・変更経緯・レビュアー向けの説明は書かない。API の契約を説明する doc comment は対象外。テストコードも同じ基準で扱い、「しない・呼ばないこと」が意図だという説明、テストデータの値選定理由（境界値・曜日など）、regression テストの再発防止対象は、コードから復元できない前提として書く。
 - **Acceptance**: plan と実装上の事実が食い違っていない。
 - **Relevant**: 変更対象コード、関連テスト、関連 `docs/specs/`。
 
@@ -45,6 +46,7 @@
   - 技術的知見は、特定ソースに紐づく罠はそのコードのコメントへ、横断的な挙動・設計理解は `llm-wiki/` の該当地図へ残す。単一の集約知見ファイルは作らない。
   - 今回の変更で `llm-wiki/` の地図が古くなっていないか確認し、古くなった場合は同じ差分で追従する。各ページの更新方法（再生成するか手編集するか）は `regen` 区分に従い、その判断基準の正本は `docs/rules/information-management.md`（および `llm-wiki/` の索引）とする。区分ごとの手順はこの workflow に写経しない。
   - 後から制約になる判断は `docs/decisions/` に残す。
+  - commit message の本文に残す背景・理由（Why）は変更時点のものでよい。恒久的に守るべき制約は commit message にだけ残さず、コード近傍のコメントや `docs/specs/` / `docs/decisions/` に置く。
 - **Acceptance**: 実装差分と情報源が矛盾していない。
 - **Relevant**: `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）。
 

@@ -60,7 +60,6 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 - `goal-workflow`: `/goal` または明示指定時だけグローバル skill（`~/.agents/skills/goal-workflow/`）を使う。Goal を 1 commit 単位へ分割して完了まで進める
 - `investigate`: 計画前の不明点を調査する
 - `design-decision`: 設計判断の価値基準を当てる
-- `project-risk-check`: mdhop 固有の制約に照らして plan / 実装を確認する
 - `maintenance-audit`: 複数タスク後の構造・負債を棚卸しする（light / deep を scope で指定）
 - `commit`: global skill を使い、review 済み差分だけを stage して Conventional Commits 形式でコミットする
 

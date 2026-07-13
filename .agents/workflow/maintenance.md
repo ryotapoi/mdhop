@@ -37,7 +37,7 @@
 - `maintenance-audit` skill を入口にし、軽い整合性・負債・backlog 鮮度の light pass から、テスト・カバレッジ・行数・依存方向・凝集度・分割の deep pass まで、scope で深さを指定する。
 - 設計判断が必要な場合は `design-decision`、配置・target・package・外部依存・責務境界が論点なら `module-boundary` を併用する。
 - `llm-wiki/` の地図健全性を見る節目では `wiki-lint` を併用し、孤立・リンク切れ・sources 切れと 4 不変条件（速い / docs レベルでない / 嘘がない / 拾える）を点検する。
-- プロジェクト固有制約に触れる場合は `project-risk-check` を併用する。構造劣化リスクがあれば `thermo-nuclear-code-quality-review` を使う。
+- 構造劣化リスクがあれば `thermo-nuclear-code-quality-review` を使う。
 
 ### Adapter
 

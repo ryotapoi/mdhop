@@ -11,7 +11,7 @@
   - テスト可能な振る舞い変更や bug fix に unit test / regression test がない場合は、原則 blocker として扱う。
   - review 開始前に、commit に含める code / tests / `backlog/backlog.md` / `docs/specs/` / `llm-wiki/` / `docs/decisions/` / ADR の内容変更が完了していることを確認する。未完了なら review せず `change/implement.md` に戻る。
   - product decision（UX・データ意味・cross-surface 等。カテゴリ一覧は同ファイル）を含む差分は、`.agents/workflow/design-decision-record.md` の基準で現在の要求 / backlog / docs / decisions または Product Decision Ledger から採用案・別案・理由を追えることを確認する。追えない場合、または指摘対応で新しい product decision が発生した場合は `change/implement.md` に戻る。
-  - 公開 API / 削除 / 並行性 / 永続化 / 広い UI 挙動などは、`change-review` に加えて `project-risk-check` や別視点レビューを使う。<!-- slot: project-risk-check 以外に足す領域固有レビュー観点があれば追記する（例: UI 層に触れるなら対応する specialist skill）。 --><!-- /slot -->
+  - 公開 API / 削除 / 並行性 / 永続化 / 広い UI 挙動などは、`change-review` に加えて別視点レビューを使う。<!-- slot: 足す領域固有レビュー観点があれば追記する（例: UI 層に触れるなら対応する specialist skill）。 --><!-- /slot -->
   - 構造劣化リスクがある場合は `thermo-nuclear-code-quality-review` を必ず使う。
   - 指摘に対応しない場合は理由を残す。
   - Gatekeeper と review lane はファイルを変更しない。採用 finding は一回の return にまとめ、最大 2 往復後にも MUST が残れば停止する。SHOULD 以下だけは Gatekeeper の具体的な残リスク受容時のみ accept できる。
@@ -34,7 +34,7 @@
 
 - **Self-check**: Small 変更。Goal では Conductor、単発では current agent が `git diff` を読み、要求と検証結果を照合する。
 - **Standard**: Small 以外の実装差分。Gatekeeper が fresh read-only finder `scout` を review lane として起動し、必要な観点と追加 skill を統合する。
-- **Targeted supplement**: 領域固有リスクがある変更。Review subagent が `change-review` に加えて Constraints に挙げた領域固有観点（`project-risk-check` など）で確認する。構造劣化リスクがある場合は `thermo-nuclear-code-quality-review` を必須とする。
+- **Targeted supplement**: 領域固有リスクがある変更。Review subagent が `change-review` に加えて Constraints に挙げた領域固有観点で確認する。構造劣化リスクがある場合は `thermo-nuclear-code-quality-review` を必須とする。
 - **External supplement**: 大きい、曖昧、High-risk、または設計判断が重い変更。Review subagent が必要な別視点レビューを入れる。
 
 ## Gatekeeper and Finder
