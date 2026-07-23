@@ -27,6 +27,21 @@ func buildVault(t *testing.T, vaultPath string) {
 	}
 }
 
+func TestResolveFieldConstants(t *testing.T) {
+	fields := map[string]string{
+		"type":    FieldResolveType,
+		"name":    FieldResolveName,
+		"path":    FieldResolvePath,
+		"exists":  FieldResolveExists,
+		"subpath": FieldResolveSubpath,
+	}
+	for want, got := range fields {
+		if got != want {
+			t.Errorf("field constant = %q, want %q", got, want)
+		}
+	}
+}
+
 func TestResolveWikilinkBasename(t *testing.T) {
 	vault := copyVaultForResolve(t, "vault_build_full")
 	buildVault(t, vault)

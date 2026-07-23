@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+// Resolve field names accepted by resolve --fields and used in its output.
+const (
+	FieldResolveType    = "type"
+	FieldResolveName    = "name"
+	FieldResolvePath    = "path"
+	FieldResolveExists  = "exists"
+	FieldResolveSubpath = "subpath"
+)
+
 // ResolveResult is the result of resolving a link.
 type ResolveResult struct {
 	Type    NodeType // NodeTypeNote/NodeTypeAsset/NodeTypePhantom/NodeTypeTag
