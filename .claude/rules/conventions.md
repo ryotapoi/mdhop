@@ -38,3 +38,4 @@ paths:
 - 件数チェックだけでなく、値の中身（node_key, link_type, path 等）も検証する
 - テーブル駆動テストでは `t.Run(name, ...)` でサブテスト化する
 - エラーメッセージのアサーションは `strings.Contains` でキーフレーズのみ検証（完全一致にしない）
+- core と各 run 関数はコマンド名なしの具体的なエラーを返し、CLI の `main` だけが `error: <subcommand>:` で一度だけコマンド文脈を付ける。

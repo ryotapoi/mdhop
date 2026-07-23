@@ -4,8 +4,8 @@
 
 ### v0.16.6（エラーメッセージの整備。エラー文言が変わりうる）
 
-- [ ] sentinel error の整備: resolve.go:34・query_entry.go:80/84/126 の同義生文字列エラーを対応 sentinel の `%w` ラップに揃え、internal/core/errors.go の冒頭コメントを実態（本番コードは分岐していない・テスト検証用 + 将来の分岐余地）に書き直す。exit code 分岐等の機能は作らない（要望待ち。「登録見送り」の sentinel 項参照）
-- [ ] エラーメッセージのプレフィックス統一: 個別メッセージは裸に統一し、コマンド文脈が必要なら main.go のエラー整形 1 箇所で subcommand 名を付与する方向を推奨。実装時に `search:`（search.go:91-）等の既存プレフィックスがコマンド名でなく flag 文脈を指していないか確認してから確定し、決めた規約を conventions.md に一文追記
+- [x] sentinel error の整備: resolve.go:34・query_entry.go:80/84/126 の同義生文字列エラーを対応 sentinel の `%w` ラップに揃え、internal/core/errors.go の冒頭コメントを実態（本番コードは分岐していない・テスト検証用 + 将来の分岐余地）に書き直す。exit code 分岐等の機能は作らない（要望待ち。「登録見送り」の sentinel 項参照）
+- [x] エラーメッセージのプレフィックス統一: 個別メッセージは裸に統一し、コマンド文脈が必要なら main.go のエラー整形 1 箇所で subcommand 名を付与する方向を推奨。実装時に `search:`（search.go:91-）等の既存プレフィックスがコマンド名でなく flag 文脈を指していないか確認してから確定し、決めた規約を conventions.md に一文追記
 
 ### docs（バージョン不要。随時、各 1 commit）
 

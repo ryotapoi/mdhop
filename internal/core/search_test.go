@@ -727,6 +727,9 @@ func TestSearch_InvalidLimit(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for negative limit")
 	}
+	if strings.HasPrefix(err.Error(), "search:") {
+		t.Errorf("error = %q, must not include command prefix", err.Error())
+	}
 }
 
 func TestSearch_InvalidOffset(t *testing.T) {

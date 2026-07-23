@@ -56,10 +56,10 @@ type MetaCheckResult struct {
 // existing vault paths. URL values (containing "://") are allowed and skipped.
 func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error) {
 	if len(opts.Keys) == 0 {
-		return nil, fmt.Errorf("meta-check: at least one --key is required")
+		return nil, fmt.Errorf("at least one --key is required")
 	}
 	if opts.Kind != MetaKindPath && opts.Kind != MetaKindWikilink {
-		return nil, fmt.Errorf("meta-check: invalid kind %q (must be path or wikilink)", opts.Kind)
+		return nil, fmt.Errorf("invalid kind %q (must be path or wikilink)", opts.Kind)
 	}
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err

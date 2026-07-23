@@ -40,7 +40,7 @@ func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
 	sourceID, err := getNodeID(db, noteKey(fromPath))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("source not in index: %s", fromPath)
+			return nil, fmt.Errorf("source not in index: %s: %w", fromPath, ErrFileNotRegistered)
 		}
 		return nil, err
 	}

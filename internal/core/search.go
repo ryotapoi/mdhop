@@ -88,7 +88,7 @@ func parseSortKey(sort string) (string, bool, error) {
 		key = sort[1:]
 	}
 	if key == "" {
-		return "", false, fmt.Errorf("search: empty sort key")
+		return "", false, fmt.Errorf("empty sort key")
 	}
 	return key, desc, nil
 }
@@ -96,35 +96,35 @@ func parseSortKey(sort string) (string, bool, error) {
 // Search returns notes matching the given conditions.
 func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	if opts.Limit < 0 {
-		return nil, fmt.Errorf("search: limit must be >= 0")
+		return nil, fmt.Errorf("limit must be >= 0")
 	}
 	if opts.Offset < 0 {
-		return nil, fmt.Errorf("search: offset must be >= 0")
+		return nil, fmt.Errorf("offset must be >= 0")
 	}
 	if opts.Sample < 0 {
-		return nil, fmt.Errorf("search: sample must be >= 0")
+		return nil, fmt.Errorf("sample must be >= 0")
 	}
 	if opts.Sample > 0 && (opts.Limit > 0 || opts.Offset > 0) {
-		return nil, fmt.Errorf("search: sample cannot be used with limit or offset")
+		return nil, fmt.Errorf("sample cannot be used with limit or offset")
 	}
 	if opts.Sample > 0 && opts.Sort != "" {
-		return nil, fmt.Errorf("search: sample cannot be used with sort")
+		return nil, fmt.Errorf("sample cannot be used with sort")
 	}
 	if opts.Count {
 		if opts.Sample > 0 {
-			return nil, fmt.Errorf("search: count cannot be used with sample")
+			return nil, fmt.Errorf("count cannot be used with sample")
 		}
 		if len(opts.Fields) > 0 {
-			return nil, fmt.Errorf("search: count cannot be used with fields")
+			return nil, fmt.Errorf("count cannot be used with fields")
 		}
 		if opts.IncludeHead > 0 {
-			return nil, fmt.Errorf("search: count cannot be used with include-head")
+			return nil, fmt.Errorf("count cannot be used with include-head")
 		}
 		if opts.Sort != "" {
-			return nil, fmt.Errorf("search: count cannot be used with sort")
+			return nil, fmt.Errorf("count cannot be used with sort")
 		}
 		if opts.Limit > 0 || opts.Offset > 0 {
-			return nil, fmt.Errorf("search: count cannot be used with limit or offset")
+			return nil, fmt.Errorf("count cannot be used with limit or offset")
 		}
 	}
 	if err := validateGlobPatterns(opts.Path); err != nil {
@@ -177,7 +177,7 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 	countQuery := "SELECT COUNT(*) FROM nodes n " + whereSQL
 	var total int
 	if err := db.QueryRow(countQuery, whereArgs...).Scan(&total); err != nil {
-		return nil, fmt.Errorf("search count: %w", err)
+		return nil, fmt.Errorf("count results: %w", err)
 	}
 	if opts.Count {
 		return &SearchResult{Total: total}, nil
@@ -249,7 +249,7 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 
 	rows, err := db.Query(mainQuery, mainArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("search: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 

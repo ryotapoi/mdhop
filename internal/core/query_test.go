@@ -128,6 +128,34 @@ func TestQueryEntryNameNotFound(t *testing.T) {
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error = %q, want containing 'not found'", err.Error())
 	}
+	if !errors.Is(err, ErrEntryNotFound) {
+		t.Errorf("error = %q, want ErrEntryNotFound", err.Error())
+	}
+}
+
+func TestQueryEntryMissingErrorsAreEntryNotFound(t *testing.T) {
+	vault := setupFullVault(t)
+	tests := []struct {
+		name    string
+		spec    EntrySpec
+		context string
+	}{
+		{name: "tag", spec: EntrySpec{Tag: "missing"}, context: "tag not in index: #missing"},
+		{name: "phantom", spec: EntrySpec{Phantom: "UnindexedPhantom"}, context: "phantom not in index: UnindexedPhantom"},
+		{name: "name", spec: EntrySpec{Name: "UnindexedName"}, context: "name not found: UnindexedName"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Query(vault, tt.spec, QueryOptions{})
+			if !errors.Is(err, ErrEntryNotFound) {
+				t.Fatalf("error = %v, want ErrEntryNotFound", err)
+			}
+			if !strings.Contains(err.Error(), tt.context) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.context)
+			}
+		})
+	}
 }
 
 func TestQueryEntryNameAmbiguous(t *testing.T) {

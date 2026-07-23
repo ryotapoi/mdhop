@@ -81,7 +81,7 @@ func runSearch(args []string) error {
 		}
 	})
 	if sampleSet && *sample <= 0 {
-		return fmt.Errorf("search: sample must be > 0")
+		return fmt.Errorf("sample must be > 0")
 	}
 
 	fieldList := parseFields(*fields)

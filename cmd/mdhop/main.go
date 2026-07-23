@@ -74,9 +74,13 @@ func main() {
 		if errors.Is(err, flag.ErrHelp) {
 			os.Exit(0)
 		}
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		fmt.Fprint(os.Stderr, formatCommandError(os.Args[1], err))
 		os.Exit(1)
 	}
+}
+
+func formatCommandError(command string, err error) string {
+	return fmt.Sprintf("error: %s: %v\n", command, err)
 }
 
 func printVersion(w io.Writer) {

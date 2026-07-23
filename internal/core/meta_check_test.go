@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -128,6 +129,8 @@ func TestMetaCheck_RequiresKey(t *testing.T) {
 	vault := setupMetaCheckVault(t)
 	if _, err := MetaCheck(vault, MetaCheckOptions{Kind: MetaKindPath}); err == nil {
 		t.Fatal("expected error when no --key given")
+	} else if strings.HasPrefix(err.Error(), "meta-check:") {
+		t.Errorf("error = %q, must not include command prefix", err.Error())
 	}
 }
 

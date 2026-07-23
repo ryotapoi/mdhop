@@ -75,7 +75,7 @@ func MetaValidate(vaultPath string, opts MetaValidateOptions) (*MetaValidateResu
 		}
 	}
 	if len(opts.Require) == 0 && len(cfg.Meta.Profiles) == 0 && len(typedKeys) == 0 {
-		return nil, fmt.Errorf("meta-validate: nothing to check (give --require, declare meta.profiles, or declare meta.types)")
+		return nil, fmt.Errorf("nothing to check (give --require, declare meta.profiles, or declare meta.types)")
 	}
 
 	db, err := openDBChecked(vaultPath)

@@ -77,11 +77,11 @@ func findEntryByTag(db dbExecer, tag string) (int64, NodeInfo, error) {
 	if !strings.HasPrefix(tag, "#") {
 		tag = "#" + tag
 	}
-	return findEntryByKey(db, tagKey(tag), fmt.Errorf("tag not in index: %s", tag))
+	return findEntryByKey(db, tagKey(tag), fmt.Errorf("tag not in index: %s: %w", tag, ErrEntryNotFound))
 }
 
 func findEntryByPhantom(db dbExecer, name string) (int64, NodeInfo, error) {
-	return findEntryByKey(db, phantomKey(name), fmt.Errorf("phantom not in index: %s", name))
+	return findEntryByKey(db, phantomKey(name), fmt.Errorf("phantom not in index: %s: %w", name, ErrEntryNotFound))
 }
 
 func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
@@ -123,7 +123,7 @@ func findEntryByName(db dbExecer, name string) (int64, NodeInfo, error) {
 	}
 
 	// Try phantom.
-	return findEntryByKey(db, phantomKey(name), fmt.Errorf("name not found: %s", name))
+	return findEntryByKey(db, phantomKey(name), fmt.Errorf("name not found: %s: %w", name, ErrEntryNotFound))
 }
 
 // fetchNodeInfo retrieves NodeInfo for a node by ID.

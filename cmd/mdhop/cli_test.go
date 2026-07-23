@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,6 +14,13 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 	"github.com/ryotapoi/mdhop/internal/testutil"
 )
+
+func TestFormatCommandError(t *testing.T) {
+	got := formatCommandError("search", errors.New("limit must be >= 0"))
+	if want := "error: search: limit must be >= 0\n"; got != want {
+		t.Errorf("formatCommandError() = %q, want %q", got, want)
+	}
+}
 
 func TestRunBuild_InvalidFlag(t *testing.T) {
 	err := runBuild([]string{"--invalid"})

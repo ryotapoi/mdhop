@@ -353,6 +353,9 @@ func TestResolveErrorSourceNotInDB(t *testing.T) {
 	if !strings.Contains(err.Error(), "source not in index") {
 		t.Errorf("error = %q, want containing %q", err.Error(), "source not in index")
 	}
+	if !errors.Is(err, ErrFileNotRegistered) {
+		t.Errorf("error = %q, want ErrFileNotRegistered", err.Error())
+	}
 }
 
 func TestResolveErrorLinkNotInSource(t *testing.T) {

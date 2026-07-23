@@ -2,9 +2,10 @@ package core
 
 import "errors"
 
-// Sentinel errors for internal/core. Use errors.Is at call sites to branch
-// on these. Messages match existing error-string prefixes so that legacy
-// strings.Contains assertions in tests continue to work.
+// Sentinel errors for internal/core. Production code does not currently branch
+// on them; they support errors.Is verification in tests and leave room for
+// future callers to branch. Wrapped errors retain their operation-specific
+// context for message assertions and diagnostics.
 var (
 	ErrIndexNotFound         = errors.New("index not found")
 	ErrFileNotRegistered     = errors.New("file not registered")
@@ -16,6 +17,7 @@ var (
 	ErrAmbiguousLink         = errors.New("ambiguous link")
 	ErrAmbiguousName         = errors.New("ambiguous name")
 	ErrLinkNotFound          = errors.New("link not found")
+	ErrEntryNotFound         = errors.New("entry not found")
 	ErrLinkEscapesVault      = errors.New("link escapes vault")
 	ErrSourceStale           = errors.New("source file is stale")
 	ErrMovedFileStale        = errors.New("moved file is stale")

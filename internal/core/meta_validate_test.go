@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -110,6 +111,8 @@ func TestMetaValidate_NothingToCheck(t *testing.T) {
 	buildForQuery(t, vault)
 	if _, err := MetaValidate(vault, MetaValidateOptions{}); err == nil {
 		t.Fatal("expected error when no --require and no meta.types")
+	} else if strings.HasPrefix(err.Error(), "meta-validate:") {
+		t.Errorf("error = %q, must not include command prefix", err.Error())
 	}
 }
 
