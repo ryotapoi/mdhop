@@ -12,14 +12,14 @@ Gatekeeper（Small では Conductor）を通過した変更を、コミットま
 
 ## Decision Criteria
 
-- commit 前照合は、機械照合と、Gatekeeper の受け入れ判定・commit message 草案の確認からなる。機械照合の内容: `git rev-parse` での Gatekeeper 報告 baseline HEAD SHA の実在確認、`git status --short`（Gatekeeper 報告の `git status --porcelain` の対象状態との一致）で意図しない書き込みがないことの確認、`git diff --stat` と Gatekeeper 報告の stat の一致、commit 予定差分全体のハッシュ（`git diff <baseline>..HEAD` 相当、未 commit 差分なら `git diff | shasum`）を再計算して Gatekeeper 報告のハッシュと一致すること、テストの自己実行（成功時は exit code のみ確認、生の出力は読まない）。Conductor 自身のテスト自己実行が worktree を変更し得るため、実行後に `git status` と diff hash を再照合してから commit する。Small では Conductor が diff を直接実読して照合する（Gatekeeper 省略、この場合は baseline SHA・diff hash の照合対象も Conductor 自身の実読結果に置き換わる）。
+- commit 前照合は、機械照合と、Gatekeeper の受け入れ判定・commit message 草案の確認からなる。機械照合の内容: `git rev-parse` での Gatekeeper 報告 baseline HEAD SHA の実在確認、`git status --short`（Gatekeeper 報告の `git status --porcelain` の対象状態との一致）で意図しない書き込みがないことの確認、`git diff --stat` と Gatekeeper 報告の stat の一致、commit 予定差分全体のハッシュを再計算して Gatekeeper 報告のハッシュと一致すること（算出式: `{ git diff; git ls-files --others --exclude-standard -z | sort -z | xargs -0 -r shasum; } | shasum`。commit 済み range を照合する場合は `git diff` を `git diff <baseline>..HEAD` に置き換える。`git diff` 単体は untracked ファイルの内容を含まず、Implementer が commit しない設計では新規ファイルが commit 直前まで untracked のままなので、untracked の内容を畳み込まないハッシュは新規ファイルの変異を検出できない。Gatekeeper も同じ式で算出する）、テストの自己実行（成功時は exit code のみ確認、生の出力は読まない）。Conductor 自身のテスト自己実行が worktree を変更し得るため、実行後に `git status` と diff hash を再照合してから commit する。Small では Conductor が diff を直接実読して照合する（Gatekeeper 省略、この場合は baseline SHA・diff hash の照合対象も Conductor 自身の実読結果に置き換わる）。
 - コミットは `commit` スキルで作成する。finish では tracked file の内容を追加・変更・削除しない
 - 文書同期（`backlog/backlog.md` / `docs/decisions/` / `llm-wiki/` / `docs/specs/`）や ADR が不足していると分かった場合は、commit せず Conductor 経由で Implementer に差し戻し、`change/implement.md` の続きから verify と review（Gatekeeper 再照合）をやり直す
-- commit 前に差分、review 結果、Product Decision Ledger、同期済み docs を照合する。product decision（UX・データ意味・cross-surface 等。カテゴリ一覧は同ファイル）について `.claude/workflow/design-decision-record.md` の基準で採用案・別案・理由を追えない場合は commit せず Implementer に差し戻す
+- commit 前に差分、review 結果、Product Decision Ledger、同期済み docs を照合する。product decision（振る舞い仕様が変わる判断。定義は同ファイル）について `.claude/workflow/design-decision-record.md` の基準で採用案・別案・理由を追えない場合は commit せず Implementer に差し戻す
 - コミットメッセージ規約は `commit` スキル側が判断する。Implementer が返した commit message 草案は参考にしつつ、規約適合は `commit` スキルが最終判断する
 - このファイルでは commit スキルを呼ぶこと自体を担保する
 - Goal 実行中の場合、commit 後に Goal 全体が完了したか、次の 1 commit workflow に進むかを `goal.md` で確認する
-- Goal 完了報告では、`ユーザー判断が必要` と Goal Review の `レビュー上限超過` の有無（reviewer が複数の場合は reviewer ごと）、および Goal Review が MUST を出した場合のすり抜け記録（`goal.md` 参照）を明示する
+- Goal 完了報告では、`ユーザー判断が必要` と Goal Review の `レビュー上限超過` の有無（reviewer ごと）、および Goal Review が MUST を出した場合のすり抜け記録（`goal.md` 参照）を明示する
 
 ## Acceptance
 

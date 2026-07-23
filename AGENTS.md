@@ -23,9 +23,10 @@ goal-workflow skill（Goal の入口）
         ├── change/verify.md
         ├── change/review.md
         ├── change/finish.md
-        ├── design-decision-record.md
-        └── maintenance.md
+        └── design-decision-record.md
 ```
+
+複数タスク後の構造・負債の棚卸しは、ユーザー起点で global `maintenance-audit` skill を使う。
 
 Claude Code 由来の `.claude/` は参考資料であり、Codex の入口ではない。
 
@@ -47,7 +48,7 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 - 仕様・CLI 挙動・データ保持・削除方針に複数の妥当な選択肢がある場合はユーザーに確認する。
 - 技術的知見は特定ソースに紐づくものはそのコードのコメントへ、横断的な挙動は `llm-wiki/` の該当地図へ。単一の集約ファイルは作らない。workflow / skill 本体を肥大化させない。
 - 後から制約になる判断は `docs/decisions/` に残す。
-- 広い構造改善は必要に応じて `backlog/backlog.md` または `maintenance.md` の対象へ切り出す。
+- 広い構造改善は必要に応じて `backlog/backlog.md` へ切り出すか、`maintenance-audit` skill の棚卸し対象とする。
 - workflow は 1 つの commit 単位で回す。Goal が複数 commit に分かれる場合は `goal-workflow` skill に従って commit 単位へ分けて繰り返す。
 - 単発依頼はコミットまで終えたら止まる（次のタスクはユーザー指示待ち）。Goal は完了したら止まる。
 

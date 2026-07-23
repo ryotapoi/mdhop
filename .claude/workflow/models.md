@@ -1,6 +1,6 @@
 # モデル定義
 
-Goal workflow の役割（Implementer / Gatekeeper）に指定できるモデルと reasoning effort の正本。ルール（`goal.md` / `change/delegate.md`）はこの表を参照し、モデル名・序列・effort 値をハードコードしない。モデルの世代交代はこのファイルだけ更新する。
+Goal workflow の役割（Conductor / Implementer / Gatekeeper / Advisor）に指定できるモデルと reasoning effort の正本。ルール（`goal.md` 等）はこの表を参照し、モデル名・序列・effort 値をハードコードしない。モデルの世代交代はこのファイルだけ更新する。
 
 ## モデル一覧
 
@@ -34,9 +34,18 @@ GPT 系の有効値は API のエラー応答で実測済み（2026-07-13、`xhi
 
 ## 役割の既定
 
-| 入口 | Implementer | Gatekeeper | watchdog |
-|---|---|---|---|
-| Claude 側（`.claude/workflow/`） | sonnet | sonnet | sonnet 固定 |
-| GPT 側（`.agents/workflow/`） | terra | terra | なし（不要） |
+| 入口 | Conductor | Implementer | Gatekeeper | Advisor |
+|---|---|---|---|---|
+| Claude 側（`.claude/workflow/`） | opus | sonnet | sonnet | fable 固定 |
+| GPT 側（`.agents/workflow/`） | terra | terra | terra | sol 固定 |
 
-effort の既定はどちらの入口・役割でも系統のベンダー推奨既定。
+Goal Review の reviewer は入口によらず 2 本で、系統ごとに次を既定とする。
+
+| 系統 | Goal Review reviewer | 起動経路 |
+|---|---|---|
+| Claude 系 | fable | `claude-fresh-review` skill（呼び出し元がレビューモデルを明示する） |
+| GPT 系 | sol | `codex-fresh-review` skill（skill 側がモデルを固定して持つ。呼び出し側からは指定しない） |
+
+effort の既定はどの入口・役割でも系統のベンダー推奨既定。
+
+Implementer / Gatekeeper は Goal の呼び出し文でモデルと effort を役割ごとに明示指定できる。指定できる短名は入口の系統に限る（Claude 側の workflow は Claude 系短名のみ、GPT 側の workflow は GPT 系短名のみ）。他系統の短名を指定されたら停止してユーザーに確認する。Conductor と Advisor は既定固定で、Goal 呼び出し文からは指定しない。

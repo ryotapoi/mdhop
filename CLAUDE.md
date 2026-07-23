@@ -22,9 +22,10 @@ goal-workflow skill（Goal の入口）
         ├── change/verify.md — 動作確認
         ├── change/review.md — リスクベースの review depth 選択
         ├── change/finish.md — global commit skill でコミット
-        ├── design-decision-record.md — 設計判断の記録と Product Decision Ledger の正本
-        └── maintenance.md — L3、節目で呼ぶ構造棚卸し
+        └── design-decision-record.md — 設計判断の記録と Product Decision Ledger の正本
 ```
+
+複数タスク後の構造・負債の棚卸しは、ユーザー起点で global `maintenance-audit` skill を使う。
 
 各 phase ファイルは入る前に Read で読む（CLAUDE.md の要約で済ませない）。
 plan mode（`EnterPlanMode` / `ExitPlanMode`）は使わない。計画は内部で立ててそのまま実装する。

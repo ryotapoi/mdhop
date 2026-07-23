@@ -13,9 +13,8 @@
   - 振る舞い変更や bug fix では、同じ commit に unit test / regression test を追加または更新する。テストできない場合は理由を明記する。
   - 振る舞い変更があるなら、必要に応じて `docs/specs/` とテストを同期する。
   - commit に含める内容変更（code / tests / `backlog/backlog.md` / `docs/specs/` / `llm-wiki/` / `docs/decisions/` / ADR）は、この phase で完了する。review 後の finish / commit では tracked file の内容を追加・変更・削除しない。
-  - 実装中またはレビュー指摘対応中に product decision（UX・データ意味・cross-surface 等。カテゴリ一覧は同ファイル）が発生した場合は、`.agents/workflow/design-decision-record.md` の Alternative Check・記録・報告基準に従う。可逆で影響が小さい選択は採用案で進めて ledger に残す。複数の妥当案が残り、かつ選択が非可逆（データ保持・削除・マイグレーション・外部公開契約）またはやり直しコストが大きい場合、または正本と矛盾する場合は Stop Conditions に従う。
+  - 実装中またはレビュー指摘対応中に product decision（振る舞い仕様が変わる判断。定義は同ファイル）が発生した場合は、`.agents/workflow/design-decision-record.md` の Alternative Check・記録・報告基準に従う。可逆で影響が小さい選択は採用案で進めて ledger に残す。複数の妥当案が残り、かつ選択が非可逆（データ保持・削除・マイグレーション・外部公開契約）またはやり直しコストが大きい場合、または正本と矛盾する場合は Stop Conditions に従う。
   - 実装中に見つかった別タスクは、今やる理由がなければ `backlog/backlog.md` に逃がす。今回の commit の active scope 内か迷う作業は、`change/workflow.md` の横断スコープ制御で分類してから着手する（adjacent なら実行せず capture / report）。
-  - ループ内で時刻を扱う場合は各反復で取得する（ループ外で 1 回だけ取得しない）。
 - **Acceptance**:
   - 要求された振る舞いが実装されている。
   - 必要な `docs/specs/` / tests / `backlog/backlog.md` / `docs/decisions/` / `llm-wiki/` の同期が済んでいる。

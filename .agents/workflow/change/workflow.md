@@ -12,7 +12,7 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
   - 手続きの重さは作業の大きさとリスクに合わせる。
   - 判断に影響する `docs/rules/`, `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）は推測で済ませず実物を確認する。
   - 仕様・UX の不明点は、現在の要求、正本、既存コード、調査・検証結果から採用案を選んで進める。可逆で影響が小さい選択は、Product Decision Ledger の対象なら ledger に残す。複数の妥当案が残り、かつ選択が非可逆（データ保持・削除・マイグレーション・外部公開契約）またはやり直しコストが大きい場合、または正本と矛盾する場合は Stop Conditions に従う。
-  - Product Decision Ledger の対象・Alternative Check・報告基準（UX・データ意味・cross-surface 等。カテゴリ一覧は同ファイル）は `.agents/workflow/design-decision-record.md` を唯一の正本とする。
+  - Product Decision Ledger の対象・Alternative Check・報告基準（対象は振る舞い仕様が変わる判断。定義は同ファイル）は `.agents/workflow/design-decision-record.md` を唯一の正本とする。
 - **Acceptance**:
   - ユーザーの要求が満たされている。
   - 必要な情報源が同期されている。
@@ -27,7 +27,6 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
   - `.agents/workflow/change/review.md`
   - `.agents/workflow/change/finish.md`
   - `.agents/workflow/design-decision-record.md`
-  - `.agents/workflow/maintenance.md`
 
 ## Intake
 
@@ -49,7 +48,6 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 - 検証 → `change/verify.md`（Implementer 後に Gatekeeper が再実行）
 - レビュー → `change/review.md`（Normal 以上は Gatekeeper が差配・採否。Small は Conductor の限定 self-check）
 - 完了 → `change/finish.md`（Goal の commit は Conductor）
-- 節目で構造を見る → `maintenance.md`
 
 ## Source Resolution
 
@@ -57,11 +55,15 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 
 ## Execution Notes
 
-互いに独立した read-only 調査・レビューは並列化してよいが、tree-wide active subagent は 3 以下。同一 worktree の実装 writer は 1 つに限る。fresh worker は `spawn_agent` の `fork_turns: "none"`、探索は `scout`、running agent への連絡は `send_message`、completed / idle の再開は `followup_task` を使う。領域固有の判断は各 phase の workflow に従って skill を使う。
+互いに独立した read-only 調査・レビューは並列化してよい。同一 worktree の実装 writer は 1 体に限る。worker は会話履歴を引き継がない fresh な subagent とし、探索は `scout` とする。running agent には追加連絡し、completed / idle agent は同じ agent を再開する。領域固有の判断は各 phase の workflow に従って skill を使う。
+
+fresh は現行 subagent ツールの `fork_turns: "none"` を明示指定して実現する（既定に任せない）。
 
 既存 worktree 差分向けの特別な snapshot / staging / clean check フローは作らない。通常の差分確認と commit discipline で巻き込みを防ぐ。
 
-Product Decision Ledger は新しい正本ではない。Goal、長い Change、委任、review 指摘対応をまたぐ判断候補がある場合は、必要に応じて `tmp/product-decision-ledger/<scope>.md` に残す。finish では記憶ではなく ledger、review 結果、同期済み docs から `ユーザー判断が必要` を判断する。
+Change 中の一時 artifact（plan file、列挙メモ、検証用 checkout、review lane のログ等）は `tmp/` 直下に平置きせず、`tmp/workflow/<scope>/` 配下に置く。`<scope>` は短い slug（backlog の版番号やタスクの短縮名。例: `v0110_1`）。Goal 経由では Conductor が Goal 開始時に 1 回決めて Change brief で全 Change に同じ値を渡し、Implementer / Gatekeeper は決め直さない（brief に置き場がなければ change 識別子で代用し、停止しない）。単発 Change では現在の agent が change の短い識別子を使う。`tmp/` 直下は人が手で置くファイルに残し、掃除は scope フォルダ単位でまとめて消せる状態を保つ。
+
+Product Decision Ledger は新しい正本ではない。Goal、長い Change、委任、review 指摘対応をまたぐ判断候補がある場合は、必要に応じて `tmp/workflow/<scope>/product-decision-ledger.md` に残す。finish では記憶ではなく ledger、review 結果、同期済み docs から `ユーザー判断が必要` を判断する。
 
 横断のスコープ判定は `boundary-control` を正本とし、全 phase に適用する。隣接作業は現在の commit に広げず、project-relevant なら workflow が認める正本へ capture するか最終報告で report する。
 

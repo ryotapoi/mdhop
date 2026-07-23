@@ -20,16 +20,13 @@
 
 ## Decision Criteria
 
-- 何が分かれば plan / direct implement / stop に進めるかを先に定義する
 - 机上で分からない挙動はコード読みを続けず、計測・確認手段へ切り替える
   <!-- slot: コード確認以外に使いたい確認手段があれば記載する（例: Preview / アプリ起動 / 公式ドキュメント、CLI なら実行して挙動を見る、実機・外部連携はユーザー確認）。 -->
   - CLI 挙動は `go build -o bin/mdhop ./cmd/mdhop` 後に `bin/mdhop <args>` を実行し、stdout / stderr / 終了コード / DB 副作用を確認する。
   <!-- /slot -->
 - 複数ファイル横断や広域 grep は Explore subagent に委譲する。ファイル 1〜2 個で済むなら main で Read する
-- 事実集めは execution mode に関わらず Implementer の責務とする（広域調査は Explore subagent 等へ任せてよい）。GPT 系 Implementer（codex）は調査・全列挙・実装計画を自ら一体で行う（委譲前調査を Claude 側では行わない。`change/delegate.md` 参照）。Conductor が Goal 側で自分で行うのは、Change slicing・scope・Acceptance を決めるための最小限の事実確認までに限る
-- 自力で取れる証拠や代替確認で確定できない UI / 挙動は、完了判断に必須なら Stop Conditions として報告し、必須でなければ残存リスクまたは Goal 完了報告のユーザー判断候補に残す
-- 調査結果が将来も効くなら、特定ソースに紐づく罠はそのコードのコメントへ、横断的な挙動・設計理解は `llm-wiki/` の該当地図へ残す。要求や粒度が変わるなら `backlog/backlog.md` に記録する
-- 調査用の一時コードは、残す理由がなければ最終成果に含めない
+- 事実集めは Implementer の責務とする（広域調査は Explore subagent 等へ任せてよい）。Conductor が Goal 側で自分で行うのは、Change slicing・scope・Acceptance を決めるための最小限の事実確認までに限る
+- 調査で得た知見・確定した要求変更の記録先は `docs/rules/information-management.md` に従う
 
 ## Acceptance
 

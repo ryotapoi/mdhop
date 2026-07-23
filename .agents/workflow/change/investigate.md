@@ -4,13 +4,11 @@
 
 - **Intent**: 計画や実装に入る前に、必要な事実・不明点・判断材料を揃える。
 - **Constraints**:
-  - 何が分かれば plan / direct implement / stop に進めるかを先に定義する。
   - 机上で分からない挙動はコード読みを続けず、計測・確認手段に切り替える。
     <!-- slot: コード確認以外に使いたい確認手段があれば記載する（例: Preview / アプリ起動 / 公式ドキュメント、CLI なら実行して挙動を見る、実機・外部連携はユーザー確認）。 -->
     - CLI 挙動は `go build -o bin/mdhop ./cmd/mdhop` 後に `bin/mdhop <args>` を実行し、stdout / stderr / 終了コード / DB 副作用を確認する。
     <!-- /slot -->
   - subagent は、複数ファイル横断・広域 grep・独立した仮説検証を並列化できる場合に使う。
-  - 調査中の一時コードは、残す理由がなければ最終成果に含めない。
 - **Acceptance**:
   - 判明した事実と残った不明点が説明できる。
   - 次に plan / direct implement / stop のどれに進むか判断できる。
@@ -30,9 +28,7 @@
 
 ## Recording
 
-- 調査結果が将来も効くなら、特定ソースに紐づく罠はそのコードのコメントへ、横断的な挙動・設計理解は `llm-wiki/` の該当地図へ残す。
-- 要求や粒度が変わるなら `backlog/backlog.md` に残す。
-- 自力で取れる証拠や代替確認で確定できない UI / 挙動は、完了判断に必須なら Stop Conditions として報告し、必須でなければ残存リスクまたは Goal 完了報告のユーザー判断候補に残す。
+- 調査で得た知見・確定した要求変更の記録先は `docs/rules/information-management.md` に従う。
 
 ## Stop Conditions
 

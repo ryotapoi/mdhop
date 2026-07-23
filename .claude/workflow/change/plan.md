@@ -18,15 +18,14 @@ plan mode（`EnterPlanMode` / `ExitPlanMode`）は使わない。承認待ちが
 
 Small（`change/workflow.md` の Intake 分類）— typo、docs、テスト追加だけ、1 ファイルの明確なバグ修正 — は plan を省略してよい。
 
-## Solo Plan File
+## Plan File
 
-Claude 系 Implementer（計画と実装を一体で行う）では、plan を作る Change は実装前に plan を `tmp/solo-plan-<change>.md` へ書き出す。
+Implementer は計画と実装を一体で行うため、plan を作る Change は実装前に plan を `tmp/workflow/<scope>/plan-<change>.md` へ書き出す（`<scope>` は `change/workflow.md` の一時 artifact 規約に従う）。
 
 - 内容は変更意図・触るファイル・設計判断・検証方針。仕様の記述が薄いタスクほど、このファイルが実装意図の記録の主役になる。
-- 実装後に書き直さない。「実装前の意図」の記録として、review lane への文脈提供（`change/review.md` の Review Lane Delegation）と後続 Change の参照に使うため。Goal Review には渡さない（Goal Review は commit range だけを対象にする）。
-- Gatekeeper は実装文脈を引き継がない fresh subagent のため、diff だけでは意図が読み取りにくい変更では、このファイルが Gatekeeper への文脈提供にもなる（review lane への文脈提供と同じ経路）。
+- 実装後に書き直さない。「実装前の意図」の記録として、Gatekeeper の plan 照合と後続 Change の参照に使うため。Goal Review には渡さない（Goal Review は commit range だけを対象にする）。
+- Gatekeeper は実装文脈を引き継がない fresh subagent のため、diff だけでは意図が読み取りにくい変更では、このファイルが Gatekeeper への文脈提供になる。
 - plan を省略した Small では書き出しも不要（review 側も L0 self-check のみ）。
-- GPT 系 Implementer（codex）では plan file がなく、代わりに Implementer 自身が実装前判断（全サイト列挙・責務配置・テスト方針）を `tmp/delegate-plan-<change>.md` に一時 artifact として保存し、Gatekeeper の照合元にする（`change/delegate.md` の委譲プロンプト節参照）。
 
 ## Inputs
 
@@ -37,12 +36,11 @@ Claude 系 Implementer（計画と実装を一体で行う）では、plan を�
 
 ## UX シナリオ
 
-UI / 出力に関わる変更なら、Before / After / 操作手順を 1 つの具体的な状態で plan に書く。
-ロジックのみの変更なら「N/A — UI 変更なし」と明記してスキップ。
+UI / 出力に関わる変更なら、UX への影響を plan で確認する。ロジックのみの変更ならスキップしてよい。
 
 ユーザーへの確認は plan の必須ステップではない。仕様・UX・設計方針の複数案は `change/workflow.md` の判断境界に従う。可逆で影響が小さい選択は採用案で進め、複数の妥当案が残って非可逆またはやり直しコストが大きい、または正本と矛盾する場合は Stop Conditions に従う。見た目・操作の確認は実装後に `change/verify.md` の方針で自動検証を優先し、確定できない場合だけ Stop Condition または残存リスクとして扱う。
 
-product decision（UX・データ意味・cross-surface 等）を変える plan では、Product Decision Ledger の Alternative Check を行う。カテゴリ一覧と記録・報告基準の正本は `.claude/workflow/design-decision-record.md`。
+振る舞い仕様が変わる plan では、Product Decision Ledger の Alternative Check を行う。product decision の定義と記録・報告基準の正本は `.claude/workflow/design-decision-record.md`。
 現在の要求 / backlog / docs / decisions に明記済みの内容や、判断系 skill で実装判断として解ける内容は、Goal 完了報告の `ユーザー判断が必要` に混ぜない。
 
 ## 設計判断
@@ -65,13 +63,11 @@ product decision（UX・データ意味・cross-surface 等）を変える plan 
 - 1 commit 単位は、途中段階でも「その単位として完了している」状態にする。Goal 全体の完了とは別に判断する
 - 設計判断は採用案・却下案・理由を plan に記録
 - 検証方針（自動 / ユーザー確認）を plan に明記
-- **モジュール配置**: 「依存の方向に違反しないか」「既存モジュールの責務を逸脱しないか」で判断する。新モジュールを切るならその理由を書く
-- **共通化と分離**: 「片方だけ変更したくなったとき、もう片方に影響なく変更できるか？」で判断する。無理に共通化して分岐だらけになるなら分ける
 
 ## Plan Review
 
 - 通常は実装後レビュー（`change/review.md`）を標準とし、plan review は self-check でよい。
-- 実装差分レビューでは Small 以外を原則 `/code-review xhigh` 観点ベースのレビューに通すため、plan 時点でもレビュー深度と追加 skill の要否を明記する。
+- 実装差分レビューでは Small 以外を原則 `/diff-review high`（High-risk は `/diff-review xhigh`）に通すため、plan 時点でもレビュー深度と追加 skill の要否を明記する。
 - 領域固有リスクがあれば該当観点の skill を plan に当てる。マッピングは次の slot に従う。
   <!-- slot: 領域固有レビュー skill があれば追記する（例: UI 層を触るなら対応する specialist skill）。 -->
   <!-- /slot -->

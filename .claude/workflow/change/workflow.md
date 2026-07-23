@@ -27,13 +27,12 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 三役の分担は Goal 経由でのみ成立する。Goal 経由では Implementer → Gatekeeper（Normal 以上）→ Conductor の順に担当し、commit は常に Conductor が行う。Goal を経由しない単発 Change では Gatekeeper / Conductor という役割分担自体が存在しないため、現在の agent が実装・review 差配・採否・commit のすべてを担う。以下の Routing 各項目は、断りがない限り Goal 経由の担当を示す。
 
 - Exploratory → `change/investigate.md` で事実を揃えてから判断し直す
-- 実装 → Implementer のモデル指定で決まる（無指定 `sonnet`）。Claude 系 = Implementer 自身が計画と実装を一体で行う。GPT 系 = Implementer が codex（外部実装エージェント）となり、Claude 側は watchdog subagent が運転だけを行う（`change/delegate.md`）。モデル指定は Implementer の実体だけを決め、下記の各 phase・Gatekeeper・Conductor・commit の進行は指定によらず共通
+- 実装 → Implementer 自身が計画と実装を一体で行う。実体は Implementer のモデル指定で決まる（無指定・指定可能な短名は `models.md` を正とする）。モデル指定は Implementer の実体だけを決め、下記の各 phase・Gatekeeper・Conductor・commit の進行は指定によらず共通
 - Plan が必要な変更 → `change/plan.md`（plan mode は使わず、内部で計画を立ててそのまま `change/implement.md` へ進む。詳細は `change/plan.md`）
 - Plan 省略可な変更 → そのまま `change/implement.md`
 - 検証 → `change/verify.md`
 - レビュー → `change/review.md`（Normal 以上は Gatekeeper が起動する。Small は Conductor が diff を直接実読して照合する。単発 Change では現在の agent が直接照合する）
 - 完了 → `change/finish.md`（commit は Conductor が行う。単発 Change では現在の agent が行う）
-- 節目で構造を見る → `maintenance.md`
 
 ## Decision Criteria
 
@@ -43,15 +42,16 @@ Goal 経由の場合は `goal-workflow` skill を入口とし、各 commit で�
 - 仕様・UX・データモデル・複数ファイル変更・設計判断を伴うなら plan を作る。
 - High-risk は plan・検証・必要なレビューを明示する。
 - 実装判断に影響する不明点は、調査・検証・既存情報で潰してから進む。仕様・UX の不明点は、現在の要求、正本、既存コード、調査・検証結果から採用案を選んで進める。可逆で影響が小さい選択は、Product Decision Ledger の対象なら ledger に残す。複数の妥当案が残り、かつ選択が非可逆（データ保持・削除・マイグレーション・外部公開契約）またはやり直しコストが大きい場合、または正本と矛盾する場合は Stop Conditions に従う。
-- Product Decision Ledger の対象・Alternative Check・報告基準（UX・データ意味・cross-surface 等。カテゴリ一覧は同ファイル）は `.claude/workflow/design-decision-record.md` を唯一の正本とする。
+- Product Decision Ledger の対象・Alternative Check・報告基準（対象は振る舞い仕様が変わる判断。定義は同ファイル）は `.claude/workflow/design-decision-record.md` を唯一の正本とする。
 - 途中でタスクの性質が変わったら、Intake からやり直す（格上げは許容）。
 - 既存 worktree 差分向けの特別な snapshot / staging / clean check フローは作らない。通常の差分確認と commit discipline で巻き込みを防ぐ。
+- Change 中の一時 artifact（plan file、列挙メモ、検証用 checkout、review lane のログ等）は `tmp/` 直下に平置きせず、`tmp/workflow/<scope>/` 配下に置く。`<scope>` は短い slug（backlog の版番号やタスクの短縮名。例: `v0110_1`）。Goal 経由では Conductor が Goal 開始時に 1 回決めて Change brief で全 Change に同じ値を渡し、Implementer / Gatekeeper は決め直さない（brief に置き場がなければ change 識別子で代用し、停止しない）。単発 Change では現在の agent が change の短い識別子を使う。`tmp/` 直下は人が手で置くファイルに残し、掃除は scope フォルダ単位でまとめて消せる状態を保つ。
 
 ## Source Resolution
 
 現在のユーザー依頼は作業の目的を定める。`docs/rules/`、`docs/decisions/`、`docs/specs/`、tests は正本と根拠として照合する。矛盾した場合は依頼を理由に正本を黙って上書きせず、Stop Conditions に従ってどの情報源が古いかを確定してから同期する。
 
-Product Decision Ledger は新しい正本ではない。Goal、長い Change、委任、review 指摘対応をまたぐ判断候補がある場合は、必要に応じて `tmp/product-decision-ledger/<scope>.md` に残す。finish では記憶ではなく ledger、review 結果、同期済み docs から `ユーザー判断が必要` を判断する。
+Product Decision Ledger は新しい正本ではない。Goal、長い Change、委任、review 指摘対応をまたぐ判断候補がある場合は、必要に応じて `tmp/workflow/<scope>/product-decision-ledger.md` に残す。finish では記憶ではなく ledger、review 結果、同期済み docs から `ユーザー判断が必要` を判断する。
 
 ## Phase Handoff
 
@@ -81,7 +81,7 @@ Product Decision Ledger は新しい正本ではない。Goal、長い Change、
 
 - 複数ファイル横断・キーワードのファンアウト調査は Explore subagent に委譲する
 - 互いに独立した read-only 調査・レビューは並列化してよい。同一 worktree の実装 writer は 1 つに限る
-- subagent の完了通知は配信されない・大幅に遅延することがある。background 起動して完了通知を待つ形を避け、結果は起動呼び出しの戻り値で受け取る。background になった・結果が返らない場合は通知を待たず `SendMessage` で能動的に結果を請求する。通知待ちの待機ループ（no-op の Monitor / sleep の積み増し）は行わない
+- subagent の完了通知は配信されない・大幅に遅延することがある。background 起動して完了通知を待つ形を避け、`run_in_background: false` を明示して結果を起動呼び出しの戻り値で受け取る。background になった・結果が返らない場合は通知を待たず `SendMessage` で能動的に結果を請求する。通知待ちの待機ループ（no-op の Monitor / sleep の積み増し）は行わない
 - skill は各 phase の workflow の指示に従って使う。
 - 横断のスコープ判定は `boundary-control` を正本とし、全 phase に効かせる。今回の要求の外へ作業を広げそうな時、隣接作業が見つかった時、scope を変える編集の前に使い、active scope 内か（workflow-required / incidental-required）を判定する。隣接作業は現在の commit に広げず、project-relevant なら workflow が認める正本へ capture するか最終報告で report する。active workflow を止めたり置き換えたりはしない
 - 詳細は各 phase のファイル参照
