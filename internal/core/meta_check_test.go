@@ -67,7 +67,7 @@ func TestMetaCheckPathKindDirectoryReferences(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(vault, "docs", "assets"), 0o755); err != nil {
 		t.Fatalf("mkdir assets: %v", err)
 	}
-	note := "---\nsources:\n  - ./assets/\n  - ./missing-dir/\n  - docs\n---\n"
+	note := "---\nsources:\n  - ./assets/\n  - ./missing-dir/\n  - ../../outside/\n  - docs\n---\n"
 	if err := os.WriteFile(filepath.Join(vault, "docs", "Index.md"), []byte(note), 0o644); err != nil {
 		t.Fatalf("write index: %v", err)
 	}
@@ -83,8 +83,8 @@ func TestMetaCheckPathKindDirectoryReferences(t *testing.T) {
 		t.Fatalf("meta-check: %v", err)
 	}
 
-	if len(result.Issues) != 2 {
-		t.Fatalf("issues = %+v, want 2", result.Issues)
+	if len(result.Issues) != 3 {
+		t.Fatalf("issues = %+v, want 3", result.Issues)
 	}
 	got := map[string]MetaIssueReason{}
 	for _, issue := range result.Issues {
@@ -92,6 +92,9 @@ func TestMetaCheckPathKindDirectoryReferences(t *testing.T) {
 	}
 	if got["./missing-dir/"] != ReasonNotFound {
 		t.Fatalf("missing dir issue = %v, want not_found; issues=%+v", got["./missing-dir/"], result.Issues)
+	}
+	if got["../../outside/"] != ReasonVaultEscape {
+		t.Fatalf("escaping dir issue = %v, want vault_escape; issues=%+v", got["../../outside/"], result.Issues)
 	}
 	if got["docs"] != ReasonNotFound {
 		t.Fatalf("docs without slash issue = %v, want existing non-directory behavior not_found; issues=%+v", got["docs"], result.Issues)
