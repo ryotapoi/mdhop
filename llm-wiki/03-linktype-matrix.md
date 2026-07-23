@@ -5,6 +5,7 @@ sources:
   - internal/core/parse.go
   - internal/core/parse_frontmatter.go
   - internal/core/resolve.go
+  - internal/core/link_resolver.go
   - internal/core/rewrite.go
   - internal/core/repair.go
   - docs/decisions/0013-frontmatter-wikilink-detection.md
@@ -52,18 +53,18 @@ ADR:
 
 ## resolve での解決方法
 
-`resolve.go:83` (`resolveLinkFromDB`) / `build.go:207` (`resolveLink`) で同じロジックを辿る。
+`resolve.go:91` (`resolveLinkFromDB`) / `build.go:214` (`resolveLink`) で同じロジックを辿る。
 
 | LinkType | 解決経路 |
 |---|---|
-| `tag` / `frontmatter` | タグノードを直接解決。resolve 側は `tagKey(target)` (`resolve.go:95`) → `getNodeID()` (`resolve.go:96`)、build 側は `isTagLinkType()` 判定 (`build.go:215`) → `upsertTag()` (`build.go:216`) |
-| `wikilink` / `frontmatter_wikilink` (basename) | `resolveBasenameFromDB()` でバックトラック解決。ルート優先ルール適用 (`build.go:251-260`) |
-| `wikilink` / `frontmatter_wikilink` (vault-relative path、`/` なし) | `resolvePathFromDB()` で exact パスマッチ (`resolve.go:129`, `build.go:246`) |
-| `markdown` / `frontmatter_path` (相対パス `./` or `../`) | `filepath.Join(dir, target)` で正規化後 `resolvePathFromDB()` (`resolve.go:109`) |
-| `markdown` / `frontmatter_path` (絶対パス `/` prefix) | 先頭 `/` を strip して `resolvePathFromDB()` (`resolve.go:123`) |
-| `markdown` / `frontmatter_path` (basename) | `resolveBasenameFromDB()` (`resolve.go:134`) |
+| `tag` / `frontmatter` | タグノードを直接解決。resolve 側は `tagKey(target)` (`resolve.go:108`) → `getNodeID()` (`resolve.go:109`)、build 側は `isTagLinkType()` 判定 (`link_resolver.go:102`) → `upsertTag()` (`build.go:228`) |
+| `wikilink` / `frontmatter_wikilink` (basename) | `resolveBasenameFromDB()` でバックトラック解決。ルート優先ルール適用 (`build.go:246-259`) |
+| `wikilink` / `frontmatter_wikilink` (vault-relative path、`/` なし) | `resolvePathFromDB()` で exact パスマッチ (`resolve.go:129`, `build.go:235`) |
+| `markdown` / `frontmatter_path` (相対パス `./` or `../`) | `filepath.Join(dir, target)` で正規化後 `resolvePathFromDB()` (`link_resolver.go:109-114`) |
+| `markdown` / `frontmatter_path` (絶対パス `/` prefix) | 先頭 `/` を strip して `resolvePathFromDB()` (`link_resolver.go:123-125`) |
+| `markdown` / `frontmatter_path` (basename) | `resolveBasenameFromDB()` (`resolve.go:179`) |
 
-セルフリンク `[[#Heading]]` は target="" / subpath 非空 → 自ノード ID を返す (`resolve.go:84`)。
+セルフリンク `[[#Heading]]` は target="" / subpath 非空 → 自ノード ID を返す (`link_resolver.go:97-98`)。
 
 ## rewrite 対象可否と書き換え規則
 
@@ -71,20 +72,20 @@ ADR:
 
 | LinkType | `isPathLinkType` | `rewriteLinkTypes` | 実際の書き換え | .md 拡張子の扱い |
 |---|---|---|---|---|
-| `wikilink` | ✓ | ✓ | `rewriteRawLink()` で `[[新パス]]` を生成 | `.md` を除去して出力 (`rewrite.go:74`) |
-| `markdown` | ✓ | ✓ | `rewriteRawLink()` で `[text](新URL)` を生成 | 元リンクの `.md` 有無を保持 (`rewrite.go:94-100`) |
-| `frontmatter_wikilink` | ✓ | ✓ | `rewriteRawLink()` で `[[新パス]]` を生成（wikilink と同一ロジック、`rewrite.go:58`） | `.md` を除去して出力 |
+| `wikilink` | ✓ | ✓ | `rewriteRawLink()` で `[[新パス]]` を生成 | `.md` を除去して出力 (`rewrite.go:79`) |
+| `markdown` | ✓ | ✓ | `rewriteRawLink()` で `[text](新URL)` を生成 | 元リンクの `.md` 有無を保持 (`rewrite.go:99-105`) |
+| `frontmatter_wikilink` | ✓ | ✓ | `rewriteRawLink()` で `[[新パス]]` を生成（wikilink と同一ロジック、`rewrite.go:75`） | `.md` を除去して出力 |
 | `frontmatter_path` | ✓ | **✗** | **書き換え不可**（raw 値はリンク構文ではない。`rewrite.go:13-14` のコメント参照） | — |
 | `tag` | ✗ | ✗ | 対象外 | — |
 | `frontmatter` | ✗ | ✗ | 対象外 | — |
 
 `rewriteLinkTypes` の定義: `rewrite.go:16`。各クエリのバインド済み IN 句は `linkTypeSQLIn()` (`db.go:68`) が生成する。
 
-repair (`repair.go`) は `isBodyPathLinkType()` (`repair.go:219`) のみ使用 → `wikilink` / `markdown` のみを対象とし、frontmatter_wikilink は含まない。
+repair (`repair.go`) は `isBodyPathLinkType()` (`repair.go:189`) のみ使用 → `wikilink` / `markdown` のみを対象とし、frontmatter_wikilink は含まない。
 
 ## isBasenameRawLink の実装
 
-`rewrite.go:231`。型ごとの判定:
+`rewrite.go:286`。型ごとの判定:
 
 | LinkType | 判定ロジック |
 |---|---|

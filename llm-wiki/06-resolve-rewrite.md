@@ -4,6 +4,7 @@ sources:
   - internal/core/parse.go
   - internal/core/parse_frontmatter.go
   - internal/core/link_resolver.go
+  - internal/core/link_ambiguity.go
   - internal/core/resolve.go
   - internal/core/resolve_maps.go
   - internal/core/rewrite.go
@@ -41,7 +42,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 **linkOccur 型** (`parse.go:8`): `target, isBasename, isRelative, linkType, rawLink, subpath, lineStart, lineEnd`
 
-**LinkType 定数** (`db.go:45`):
+**LinkType 定数** (`db.go:44`):
 
 | 値 | 意味 |
 |---|---|
@@ -52,7 +53,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 | `frontmatter_wikilink` | フロントマター内の `[[...]]` |
 | `frontmatter_path` | link_keys に指定されたキーの raw 値 |
 
-**isBasename の判定** (`parse.go:347`): `./` `../` `/` で始まらず `/` を含まなければ basename リンク。
+**isBasename の判定** (`parse.go:369`): `./` `../` `/` で始まらず `/` を含まなければ basename リンク。
 
 **edge 作成に使う側** は `parseLinksWithLinkKeys`（build/update/add/move）。
 `parseLinks` はエッジを作らない read-only パスで使う。
@@ -91,8 +92,8 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 - `rootBasenameToPath`: lower basename → root path（ADR 0004 用）
 - asset 系も同構造（`assetPathSet` / `assetBasenameToPath` / `assetRootBasenameToPath`）
 
-マップの初期化: `resolve_maps.go:132` `newResolveMaps(files, assetFiles)`。
-インクリメンタル更新: `addNote/removeNote/addAsset/removeAsset` (`resolve_maps.go:28〜88`)。
+マップの初期化: `resolve_maps.go:143` `newResolveMaps(files, assetFiles)`。
+インクリメンタル更新: `addNote/removeNote/addAsset/removeAsset` (`resolve_maps.go:28〜100`)。
 
 ### 2C. resolve コマンド時（DB クエリ使用）
 
@@ -111,9 +112,9 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 2. 複数ある場合: `isRootFile(path)` が true のものを返す
 3. ルート候補もなければ `(_, false)` → `ErrAmbiguousLink`
 
-`isRootFile(path)` (`util.go:53`): path が `/` を含まない（= ルート直下）なら true。
+`isRootFile(path)` (`util.go:107`): path が `/` を含まない（= ルート直下）なら true。
 
-**pathSet キー構造とルート判定の仕組み**: `addNote` (`resolve_maps.go:28`) は `A.md` を `"a"`（拡張子なし）と `"a.md"` の 2 キーで登録する。ルート直下の `A.md` は `"a"` キー、`sub/A.md` は `"sub/a"` キーになるので、`pathSet["a"]` が存在すれば必ずルートファイルを指す。`hasRootInPathSet(bk, pathSet)` (`util.go:58`) はこの性質を使い、`pathSet[bk]` の存在チェックだけでルート候補の有無を判定できる。
+**pathSet キー構造とルート判定の仕組み**: `addNote` (`resolve_maps.go:28`) は `A.md` を `"a"`（拡張子なし）と `"a.md"` の 2 キーで登録する。ルート直下の `A.md` は `"a"` キー、`sub/A.md` は `"sub/a"` キーになるので、`pathSet["a"]` が存在すれば必ずルートファイルを指す。`hasRootInPathSet(bk, pathSet)` (`util.go:112`) はこの性質を使い、`pathSet[bk]` の存在チェックだけでルート候補の有無を判定できる。
 
 **build 時のアンビギュイティ拒否タイミング**: `build.go:81` の `isAmbiguousBasenameLink`。
 条件は basename カウント > 1 かつルート直下にファイルがない（`link_ambiguity.go`）。
@@ -129,17 +130,17 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 | 関数 | ファイル:行 | 役割 |
 |---|---|---|
-| `rewriteRawLink(rawLink, linkType, targetPath)` | `rewrite.go:56` | rawLink の target 部分を新パスに置換して返す |
-| `buildRewritePath(targetPath)` | `rewrite.go:48` | `.md` 末尾だけ除去（他の拡張子はそのまま） |
-| `replaceOutsideInlineCode(line, old, new)` | `rewrite.go:109` | インラインコードスパン外のみ置換 |
-| `applyFileRewrites(vaultPath, groups)` | `rewrite.go:159` | 全ファイルへの書き込み（フェーズ1: 読む、フェーズ2: 書く、失敗時ロールバック） |
-| `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:231` | rawLink が basename 形式かを判定 |
-| `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo)` | `move_rewrite.go:490` | 相対リンク（`./` `../`）を移動後の新パスへ `filepath.Rel` で再計算 |
+| `rewriteRawLink(rawLink, linkType, targetPath)` | `rewrite.go:73` | rawLink の target 部分を新パスに置換して返す |
+| `buildRewritePath(targetPath)` | `rewrite.go:65` | `.md` 末尾だけ除去（他の拡張子はそのまま） |
+| `replaceOutsideInlineCode(line, old, new)` | `rewrite.go:114` | インラインコードスパン外のみ置換 |
+| `applyFileRewritesWithRollbackFailures(vaultPath, groups)` | `rewrite.go:190` | 全ファイルへの書き込み（フェーズ1: 読む、フェーズ2: 書く、失敗時ロールバック） |
+| `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:286` | rawLink が basename 形式かを判定 |
+| `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo)` | `move_rewrite.go:484` | 相対リンク（`./` `../`）を移動後の新パスへ `filepath.Rel` で再計算 |
 
-**絶対 vs 相対の使い分け**: `buildRewritePath` は vault-relative の target パスを受け取りそのままリンク構文へ埋める（`.md` 除去後）。移動先への絶対（vault-relative）リライトに使う。一方、相対リンク（`./` `../` prefix）は `rewriteOutgoingRelativeLink` (`move_rewrite.go:490`) が `filepath.Rel(filepath.Dir(to), resolvedTarget)` で新パスを再計算するため `buildRewritePath` を呼ばない。
+**絶対 vs 相対の使い分け**: `buildRewritePath` は vault-relative の target パスを受け取りそのままリンク構文へ埋める（`.md` 除去後）。移動先への絶対（vault-relative）リライトに使う。一方、相対リンク（`./` `../` prefix）は `rewriteOutgoingRelativeLink` (`move_rewrite.go:484`) が `filepath.Rel(filepath.Dir(to), resolvedTarget)` で新パスを再計算するため `buildRewritePath` を呼ばない。
 
-**wikilink のリライト規則** (`rewrite.go:58`): 常に .md なし（`buildRewritePath` が除去）。
-**markdown のリライト規則** (`rewrite.go:77`): 元の URL に `.md` があれば `newPath + ".md"` を維持。
+**wikilink のリライト規則** (`rewrite.go:75`): 常に .md なし（`buildRewritePath` が除去）。
+**markdown のリライト規則** (`rewrite.go:82`): 元の URL に `.md` があれば `newPath + ".md"` を維持。
 
 ### 3B. `frontmatter_path` はリライト対象外
 
@@ -152,11 +153,11 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 | 呼び出し元 | 目的 | 主な参照箇所 |
 |---|---|---|
-| `move.go` | move 後の被リンクを書き換え | `move.go:192` `isBasenameRawLink` / `move.go:196` `rewriteRawLink` |
-| `disambiguate.go` | basename → フルパスに書き換え | `disambiguate.go:115` / `disambiguate.go:150` |
-| `disambiguate.go` | scan モード（DB なし） | `disambiguate.go:355` / `disambiguate.go:374` |
-| `simplify.go` | 解決可能な path/relative リンクを basename リンクへ短縮 | `simplify.go:170` / `simplify.go:203` |
-| `repair.go` | broken / vault-escape の path リンクを basename リンクへ修正 | `repair.go:142` / `repair.go:175` |
+| `move_rewrite.go` | move 後の被リンクを書き換え | `move_rewrite.go:145` `isBasenameRawLink` / `move_rewrite.go:164` `rewriteRawLink` |
+| `disambiguate.go` | basename → フルパスに書き換え | `disambiguate.go:139` / `disambiguate.go:151` |
+| `disambiguate.go` | scan モード（DB なし） | `disambiguate.go:262` / `disambiguate.go:337` |
+| `simplify.go` | 解決可能な path/relative リンクを basename リンクへ短縮 | `simplify.go:146` |
+| `repair.go` | broken / vault-escape の path リンクを basename リンクへ修正 | `repair.go:159` / `repair.go:172` |
 
 ---
 
@@ -178,16 +179,16 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 ### リライト処理を変えるとき
 
-- `rewrite.go:56` `rewriteRawLink`（wikilink / markdown の対称性に注意）
-- `rewrite.go:159` `applyFileRewrites`（フェーズ分割・ロールバック）
-- `rewrite.go:231` `isBasenameRawLink`（move.go が判定ロジックに使用）
+- `rewrite.go:73` `rewriteRawLink`（wikilink / markdown の対称性に注意）
+- `rewrite.go:190` `applyFileRewritesWithRollbackFailures`（フェーズ分割・ロールバック）
+- `rewrite.go:286` `isBasenameRawLink`（move.go が判定ロジックに使用）
 - 対応テスト: `rewrite_test.go`, `move_test.go`, `disambiguate_test.go`
 
 ### マップを変えるとき
 
 - `resolve_maps.go:9` `resolveMaps` 構造体（フィールド追加はインクリメンタル更新メソッドにも反映）
-- `resolve_maps.go:28` `addNote` / `resolve_maps.go:45` `removeNote`（asymmetry: addNote は pathToID を更新しない）
-- `resolve_maps.go:93` `rebuildBasenameToPath`（Add 時の extraPaths 引数）
+- `resolve_maps.go:28` `addNote` / `resolve_maps.go:50` `removeNote`（asymmetry: addNote は pathToID を更新しない）
+- `resolve_maps.go:104` `rebuildBasenameToPath`（Add 時の extraPaths 引数）
 
 ---
 
@@ -195,8 +196,8 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 | エラー | 定義 | 発生 |
 |---|---|---|
-| `ErrAmbiguousLink` | `errors.go:16` | build バリデーション `build.go:81` / `util.go:124` / `resolve.go:191` |
-| `ErrLinkEscapesVault` | `errors.go:19` | build `build.go:228` `build.go:235` / resolve `link_resolver.go:110` `link_resolver.go:118` / `util.go:118` |
+| `ErrAmbiguousLink` | `errors.go:16` | build バリデーション `build.go:85` / `link_ambiguity.go:72` / `resolve.go:191` |
+| `ErrLinkEscapesVault` | `errors.go:19` | build `build.go:81` `build.go:83` / resolve `link_resolver.go:111` `link_resolver.go:119` |
 | `ErrLinkNotFound` | `errors.go:18` | resolve コマンド `resolve.go:72` / `resolvePathFromDB` `resolve.go:173` / `resolveBasenameFromDB` `resolve.go:217` |
 
 ---
