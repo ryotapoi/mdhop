@@ -62,9 +62,13 @@ func isTagLinkType(linkType LinkType) bool {
 }
 
 func tagLinkTypeSQLIn(alias string) (string, []any) {
-	placeholders := make([]string, len(tagLinkTypes))
-	args := make([]any, len(tagLinkTypes))
-	for i, linkType := range tagLinkTypes {
+	return linkTypeSQLIn(alias, tagLinkTypes)
+}
+
+func linkTypeSQLIn(alias string, linkTypes []LinkType) (string, []any) {
+	placeholders := make([]string, len(linkTypes))
+	args := make([]any, len(linkTypes))
+	for i, linkType := range linkTypes {
 		placeholders[i] = "?"
 		args[i] = string(linkType)
 	}

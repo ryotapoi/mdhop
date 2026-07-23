@@ -105,21 +105,23 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 	// Get incoming edges: basename links pointing to target note,
 	// plus broken path links pointing to the phantom (if any).
 	var edgeRows *sql.Rows
+	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	if phantomID.Valid {
 		edgeRows, err = db.Query(fmt.Sprintf(
 			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.type
 			 FROM edges e
 			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 JOIN nodes tn ON tn.id = e.target_id
-			 WHERE e.target_id IN (?, ?) AND e.link_type IN (%s)`, pathLinkTypeSQLList),
-			target.id, phantomID.Int64)
+			 WHERE e.target_id IN (?, ?) AND %s`, rewriteLinkTypeSQL),
+			append([]any{target.id, phantomID.Int64}, rewriteLinkTypeArgs...)...)
 	} else {
 		edgeRows, err = db.Query(fmt.Sprintf(
 			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.type
 			 FROM edges e
 			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 JOIN nodes tn ON tn.id = e.target_id
-			 WHERE e.target_id = ? AND e.link_type IN (%s)`, pathLinkTypeSQLList), target.id)
+			 WHERE e.target_id = ? AND %s`, rewriteLinkTypeSQL),
+			append([]any{target.id}, rewriteLinkTypeArgs...)...)
 	}
 	if err != nil {
 		return nil, err

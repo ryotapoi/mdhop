@@ -9,16 +9,18 @@ import (
 	"strings"
 )
 
-// pathLinkTypeSQLList is the SQL `IN (...)` literal listing every link_type
-// whose target resolves to a vault path (and therefore participates in
-// rewrite/move/disambiguate operations). Embed via fmt or string concatenation,
-// not as a parameterized argument.
+// rewriteLinkTypes lists every link type whose target can be rewritten by
+// rewrite/move/disambiguate operations.
 // frontmatter_path is intentionally absent: raw path values are not link
 // syntax and cannot be rewritten.
-const pathLinkTypeSQLList = `'wikilink', 'markdown', 'frontmatter_wikilink'`
+var rewriteLinkTypes = []LinkType{
+	LinkTypeWikilink,
+	LinkTypeMarkdown,
+	LinkTypeFrontmatterWikilink,
+}
 
 // isPathLinkType reports whether linkType resolves to a vault path and is
-// subject to escape/ambiguity validation. Unlike pathLinkTypeSQLList, this
+// subject to escape/ambiguity validation. Unlike rewriteLinkTypes, this
 // includes frontmatter_path (validated but not rewritable).
 func isPathLinkType(linkType LinkType) bool {
 	switch linkType {
@@ -311,7 +313,7 @@ func isBasenameRawLink(rawLink string, linkType LinkType) bool {
 	case LinkTypeFrontmatterPath:
 		// raw_link is the raw frontmatter value; reuse the parser's
 		// classification so both stay in sync. Only diagnose reaches this
-		// case: rewrite-side callers filter edges by pathLinkTypeSQLList,
+		// case: rewrite-side callers filter edges by rewriteLinkTypes,
 		// which excludes frontmatter_path (raw values are not rewritable).
 		occ, ok := frontmatterPathOccur(rawLink, 0)
 		return ok && occ.isBasename

@@ -69,7 +69,7 @@ ADR:
 
 `isPathLinkType()` (`rewrite.go:20`) が `true` を返す型のみが rewrite / move / disambiguate の対象候補。
 
-| LinkType | `isPathLinkType` | SQL `pathLinkTypeSQLList` | 実際の書き換え | .md 拡張子の扱い |
+| LinkType | `isPathLinkType` | `rewriteLinkTypes` | 実際の書き換え | .md 拡張子の扱い |
 |---|---|---|---|---|
 | `wikilink` | ✓ | ✓ | `rewriteRawLink()` で `[[新パス]]` を生成 | `.md` を除去して出力 (`rewrite.go:74`) |
 | `markdown` | ✓ | ✓ | `rewriteRawLink()` で `[text](新URL)` を生成 | 元リンクの `.md` 有無を保持 (`rewrite.go:94-100`) |
@@ -78,7 +78,7 @@ ADR:
 | `tag` | ✗ | ✗ | 対象外 | — |
 | `frontmatter` | ✗ | ✗ | 対象外 | — |
 
-`pathLinkTypeSQLList` の定義: `rewrite.go:15` （`'wikilink', 'markdown', 'frontmatter_wikilink'`）
+`rewriteLinkTypes` の定義: `rewrite.go:16`。各クエリのバインド済み IN 句は `linkTypeSQLIn()` (`db.go:68`) が生成する。
 
 repair (`repair.go`) は `isBodyPathLinkType()` (`repair.go:219`) のみ使用 → `wikilink` / `markdown` のみを対象とし、frontmatter_wikilink は含まない。
 

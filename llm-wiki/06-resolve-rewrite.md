@@ -143,8 +143,8 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 ### 3B. `frontmatter_path` はリライト対象外
 
-`pathLinkTypeSQLList` (`rewrite.go:15`): リライト対象の path 系 LinkType を並べた SQL リスト（値は正本を読む）。
-`frontmatter_path` はリストに含まない（raw 値はリンク構文ではないため書き換えできない）。
+`rewriteLinkTypes` (`rewrite.go:16`): リライト対象の path 系 LinkType を並べる型付き集合。各クエリのバインド済み IN 句は `linkTypeSQLIn()` (`db.go:68`) が生成する。
+`frontmatter_path` は集合に含まない（raw 値はリンク構文ではないため書き換えできない）。
 
 `isPathLinkType` (`rewrite.go:20`): バリデーション側（逃げ・曖昧チェック）では `frontmatter_path` を含む。
 

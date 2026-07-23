@@ -161,11 +161,12 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 		}
 
 		// Query edges with source info for potential rewriting.
+		rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 		rows, err := db.Query(fmt.Sprintf(
 			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id
 			 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 WHERE e.target_id = ?
-			 AND e.link_type IN (%s)`, pathLinkTypeSQLList), targetID)
+			 AND %s`, rewriteLinkTypeSQL), append([]any{targetID}, rewriteLinkTypeArgs...)...)
 		if err != nil {
 			return nil, err
 		}

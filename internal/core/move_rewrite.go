@@ -115,14 +115,15 @@ func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMap
 			placeholders[i] = "?"
 			args[i] = id
 		}
+		rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 		query := fmt.Sprintf(
 			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.target_id
 			 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-			 WHERE e.target_id IN (%s) AND e.link_type IN (%s)`,
+			 WHERE e.target_id IN (%s) AND %s`,
 			strings.Join(placeholders, ","),
-			pathLinkTypeSQLList,
+			rewriteLinkTypeSQL,
 		)
-		rows, err := db.Query(query, args...)
+		rows, err := db.Query(query, append(args, rewriteLinkTypeArgs...)...)
 		if err != nil {
 			return nil, err
 		}
@@ -365,17 +366,18 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 }
 
 // lookupEdgeTargetPath returns the target node path for the edge identified by
-// (sourceID, rawLink) among path-resolving link types (see pathLinkTypeSQLList).
+// (sourceID, rawLink) among link types that can be rewritten.
 // Returns ("", nil) when no matching edge exists or when the target is a
 // phantom node (whose path is stored as NULL); callers treat both cases as
 // "skip".
 func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string) (string, error) {
+	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	var path string
 	err := db.QueryRow(fmt.Sprintf(
 		`SELECT COALESCE(tn.path, '') FROM edges e
 		 JOIN nodes tn ON tn.id = e.target_id
-		 WHERE e.source_id = ? AND e.raw_link = ? AND e.link_type IN (%s)
-		 LIMIT 1`, pathLinkTypeSQLList), sourceID, rawLink).Scan(&path)
+		 WHERE e.source_id = ? AND e.raw_link = ? AND %s
+		 LIMIT 1`, rewriteLinkTypeSQL), append([]any{sourceID, rawLink}, rewriteLinkTypeArgs...)...).Scan(&path)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", err
 	}
@@ -387,13 +389,14 @@ func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string) (string, 
 // The JOIN condition tn.exists_flag = 1 excludes phantom nodes (path=NULL), which
 // have no disk content to rewrite.
 func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
+	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	rows, err := db.Query(fmt.Sprintf(
 		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
 		 FROM edges e
 		 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 		 JOIN nodes tn ON tn.id = e.target_id AND tn.type = ? AND tn.exists_flag = 1
-		 WHERE tn.name = ? AND e.link_type IN (%s)`, pathLinkTypeSQLList),
-		nodeType, name)
+		 WHERE tn.name = ? AND %s`, rewriteLinkTypeSQL),
+		append([]any{nodeType, name}, rewriteLinkTypeArgs...)...)
 	if err != nil {
 		return nil, err
 	}

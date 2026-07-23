@@ -40,19 +40,19 @@ func TestPathLinkTypeClassificationsCoverAllLinkTypes(t *testing.T) {
 		}
 	}
 
-	rewriteTypes := sqlLinkTypeSet(t, pathLinkTypeSQLList)
-	traversalTypes := sqlLinkTypeSet(t, traversalLinkTypeSQLList)
-	assertSQLLinkTypesDeclared(t, "pathLinkTypeSQLList", rewriteTypes, declaredSet)
-	assertSQLLinkTypesDeclared(t, "traversalLinkTypeSQLList", traversalTypes, declaredSet)
+	rewriteTypes := linkTypeSet(t, rewriteLinkTypes)
+	traversalTypes := linkTypeSet(t, traversalLinkTypes)
+	assertSQLLinkTypesDeclared(t, "rewriteLinkTypes", rewriteTypes, declaredSet)
+	assertSQLLinkTypesDeclared(t, "traversalLinkTypes", traversalTypes, declaredSet)
 	for linkType, want := range expected {
 		if got := isPathLinkType(linkType); got != want.isPath {
 			t.Errorf("isPathLinkType(%q) = %v, want %v", linkType, got, want.isPath)
 		}
 		if got := rewriteTypes[linkType]; got != want.rewrite {
-			t.Errorf("pathLinkTypeSQLList contains %q = %v, want %v", linkType, got, want.rewrite)
+			t.Errorf("rewriteLinkTypes contains %q = %v, want %v", linkType, got, want.rewrite)
 		}
 		if got := traversalTypes[linkType]; got != want.traversal {
-			t.Errorf("traversalLinkTypeSQLList contains %q = %v, want %v", linkType, got, want.traversal)
+			t.Errorf("traversalLinkTypes contains %q = %v, want %v", linkType, got, want.traversal)
 		}
 	}
 }
@@ -111,21 +111,31 @@ func declaredLinkTypes(t *testing.T) []LinkType {
 	return linkTypes
 }
 
-func sqlLinkTypeSet(t *testing.T, list string) map[LinkType]bool {
+func linkTypeSet(t *testing.T, linkTypes []LinkType) map[LinkType]bool {
 	t.Helper()
 	set := make(map[LinkType]bool)
-	for _, item := range strings.Split(list, ",") {
-		item = strings.TrimSpace(item)
-		if len(item) < 2 || item[0] != '\'' || item[len(item)-1] != '\'' {
-			t.Fatalf("SQL link type literal %q is not single-quoted", item)
-		}
-		linkType := LinkType(item[1 : len(item)-1])
+	for _, linkType := range linkTypes {
 		if set[linkType] {
-			t.Fatalf("SQL link type literal %q is duplicated", linkType)
+			t.Fatalf("LinkType %q is duplicated", linkType)
 		}
 		set[linkType] = true
 	}
 	return set
+}
+
+func TestLinkTypeSQLIn(t *testing.T) {
+	sql, args := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
+	if want := "e.link_type IN (?, ?, ?)"; sql != want {
+		t.Errorf("SQL = %q, want %q", sql, want)
+	}
+	if len(args) != len(rewriteLinkTypes) {
+		t.Fatalf("argument count = %d, want %d", len(args), len(rewriteLinkTypes))
+	}
+	for i, linkType := range rewriteLinkTypes {
+		if got, want := args[i], string(linkType); got != want {
+			t.Errorf("argument %d = %q, want %q", i, got, want)
+		}
+	}
 }
 
 func assertSQLLinkTypesDeclared(t *testing.T, listName string, sqlTypes, declared map[LinkType]bool) {

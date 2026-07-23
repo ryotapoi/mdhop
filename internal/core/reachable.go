@@ -28,10 +28,15 @@ type ReachableResult struct {
 	Routes      map[string][]string // target path → shortest route (entry .. target); set when Route
 }
 
-// traversalLinkTypeSQLList enumerates the link types the reachability walk
+// traversalLinkTypes enumerates the link types the reachability walk
 // follows: note-to-note navigation links. Tag edges (tag, frontmatter) are
 // excluded so sharing a tag never counts as reachable.
-const traversalLinkTypeSQLList = `'wikilink', 'markdown', 'frontmatter_wikilink', 'frontmatter_path'`
+var traversalLinkTypes = []LinkType{
+	LinkTypeWikilink,
+	LinkTypeMarkdown,
+	LinkTypeFrontmatterWikilink,
+	LinkTypeFrontmatterPath,
+}
 
 // Reachable walks outgoing links from the entry note (BFS over the edges
 // table) and partitions the target note set into reachable / unreachable.
@@ -80,10 +85,11 @@ func Reachable(vaultPath string, opts ReachableOptions) (*ReachableResult, error
 	// targets enter the visited set but have no outgoing entries, so they
 	// act as leaves.
 	adj := make(map[int64][]int64)
+	traversalLinkTypeSQL, traversalLinkTypeArgs := linkTypeSQLIn("e.link_type", traversalLinkTypes)
 	rows, err := db.Query(fmt.Sprintf(
 		`SELECT e.source_id, e.target_id FROM edges e
 		 JOIN nodes sn ON sn.id = e.source_id AND sn.type='note' AND sn.exists_flag=1
-		 WHERE e.link_type IN (%s)`, traversalLinkTypeSQLList))
+		 WHERE %s`, traversalLinkTypeSQL), traversalLinkTypeArgs...)
 	if err != nil {
 		return nil, err
 	}
