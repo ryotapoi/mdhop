@@ -4,6 +4,10 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+### Changed
+
+- Expanded regression coverage for `init-meta --write`, `meta-check` vault escapes, and diagnose formatter output; split move tests by responsibility. CLI behavior is unchanged.
+
 ## [v0.16.3] - 2026-07-12
 
 ### Changed

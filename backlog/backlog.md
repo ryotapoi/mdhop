@@ -2,13 +2,6 @@
 
 ## v0.16.4〜v0.16.6（maintenance-audit deep 2026-07-17 findings。全て機能追加なしのため patch。バージョン順に実施 — テスト安全網を先に入れてからリファクタに進む）
 
-### v0.16.4（テストのみ。出力・挙動の変更なし）
-
-- [x] init-meta `--write` パスの CLI テスト追加（現状完全未テスト。mdhop.yaml 生成・既存セクション保持マージ・2 回目実行の Skipped 報告を検証。core 側はテスト済みなので CLI の write 配線に絞る）
-- [x] meta-check の vault-escape 分岐テスト追加（末尾 `/` の frontmatter_path 値が vault 外を指すケースで `ReasonVaultEscape` を検証）
-- [x] diagnose の asset-conflict / broken-anchor 出力テスト追加（format_diagnose.go:88-112。broken-anchor は JSON 既カバー（cli_test.go:947）のため text のみ、asset-conflict（AssetBasenameConflicts）は cmd 側に検証がないため text / JSON 両方。formatter 単体テストで足りる）
-- [x] move_test.go（3,287 行）をソースのファイル境界に合わせて分割（move_dir_test.go / move_template_test.go / move_rewrite_test.go 等。索引性の回復）
-
 ### v0.16.5（挙動不変の内部整理。出力は変わらない）
 
 - [ ] link type 集合の型付き slice 化: `pathLinkTypeSQLList`（rewrite.go:18）と `traversalLinkTypeSQLList`（reachable.go:34）を `[]LinkType` + `tagLinkTypeSQLIn` 方式の IN 句生成に置き換える。3 集合（rewrite 可能 / traversal / validation = `isPathLinkType`）は概念が別なので統合しない（traversal と validation は現在メンバーが偶然一致しているだけ）
