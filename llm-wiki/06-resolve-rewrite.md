@@ -196,9 +196,10 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 | エラー | 定義 | 発生 |
 |---|---|---|
-| `ErrAmbiguousLink` | `errors.go:16` | build バリデーション `build.go:85` / `link_ambiguity.go:72` / `resolve.go:191` |
-| `ErrLinkEscapesVault` | `errors.go:19` | build `build.go:81` `build.go:83` / resolve `link_resolver.go:111` `link_resolver.go:119` |
-| `ErrLinkNotFound` | `errors.go:18` | resolve コマンド `resolve.go:72` / `resolvePathFromDB` `resolve.go:173` / `resolveBasenameFromDB` `resolve.go:217` |
+| `ErrAmbiguousLink` | `errors.go:17` | build バリデーション `build.go:85` / `link_ambiguity.go:72` / `resolve.go:191` |
+| `ErrLinkEscapesVault` | `errors.go:21` | build `build.go:81` `build.go:83` / resolve `link_resolver.go:111` `link_resolver.go:119` |
+| `ErrLinkNotFound` | `errors.go:19` | resolve コマンド `resolve.go:72` / `resolvePathFromDB` `resolve.go:173` / `resolveBasenameFromDB` `resolve.go:217` |
+| `ErrEntryNotFound` | `errors.go:20` | query の tag / phantom / name entry lookup `query_entry.go:80` / `query_entry.go:84` / `query_entry.go:126` |
 
 ---
 
