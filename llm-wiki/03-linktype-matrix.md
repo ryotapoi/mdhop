@@ -67,7 +67,7 @@ ADR:
 
 ## rewrite 対象可否と書き換え規則
 
-`isPathLinkType()` (`rewrite.go:20`) が `true` を返す型のみが rewrite / move / disambiguate の対象候補。
+`isPathLinkType()` (`rewrite.go:25`) が `true` を返す型のみが rewrite / move / disambiguate の対象候補。
 
 | LinkType | `isPathLinkType` | `rewriteLinkTypes` | 実際の書き換え | .md 拡張子の扱い |
 |---|---|---|---|---|

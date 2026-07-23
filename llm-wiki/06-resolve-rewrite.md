@@ -96,7 +96,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 ### 2C. resolve コマンド時（DB クエリ使用）
 
-`resolve.go:21` `Resolve(vaultPath, fromPath, link)` — 公開 API。
+`resolve.go:30` `Resolve(vaultPath, fromPath, link)` — 公開 API。
 内部解決: `resolve.go` `resolveLinkFromDB(db, sourcePath, link)` — `dbLinkResolver` を使って共通ディスパッチへ渡す。
 
 `resolvePathFromDB`: note exact → note+.md → asset → phantom の順（DB クエリ）。
@@ -105,7 +105,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 ### 2D. ルート優先ルール（ADR 0004）
 
-`pickBasenameMatch(matches)` (`resolve.go:275`):
+`pickBasenameMatch(matches)` (`resolve.go:260`):
 
 1. `len(matches) == 1` → そのまま返す
 2. 複数ある場合: `isRootFile(path)` が true のものを返す
@@ -146,7 +146,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 `rewriteLinkTypes` (`rewrite.go:16`): リライト対象の path 系 LinkType を並べる型付き集合。各クエリのバインド済み IN 句は `linkTypeSQLIn()` (`db.go:68`) が生成する。
 `frontmatter_path` は集合に含まない（raw 値はリンク構文ではないため書き換えできない）。
 
-`isPathLinkType` (`rewrite.go:20`): バリデーション側（逃げ・曖昧チェック）では `frontmatter_path` を含む。
+`isPathLinkType` (`rewrite.go:25`): バリデーション側（逃げ・曖昧チェック）では `frontmatter_path` を含む。
 
 ### 3C. 呼び出し元
 
@@ -195,9 +195,9 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 | エラー | 定義 | 発生 |
 |---|---|---|
-| `ErrAmbiguousLink` | `errors.go:16` | build バリデーション `build.go:81` / `util.go:124` / `resolve.go:206` |
-| `ErrLinkEscapesVault` | `errors.go:19` | build `build.go:228` `build.go:235` / resolve `resolve.go:110` `resolve.go:118` / `util.go:118` |
-| `ErrLinkNotFound` | `errors.go:18` | resolve コマンド `resolve.go:63` / `resolvePathFromDB` `resolve.go:188` / `resolveBasenameFromDB` `resolve.go:232` |
+| `ErrAmbiguousLink` | `errors.go:16` | build バリデーション `build.go:81` / `util.go:124` / `resolve.go:191` |
+| `ErrLinkEscapesVault` | `errors.go:19` | build `build.go:228` `build.go:235` / resolve `link_resolver.go:110` `link_resolver.go:118` / `util.go:118` |
+| `ErrLinkNotFound` | `errors.go:18` | resolve コマンド `resolve.go:72` / `resolvePathFromDB` `resolve.go:173` / `resolveBasenameFromDB` `resolve.go:217` |
 
 ---
 
