@@ -1566,6 +1566,27 @@ func captureStdout(t *testing.T, fn func() error) string {
 	return output.String()
 }
 
+// captureStderr runs fn while capturing everything written to os.Stderr.
+func captureStderr(t *testing.T, fn func() error) string {
+	t.Helper()
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	err := fn()
+
+	w.Close()
+	os.Stderr = oldStderr
+
+	var output bytes.Buffer
+	output.ReadFrom(r)
+
+	if err != nil {
+		t.Fatalf("command failed: %v\noutput: %s", err, output.String())
+	}
+	return output.String()
+}
+
 func readCLIFile(t *testing.T, path string) string {
 	t.Helper()
 	content, err := os.ReadFile(path)
@@ -2001,6 +2022,82 @@ func TestRunInitMeta_ScanStdout(t *testing.T) {
 	// Without --write, mdhop.yaml must not be created.
 	if _, err := os.Stat(filepath.Join(vault, "mdhop.yaml")); !os.IsNotExist(err) {
 		t.Errorf("mdhop.yaml should not be created without --write (stat err: %v)", err)
+	}
+}
+
+func TestRunInitMeta_Write(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_init_meta")
+
+	stderr := captureStderr(t, func() error {
+		return runInitMeta([]string{
+			"--vault", vault,
+			"--scan",
+			"--no-comment",
+			"--write",
+		})
+	})
+	if !strings.Contains(stderr, "added 5 type(s)") {
+		t.Errorf("stderr = %q, want added report", stderr)
+	}
+
+	configPath := filepath.Join(vault, "mdhop.yaml")
+	config := readCLIFile(t, configPath)
+	if !strings.Contains(config, "meta:") || !strings.Contains(config, "priority: number") {
+		t.Errorf("generated config missing scanned meta types:\n%s", config)
+	}
+}
+
+func TestRunInitMeta_WritePreservesConfigAndReportsSkipped(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_init_meta")
+	configPath := filepath.Join(vault, "mdhop.yaml")
+	existing := `build:
+  exclude_paths:
+    - "templates/*"
+exclude:
+  paths:
+    - "private/*"
+meta:
+  types:
+    priority: string
+`
+	if err := os.WriteFile(configPath, []byte(existing), 0o644); err != nil {
+		t.Fatalf("write existing config: %v", err)
+	}
+
+	captureStderr(t, func() error {
+		return runInitMeta([]string{
+			"--vault", vault,
+			"--preset",
+			"--no-comment",
+			"--write",
+		})
+	})
+
+	merged := readCLIFile(t, configPath)
+	for _, want := range []string{
+		"exclude_paths:",
+		"- \"templates/*\"",
+		"exclude:",
+		"paths:",
+		"- \"private/*\"",
+		"priority: string",
+		"created: date",
+	} {
+		if !strings.Contains(merged, want) {
+			t.Errorf("merged config missing %q:\n%s", want, merged)
+		}
+	}
+
+	stderr := captureStderr(t, func() error {
+		return runInitMeta([]string{
+			"--vault", vault,
+			"--preset",
+			"--no-comment",
+			"--write",
+		})
+	})
+	if !strings.Contains(stderr, "skipped 15 existing type(s)") {
+		t.Errorf("stderr = %q, want skipped report for the second --write", stderr)
 	}
 }
 
