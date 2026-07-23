@@ -41,7 +41,7 @@ CLI の stdout / stderr 分離方針と、JSON 出力の構造的なポイント
 - `printWarnings(warnings []string)` — `warning: <msg>` 形式で各行を stderr に書く。build/add/update が呼び出す
 - `formatCommandError(command, err)` — `error: <command>: <message>` 形式でトップレベルエラーを整形する（`main.go:82`）
 - `fmt.Fprintln(os.Stderr, "hint: ...")` — index が存在しない場合のヒント（repair/simplify/convert）
-- `fmt.Fprint(os.Stderr, "Usage: ...")` — main.go:93 でサブコマンド不明時
+- `fmt.Fprint(os.Stderr, "Usage: ...")` — main.go:97 でサブコマンド不明時
 
 **原則:** stdout に warning や hint を混ぜない。agent が stdout をそのまま parse できることが不変条件。
 

@@ -19,6 +19,7 @@ sources:
   - internal/core/util.go
   - internal/core/errors.go
   - internal/core/db.go
+  - internal/core/query_entry.go
   - docs/specs/overview.md
   - docs/decisions/0004-root-priority-for-ambiguous-basename.md
 ---
@@ -118,7 +119,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 **build 時のアンビギュイティ拒否タイミング**: `build.go:81` の `isAmbiguousBasenameLink`。
 条件は basename カウント > 1 かつルート直下にファイルがない（`link_ambiguity.go`）。
-エラーは `ErrAmbiguousLink` (`errors.go:16`)、最大 `maxBuildErrors(5)` 件まで収集。
+エラーは `ErrAmbiguousLink` (`errors.go:17`)、最大 `maxBuildErrors(5)` 件まで収集。
 
 **validate 関数** (`link_ambiguity.go` `validateParsedLinks`): add/update/move/move_dir が edge 作成前に呼ぶ。build 側の inline 判定と同ロジック。
 
