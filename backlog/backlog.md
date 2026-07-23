@@ -4,10 +4,10 @@
 
 ### v0.16.4（テストのみ。出力・挙動の変更なし）
 
-- [ ] init-meta `--write` パスの CLI テスト追加（現状完全未テスト。mdhop.yaml 生成・既存セクション保持マージ・2 回目実行の Skipped 報告を検証。core 側はテスト済みなので CLI の write 配線に絞る）
-- [ ] meta-check の vault-escape 分岐テスト追加（末尾 `/` の frontmatter_path 値が vault 外を指すケースで `ReasonVaultEscape` を検証）
-- [ ] diagnose の asset-conflict / broken-anchor 出力テスト追加（format_diagnose.go:88-112。broken-anchor は JSON 既カバー（cli_test.go:947）のため text のみ、asset-conflict（AssetBasenameConflicts）は cmd 側に検証がないため text / JSON 両方。formatter 単体テストで足りる）
-- [ ] move_test.go（3,287 行）をソースのファイル境界に合わせて分割（move_dir_test.go / move_template_test.go / move_rewrite_test.go 等。索引性の回復）
+- [x] init-meta `--write` パスの CLI テスト追加（現状完全未テスト。mdhop.yaml 生成・既存セクション保持マージ・2 回目実行の Skipped 報告を検証。core 側はテスト済みなので CLI の write 配線に絞る）
+- [x] meta-check の vault-escape 分岐テスト追加（末尾 `/` の frontmatter_path 値が vault 外を指すケースで `ReasonVaultEscape` を検証）
+- [x] diagnose の asset-conflict / broken-anchor 出力テスト追加（format_diagnose.go:88-112。broken-anchor は JSON 既カバー（cli_test.go:947）のため text のみ、asset-conflict（AssetBasenameConflicts）は cmd 側に検証がないため text / JSON 両方。formatter 単体テストで足りる）
+- [x] move_test.go（3,287 行）をソースのファイル境界に合わせて分割（move_dir_test.go / move_template_test.go / move_rewrite_test.go 等。索引性の回復）
 
 ### v0.16.5（挙動不変の内部整理。出力は変わらない）
 
