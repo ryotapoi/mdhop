@@ -7,6 +7,7 @@
 ### 変更
 
 - `init-meta --write`、`meta-check` の vault escape、diagnose formatter 出力の回帰テストを拡充し、move テストを責務別に分割。CLI の挙動は変更なし。
+- link type の SQL filter、resolve の出力 field 定数、formatter の正規化を整理。CLI の挙動は変更なし。
 
 ## [v0.16.3] - 2026-07-12
 

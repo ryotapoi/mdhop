@@ -2,12 +2,6 @@
 
 ## v0.16.4〜v0.16.6（maintenance-audit deep 2026-07-17 findings。全て機能追加なしのため patch。バージョン順に実施 — テスト安全網を先に入れてからリファクタに進む）
 
-### v0.16.5（挙動不変の内部整理。出力は変わらない）
-
-- [x] link type 集合の型付き slice 化: `rewriteLinkTypes`（rewrite.go）と `traversalLinkTypes`（reachable.go）を `[]LinkType` + `linkTypeSQLIn` によるバインド済み IN 句生成に置き換える。3 集合（rewrite 可能 / traversal / validation = `isPathLinkType`）は概念が別なので統合しない（traversal と validation は現在メンバーが偶然一致しているだけ）
-- [x] resolve フィールド名の定数化: core に `FieldResolve*` 定数を定義し、format_resolve.go の valid-set / text / JSON 出力から参照する（conventions.md の「core 定数参照」規約に resolve だけ従っていない状態の解消）
-- [x] 小粒の重複解消: build hint 文字列（convert.go:69 / repair.go:68 / simplify.go:64 の完全一致 3 箇所）を定数化し、format_*.go の nil→空スライス正規化 17 箇所を helper（例 `emptyIfNil`）に寄せる
-
 ### v0.16.6（エラーメッセージの整備。エラー文言が変わりうる）
 
 - [ ] sentinel error の整備: resolve.go:34・query_entry.go:80/84/126 の同義生文字列エラーを対応 sentinel の `%w` ラップに揃え、internal/core/errors.go の冒頭コメントを実態（本番コードは分岐していない・テスト検証用 + 将来の分岐余地）に書き直す。exit code 分岐等の機能は作らない（要望待ち。「登録見送り」の sentinel 項参照）
