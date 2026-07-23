@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -37,6 +38,23 @@ func TestParseFields(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestEmptyIfNil(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		got := emptyIfNil[rewrittenJSON](nil)
+		if got == nil || len(got) != 0 {
+			t.Errorf("emptyIfNil(nil) = %v, want non-nil empty slice", got)
+		}
+	})
+
+	t.Run("non-nil", func(t *testing.T) {
+		want := []string{"A.md"}
+		got := emptyIfNil(want)
+		if !slices.Equal(got, want) {
+			t.Errorf("emptyIfNil(%v) = %v, want %v", want, got, want)
+		}
+	})
 }
 
 func TestValidateFormat(t *testing.T) {

@@ -23,10 +23,7 @@ func printMoveJSON(w io.Writer, from, to string, r *core.MoveResult) error {
 	out := moveJSONOutput{
 		From:      from,
 		To:        to,
-		Rewritten: toRewrittenJSON(r.Rewritten),
-	}
-	if out.Rewritten == nil {
-		out.Rewritten = []rewrittenJSON{}
+		Rewritten: emptyIfNil(toRewrittenJSON(r.Rewritten)),
 	}
 	return encodeJSON(w, out)
 }

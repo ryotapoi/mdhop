@@ -61,7 +61,7 @@ func runSimplify(args []string) error {
 		printSimplifyText(os.Stdout, result)
 	}
 	if !*dryRun && len(result.Rewritten) > 0 {
-		fmt.Fprintln(os.Stderr, "hint: run 'mdhop build' to create or update the index")
+		fmt.Fprintln(os.Stderr, buildIndexHint)
 	}
 	return nil
 }

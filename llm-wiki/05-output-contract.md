@@ -39,9 +39,9 @@ CLI の stdout / stderr 分離方針と、JSON 出力の構造的なポイント
 **stderr の出力パターン（`cmd/mdhop/format.go` および各コマンドファイル）:**
 
 - `printWarnings(warnings []string)` — `warning: <msg>` 形式で各行を stderr に書く。build/add/update が呼び出す
-- `fmt.Fprintf(os.Stderr, "error: %v\n", err)` — main.go:75 でトップレベルエラー
+- `fmt.Fprintf(os.Stderr, "error: %v\n", err)` — main.go:77 でトップレベルエラー
 - `fmt.Fprintln(os.Stderr, "hint: ...")` — index が存在しない場合のヒント（repair/simplify/convert）
-- `fmt.Fprint(os.Stderr, "Usage: ...")` — main.go:91 でサブコマンド不明時
+- `fmt.Fprint(os.Stderr, "Usage: ...")` — main.go:93 でサブコマンド不明時
 
 **原則:** stdout に warning や hint を混ぜない。agent が stdout をそのまま parse できることが不変条件。
 
@@ -72,9 +72,9 @@ queryJSONOutput.Meta      map[string][]string `json:"meta,omitempty"`
 
 **罠:** nil スライスと空スライス `[]` は `omitempty` では同じ扱い（両方省略）。しかし **mutation 系コマンド（add/delete/update/move/repair/simplify/convert/disambiguate）は常に全フィールドを返す** ため、nil を `[]` に変換してから encode する（下記参照）。
 
-### パターン B — nil → 空配列の明示変換（mutation 系）
+### パターン B — nil → 空配列への正規化（mutation 系）
 
-mutation 系の JSON formatter はすべて、encode 前に nil スライスを空スライスへ寄せるイディオムを持つ（代表例 `format_add.go:27-35`）。これにより、操作がなかった場合も `"added": []` のように空配列が出力され、フィールドが消えない。agent がフィールド存在を前提に parse できる安定 IF。
+mutation 系の JSON formatter はすべて、encode 前に `emptyIfNil`（`format.go:15-20`）で nil スライスを空スライスへ正規化する（代表例 `format_add.go:21-27`）。これにより、操作がなかった場合も `"added": []` のように空配列が出力され、フィールドが消えない。agent がフィールド存在を前提に parse できる安定 IF。
 
 ### パターン C — map[string]any / map[string]int（フィールド選択型）
 
@@ -89,14 +89,14 @@ reachable: printReachableJSON() → map[string]any (format_reachable.go:17)
 
 **罠:** `map[string]any` はリクエストされたフィールドが空でも常に key が出力される。一方 struct + `omitempty` だと空配列はフィールドごと消える。意図の違いに注意。
 
-diagnose の phantoms は例外的に map へ `[]string{}` を入れる（nil 防止）:
-→ `format_diagnose.go:57-59`
+diagnose の phantoms は例外的に、map へ `emptyIfNil` で正規化した空スライスを入れる:
+→ `format_diagnose.go:54-56`
 
 ---
 
 ## `jsonNodeInfo` — note/asset/phantom/tag の共通型
 
-`format.go:96-110` で定義（type / name / path / exists の 4 フィールド。定義本体は正本を読む）。
+`format.go:105-119` で定義（type / name / path / exists の 4 フィールド。定義本体は正本を読む）。
 
 - `Path` と `Exists` は `type == note || type == asset` のときのみセットされる
 - `Exists` は `*bool` + `omitempty` — **bool を直接使うと false が JSON から落ちる**
@@ -143,7 +143,7 @@ diagnose の phantoms は例外的に map へ `[]string{}` を入れる（nil �
 
 ## フィールドバリデーションのタイミング
 
-`validateFormat()` (`format.go:42`) / `validateFields()` (`format.go:51`) は DB オープン **前** に実行する。理由: index が存在しない状態でも unknown field エラーを即返せるようにするため。
+`validateFormat()` (`format.go:51`) / `validateFields()` (`format.go:60`) は DB オープン **前** に実行する。理由: index が存在しない状態でも unknown field エラーを即返せるようにするため。
 
 ---
 
@@ -167,6 +167,6 @@ graph コマンドのみ `--format dot` が有効。`format_graph.go:36-46` で 
 
 - YAML 風の `key: value` 形式
 - リスト項目は `- ` プレフィックス
-- `writeNodeInfoText(w, n, firstIndent, restIndent)` — リスト項目の1行目は `- type: note`、続行は `  name: ...` とインデントを分ける（`format_query.go:168-175`）
-- `nodeInfoOneLine(n)` — twohop の via/targets 向けのコンパクト1行形式（`format_query.go:179-186`）
+- `writeNodeInfoText(w, n, firstIndent, restIndent)` — リスト項目の1行目は `- type: note`、続行は `  name: ...` とインデントを分ける（`format_query.go:167-174`）
+- `nodeInfoOneLine(n)` — twohop の via/targets 向けのコンパクト1行形式（`format_query.go:178-185`）
 - text フォーマットで「リクエストされなかったフィールド」と「リクエストされたが空だったフィールド」はどちらも出力されない（mutation 系は nil でも print するが空なら `printStringListText` がスキップ）

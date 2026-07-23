@@ -20,18 +20,9 @@ func printAddText(w io.Writer, r *core.AddResult) {
 
 func printAddJSON(w io.Writer, r *core.AddResult) error {
 	out := addJSONOutput{
-		Added:     r.Added,
-		Promoted:  r.Promoted,
-		Rewritten: toRewrittenJSON(r.Rewritten),
-	}
-	if out.Added == nil {
-		out.Added = []string{}
-	}
-	if out.Promoted == nil {
-		out.Promoted = []string{}
-	}
-	if out.Rewritten == nil {
-		out.Rewritten = []rewrittenJSON{}
+		Added:     emptyIfNil(r.Added),
+		Promoted:  emptyIfNil(r.Promoted),
+		Rewritten: emptyIfNil(toRewrittenJSON(r.Rewritten)),
 	}
 	return encodeJSON(w, out)
 }

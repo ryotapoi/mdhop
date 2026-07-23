@@ -34,14 +34,8 @@ func printMoveDirJSON(w io.Writer, r *core.MoveDirResult) error {
 		moved[i] = movedFileJSON{From: m.From, To: m.To}
 	}
 	out := moveDirJSONOutput{
-		Moved:     moved,
-		Rewritten: toRewrittenJSON(r.Rewritten),
-	}
-	if out.Moved == nil {
-		out.Moved = []movedFileJSON{}
-	}
-	if out.Rewritten == nil {
-		out.Rewritten = []rewrittenJSON{}
+		Moved:     emptyIfNil(moved),
+		Rewritten: emptyIfNil(toRewrittenJSON(r.Rewritten)),
 	}
 	return encodeJSON(w, out)
 }

@@ -20,18 +20,9 @@ func printUpdateText(w io.Writer, r *core.UpdateResult) {
 
 func printUpdateJSON(w io.Writer, r *core.UpdateResult) error {
 	out := updateJSONOutput{
-		Updated:   r.Updated,
-		Deleted:   r.Deleted,
-		Phantomed: r.Phantomed,
-	}
-	if out.Updated == nil {
-		out.Updated = []string{}
-	}
-	if out.Deleted == nil {
-		out.Deleted = []string{}
-	}
-	if out.Phantomed == nil {
-		out.Phantomed = []string{}
+		Updated:   emptyIfNil(r.Updated),
+		Deleted:   emptyIfNil(r.Deleted),
+		Phantomed: emptyIfNil(r.Phantomed),
 	}
 	return encodeJSON(w, out)
 }

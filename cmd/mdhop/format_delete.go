@@ -18,14 +18,8 @@ func printDeleteText(w io.Writer, r *core.DeleteResult) {
 
 func printDeleteJSON(w io.Writer, r *core.DeleteResult) error {
 	out := deleteJSONOutput{
-		Deleted:   r.Deleted,
-		Phantomed: r.Phantomed,
-	}
-	if out.Deleted == nil {
-		out.Deleted = []string{}
-	}
-	if out.Phantomed == nil {
-		out.Phantomed = []string{}
+		Deleted:   emptyIfNil(r.Deleted),
+		Phantomed: emptyIfNil(r.Phantomed),
 	}
 	return encodeJSON(w, out)
 }

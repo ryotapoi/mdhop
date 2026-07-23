@@ -16,10 +16,7 @@ func printDisambiguateText(w io.Writer, r *core.DisambiguateResult) {
 
 func printDisambiguateJSON(w io.Writer, r *core.DisambiguateResult) error {
 	out := disambiguateJSONOutput{
-		Rewritten: toRewrittenJSON(r.Rewritten),
-	}
-	if out.Rewritten == nil {
-		out.Rewritten = []rewrittenJSON{}
+		Rewritten: emptyIfNil(toRewrittenJSON(r.Rewritten)),
 	}
 	return encodeJSON(w, out)
 }

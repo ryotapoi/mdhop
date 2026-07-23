@@ -10,6 +10,15 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
+const buildIndexHint = "hint: run 'mdhop build' to create or update the index"
+
+func emptyIfNil[T any](values []T) []T {
+	if values == nil {
+		return []T{}
+	}
+	return values
+}
+
 // printWarnings writes meta normalization warnings to stderr.
 func printWarnings(warnings []string) {
 	for _, w := range warnings {
@@ -183,14 +192,8 @@ type rewriteResultJSONOutput struct {
 
 func printRewriteResultJSON(w io.Writer, rewritten []core.RewrittenLink, skipped []core.SkippedLink) error {
 	out := rewriteResultJSONOutput{
-		Rewritten: toRewrittenJSON(rewritten),
-		Skipped:   toSkippedJSON(skipped),
-	}
-	if out.Rewritten == nil {
-		out.Rewritten = []rewrittenJSON{}
-	}
-	if out.Skipped == nil {
-		out.Skipped = []skippedJSON{}
+		Rewritten: emptyIfNil(toRewrittenJSON(rewritten)),
+		Skipped:   emptyIfNil(toSkippedJSON(skipped)),
 	}
 	return encodeJSON(w, out)
 }

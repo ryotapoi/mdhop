@@ -66,7 +66,7 @@ func runConvert(args []string) error {
 		printRewrittenText(os.Stdout, result.Rewritten)
 	}
 	if !*dryRun && len(result.Rewritten) > 0 {
-		fmt.Fprintln(os.Stderr, "hint: run 'mdhop build' to create or update the index")
+		fmt.Fprintln(os.Stderr, buildIndexHint)
 	}
 	return nil
 }

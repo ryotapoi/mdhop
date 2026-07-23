@@ -19,18 +19,10 @@ func printReachableJSON(w io.Writer, r *core.ReachableResult, fields []string) e
 	m := make(map[string]any)
 	m["from"] = r.From
 	if show["reachable"] {
-		if r.Reachable != nil {
-			m["reachable"] = r.Reachable
-		} else {
-			m["reachable"] = []string{}
-		}
+		m["reachable"] = emptyIfNil(r.Reachable)
 	}
 	if show["unreachable"] {
-		if r.Unreachable != nil {
-			m["unreachable"] = r.Unreachable
-		} else {
-			m["unreachable"] = []string{}
-		}
+		m["unreachable"] = emptyIfNil(r.Unreachable)
 	}
 	if r.Routes != nil {
 		m["routes"] = r.Routes

@@ -6,7 +6,7 @@
 
 - [x] link type 集合の型付き slice 化: `rewriteLinkTypes`（rewrite.go）と `traversalLinkTypes`（reachable.go）を `[]LinkType` + `linkTypeSQLIn` によるバインド済み IN 句生成に置き換える。3 集合（rewrite 可能 / traversal / validation = `isPathLinkType`）は概念が別なので統合しない（traversal と validation は現在メンバーが偶然一致しているだけ）
 - [x] resolve フィールド名の定数化: core に `FieldResolve*` 定数を定義し、format_resolve.go の valid-set / text / JSON 出力から参照する（conventions.md の「core 定数参照」規約に resolve だけ従っていない状態の解消）
-- [ ] 小粒の重複解消: build hint 文字列（convert.go:69 / repair.go:68 / simplify.go:64 の完全一致 3 箇所）を定数化し、format_*.go の nil→空スライス正規化 17 箇所を helper（例 `emptyIfNil`）に寄せる
+- [x] 小粒の重複解消: build hint 文字列（convert.go:69 / repair.go:68 / simplify.go:64 の完全一致 3 箇所）を定数化し、format_*.go の nil→空スライス正規化 17 箇所を helper（例 `emptyIfNil`）に寄せる
 
 ### v0.16.6（エラーメッセージの整備。エラー文言が変わりうる）
 

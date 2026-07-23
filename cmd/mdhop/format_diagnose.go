@@ -52,11 +52,7 @@ func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) err
 		m[core.FieldDiagnoseAssetBasenameConflicts] = conflicts
 	}
 	if show[core.FieldDiagnosePhantoms] {
-		if r.Phantoms != nil {
-			m[core.FieldDiagnosePhantoms] = r.Phantoms
-		} else {
-			m[core.FieldDiagnosePhantoms] = []string{}
-		}
+		m[core.FieldDiagnosePhantoms] = emptyIfNil(r.Phantoms)
 	}
 	if anchorsRequested(fields) {
 		anchors := make([]diagnoseJSONBrokenAnchor, len(r.BrokenAnchors))
