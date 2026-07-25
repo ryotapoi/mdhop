@@ -4,10 +4,21 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.16.6] - 2026-07-26
+
 ### Changed
 
+- Command errors are now printed as `error: <subcommand>: <message>`. Individual error messages no longer carry their own command prefix; the subcommand name is attached in one place. Error text changed, but exit codes and successful output are unchanged.
+- Aligned duplicated raw-string errors in `resolve` and `query` with their sentinel errors.
 - Expanded regression coverage for `init-meta --write`, `meta-check` vault escapes, and diagnose formatter output; split move tests by responsibility. CLI behavior is unchanged.
 - Refactored link-type SQL filtering, resolve output-field constants, and formatter normalization. CLI behavior is unchanged.
+
+### Documentation
+
+- Corrected the `diagnose` description in the concept and requirements documents: it reports neither parse failures nor exclusion counts, and the opt-in anchor check was missing.
+- Stated the axis that separates core from mutate commands: whether a command rewrites Markdown notes in the vault.
+- Finished renaming `reconcile` / `canonicalize` to `disambiguate` / `simplify` in the rules documents.
+- Declared `docs/specs/overview.md` as the source of truth for command specifications, with CLI help as its summary.
 
 ## [v0.16.3] - 2026-07-12
 

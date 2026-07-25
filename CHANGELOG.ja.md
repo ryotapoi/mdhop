@@ -4,10 +4,21 @@
 
 ## [Unreleased]
 
+## [v0.16.6] - 2026-07-26
+
 ### 変更
 
+- コマンドのエラー出力を `error: <サブコマンド>: <メッセージ>` の形式に統一。個別のメッセージ側はコマンド名のプレフィックスを持たず、サブコマンド名の付与を 1 箇所に集約。エラー文言は変わるが、exit code と正常時の出力は変更なし。
+- `resolve` と `query` に残っていた同義の生文字列エラーを、対応する sentinel error に揃えた。
 - `init-meta --write`、`meta-check` の vault escape、diagnose formatter 出力の回帰テストを拡充し、move テストを責務別に分割。CLI の挙動は変更なし。
 - link type の SQL filter、resolve の出力 field 定数、formatter の正規化を整理。CLI の挙動は変更なし。
+
+### ドキュメント
+
+- コンセプト資料・要件定義の `diagnose` 記述を修正。パース失敗も除外数も報告しないこと、opt-in の anchor 切れ検出が未記載だったことを実装に合わせた。
+- core / mutate を分ける分類軸（Vault の Markdown ノートを書き換えるか）を明記。
+- rules 側に残っていた旧語 `reconcile` / `canonicalize` を `disambiguate` / `simplify` へ更新完了。
+- コマンド仕様の正本が `docs/specs/overview.md` であり、CLI ヘルプはその要約である位置づけを明記。
 
 ## [v0.16.3] - 2026-07-12
 
