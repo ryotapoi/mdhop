@@ -7,11 +7,14 @@
 - [x] sentinel error の整備: resolve.go:34・query_entry.go:80/84/126 の同義生文字列エラーを対応 sentinel の `%w` ラップに揃え、internal/core/errors.go の冒頭コメントを実態（本番コードは分岐していない・テスト検証用 + 将来の分岐余地）に書き直す。exit code 分岐等の機能は作らない（要望待ち。「登録見送り」の sentinel 項参照）
 - [x] エラーメッセージのプレフィックス統一: 個別メッセージは裸に統一し、コマンド文脈が必要なら main.go のエラー整形 1 箇所で subcommand 名を付与する方向を推奨。実装時に `search:`（search.go:91-）等の既存プレフィックスがコマンド名でなく flag 文脈を指していないか確認してから確定し、決めた規約を conventions.md に一文追記
 
-### docs（バージョン不要。随時、各 1 commit）
+### docs（バージョン不要。随時、各 1 commit。以下 3 件は v0.16.6 に同梱実施済み）
 
 - [x] rules/01-concept.md の旧語「reconcile」「canonicalize」を実装・specs で採用済みの「disambiguate」「simplify」に更新
 - [x] overview.md を正・CLI ヘルプを従(要約、詳細は spec 参照)とする正従関係を docs/specs/overview.md 自身の冒頭に一文明記（着地先を docs/rules/information-management.md から変更: 同ファイルは canon-sync 同期対象でローカル追記が上書き消失するため。現運用は同一 commit で両方手書き・破綻なし。運用変更は不要で宣言だけ）
 - [x] db.go の NodeType コメントに SQL リテラル運用ルールを明文化（「SQL 内の `'note'` 等のリテラルは grep で追う前提。node type の増減・改名時は非テスト core 全体を検索する」。非テスト core に 40 箇所前後分布 — 空白や `IN (...)` の書式で集計が揺れるため、実施時に grep で確定する）
+- [ ] 02-requirements.md / 03-data-model.md に残る旧語「reconcile」「canonicalize」の更新（2026-07-25、01-concept.md の用語更新 v0.16.6 の follow-up）: `docs/rules/02-requirements.md` 見出し「### 3.2 衝突発生（1→2）時の意味保存リライト（reconcile）」（現 126 行目付近）・「### 3.3 "短く戻す" 正規化（canonicalize / shorten）」（現 138 行目付近）、`docs/rules/03-data-model.md` 見出し「### 5.3 reconcile（衝突遷移 1→2）に必要な情報」（現 239 行目付近）。単純な語の置換では済まない — 1→2 衝突時の意味保存リライトには `add` の auto-disambiguate による自動発火と `disambiguate --name` による明示実行の 2 経路があり、要件記述としてどちらを指すか（あるいは両方書くか）の意味判断が要る
+- [ ] 01-concept.md の diagnose 記述と overview.md の食い違い解消（2026-07-25、01-concept.md の用語更新 v0.16.6 の follow-up）: `docs/rules/01-concept.md:91` は `mdhop diagnose : basename衝突、phantom一覧、パース失敗等を検出` と書くが、正本 `docs/specs/overview.md:76` の diagnose 記述には「パース失敗」の検出が挙がっていない。実装が実際にパース失敗を報告するか確認したうえで整合させる
+- [ ] 01-concept.md §3.2 の core / mutate 分類のずれ整理（2026-07-25、01-concept.md の用語更新 v0.16.6 の follow-up）: §3.2「読み取り系と書き換え系を概念分離」の一覧（mutate 一覧は v0.16.6 の 01-concept.md 更新で `move/disambiguate/simplify/repair/convert` に更新済み）と §5「コマンドの全体像」の記述がずれている。`add` は §5 では mutate 例として挙がるが §3.2 の mutate 一覧に含まれない。逆にディスク書き込みを伴う `update` が §3.2 では参照系（core）側の一覧に残っている。両一覧とも末尾が「など」で緩いため実害は小さいが、分類の意図を確定して整合させる
 
 ## Later
 
