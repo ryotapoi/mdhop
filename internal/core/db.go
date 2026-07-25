@@ -27,6 +27,9 @@ const (
 // comparisons and assignments in Go code. Single-quoted SQL literals
 // such as `'phantom'` share the same string values but are kept as
 // part of the SQL syntax rather than referencing these constants.
+// These literals are spread across the package, so adding, removing,
+// or renaming a node type means grepping for the literal and
+// updating the SQL side as well.
 type NodeType string
 
 const (
