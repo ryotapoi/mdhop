@@ -45,8 +45,10 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 
 ### 3.2 「読み取り系」と「書き換え系」を概念分離
 
+分類軸は「Vault の Markdown ファイルを書き換えるか（= Git差分に出るか）」。index DB（`.mdhop/`）への書き込みはこの軸の対象外（ignore 済みで Git差分に出ない）。
+
 - **core（参照系）**: build/update/resolve/query/diagnose など
-  - 安全に読むだけ
+  - Vault のファイルは書き換えず、安全に読むだけ
 - **mutate（書き換え系）**: move/disambiguate/simplify/repair/convert など
   - Git差分に影響しやすいので、実行頻度を低く・安全装置を付ける
 
