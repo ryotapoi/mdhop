@@ -9,7 +9,7 @@
 
 ### docs（バージョン不要。随時、各 1 commit）
 
-- [ ] rules/01-concept.md の旧語「reconcile」「canonicalize」を実装・specs で採用済みの「disambiguate」「simplify」に更新
+- [x] rules/01-concept.md の旧語「reconcile」「canonicalize」を実装・specs で採用済みの「disambiguate」「simplify」に更新
 - [ ] overview.md を正・CLI ヘルプを従(要約、詳細は spec 参照)とする正従関係を docs/rules/information-management.md に一文明記（現運用は同一 commit で両方手書き・破綻なし。運用変更は不要で宣言だけ）
 - [ ] db.go の NodeType コメントに SQL リテラル運用ルールを明文化（「SQL 内の `'note'` 等のリテラルは grep で追う前提。node type の増減・改名時は非テスト core 全体を検索する」。非テスト core に 40 箇所前後分布 — 空白や `IN (...)` の書式で集計が揺れるため、実施時に grep で確定する）
 

@@ -47,7 +47,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 
 - **core（参照系）**: build/update/resolve/query/diagnose など
   - 安全に読むだけ
-- **mutate（書き換え系）**: reconcile/rename/canonicalize など
+- **mutate（書き換え系）**: move/disambiguate/simplify/repair/convert など
   - Git差分に影響しやすいので、実行頻度を低く・安全装置を付ける
 
 ※ ただし、バイナリやインストールを分ける必要はなく、コマンド/権限で分けるだけでも良い。
@@ -61,7 +61,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 
 重要:
 - basename の重複が発生した瞬間（1→2）に、既存の `[[basename]]` の意味を保つため
-  - 旧一意先（既存ノート）へ向いていたリンクだけを `[[path/to/basename]]` に一括変換する（= reconcile）
+  - 旧一意先（既存ノート）へ向いていたリンクだけを `[[path/to/basename]]` に一括変換する（= disambiguate）
 - 後で一意に戻ったら `[[basename]]` に戻してもよいが、Git差分が揺れるので “戻し” はオプション扱いにする
 
 ---
@@ -78,7 +78,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 
 - 同名ノートが増えた（例: `README.md` が複数になった）
   - `[[README]]` のままだと曖昧になるので、既存リンクを `[[path/to/README]]` に変換して一意化
-- ファイル名変更時にリンクを追従させたい（rename/move）
+- ファイル名変更時にリンクを追従させたい（move）
 
 ---
 
@@ -90,9 +90,10 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 - `mdhop query --file A.md` : backlinks/tags/twohop を返す（fields で絞る）
 - `mdhop diagnose` : basename衝突、phantom一覧、パース失敗等を検出
 
-（任意・mutate）
-- `mdhop reconcile --file NEW.md` : 1→2 衝突時の意味保存リライト
-- `mdhop canonicalize` : “戻し” を含む正規化（デフォルトOFF）
+（mutate: イベント時のみ）
+- `mdhop add --file NEW.md` : 追加で basename 衝突が起きる場合、既存リンクを自動でフルパス化する（意味を保てる場合のみ。`--no-auto-disambiguate` で無効化）
+- `mdhop disambiguate --name README --target path/to/README.md` : 曖昧になった basename リンクを明示的にフルパス化する（候補が複数あるときは `--target` 必須）
+- `mdhop simplify` : 一意に戻ったパスリンクを basename リンクへ短縮する（“戻し”。明示実行の独立コマンド）
 
 ---
 
