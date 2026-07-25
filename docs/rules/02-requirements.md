@@ -93,7 +93,7 @@
 
 - basename 衝突一覧
 - phantom 一覧（未解決リンク）
-- 除外数、パース失敗一覧
+- `--fields anchors` で見出しアンカー切れ検出（opt-in）
 
 ### 2.7 ノート検索（search）
 
