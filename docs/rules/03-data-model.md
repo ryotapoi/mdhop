@@ -236,7 +236,7 @@ SQL パターン: `SELECT key, value, sort_value, value_type FROM meta WHERE nod
 この導出は DB から可能なので、固定的な lockfile は必須ではない。
 ただし “例外ルール（常にpath必須）” を入れたい場合は設定として上書きできるようにしてもよい。
 
-### 5.3 reconcile（衝突遷移 1→2）に必要な情報
+### 5.3 disambiguate（衝突遷移 1→2）に必要な情報
 
 - “衝突前” に basename が一意だったこと（preCount=1）
 - “衝突後” に複数になったこと（postCount>=2）
