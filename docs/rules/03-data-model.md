@@ -48,6 +48,8 @@ CREATE INDEX idx_edges_target ON edges(target_id);
 CREATE INDEX idx_edges_source_target ON edges(source_id, target_id);
 ```
 
+edge の集計値（`outgoing_count` / `incoming_count`）は nodes に列を持たず、edges からの実行時集計で算出する。counts は edges の派生であり常に edges と一致させるため、lines（edges から導出できないファイル内容の事実）とは異なり永続化しない。
+
 ### 1.2 meta テーブル（v0.6.0）
 
 frontmatter メタデータを格納するテーブル。YAML リストは値ごとに 1 行展開する。
@@ -107,6 +109,7 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 
 - note: `path`（Vault相対）で一意
 - phantom/tag/url: 正規化した `name`（または node_key）で一意
+- path / node_key / basename key は NFC 正規化した表現で保持・比較する。既存 index に NFD path が残っている場合の完全移行は `build` による再生成で行う
 
 ### 2.3 推奨カラム（v2を踏襲しつつ拡張余地）
 

@@ -12,6 +12,8 @@
 - asset: 画像・PDF 等の非 `.md` ファイル。build 時に全走査して DB に登録する
   - 隠しファイル・隠しディレクトリ（`.` 始まり）は asset 走査の対象外
   - `.mdhop/` ディレクトリは走査対象外
+  - asset は source にならない（outgoing edge を持たない）。edge を生成するのは note のみ
+  - asset の DB 登録は build 時のみ行う。build 後にディスクへ追加された asset は次の build まで phantom として扱われる
 - 主な利用者は CLI と Coding Agent
 - ローカル完結（SQLite）で動作する
 
@@ -214,6 +216,7 @@ meta:
     - 除外ファイルへのリンクは phantom ノードとして扱われる
     - 除外ファイル内のタグはインデックスに含まれない
     - query の `exclude.paths` とは独立（build 除外はインデックス作成前にフィルタ、query 除外はクエリ結果をフィルタ）
+    - mutation コマンド（`add` / `update` / `delete` / `move`）は `build.exclude_paths` を参照せず、DB 状態に対して動作する。不整合（例: `add --file daily/D.md`）は次の `build` で解消される
 - `update`
   - 必須: `--file`（複数回指定可）
   - 任意: `--vault`, `--format`
@@ -362,7 +365,7 @@ meta:
   - 補足: フィルタ指定時、`phantoms` は対象 note から参照されている phantom のみ、`basename_conflicts` / `asset_basename_conflicts` は対象 note からの basename 形式リンクが指す衝突グループのみ（リンク解決リスクがあるもの）を返す
   - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は diagnose に適用されない。フィルタ未指定時の挙動は従来どおり
   - 補足: `--fields anchors` で anchor 切れ検出（`broken_anchors`）を有効化する。これは **opt-in**（`--fields` 未指定時は他フィールドと違って出力されない。対象 note をディスクから読むため）。`[[note#見出し]]` / `[text](note.md#fragment)` の fragment が target note（実在 note）の見出しに存在しないものを報告する
-  - 補足: anchor 一致は Obsidian 互換正規化（`#` 除去・句読点／記号除去・空白畳み込み、大小文字とアクセントは保持）。block reference（`#^id`）は対象外。target が phantom / asset のものは対象外（note 切れは phantom 検出側の領分）
+  - 補足: anchor 一致は Obsidian 互換正規化（`#` 除去・句読点／記号除去・空白畳み込み、大小文字とアクセントは保持）。block reference（`#^id`）と setext heading は対象外（ATX heading のみ）。target が phantom / asset のものは対象外（note 切れは phantom 検出側の領分）
   - 補足: 見出し内のバッククォート（インラインコード）はアンカー化前に剥がされず、見出しテキスト全体（バッククォート含む）からアンカーを生成する。リンク側の fragment には元々バッククォートが付かないため、両者は句読点除去後のテキストで一致する
 - `meta-check`
   - 必須: `--key`（検査する frontmatter key。複数回指定可）
@@ -466,6 +469,7 @@ meta:
   - `/` を含むがプレフィックスなし（例: `sub/C.md`）: パスとして解決
   - `/` を含まない（例: `Design.md`）: basename 解決（`[[note]]` と同一扱い）
   - Vault 外へ出るパスは厳密モードではエラー
+- path 比較は NFC 正規化後に行う（NFD の実ファイル名と NFC の参照値が混在しても同一ノードに解決される）
 
 ### resolve の一致モード
 
