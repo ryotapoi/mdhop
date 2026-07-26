@@ -43,8 +43,8 @@
   - 完了した backlog 項目があれば `backlog/backlog.md` の該当行を `[x]` 等で更新する。
   - 技術的知見は、特定ソースに紐づく罠はそのコードのコメントへ、横断的な挙動・設計理解は `llm-wiki/` の該当地図へ残す。単一の集約知見ファイルは作らない。
   - 今回の変更で `llm-wiki/` の地図が古くなっていないか確認し、古くなった場合は同じ差分で追従する。各ページの更新方法（再生成するか手編集するか）は `regen` 区分に従い、その判断基準の正本は `docs/rules/information-management.md`（および `llm-wiki/` の索引）とする。区分ごとの手順はこの workflow に写経しない。
-  - 後から制約になる判断は `docs/decisions/` に残す。
-  - commit message の本文に残す背景・理由（Why）は変更時点のものでよい。恒久的に守るべき制約は commit message にだけ残さず、コード近傍のコメントや `docs/specs/` / `docs/decisions/` に置く。
+  - 後から制約になる判断は、制約を `docs/rules/` / `docs/specs/` に、理由を `docs/decisions/` に残す。
+  - commit message の本文に残す背景・理由（Why）は変更時点のものでよい。恒久的に守るべき制約は commit message にだけ残さず、コード近傍のコメントや `docs/rules/` / `docs/specs/` に置く（判断理由は `docs/decisions/` に置く）。
 - **Acceptance**: 実装差分と情報源が矛盾していない。
 - **Relevant**: `docs/specs/`, `backlog/backlog.md`, `docs/decisions/`, `llm-wiki/`（作業地図）。
 

@@ -6,7 +6,7 @@
 
 - **Intent**: `/goal` で指定された目的を、複数の 1 commit workflow に分割して完了まで進める。
 - **Constraints**:
-  - 役割は次の 3 層に固定し、判定が割れたときだけ Advisor を足す: **Conductor**（main。Change brief・commit slicing・agent 起動・機械照合・commit・Goal Review・最終報告。実装せず、Small の明示的例外以外は per-commit の詳細 diff / test log / review 往復を読まない）、**Implementer**（Change ごとの fresh `worker`。plan・実装・検証のみ）、**Gatekeeper**（Change ごとの fresh・実装文脈なし `worker`。full diff、brief / plan、再実行 test、review lane、acceptance を担当し、編集しない）、**Advisor**（常設ではなく、判定が割れたときだけ Conductor が呼ぶ読み取り専用の fresh agent。発火条件・禁止事項は `Advisor` 節を正とする）。各役割の既定モデルと effort は `models.md` を正とする。
+  - 役割は次の 3 層に固定し、判定が割れたときだけ Advisor を、停止報告の前だけ Auditor を足す: **Conductor**（main。Change brief・commit slicing・agent 起動・機械照合・commit・Goal Review・最終報告。実装せず、Small の明示的例外以外は per-commit の詳細 diff / test log / review 往復を読まない）、**Implementer**（Change ごとの fresh `worker`。plan・実装・検証のみ）、**Gatekeeper**（Change ごとの fresh・実装文脈なし `worker`。full diff、brief / plan、再実行 test、review lane、acceptance を担当し、編集しない）、**Advisor**（常設ではなく、判定が割れたときだけ Conductor が呼ぶ読み取り専用の fresh agent。発火条件・禁止事項は `Advisor` 節を正とする）、**Auditor**（常設ではなく、return 上限到達で未解決 MUST が残り停止報告する前だけ Conductor が呼ぶ読み取り専用の fresh agent。当事者の説明を渡さず証拠だけで続行 / 縮小 / 破棄を推奨する。発火条件・入力制限は `Advisor` 節の Auditor 規定を正とする）。各役割の既定モデルと effort は `models.md` を正とする。
   - 実装作業は `goal-workflow` skill を入口にし、この workflow を正本として読む。
   - `/goal` の呼び出し文は、原則として skill への参照と完了対象だけでよい。例: `/goal $goal-workflow に従い、backlog/backlog.md の「v0.x」を完了して。`
   - Goal 開始時の `HEAD` を base commit として記録する。`base` は Goal 終了まで動かさず、Goal 全体の差分 `<base>..HEAD` と最終報告の起点にする。分割レビューの進捗は `review_cursor`（初期値 `base`）で別に持つ。ブランチは切らず、range で対象を表す。
@@ -63,7 +63,7 @@
 - fresh Implementer は full-history fork ではなく新規コンテキストで起動する。前 commit / 前 Implementer の会話履歴は渡さず、必要な事実は commit、差分、現在のファイル、backlog、review result など現在の repository state から確認させる。
 - Conductor は実装を直接担当しない。責務は base / review_cursor 管理、commit slicing、brief 確定、agent 起動、機械照合、commit、Goal Review、最終報告に限る。
 - Conductor は次の 1 Change を選び、fresh Implementer を 1 つずつ直列起動する。同じ worktree で複数の Implementer を並行実行しない。Gatekeeper も brief と repository state 以外の実装文脈を引き継がない fresh worker とする。
-- Implementer の既定は `worker` Custom Agent（短名・effort の既定は `models.md` を正とする）。ユーザーは Goal の呼び出し文で `implementer: <短名> [effort], gatekeeper: <短名> [effort]` の形でモデルと reasoning effort を役割ごとに明示指定できる（短名→フル ID・effort の解決は `models.md` の表を正とする。無指定の役割は既定のまま）。Codex からは GPT 系のみ起動できるため、Claude 系の短名（`fable` / `opus` / `sonnet` / `haiku`）を指定されたら停止してユーザーに確認する。明示指定された役割だけ `worker` を使わず、`model` と `reasoning_effort` を直接指定して fresh subagent を起動する。難度や利用可否を理由に別モデルへ暗黙 fallback しない。指定は原則 Goal 全体で固定し、Change 単位で黙って差し替えない（High-risk での引き上げは次項の条項に従う）。Conductor と Advisor は `models.md` の既定固定で、Goal 呼び出し文からは指定しない。
+- Implementer の既定は `worker` Custom Agent（短名・effort の既定は `models.md` を正とする）。ユーザーは Goal の呼び出し文で `implementer: <短名> [effort], gatekeeper: <短名> [effort]` の形でモデルと reasoning effort を役割ごとに明示指定できる（短名→フル ID・effort の解決は `models.md` の表を正とする。無指定の役割は既定のまま）。Codex からは GPT 系のみ起動できるため、Claude 系の短名（`fable` / `opus` / `sonnet` / `haiku`）を指定されたら停止してユーザーに確認する。明示指定された役割だけ `worker` を使わず、`model` と `reasoning_effort` を直接指定して fresh subagent を起動する。難度や利用可否を理由に別モデルへ暗黙 fallback しない。指定は原則 Goal 全体で固定し、Change 単位で黙って差し替えない（High-risk での引き上げは次項の条項に従う）。Conductor / Advisor / Auditor は `models.md` の既定固定で、Goal 呼び出し文からは指定しない。
 - reasoning effort は既定（`models.md`）のまま動かさない。High-risk Change で、文脈を十分与えても誤る「問題が難しい」型の失敗が観測された場合に限り、Conductor は同系統の 1 段上のモデル（`models.md` の序列）への引き上げを検討してよい（既定は引き上げなし。実施したら最終報告に理由と結果を記録する。系統は跨がない）。読み飛ばし・検証不足型の失敗は、引き上げでなく契約項目と差し戻しで直す。この判断軸は「既定 effort で明確に試みても誤るならモデルのサイン」という区別であり、それ以外では難度を理由に引き上げない。ユーザーの明示指定（モデル・effort とも）が常に最優先。
 - Conductor は会話履歴を引き継がない fresh subagent を起動する。既定では `worker` を使い、ユーザーがモデルを明示した役割は指定されたモデルと effort で起動する。起動結果と rollout / usage の実モデルが指定と一致しなければ、その結果を採用せず停止する。
 - Implementer の完了を確認してから次へ進む。追加指示は、running agent には送信し、completed / idle agent には同じ agent を再開して渡す。中断と状態確認も利用し、完了・中断を確認するまで別 writer を起動しない。
@@ -99,7 +99,7 @@
 Advisor とは別役割として **Auditor** を置く。Advisor は当事者が自分の文脈を説明して助言を受ける相談席であり、Auditor は当事者の説明を遮断し証拠だけで評価する監査席で、同居させない。
 
 - 発火条件は、Gatekeeper の return 上限（2 往復）に達しても未解決の MUST が残り、Conductor が停止報告する場合だけ（`Constraints` の return 上限規定参照）。Conductor は停止報告の前に Auditor を起動する。
-- 実体は読み取り専用の fresh agent（モデルは Gatekeeper と同じ既定でよい）。差分・ファイル・git 状態を一切変更しない（監査対象を自分で変えないため）。Implementer / Gatekeeper / Conductor の会話文脈・説明・言い分は一切渡さない。当事者の説明を聞くと判定が汚染されるため、これが Auditor の生命線。
+- 実体は読み取り専用の fresh agent（モデルは `models.md` の役割既定）。差分・ファイル・git 状態を一切変更しない（監査対象を自分で変えないため）。Implementer / Gatekeeper / Conductor の会話文脈・説明・言い分は一切渡さない。当事者の説明を聞くと判定が汚染されるため、これが Auditor の生命線。
 - 渡すのは Change brief、git の生データ（HEAD、diff stat、変更ファイル一覧、diff 本文〈全文。続行/縮小/破棄の判定は diff 本文なしでは根拠づけられないため、大きい場合も stat だけで済ませない〉）、正本（backlog の該当項目、関連する ADR / specs）のみ。
 - 出力は「続行 / 縮小 / 破棄して再設計」のいずれかの推奨と根拠。続行 = 現差分のまま進める（膨張は正当な波及）。縮小 = 差分の一部だけ残し、残りは別 Change へ切り直すか捨てる。破棄 = 未コミット差分を捨て、得られた知見（発見したバグ・必要な不変条件・再現テスト）だけを列挙して持ち帰り、fresh Implementer が最小設計で組み直す。
 - Auditor の推奨は拘束しない。決定は常にユーザー。Conductor は Auditor の推奨を添えて停止報告する。

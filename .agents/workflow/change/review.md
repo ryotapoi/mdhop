@@ -4,7 +4,7 @@
 
 - **Intent**: 完了前に、差分が要求・仕様・既存設計を壊していないことを確認する。
 - **Constraints**:
-  - 粗探しではなく、実害・仕様逸脱・テスト不足・設計劣化を見る。
+  - 指摘の採否は、粗探しでなく実害・仕様逸脱・テスト不足・設計劣化を基準にする。この絞り込みは Gatekeeper の採否段で行い、finder 段には課さない（`Gatekeeper and Review Lanes` 参照）。
   - 小さい変更は self-check でよい。
   - Goal の Normal 以上は Gatekeeper（Change ごとの fresh context-free `worker`）が、Conductor の不変 Change brief と plan に full diff を照合し、test を再実行し、review lane を起動・統合して最終採否を行う。Small だけは Conductor の直接 diff 照合で省略できるが、照合開始後に想定を超える差分量・複雑さだと分かった場合は、その場で直接照合を打ち切って Gatekeeper 起動へ切り替える。
   - Implementer は review lane、採否、commit を担当しない。Gatekeeper も編集せず、指摘は Conductor 経由で同じ Implementer に差し戻す。単発 Change だけは current agent が差配する。
@@ -46,7 +46,8 @@
 - `$diff-review high` は、追加・変更された型・field・enum case の全構築、全 read/write、全変換 site を横断確認する全列挙 finder を含む。`xhigh` も `high` を内包するため同じ確認を行う。
 - `$diff-review xhigh` は `high` の基準を内包するため両方を重ねない。nested coordinator 内の独立 finder は最大 3 体を同時起動し、それを超える観点は batch に分ける。`max_depth = 4` のうち Conductor 0 → Gatekeeper 1 → coordinator 2 → finder 3 までを通常経路に使い、depth 4 は予備として残す。
 - `diff-review` の finding は候補であり、Gatekeeper が実際の diff・brief・plan・正本に照らして採否する。coordinator、skill、または必要な参照ファイルが利用不能な場合は review 済みにせず停止する。
-- Targeted / External supplement の finder はファイル編集・git 書き込み・ビルド・テストを行わず、実害のある finding または `LGTM` を返す。Gatekeeper は必要な test を再実行する。
+- finder / coordinator 段の責務は網羅とする。見つけた問題は低 severity・低確信でも省かず、severity と確信度を添えて全件報告させ、重要度・確信度による自己フィルタをさせない。フィルタ・採否は Gatekeeper 段の責務として分ける（finding 段に重要度の自己フィルタを課すと、調査で見つけた問題を報告段で落とす挙動がベンダー公式ガイドに明記されているため）。
+- Targeted / External supplement の finder はファイル編集・git 書き込み・ビルド・テストを行わず、finding（severity・確信度付き）または `LGTM` を返す。Gatekeeper は必要な test を再実行する。
 - Gatekeeper が finding の採否を行い、Conductor が同じ Implementer に修正・再検証を依頼する。return 後の差分は Gatekeeper が full diff と証拠を再照合してから accept する。Conductor だけが commit する。
 - 必要な lane が実行不能な場合は review 済みにせず停止する。running agent には問い合わせ、completed / idle agent は同じ agent を再開して扱う。
 - 追加調査や観点分割が有効で、agent depth budget が許す場合だけ、Gatekeeper は finder を起動して結果を統合してよい。depth budget が足りない場合は、Gatekeeper 自身で確認するか、Implementer に戻して委任方針を切り替える。
@@ -56,7 +57,8 @@
 
 - 会話履歴を引き継がない fresh な `scout` subagent として起動し、現在のレビュー対象と effort（`high` / `xhigh`）だけを受け取る。Change brief、plan、Implementer の報告は渡さず、採否判断も行わない。
 - repository root で指定 effort の global `$diff-review` を適用する。skill 内部の finder、候補検証、中間出力は coordinator の context 内で完結させる。
-- Gatekeeper には、整理済み finding（file:line、問題、failure scenario、推奨対応）または `LGTM` だけを返す。ファイルは変更しない。
+- `$diff-review` の手順ファイルには件数上限（severity 順の切り詰め）や確信度による切り捨ての規定があるが、この workflow から使う場合は網羅責務を報告契約として優先する。coordinator は `$diff-review` 実行時にこの契約（全件報告・severity と確信度の付与・件数上限なし）を明示して渡す。
+- Gatekeeper には、整理済み finding（file:line、問題、failure scenario、severity・確信度、推奨対応）または `LGTM` だけを返す。ファイルは変更しない。
 - Gatekeeper は coordinator の完了結果をまとめて受け取ってから採否する。running agent には追加連絡し、completed / idle agent は同じ agent を再開して再利用する。
 
 ## Maintenance Findings

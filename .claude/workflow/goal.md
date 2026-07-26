@@ -2,8 +2,6 @@
 
 この workflow はこのプロジェクトの Goal 手順の正本。実装作業の発火入口は `goal-workflow` skill とし、`goal-workflow` skill はこのファイルを読んで進める。
 
-> 役割名の改名について: この canon は役割を 2 層（Orchestrator/Implementer）から 3 層（Conductor/Implementer/Gatekeeper）に変更した。旧 Orchestrator は Conductor に改名し、責務も「受け入れ判定」から「進行管理・機械照合・commit 実行」に変わっている（diff の実読と受け入れ判定は新設の Gatekeeper が担う）。canon 外（skills、agent 定義等）に Orchestrator 表記が残っている場合は、意味上は Conductor または Gatekeeper のどちらかに読み替える。
-
 ## Intent
 
 `/goal` で指定された目的を、複数の 1 commit workflow に分割して完了まで進める。
@@ -12,12 +10,13 @@
 
 - 実装作業は `goal-workflow` skill を入口にし、この workflow を正本として読む。
 - `/goal` の呼び出し文は、原則として skill への参照と完了対象だけでよい。例: `/goal goal-workflow skill に従い、backlog/backlog.md の「v0.x」を完了して。`
-- 役割は次の 3 層に固定し、判定が割れたときだけ Advisor を足す:
+- 役割は次の 3 層に固定し、判定が割れたときだけ Advisor を、差し戻し上限到達の停止報告前だけ Auditor を足す:
   - **Conductor**（この workflow を進める main セッション。commit slicing・次 Change 選定・Change brief 確定・subagent 起動・機械照合・commit 実行・Goal Review 手配・停止判断・最終報告を担う。実装は書かず、per-commit の詳細（diff 本文、テストログ、review 往復）も読まない。受け取るのは Implementer / Gatekeeper からの構造化要約だけで、実物の diff を読むのは報告に食い違い・疑義がある例外時に限る。Small での直接 diff 照合は、この不変条件の明示的な例外である。詳細は Gatekeeper 節参照）。
   - **Implementer**（Change ごとに fresh subagent。計画・実装・検証を担う。commit はしない。review lane は回さない）。
   - **Gatekeeper**（Change ごとに fresh subagent、実装文脈を引き継がない。diff 実読・Change brief / plan との照合・テスト再実行による裏取り・review lane の起動と統合・指摘の採否・受け入れ判定を担う。詳細は Gatekeeper 節を参照）。
   - **Advisor**（常設の役割ではなく、判定が割れたときだけ Conductor が呼ぶ読み取り専用の fresh subagent。発火条件・禁止事項は Advisor 節を正とする）。
-- `/goal` の呼び出し文で Implementer / Gatekeeper のモデルを役割ごとに指定できる（例: `implementer: opus, gatekeeper: sonnet`）。短名の後ろに reasoning effort を添えて役割ごとに明示してもよい（例: `implementer: opus xhigh`）。無指定は両役割とも既定（短名・序列・effort の有効値と既定は `models.md` を正とする）。この workflow が起動できるのは Claude 系モデルだけなので、GPT 系の短名（`luna` / `terra` / `sol`）を指定されたら停止してユーザーに確認する（`.agents/workflow/` 側で Claude 系を指定されたときと対称）。難度や利用可否を理由に別モデルへ暗黙 fallback しない。Implementer は計画と実装を一体で行い、実装前の plan 書き出しは `change/plan.md` に従う。指定は原則 Goal 全体で固定し、Change 単位で黙って差し替えない（High-risk での引き上げは Implementer 節の条項に従う）。Conductor と Advisor は `models.md` の既定固定で、Goal 呼び出し文からは指定しない。
+  - **Auditor**（常設の役割ではなく、差し戻し上限に達して未解決の MUST が残り停止報告する前だけ Conductor が呼ぶ、読み取り専用の fresh subagent。当事者の説明を渡さず証拠だけで続行 / 縮小 / 破棄を推奨する。発火条件・入力制限は Advisor 節内の Auditor 規定を正とする）。
+- `/goal` の呼び出し文で Implementer / Gatekeeper のモデルを役割ごとに指定できる（例: `implementer: opus, gatekeeper: sonnet`）。短名の後ろに reasoning effort を添えて役割ごとに明示してもよい（例: `implementer: opus xhigh`）。無指定は両役割とも既定（短名・序列・effort の有効値と既定は `models.md` を正とする）。この workflow が起動できるのは Claude 系モデルだけなので、GPT 系の短名（`luna` / `terra` / `sol`）を指定されたら停止してユーザーに確認する（`.agents/workflow/` 側で Claude 系を指定されたときと対称）。難度や利用可否を理由に別モデルへ暗黙 fallback しない。Implementer は計画と実装を一体で行い、実装前の plan 書き出しは `change/plan.md` に従う。指定は原則 Goal 全体で固定し、Change 単位で黙って差し替えない（High-risk での引き上げは Implementer 節の条項に従う）。Conductor / Advisor / Auditor は `models.md` の既定固定で、Goal 呼び出し文からは指定しない。
 - ブランチは切らず、いるブランチ（通常 main）上にそのまま 1 commit ずつ積む。Goal 開始時の `HEAD` を base SHA として記録する（Goal Review の range 起点）。
 - 1 回の実装 workflow は 1 commit 単位に限る。Conductor は実装を直接担当せず、Goal が 1 commit だけで完了する場合も、次の 1 Change を選んで fresh subagent を Implementer として 1 つずつ直列起動する。Implementer の完了後は Gatekeeper（Normal 以上）を起動し、通過したら Conductor が機械照合のうえ commit する。このフローはモデル指定に関わらず共通。
 - 各 commit は、Goal 全体の途中でも、その commit 単位では review / revert / bisect できる完了状態にする。
@@ -87,7 +86,7 @@
 - Conductor は実装を直接担当しない。Conductor の責務は、base / review_cursor 管理、commit slicing、次の Change 選定、subagent 起動、機械照合、commit 実行、Goal Review 手配、最終報告に限る。
 - Conductor は次の 1 Change を選び、Change brief（内容は Flow 手順 3 と同じ）を確定した上で fresh subagent を Implementer として 1 つずつ直列起動する。同じ worktree で複数の Implementer を並行実行しない。Goal が 1 commit だけで完了する場合も Implementer を 1 つ起動する。
 - Implementer の起動も、結果を起動呼び出しの戻り値で受け取る同期実行を基本とする。background になった場合は完了通知を待たず、`SendMessage` で能動的に結果を回収する（`change/workflow.md` の Subagent / Skill 参照）。
-- モデルと effort はベンダー推奨既定で運用し、effort は動かさない（既定は `models.md` を正とする）。ユーザーの明示指定（モデル・effort とも）が常に最優先で、呼び出し文で effort が明示された役割はその値で起動する。High-risk Change で、文脈を十分与えても誤る「問題が難しい」型の失敗が観測された場合に限り、Conductor は 1 段上のモデル（`models.md` の序列。最上位の場合は引き上げ先なし）への引き上げを検討してよい（既定は引き上げなし。実施したら最終報告に理由と結果を記録する。Claude 系の範囲を出ない）。読み飛ばし・検証不足など「頑張りが足りない」型の失敗は、引き上げでなく契約項目（全列挙・検証義務）と差し戻しで直す。この判断軸は Anthropic の公式ガイダンス（既定 effort で明確に試みても誤るならモデルのサイン）由来。それ以外では難度を理由に引き上げない。この引き上げは失敗観測後の是正であり、advisor ツールによる予防的相談（下記）とは別枠で併用する。advisor ツール不在の代替として引き上げを使わない。
+- モデルと effort は `models.md` の既定で運用し、既定から外れて effort を動かさない（High-risk Change の Implementer effort 既定も `models.md` が定める）。ユーザーの明示指定（モデル・effort とも）が常に最優先で、呼び出し文で effort が明示された役割はその値で起動する。High-risk Change で、文脈を十分与えても誤る「問題が難しい」型の失敗が観測された場合に限り、Conductor は 1 段上のモデル（`models.md` の序列。最上位の場合は引き上げ先なし。引き上げ後の effort も `models.md` の既定に従う）への引き上げを検討してよい（既定は引き上げなし。実施したら最終報告に理由と結果を記録する。Claude 系の範囲を出ない）。読み飛ばし・検証不足など「頑張りが足りない」型の失敗は、引き上げでなく契約項目（全列挙・検証義務）と差し戻しで直す。この判断軸は Anthropic の公式ガイダンス（既定 effort で明確に試みても誤るならモデルのサイン）由来。それ以外では難度を理由に引き上げない。この引き上げは失敗観測後の是正であり、advisor ツールによる予防的相談（下記）とは別枠で併用する。advisor ツール不在の代替として引き上げを使わない。
 - advisor ツールが設定されている環境（Claude Code の `advisorModel` 等。subagent は設定を継承する）では、Implementer の起動プロンプトに相談条件を含める: 非自明な設計判断にコミットする前、同じエラー・失敗が繰り返す時、アプローチの変更を検討する時に相談する。自明な作業では呼ばない。これは Implementer が自分の作業中に使う実装精度の向上手段であり、Conductor が判定の割れを解く Advisor 役割（Advisor 節）とは別物。
 - High-risk や設計判断の厚い Change では、advisor ツールの相談を厚くする: 相談条件に加えて、実装方針の確定前と完了宣言前の相談を必須と明記する。advisor ツールが使えない環境で Implementer が High-risk Change に当たった場合は、モデルを引き上げて代替せず停止してユーザーに確認する（Stop Conditions 参照）。
 - Implementer は渡された Change だけを担当し、Goal 全体を再計画・再分割しない。
@@ -126,7 +125,7 @@
 Advisor とは別役割として **Auditor** を置く。Advisor は当事者が自分の文脈を説明して助言を受ける相談席であり、Auditor は当事者の説明を遮断し証拠だけで評価する監査席で、同居させない。
 
 - 発火条件は、差し戻し上限（2 往復）に達しても未解決の MUST が残り、Conductor が停止報告する場合だけ（Stop Conditions 参照）。Conductor は停止報告の前に Auditor を起動する。
-- 実体は読み取り専用の fresh subagent（モデルは Gatekeeper と同じ既定でよい）。差分・ファイル・git 状態を一切変更しない（監査対象を自分で変えないため）。Implementer / Gatekeeper / Conductor の会話文脈・説明・言い分は一切渡さない。当事者の説明を聞くと判定が汚染されるため、これが Auditor の生命線。
+- 実体は読み取り専用の fresh subagent（モデルは `models.md` の役割既定）。差分・ファイル・git 状態を一切変更しない（監査対象を自分で変えないため）。Implementer / Gatekeeper / Conductor の会話文脈・説明・言い分は一切渡さない。当事者の説明を聞くと判定が汚染されるため、これが Auditor の生命線。
 - 渡すのは Change brief、git の生データ（HEAD、diff stat、変更ファイル一覧、diff 本文〈全文。続行/縮小/破棄の判定は diff 本文なしでは根拠づけられないため、大きい場合も stat だけで済ませない〉）、正本（backlog の該当項目、関連する ADR / specs）のみ。
 - 出力は「続行 / 縮小 / 破棄して再設計」のいずれかの推奨と根拠。続行 = 現差分のまま進める（膨張は正当な波及）。縮小 = 差分の一部だけ残し、残りは別 Change へ切り直すか捨てる。破棄 = 未コミット差分を捨て、得られた知見（発見したバグ・必要な不変条件・再現テスト）だけを列挙して持ち帰り、fresh Implementer が最小設計で組み直す。
 - Auditor の推奨は拘束しない。決定は常にユーザー。Conductor は Auditor の推奨を添えて停止報告する。
@@ -158,6 +157,7 @@ Change Review（Gatekeeper が起動する review lane を含む）は個々の 
 
 ## Final Report
 
+- 報告を書く直前に `reporting` skill を読み込み、それに従う。
 - 完了時も停止時も、報告形式は状況に合わせて分かりやすく整える。固定テンプレートに無理に合わせない。
 - `ユーザー判断が必要: なし` または必要な判断内容を必ず明示する。
 - `ユーザー判断が必要` は `.claude/workflow/design-decision-record.md` の基準で、各 Change の ledger、review 結果、同期済み docs から判断する。記憶だけで `なし` と判断しない。

@@ -23,7 +23,7 @@
   <!-- slot: 領域固有レビューのマッピングがあれば追記する（例: 「UI 層 → 対応する specialist skill」）。 -->
   <!-- /slot -->
 - テスト可能な振る舞い変更や bug fix に unit test / regression test がない場合は、原則 blocker として扱う（`change/verify.md` で未完了。理由がある例外のみ許容）。
-- review は粗探しではなく、実害・仕様逸脱・テスト不足・設計劣化を探す。
+- 指摘の採否は、粗探しでなく実害・仕様逸脱・テスト不足・設計劣化を基準にする。この絞り込みは Gatekeeper の採否段で行い、finder 段には課さない（Review Lane Delegation 参照）。
 - 指摘に対応しない場合は、理由を plan / commit body / 該当ドキュメントに記録する。
 - review は commit 前の局所品質ゲートであり、最終保証ではない。採用した指摘を修正した後に再レビューするかは、差分の大きさ、risk、MUST 指摘の内容、新しい設計判断の有無から判断する。
 - 修正後に再レビューしない場合も、対応しない指摘・残リスク・Goal Review で見るべき観点があれば記録する。`レビュー上限超過` は Change 内 review では使わない。
@@ -41,15 +41,18 @@
 
 review lane はレビュー実行と候補整理だけを担当する。Gatekeeper の context を汚さず、最終採否・修正の差配は Gatekeeper に残る（検証・コミットは Gatekeeper の責務ではなく、修正は Implementer へ差し戻し、コミットは Conductor が行う）。
 
+finder / coordinator 段の責務は網羅とする。見つけた問題は低 severity・低確信でも省かず、severity と確信度を添えて全件報告させ、重要度・確信度による自己フィルタをさせない。フィルタ・採否は Gatekeeper 段の責務として分ける（finding 段に重要度の自己フィルタを課すと、調査で見つけた問題を報告段で落とす挙動がベンダー公式ガイドに明記されているため）。
+
 lane coordinator と finder subagent の起動は、`Agent` ツールに `run_in_background: false` を明示し、結果を起動呼び出しの戻り値で受け取る同期実行とする。未指定は background になり、subagent が起動した subagent の完了通知は親 subagent に届かないことがある（Gatekeeper が完了待ちのまま停止した実測あり）。background になった subagent の完了通知は待たず、返らなければ `SendMessage` で能動的に回収する（`change/workflow.md` の Subagent / Skill 参照）。
 
 #### standard-review-coordinator
 
 - Gatekeeper から現在のレビュー対象と effort（`high` / `xhigh`）だけを受け取る fresh subagent とする。Change brief・plan・Implementer の報告は渡さず、採否判断も行わない。
 - 指定された effort で `/diff-review` を実行する。`/diff-review` 内部の finder 起動・検証・中間結果は coordinator の context 内で完結させる。
+- `/diff-review` の手順ファイルには件数上限（severity 順の切り詰め）や確信度による切り捨ての規定があるが、この workflow から使う場合は上の網羅責務を報告契約として優先する。coordinator は `/diff-review` 実行時にこの契約（全件報告・severity と確信度の付与・件数上限なし）を明示して渡す。
 - `/diff-review` 手順内で起動する finder / verifier subagent は `model` を必ず明示する（基本 `sonnet`、判断の重い観点のみ `opus`）。複数 subagent は 1 メッセージで並列起動してよい。
 - `/diff-review` の観点に加えて、全列挙観点の finder を常設で 1 体起動する。担当: diff が追加・変更した型・フィールド・enum ケースごとに、リポジトリ横断で全構築・全 read/write・全変換サイトを file:line で列挙し、1 箇所ずつ変更の反映を確認する。同じ意味論の変換関数が別経路に同型で存在しないかを、既存の兄弟フィールド・兄弟関数の消費サイトからの逆引きで探すことまで含める（欠落型欠陥＝diff 外の反映漏れは diff 実読と通常観点では検出できないことが実測されているため、この観点だけ列挙を義務化する）。
-- Gatekeeper には、整理済み finding（file:line / 問題 / failure scenario / 推奨対応）または `LGTM` だけを返す。ファイルは変更しない。
+- Gatekeeper には、整理済み finding（file:line / 問題 / failure scenario / severity・確信度 / 推奨対応）または `LGTM` だけを返す。ファイルは変更しない。
 
 #### structural-review-coordinator
 
