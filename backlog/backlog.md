@@ -19,6 +19,26 @@
 - 同一バージョン内で「A を作って後で X に変えた」場合は、A に触れず X だけを書く。前のバージョンの A を変えた場合は変更として書く
 - 完了項目は `- [x]` にして残し、そのバージョンをリリースしたら見出しごと削除する（内容は CHANGELOG と commit に残る）。**削除は明示指示があるときだけ**
 
+## v0.17.0
+
+### `meta-check --kind auto` による混在参照の検証
+
+- [ ] `meta-check` に `--kind auto` を追加し、同じ frontmatter key に path / wikilink / URL が混在していても 1 回で検証できるようにする
+  - 既存の `--kind path` / `--kind wikilink` と既定値 `path` は維持し、互換性を壊さない
+  - 値ごとに trim したうえで、空値と `://` を含む URL は従来どおり skip、`[[` で始まる値は wikilink、それ以外は path として検査する
+  - path 判定では、ディレクトリ参照・相対パス・vault escape を含む既存の解決規則を維持する
+  - wikilink 構文として解釈できない値は `not_wikilink`、構文は正しいが解決できない wikilink と存在しない path は `not_found` として区別する。`ambiguous` / `vault_escape` も既存どおり維持する
+  - `sources:` に実在する wikilink、実在する raw path、URL が混在する成功例と、各 reason の失敗例を core / CLI の回帰テストに追加し、help と `docs/specs/overview.md` を同期する
+
+### bare frontmatter wikilink の `meta-check` 対応
+
+- [ ] graph edge にはなるが meta table の scalar 値から落ちる bare wikilink（例: `sources: [[Note]]`、リスト項目の `- [[Note]]`）も、指定 key の `meta-check` 対象にする
+  - quoted wikilink と bare wikilink が同じ解決結果・issue reason になること
+  - 実在しない bare wikilink は `not_found`、曖昧な bare wikilink は `ambiguous` として報告すること
+  - meta table と frontmatter wikilink occurrence の両方に現れる quoted wikilink を二重報告しないこと
+  - 指定していない frontmatter key の wikilink を検査対象へ混入させないこと
+  - scalar / list、quoted / bare の組み合わせを回帰テストで固定し、graph と `meta-check` の入力経路の不整合を解消する
+
 ## Later
 
 - [ ] Obsidian 互換モード（曖昧リンクを暗黙解決。全コマンドに横断影響あり、要望が出たら再検討）
