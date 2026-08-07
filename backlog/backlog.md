@@ -39,6 +39,16 @@
   - 指定していない frontmatter key の wikilink を検査対象へ混入させないこと
   - scalar / list、quoted / bare の組み合わせを回帰テストで固定し、graph と `meta-check` の入力経路の不整合を解消する
 
+## docs
+
+### example skill の references 見直し
+
+- [ ] `examples/skills/mdhop/references/` が、コマンド詳細の正本を `mdhop <command> --help` とする現在の skill 方針では不要になっているか見直し、重複した reference を撤去する
+  - `references/query.md` / `references/commands.md` の内容を `SKILL.md` と各コマンドの `--help` に照合し、reference にしかない必須の安全制約・コマンド選択基準がないことを確認する
+  - 固有情報が残っている場合、正確なフラグ・既定値・出力仕様・例は CLI help に、agent が最初に必要とする選択基準と横断ルールだけは `SKILL.md` に移してから reference を削除する
+  - `SKILL.md` は薄い入口として、用途からコマンドを選ばせた後に正確な使い方を `mdhop <command> --help` から取得させる構成を維持する
+  - `SKILL.md` の `References` 節と不要になった `references/` を削除し、README・配布物・リポジトリ内にリンク切れや古い参照が残っていないことを確認する
+
 ## Later
 
 - [ ] Obsidian 互換モード（曖昧リンクを暗黙解決。全コマンドに横断影響あり、要望が出たら再検討）
