@@ -4,7 +4,7 @@
 
 ### バージョンと見出し
 
-- バージョン番号は SemVer に従う（機能追加 = minor、修正のみ = patch、破壊的変更 = major）
+- バージョン番号は SemVer に従う。1.0 未満では機能追加と互換性を壊す変更を minor、修正のみを patch とする。1.0 以降では機能追加を minor、修正のみを patch、互換性を壊す変更を major とする
 - 見出しはバージョン単位で切る。リリースとして出す価値のあるまとまりで区切り、goal の大きさには合わせない
 - バージョン見出しが大きくなったら、配下にサブ見出しを立てて塊ごとに分ける。**サブ見出し 1 つが 1 goal の実行単位**（数コミットで終わる大きさ）。小さいバージョンならサブ見出しを作らず、バージョン見出しごと 1 goal にしてよい
 - **未リリースのバージョン番号は挿入・繰り下げしてよい**。v0.1.0 と v0.2.0 がある状態で v0.1.0 直後にやりたい作業ができたら、それを新 v0.2.0 とし、既存 v0.2.0 を v0.3.0 にずらす。タグを打ったバージョンは動かせない
@@ -25,21 +25,80 @@
 
 - [ ] `meta-check` に `--kind auto` を追加し、同じ frontmatter key に path / wikilink / URL が混在していても 1 回で検証できるようにする
   - 既存の `--kind path` / `--kind wikilink` と既定値 `path` は維持し、互換性を壊さない
+  - 検査対象は既存どおり `meta` table に格納された YAML scalar と scalar list item の値とし、graph edge や source frontmatter の raw scan 結果を合流しない
+  - frontmatter の wikilink は Obsidian の property 形式に従い、引用符で囲まれた値だけを対象とする。YAML parser が引用符を外した後の値を wikilink として判定し、bare `[[Note]]` は対象に含めない
   - 値ごとに trim したうえで、空値と `://` を含む URL は従来どおり skip、`[[` で始まる値は wikilink、それ以外は path として検査する
   - path 判定では、ディレクトリ参照・相対パス・vault escape を含む既存の解決規則を維持する
   - wikilink 構文として解釈できない値は `not_wikilink`、構文は正しいが解決できない wikilink と存在しない path は `not_found` として区別する。`ambiguous` / `vault_escape` も既存どおり維持する
-  - `sources:` に実在する wikilink、実在する raw path、URL が混在する成功例と、各 reason の失敗例を core / CLI の回帰テストに追加し、help と `docs/specs/overview.md` を同期する
+  - `sources:` に引用符付きの実在 wikilink、実在する raw path、URL が混在する成功例、bare wikilink を検査対象に含めない例、各 reason の失敗例を core / CLI の回帰テストに追加する
+  - help と `docs/specs/overview.md` を同期し、`auto` が Obsidian 互換の property 値を一つの入力経路から検査することを明記する
 
-### bare frontmatter wikilink の `meta-check` 対応
+### frontmatter wikilink 抽出の Obsidian 準拠
 
-- [ ] graph edge にはなるが meta table の scalar 値から落ちる bare wikilink（例: `sources: [[Note]]`、リスト項目の `- [[Note]]`）も、指定 key の `meta-check` 対象にする
-  - quoted wikilink と bare wikilink が同じ解決結果・issue reason になること
-  - 実在しない bare wikilink は `not_found`、曖昧な bare wikilink は `ambiguous` として報告すること
-  - meta table と frontmatter wikilink occurrence の両方に現れる quoted wikilink を二重報告しないこと
-  - 指定していない frontmatter key の wikilink を検査対象へ混入させないこと
-  - scalar / list、quoted / bare の組み合わせを回帰テストで固定し、graph と `meta-check` の入力経路の不整合を解消する
+- [ ] frontmatter の wikilink は、Obsidian が property link として扱う引用符付き YAML scalar / list item の中だけから抽出する
+  - double quote / single quote で囲まれた `[[Note]]` は従来どおり `frontmatter_wikilink` edge として扱う
+  - bare `key: [[Note]]` と bare list item `- [[Note]]` は YAML 上の nested sequence であり、frontmatter のリンクとして扱わない。edge・phantom・`meta-check` issue を生成せず、graph / reachable / 書き換え系コマンド / mutation 時のリンク検証の対象にも含めない
+  - Markdown 本文内の `[[Note]]` は従来どおり wikilink として扱い、今回の変更対象に含めない
+  - scalar / list、double quote / single quote / bare の組み合わせを parser・build・書き換え系の回帰テストで固定し、bare 対応を前提とする既存テストを Obsidian 互換の期待値へ更新する
+  - `docs/specs/overview.md` と frontmatter wikilink 抽出に関する ADR の事実記述を同期し、bare wikilink を将来対応として残さない
 
-## docs
+## v0.17.1
+
+### directory `delete --rm` の部分失敗を可視化
+
+- [ ] directory 指定の `delete --rm` で未登録 asset または空 directory の cleanup に予期しない失敗があった場合、成功扱いにせず部分完了として報告する
+  - 登録済みファイルのディスク削除と DB 更新が完了した後の失敗であることを示し、処理前の状態へ戻ったように見せない
+  - 安全に継続できる cleanup は続け、失敗した path・操作・原因を可能な限り一度の実行で収集する
+  - cleanup failure が1件以上あれば非ゼロ終了し、stdout に成功時の text / JSON result を出さない。stderr には部分完了と収集した失敗を、AI が後続処理を止めて残存 path を確認できる形で出す
+  - `NotExist` は削除済みとして許容し、hidden directory の skip と非空 directory での上位 cleanup 停止は現在どおり正常に扱う。それ以外の walk・remove・directory inspection failure は握り潰さない
+  - 成功時の `DeleteResult` と JSON schema は変更せず、構造化された partial result は追加しない
+  - root / permission の実行環境に依存しない失敗注入で、登録済みファイルと DB は更新済み、削除失敗した未登録 asset は残存、error は部分完了と失敗 path を示すことを回帰テストで固定する
+  - `go test ./...` が通ることを確認する
+
+### 正本・入口文書・backlog の現行契約同期
+
+- [ ] 現行コード・CLI help・仕様を基準に、正本と作業入口に残る過去の契約を同期する
+  - `docs/rules/01-concept.md` と `docs/rules/03-data-model.md` から旧 query context flag と未実装の `note_resolution.ambiguous` 設定を除き、現在の query field、strict な曖昧解決、root 優先規則を記載する
+  - node model に asset を含め、SQLite schema の列名を実装どおり `exists_flag` とする
+  - `AGENTS.md` と `CLAUDE.md` の maintenance-audit 案内を、常に全 phase を実行する現在の workflow と矛盾しない状態にする
+  - `delete --rm` の transaction 順見直し項目を「自動 rollback はないが、`--rm` なしの再実行で DB を復旧できる」と直し、実装優先度は再評価しない
+  - ユーザー向け挙動と保存データは変更しない
+
+### obsolete asset rejection helper の削除と test-plan 同期
+
+- [ ] asset 対応前の `HasNonMDFiles` と専用テストを削除し、`docs/specs/test-plan.md` を現在の CLI surface に同期する
+  - directory move/delete は非 Markdown asset を拒否せず、登録済み・未登録の扱いに従って一緒に操作する現在の契約を記載する
+  - `set`、`search`、`reachable`、`graph`、`meta-check`、`meta-validate`、`init-meta` について、最小正常系、主要な失敗系、安定契約を判定できる項目を追加する
+  - production から参照されない helper と、その存在だけを固定するテストを残さない
+  - `go test ./...` が通ることを確認する
+
+### `llm-wiki` の sources からの再編纂
+
+- [ ] `llm-wiki/` の全ページを各 `regen` 区分に従って現 source から再編纂する
+  - `regen: full` は手動の行番号修正ではなく sources から再抽出し、compiled page も現在の責務と導線から更新する
+  - 記載する関数位置・呼び出しサイトが現在の source を指し、存在しない行や関数へ誘導しないことを確認する
+  - index から全ページへ到達でき、frontmatter の `sources` と本文中の source path が実在することを確認する
+
+### MoveDir rollback test の環境非依存化
+
+- [ ] MoveDir の途中 rename 失敗を既存の `moveRename` seam から注入し、root を含む全実行環境で rollback を検証する
+  - 実効 UID による `t.Skip` と directory permission に依存する失敗生成をなくす
+  - 失敗後に移動元・移動先、移動ファイル本文、外部 rewrite、DB node/edge が実行前の状態へ戻ることを確認する
+  - `go test ./internal/core/ -run 'TestMoveDir_Rollback'` と `go test ./...` が通ることを確認する
+
+### mtime test の固定 sleep 除去
+
+- [ ] stale detection のテストで使う固定 `time.Sleep(1100 * time.Millisecond)` を、明示的な mtime 設定へ置き換える
+  - `os.Chtimes` 等で DB 記録値と異なる mtime を作り、stale / non-stale の判定対象は変えない
+  - query、move、disambiguate の対象テストから固定 sleep がなくなることを確認する
+  - `go test ./...` が通ることを確認する
+
+### vault escape 判定の単一化
+
+- [ ] Build と Repair が共有する vault escape 判定を一つの predicate に集約する
+  - relative link、vault-relative path、basename の現在の判定結果を変えない
+  - Repair 固有の対象リンク選択と rewrite 方針は共通 predicate へ混ぜない
+  - Build の validation error と Repair の rewrite / skip を既存テストで固定し、`go test ./...` が通ることを確認する
 
 ### example skill の references 見直し
 
