@@ -7,13 +7,13 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
-const metaCheckHelp = `Usage: mdhop meta-check --key <name> [--key <name>...] [--kind path|wikilink] [--path <glob>...] [--exclude <glob>...] [--vault <path>] [--format json|text]
+const metaCheckHelp = `Usage: mdhop meta-check --key <name> [--key <name>...] [--kind path|wikilink|auto] [--path <glob>...] [--exclude <glob>...] [--vault <path>] [--format json|text]
 
 Check whether frontmatter values resolve to real vault paths or wikilinks.
 
 Options:
-  --key <name>          Required, repeatable. Frontmatter key to inspect.
-  --kind path|wikilink  Optional. Interpret values as raw paths or wikilinks. Default: path.
+  --key <name>               Required, repeatable. Frontmatter key to inspect.
+  --kind path|wikilink|auto  Optional. Interpret values as raw paths, wikilinks, or auto-detect per value. Default: path.
   --path <glob>         Optional, repeatable. Include source notes whose paths match any glob.
   --exclude <glob>      Optional, repeatable. Exclude source notes whose paths match the glob.
   --vault <path>        Optional. Vault root directory. Default: ".".
@@ -29,6 +29,7 @@ Output fields:
 Examples:
   mdhop meta-check --key sources --kind path --format json
   mdhop meta-check --key related --kind wikilink --format json
+  mdhop meta-check --key sources --kind auto --format json
   mdhop meta-check --key sources --path "docs/*" --format json
 
 `
@@ -38,7 +39,7 @@ func runMetaCheck(args []string) error {
 	fs.Usage = commandUsage(fs, metaCheckHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
-	kind := fs.String("kind", "path", "value interpretation (path or wikilink)")
+	kind := fs.String("kind", "path", "value interpretation (path, wikilink, or auto)")
 	var keys multiString
 	var pathPatterns multiString
 	var excludePaths multiString

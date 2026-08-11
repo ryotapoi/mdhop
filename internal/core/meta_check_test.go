@@ -140,3 +140,86 @@ func TestMetaCheck_InvalidKind(t *testing.T) {
 		t.Fatal("expected error for invalid kind")
 	}
 }
+
+func TestMetaCheck_AutoKind(t *testing.T) {
+	vault := t.TempDir()
+	dirs := []string{
+		"docs/assets",
+		"docs/a",
+		"docs/b",
+	}
+	for _, d := range dirs {
+		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", d, err)
+		}
+	}
+	for _, p := range []string{"docs/guide.md", "docs/a/Ambig.md", "docs/b/Ambig.md"} {
+		if err := os.WriteFile(filepath.Join(vault, p), []byte("# note\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", p, err)
+		}
+	}
+	note := `---
+sources:
+  - "./guide.md"
+  - "[[guide]]"
+  - https://example.com/external
+  - "[[broken"
+  - "[[Missing]]"
+  - "./missing-path.md"
+  - "../../outside/"
+  - Ambig
+  - "./missing-dir/"
+bare_wikilink:
+  - [[BareNote]]
+---
+`
+	if err := os.WriteFile(filepath.Join(vault, "docs/index.md"), []byte(note), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MetaCheck(vault, MetaCheckOptions{
+		Keys: []string{"sources"},
+		Kind: MetaKindAuto,
+	})
+	if err != nil {
+		t.Fatalf("meta-check: %v", err)
+	}
+
+	want := map[string]MetaIssueReason{
+		"[[broken":          ReasonNotWikilink,
+		"[[Missing]]":       ReasonNotFound,
+		"./missing-path.md": ReasonNotFound,
+		"../../outside/":    ReasonVaultEscape,
+		"Ambig":             ReasonAmbiguous,
+		"./missing-dir/":    ReasonNotFound,
+	}
+	if len(result.Issues) != len(want) {
+		t.Fatalf("issues = %+v, want %d", result.Issues, len(want))
+	}
+	got := map[string]MetaIssueReason{}
+	for _, issue := range result.Issues {
+		if issue.SourcePath != "docs/index.md" || issue.Key != "sources" {
+			t.Errorf("unexpected issue source/key: %+v", issue)
+		}
+		got[issue.Value] = issue.Reason
+	}
+	for value, reason := range want {
+		if got[value] != reason {
+			t.Errorf("issue for %q = %q, want %q", value, got[value], reason)
+		}
+	}
+
+	bareResult, err := MetaCheck(vault, MetaCheckOptions{
+		Keys: []string{"bare_wikilink"},
+		Kind: MetaKindAuto,
+	})
+	if err != nil {
+		t.Fatalf("meta-check bare_wikilink: %v", err)
+	}
+	if len(bareResult.Issues) != 0 {
+		t.Fatalf("bare wikilink issues = %+v, want none (not indexed in meta table)", bareResult.Issues)
+	}
+}

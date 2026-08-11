@@ -23,7 +23,7 @@
 
 ### `meta-check --kind auto` による混在参照の検証
 
-- [ ] `meta-check` に `--kind auto` を追加し、同じ frontmatter key に path / wikilink / URL が混在していても 1 回で検証できるようにする
+- [x] `meta-check` に `--kind auto` を追加し、同じ frontmatter key に path / wikilink / URL が混在していても 1 回で検証できるようにする
   - 既存の `--kind path` / `--kind wikilink` と既定値 `path` は維持し、互換性を壊さない
   - 検査対象は既存どおり `meta` table に格納された YAML scalar と scalar list item の値とし、graph edge や source frontmatter の raw scan 結果を合流しない
   - frontmatter の wikilink は Obsidian の property 形式に従い、引用符で囲まれた値だけを対象とする。YAML parser が引用符を外した後の値を wikilink として判定し、bare `[[Note]]` は対象に含めない

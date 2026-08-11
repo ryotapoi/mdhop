@@ -2245,6 +2245,96 @@ func TestRunMetaCheck_InvalidKind(t *testing.T) {
 	}
 }
 
+func TestRunMetaCheck_AutoKind(t *testing.T) {
+	vault := t.TempDir()
+	dirs := []string{
+		"docs/assets",
+		"docs/a",
+		"docs/b",
+	}
+	for _, d := range dirs {
+		if err := os.MkdirAll(filepath.Join(vault, d), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", d, err)
+		}
+	}
+	for _, p := range []string{"docs/guide.md", "docs/a/Ambig.md", "docs/b/Ambig.md"} {
+		if err := os.WriteFile(filepath.Join(vault, p), []byte("# note\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", p, err)
+		}
+	}
+	note := `---
+sources:
+  - "./guide.md"
+  - "[[guide]]"
+  - https://example.com/external
+  - "[[broken"
+  - "[[Missing]]"
+  - "./missing-path.md"
+  - "../../outside/"
+  - Ambig
+  - "./missing-dir/"
+bare_wikilink:
+  - [[BareNote]]
+---
+`
+	if err := os.WriteFile(filepath.Join(vault, "docs/index.md"), []byte(note), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runMetaCheck([]string{"--vault", vault, "--key", "sources", "--kind", "auto", "--format", "json"})
+	})
+
+	var m struct {
+		Issues []struct {
+			SourcePath string `json:"source_path"`
+			Key        string `json:"key"`
+			Value      string `json:"value"`
+			Reason     string `json:"reason"`
+		} `json:"issues"`
+	}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+
+	want := map[string]string{
+		"[[broken":          "not_wikilink",
+		"[[Missing]]":       "not_found",
+		"./missing-path.md": "not_found",
+		"../../outside/":    "vault_escape",
+		"Ambig":             "ambiguous",
+		"./missing-dir/":    "not_found",
+	}
+	if len(m.Issues) != len(want) {
+		t.Fatalf("issues = %+v, want %d", m.Issues, len(want))
+	}
+	got := map[string]string{}
+	for _, issue := range m.Issues {
+		got[issue.Value] = issue.Reason
+	}
+	for value, reason := range want {
+		if got[value] != reason {
+			t.Errorf("issue for %q = %q, want %q", value, got[value], reason)
+		}
+	}
+
+	bareOut := captureStdout(t, func() error {
+		return runMetaCheck([]string{"--vault", vault, "--key", "bare_wikilink", "--kind", "auto", "--format", "json"})
+	})
+	var bare struct {
+		Issues []any `json:"issues"`
+	}
+	if err := json.Unmarshal([]byte(bareOut), &bare); err != nil {
+		t.Fatalf("json unmarshal bare: %v\noutput: %s", err, bareOut)
+	}
+	if len(bare.Issues) != 0 {
+		t.Fatalf("bare wikilink issues = %+v, want none", bare.Issues)
+	}
+}
+
 func TestRunMetaValidate_TypeAndEnum(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_meta_validate")
 

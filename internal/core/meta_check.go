@@ -19,6 +19,9 @@ const (
 	MetaKindPath MetaValueKind = "path"
 	// MetaKindWikilink treats values as [[wikilink]] strings.
 	MetaKindWikilink MetaValueKind = "wikilink"
+	// MetaKindAuto classifies each value after trim: empty/URL skip, [[ prefix →
+	// wikilink, otherwise path.
+	MetaKindAuto MetaValueKind = "auto"
 )
 
 // MetaCheckOptions controls meta-check behavior.
@@ -58,8 +61,8 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 	if len(opts.Keys) == 0 {
 		return nil, fmt.Errorf("at least one --key is required")
 	}
-	if opts.Kind != MetaKindPath && opts.Kind != MetaKindWikilink {
-		return nil, fmt.Errorf("invalid kind %q (must be path or wikilink)", opts.Kind)
+	if opts.Kind != MetaKindPath && opts.Kind != MetaKindWikilink && opts.Kind != MetaKindAuto {
+		return nil, fmt.Errorf("invalid kind %q (must be path, wikilink, or auto)", opts.Kind)
 	}
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err
@@ -139,8 +142,17 @@ func checkMetaValue(vaultPath, srcPath, key, value string, kind MetaValueKind, r
 
 	issue := MetaIssue{SourcePath: srcPath, Key: key, Value: value}
 
+	checkKind := kind
+	if kind == MetaKindAuto {
+		if strings.HasPrefix(v, "[[") {
+			checkKind = MetaKindWikilink
+		} else {
+			checkKind = MetaKindPath
+		}
+	}
+
 	var occ linkOccur
-	switch kind {
+	switch checkKind {
 	case MetaKindWikilink:
 		links := parseWikiLinks(v, 0)
 		if len(links) == 0 {
