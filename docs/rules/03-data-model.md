@@ -128,7 +128,9 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 
 - 有向: `source(note) -> target(node)`
 - `link_type`: `wikilink | markdown | tag | frontmatter | frontmatter_wikilink | frontmatter_path | url`
-  - `frontmatter_wikilink`: frontmatter の値として現れた `[[...]]`（`tags` キー以外）
+  - `frontmatter_wikilink`: Obsidian property link と同様、**引用符で囲まれた YAML scalar / list item 値**に現れた `[[...]]`（`tags` キー以外。double quote / single quote）
+    - bare `key: [[Note]]` と bare list item `- [[Note]]` は YAML 上の nested sequence であり edge 化しない
+    - block scalar（`key: |` / `key: >`）内の `[[...]]` も対象外
   - `frontmatter_path`: `meta.link_keys` で宣言された key の raw path 値（URL・wikilink 値は除く）
 
 ### 3.2 occurrence（同一ターゲットの複数出現）

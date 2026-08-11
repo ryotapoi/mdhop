@@ -396,14 +396,38 @@ func TestParseFrontmatterWikilinkBare(t *testing.T) {
 	content := "---\nparent: [[B]]\n---\n"
 	links := parseLinksSlice(content)
 	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 0 {
+		t.Fatalf("bare scalar [[B]] must not produce frontmatter wikilink, got %d: %+v", len(fmw), fmw)
+	}
+}
+
+func TestParseFrontmatterWikilinkBareListItem(t *testing.T) {
+	content := "---\nseealso:\n  - [[B]]\n  - \"[[C]]\"\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
 	if len(fmw) != 1 {
-		t.Fatalf("expected 1 frontmatter wikilink, got %d: %+v", len(fmw), fmw)
+		t.Fatalf("expected 1 quoted list-item wikilink, got %d: %+v", len(fmw), fmw)
+	}
+	if fmw[0].target != "C" {
+		t.Errorf("target = %q, want C", fmw[0].target)
+	}
+	if fmw[0].lineStart != 4 {
+		t.Errorf("lineStart = %d, want 4", fmw[0].lineStart)
+	}
+}
+
+func TestParseFrontmatterWikilinkSingleQuoted(t *testing.T) {
+	content := "---\nrelated: '[[B]]'\nseealso:\n  - '[[Sub/C]]'\n---\n"
+	links := parseLinksSlice(content)
+	fmw := filterByType(links, "frontmatter_wikilink")
+	if len(fmw) != 2 {
+		t.Fatalf("expected 2 single-quoted frontmatter wikilinks, got %d: %+v", len(fmw), fmw)
 	}
 	if fmw[0].target != "B" {
-		t.Errorf("target = %q, want B", fmw[0].target)
+		t.Errorf("first target = %q, want B", fmw[0].target)
 	}
-	if fmw[0].lineStart != 2 {
-		t.Errorf("lineStart = %d, want 2", fmw[0].lineStart)
+	if fmw[1].target != "Sub/C" {
+		t.Errorf("second target = %q, want Sub/C", fmw[1].target)
 	}
 }
 
@@ -550,23 +574,14 @@ func TestParseFrontmatterWikilinkTopLevelCommentAfterBlockScalar(t *testing.T) {
 	}
 }
 
-func TestParseFrontmatterWikilinkBlockScalarKeepsHash(t *testing.T) {
-	// Inside a `key: |` block scalar, '#' is part of the value, not a YAML
-	// comment, so "# [[B]]" must be detected as a frontmatter wikilink.
-	// ADR 0013 explicitly lists block scalar coverage as a positive
-	// consequence of raw-range scanning.
+func TestParseFrontmatterWikilinkBlockScalarIgnored(t *testing.T) {
+	// Block scalars are not Obsidian property links; wikilike text inside
+	// `key: |` / `key: >` must not become frontmatter_wikilink edges.
 	content := "---\nnote: |\n  # [[B]] is content in a block scalar\n  trailing\nfolded: >\n  # [[C]] folded scalar\n---\n"
 	links := parseLinksSlice(content)
 	fmw := filterByType(links, "frontmatter_wikilink")
-	if len(fmw) != 2 {
-		t.Fatalf("expected 2 frontmatter wikilinks (B,C inside block scalars), got %d: %+v", len(fmw), fmw)
-	}
-	got := map[string]bool{}
-	for _, l := range fmw {
-		got[l.target] = true
-	}
-	if !got["B"] || !got["C"] {
-		t.Errorf("expected both B and C, got %+v", fmw)
+	if len(fmw) != 0 {
+		t.Fatalf("block scalar content must not produce frontmatter wikilinks, got %d: %+v", len(fmw), fmw)
 	}
 }
 

@@ -10,7 +10,7 @@ ADR 0013 は frontmatter 内の `[[...]]` を `frontmatter_wikilink` として�
 
 先送りの理由は、frontmatter が本文と異なる制約を持つためだった。YAML 側の quoted / bare スタイルの保持、行範囲の制約、`add.go` / `update.go` の ambiguous / vault-escape 検証ガードとの整合など、本文 wikilink とは別に確認すべき点があった。
 
-本 ADR は、この (2/2) を実装する判断を記録する。ADR 0013 が決めた抽出方式（YAML の `Node.Kind` を辿らず、frontmatter 行範囲の生テキストに本文 wikilink 抽出ロジックを当てる）は本 ADR の対象外であり、引き続き有効。
+本 ADR は、この (2/2) を実装する判断を記録する。frontmatter wikilink の抽出方式は ADR 0023 で Obsidian 互換（引用符付き YAML 値のみ）へ更新された。本 ADR は書き換え展開のみを対象とする。
 
 ## Considered Options
 
@@ -35,3 +35,4 @@ link type の判定は用途ごとに 2 つに分ける。書き換え対象か�
 - 否定的: `rewriteLinkTypes` と `isPathLinkType` の 2 つを取り違えると、書き換えない link type を書き換え対象に含める（またはその逆）誤りが起きうる。両者の違いはコードコメントで明示している
 - 否定的: repair だけが別の判定関数（`isBodyPathLinkType`）を持つため、「なぜ repair は違うのか」を知るには本 ADR かコードコメントを読む必要がある
 - 中立的: ADR 0014 の `frontmatter_path`（raw path 値）は本 ADR の対象外。リンク構文を持たないため文字列書き換えの機構に乗らず、rewrite 対象外という ADR 0014 の決定がそのまま有効
+- 中立的: ADR 0023 により frontmatter wikilink の抽出は引用符付き YAML 値に限定された。本 ADR の書き換え展開は quoted frontmatter wikilink edge にのみ適用され、bare 記法は edge にならず書き換え対象にもならない

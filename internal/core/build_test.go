@@ -833,7 +833,6 @@ func TestBuildFrontmatterWikilinkEdges(t *testing.T) {
 	}
 	wants := []want{
 		{"B", "[[B]]", ""},                 // related: "[[B]]"
-		{"B", "[[B]]", ""},                 // parent: [[B]]
 		{"C", "[[Sub/C]]", ""},             // seealso[0]
 		{"D", "[[Sub/D|Display]]", ""},     // seealso[1]
 		{"B", "[[B#Heading]]", "#Heading"}, // heading_ref
@@ -911,30 +910,18 @@ func TestBuildFrontmatterWikilinkLineNumbers(t *testing.T) {
 	}
 }
 
-// TestBuildFrontmatterWikilinkInBlockScalar verifies that wikilinks inside a
-// YAML block scalar (`key: |` / `key: >`) are kept as edges. '#' is part of
-// the block scalar value, not a YAML comment, so "# [[B]]" must yield an edge.
-// Regression: ADR 0013 lists block scalar coverage as a positive consequence
-// of raw-range scanning.
+// TestBuildFrontmatterWikilinkInBlockScalar verifies that wikilike text inside
+// a YAML block scalar is not treated as a frontmatter property link.
 func TestBuildFrontmatterWikilinkInBlockScalar(t *testing.T) {
 	vault := copyVault(t, "vault_build_frontmatter_block_scalar")
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	edges := queryEdges(t, dbPath(vault), "A.md")
-
-	got := map[string]bool{}
 	for _, e := range edges {
-		if e.linkType != LinkTypeFrontmatterWikilink {
-			t.Errorf("edge target=%s linkType = %q, want frontmatter_wikilink", e.targetName, e.linkType)
+		if e.linkType == LinkTypeFrontmatterWikilink {
+			t.Errorf("block scalar must not produce frontmatter_wikilink edge, got %+v", e)
 		}
-		got[e.targetName] = true
-	}
-	if !got["B"] {
-		t.Errorf("expected outgoing edge to B from block scalar `note: |`, got %+v", edges)
-	}
-	if !got["C"] {
-		t.Errorf("expected outgoing edge to C from folded scalar `folded: >`, got %+v", edges)
 	}
 }
 

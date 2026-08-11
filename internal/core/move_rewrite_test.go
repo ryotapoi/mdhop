@@ -1281,8 +1281,9 @@ func TestMove_CollateralRewriteWithStaleFile(t *testing.T) {
 //	heading_ref: "[[B#Heading]]"
 //	phantom_ref: "[[Ghost]]"
 //
-// Renaming B.md → NewB.md exercises quoted/bare style preservation and subpath
-// preservation in a single pass.
+// Renaming B.md → NewB.md exercises quoted frontmatter wikilink rewriting
+// and subpath preservation. Bare `parent: [[B]]` is not a property link and
+// must remain untouched.
 func TestMove_FrontmatterWikilink_BasenameChange(t *testing.T) {
 	vault := copyVault(t, "vault_build_frontmatter_wikilink")
 	if _, err := Build(vault); err != nil {
@@ -1295,9 +1296,7 @@ func TestMove_FrontmatterWikilink_BasenameChange(t *testing.T) {
 	}
 
 	// Edge rawLinks store the inner [[...]] form (parser strips YAML quoting).
-	// Two edges share rawLink "[[B]]" (one quoted, one bare); both report the
-	// same OldLink/NewLink pair. We assert at least one such rewrite plus the
-	// subpath rewrite, then validate disk content for quoted/bare preservation.
+	// Only the quoted related/heading_ref edges are rewritten.
 	var sawB, sawBHeading int
 	for _, rw := range result.Rewritten {
 		if rw.File != "A.md" {
@@ -1316,14 +1315,14 @@ func TestMove_FrontmatterWikilink_BasenameChange(t *testing.T) {
 			sawBHeading++
 		}
 	}
-	if sawB == 0 {
-		t.Errorf("A.md should rewrite [[B]] (frontmatter wikilink), rewrites: %+v", result.Rewritten)
+	if sawB != 1 {
+		t.Errorf("A.md should rewrite quoted [[B]] once, got %d; rewrites: %+v", sawB, result.Rewritten)
 	}
 	if sawBHeading == 0 {
 		t.Errorf("A.md should rewrite [[B#Heading]] (frontmatter wikilink with subpath), rewrites: %+v", result.Rewritten)
 	}
 
-	// Disk content: quoted style stays quoted, bare style stays bare.
+	// Disk content: quoted style stays quoted; bare parent line is untouched.
 	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
 	if err != nil {
 		t.Fatalf("read A.md: %v", err)
@@ -1331,7 +1330,7 @@ func TestMove_FrontmatterWikilink_BasenameChange(t *testing.T) {
 	got := string(content)
 	wantLines := []string{
 		`related: "[[NewB]]"`,
-		`parent: [[NewB]]`,
+		`parent: [[B]]`,
 		`heading_ref: "[[NewB#Heading]]"`,
 	}
 	for _, want := range wantLines {

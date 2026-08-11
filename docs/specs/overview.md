@@ -441,7 +441,8 @@ meta:
 - tag: `#tag`, `#nested/tag`, `#日本語タグ`, `#my-tag`, frontmatter `tags`
   - ネストタグは祖先に展開される: `#a/b/c` → `#a`, `#a/b`, `#a/b/c` の各タグが resolve 可能
 - url: `https://...`（将来拡張）
-- frontmatter 内 wikilink: `tags` キー以外の全キーを対象に `[[...]]` を解析する（quoted/bare/array いずれの YAML 形式も対応）
+- frontmatter 内 wikilink: `tags` キー以外の全キーを対象に、Obsidian property link と同様 **引用符で囲まれた YAML scalar / list item 値** のみから `[[...]]` を解析する（double quote / single quote）
+  - bare `key: [[Note]]` と bare list item `- [[Note]]` は YAML 上の nested sequence であり、frontmatter のリンクとして扱わない（edge・phantom・meta-check issue を生成しない）
 - frontmatter の raw path 値（`meta.link_keys` 設定時のみ）: 宣言した key の値を `frontmatter_path` の edge として解析する
   - 解決規則は markdown link と同じ（`./` `../` は note 起点、`/` を含めば vault 相対パス、含まなければ basename 解決）
   - URL 値（`://` を含む）と wikilink 値（`[[...]]`、frontmatter_wikilink として解析済み）はスキップ

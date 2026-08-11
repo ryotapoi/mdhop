@@ -1462,9 +1462,9 @@ parent: "[[../escape]]"
 }
 
 // Pattern A with a frontmatter wikilink: sub/B.md is the unique B at build
-// time, A.md frontmatter has both quoted and bare basename links to B. Adding
-// root B.md must trigger auto-disambiguate and rewrite both occurrences to
-// [[sub/B]] while preserving quoted/bare style.
+// time, A.md frontmatter has a quoted basename link to B and a bare parent
+// line that must stay untouched. Adding root B.md must trigger
+// auto-disambiguate and rewrite only the quoted occurrence to [[sub/B]].
 func TestAddAutoDisambiguateFrontmatterWikilink(t *testing.T) {
 	vault := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
@@ -1499,9 +1499,7 @@ parent: [[B]]
 		t.Fatalf("add: %v", err)
 	}
 
-	// Both bare and quoted [[B]] in A.md frontmatter share the rawLink "[[B]]".
-	// applyFileRewrites runs replaceOutsideInlineCode on the line containing
-	// each edge — so both lines get rewritten in a single pass.
+	// Only the quoted [[B]] is a frontmatter_wikilink edge.
 	var rewriteCount int
 	for _, r := range result.Rewritten {
 		if r.File == "A.md" && r.OldLink == "[[B]]" {
@@ -1511,8 +1509,8 @@ parent: [[B]]
 			}
 		}
 	}
-	if rewriteCount != 2 {
-		t.Errorf("A.md frontmatter [[B]] rewrite count = %d, want 2 (quoted + bare)", rewriteCount)
+	if rewriteCount != 1 {
+		t.Errorf("A.md frontmatter [[B]] rewrite count = %d, want 1 (quoted only)", rewriteCount)
 		for _, r := range result.Rewritten {
 			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
 		}
@@ -1526,8 +1524,8 @@ parent: [[B]]
 	if !strings.Contains(got, `related: "[[sub/B]]"`) {
 		t.Errorf("A.md should contain quoted form, got:\n%s", got)
 	}
-	if !strings.Contains(got, `parent: [[sub/B]]`) {
-		t.Errorf("A.md should contain bare form, got:\n%s", got)
+	if !strings.Contains(got, `parent: [[B]]`) {
+		t.Errorf("bare parent line must remain untouched, got:\n%s", got)
 	}
 
 	// DB edges must reflect the rewritten rawLinks (not stale).
@@ -1542,8 +1540,8 @@ parent: [[B]]
 			t.Errorf("DB edge raw_link = %q, want [[sub/B]] (stale or unrewritten)", e.rawLink)
 		}
 	}
-	if fmEdges != 2 {
-		t.Errorf("frontmatter_wikilink edges in A.md = %d, want 2", fmEdges)
+	if fmEdges != 1 {
+		t.Errorf("frontmatter_wikilink edges in A.md = %d, want 1", fmEdges)
 	}
 }
 

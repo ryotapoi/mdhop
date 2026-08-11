@@ -35,12 +35,19 @@
 
 ### frontmatter wikilink 抽出の Obsidian 準拠
 
-- [ ] frontmatter の wikilink は、Obsidian が property link として扱う引用符付き YAML scalar / list item の中だけから抽出する
+- [x] frontmatter の wikilink は、Obsidian が property link として扱う引用符付き YAML scalar / list item の中だけから抽出する
   - double quote / single quote で囲まれた `[[Note]]` は従来どおり `frontmatter_wikilink` edge として扱う
   - bare `key: [[Note]]` と bare list item `- [[Note]]` は YAML 上の nested sequence であり、frontmatter のリンクとして扱わない。edge・phantom・`meta-check` issue を生成せず、graph / reachable / 書き換え系コマンド / mutation 時のリンク検証の対象にも含めない
   - Markdown 本文内の `[[Note]]` は従来どおり wikilink として扱い、今回の変更対象に含めない
   - scalar / list、double quote / single quote / bare の組み合わせを parser・build・書き換え系の回帰テストで固定し、bare 対応を前提とする既存テストを Obsidian 互換の期待値へ更新する
   - `docs/specs/overview.md` と frontmatter wikilink 抽出に関する ADR の事実記述を同期し、bare wikilink を将来対応として残さない
+
+### llm-wiki linktype matrix の quoted-only 同期
+
+- [ ] Regenerate `llm-wiki/03-linktype-matrix.md` for quoted-only frontmatter wikilink helpers
+  - disposition: follow_up_soon
+  - `collectFrontmatterWikilinks` / `wikilinksFromQuotedScalar` へ置き換わった抽出 helper と ADR 0023 の事実に合わせ、削除済みの `parseFrontmatterWikilinks` 参照を除去する
+  - `regen: full` に従い sources から再編纂し、行番号・関数名が現行 source を指すことを確認する
 
 ## v0.17.1
 

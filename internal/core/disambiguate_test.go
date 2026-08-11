@@ -774,10 +774,9 @@ func TestDisambiguatePhantomPathLink(t *testing.T) {
 }
 
 // Frontmatter wikilink basename rewrite via DisambiguateScan.
-// A.md frontmatter has bare `parent: [[B]]` and quoted `related: "[[B]]"`,
-// both of which are basename links to ambiguous B (root B.md + Sub/B.md).
-// Disambiguating to Sub/B.md should rewrite both while preserving
-// quoted/bare style.
+// A.md frontmatter has bare `parent: [[B]]` (ignored) and quoted
+// `related: "[[B]]"` as the only basename link to ambiguous B.
+// Disambiguating to Sub/B.md should rewrite the quoted occurrence only.
 func TestDisambiguateScan_FrontmatterWikilink(t *testing.T) {
 	vault := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(vault, "Sub"), 0o755); err != nil {
@@ -807,8 +806,7 @@ parent: [[B]]
 		t.Fatalf("scan: %v", err)
 	}
 
-	// Both bare and quoted occurrences share rawLink "[[B]]" — the scan reports
-	// each occurrence separately, so we expect 2 rewrites in A.md.
+	// Only the quoted occurrence is a frontmatter_wikilink edge.
 	var rewriteCount int
 	for _, r := range result.Rewritten {
 		if r.File == "A.md" && r.OldLink == "[[B]]" {
@@ -818,14 +816,14 @@ parent: [[B]]
 			}
 		}
 	}
-	if rewriteCount != 2 {
-		t.Errorf("A.md frontmatter [[B]] rewrite count = %d, want 2 (quoted + bare)", rewriteCount)
+	if rewriteCount != 1 {
+		t.Errorf("A.md frontmatter [[B]] rewrite count = %d, want 1 (quoted only)", rewriteCount)
 		for _, r := range result.Rewritten {
 			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
 		}
 	}
 
-	// Disk: quoted style stays quoted, bare style stays bare.
+	// Disk: quoted style stays quoted; bare parent line is untouched.
 	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
 	if err != nil {
 		t.Fatalf("read A.md: %v", err)
@@ -834,8 +832,8 @@ parent: [[B]]
 	if !strings.Contains(got, `related: "[[Sub/B]]"`) {
 		t.Errorf("A.md should contain quoted form, got:\n%s", got)
 	}
-	if !strings.Contains(got, `parent: [[Sub/B]]`) {
-		t.Errorf("A.md should contain bare form, got:\n%s", got)
+	if !strings.Contains(got, `parent: [[B]]`) {
+		t.Errorf("bare parent line must remain untouched, got:\n%s", got)
 	}
 }
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by ADR 0022
+Superseded by ADR 0022 (rewrite rollout), ADR 0023 (quoted-only extraction)
 
 ## Context
 
