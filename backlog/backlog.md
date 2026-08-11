@@ -44,12 +44,23 @@
 
 ### llm-wiki linktype matrix の quoted-only 同期
 
-- [ ] Regenerate `llm-wiki/03-linktype-matrix.md` for quoted-only frontmatter wikilink helpers
+- [ ] Regenerate `llm-wiki/03-linktype-matrix.md` and update `llm-wiki/06-resolve-rewrite.md` for quoted-only frontmatter wikilink helpers
   - disposition: follow_up_soon
   - `collectFrontmatterWikilinks` / `wikilinksFromQuotedScalar` へ置き換わった抽出 helper と ADR 0023 の事実に合わせ、削除済みの `parseFrontmatterWikilinks` 参照を除去する
+  - `06-resolve-rewrite.md` の stale な行参照と quoted-only 表記を現行 source に同期する
   - `regen: full` に従い sources から再編纂し、行番号・関数名が現行 source を指すことを確認する
+  - `03-linktype-matrix.md` の `sources` 完了条件に `docs/decisions/0023-frontmatter-wikilink-quoted-only.md` を含める
 
 ## v0.17.1
+
+### quoted frontmatter wikilink rewrite when YAML decode differs from file text
+
+- [ ] YAML decoder の値とファイル上のテキストが異なる quoted frontmatter wikilink を正しく rewrite する
+  - disposition: follow_up_soon
+  - double quote / single quote / multiline quoted scalar の frontmatter wikilink を対象とする
+  - rewrite はファイルを更新するか、明示的に失敗する。静かな不一致を残さない
+  - 回帰テストで quoted scalar の decode 差異と rewrite 動作を固定する
+  - Source: Goal Review v0-17-0 (opus + sol)
 
 ### directory `delete --rm` の部分失敗を可視化
 
