@@ -4,28 +4,6 @@
 
 mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdown リポジトリ内のリンク関係を SQLite に事前解析し、grep に頼らず関連ノートへ辿れるようにする。詳細は `docs/rules/01-concept.md`。
 
-## Entry Point
-
-入口は依頼の形で 2 通り。
-
-- **Goal（`/goal` または `goal-workflow` を明示指定）**: グローバルの `goal-workflow` skill（`~/.agents/skills/goal-workflow/`）を入口にする。Goal は作業全体を 1 commit 単位へ分割し、各 commit で `.agents/workflow/change/workflow.md` 以下の phase workflow を回す。Goal 手順の正本は `.agents/workflow/goal.md`。
-- **単発依頼**: 最初に `.agents/workflow/change/workflow.md` を読み、Intake から必要な phase ファイルへ進む。
-
-各 phase に入るときだけ、対応する workflow ファイルを読む。`AGENTS.md` の要約だけで進めない。
-
-```text
-goal-workflow skill（Goal の入口）
-└── .agents/workflow/goal.md（正本: commit slicing / Goal Review / 完了条件）
-    └── change/workflow.md（各 commit / 単発依頼の Intake・Routing）
-        ├── change/investigate.md
-        ├── change/plan.md
-        ├── change/implement.md
-        ├── change/verify.md
-        ├── change/review.md
-        ├── change/finish.md
-        └── design-decision-record.md
-```
-
 複数タスク後の構造・負債の棚卸しは、ユーザー起点で global `maintenance-audit` skill を使う。
 
 Claude Code 由来の `.claude/` は参考資料であり、Codex の入口ではない。
@@ -40,6 +18,8 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 
 `docs/` が正本、`llm-wiki/` は正本に負ける作業の入口（各ファイルの `regen` で再生成可否を宣言）。権威による配置の詳細は `docs/rules/information-management.md`。必要な情報だけ読む。判断に影響する可能性がある情報源は、推測で済ませず実物を確認する。
 
+変更時の検証方法と必須gateは `docs/rules/verification.md` を正本とする。
+
 ## Core Policies
 
 - workflow / skill は ICAR（Intent / Constraints / Acceptance / Relevant）を基本形にする。
@@ -49,8 +29,6 @@ Claude Code 由来の `.claude/` は参考資料であり、Codex の入口で�
 - 技術的知見は特定ソースに紐づくものはそのコードのコメントへ、横断的な挙動は `llm-wiki/` の該当地図へ。単一の集約ファイルは作らない。workflow / skill 本体を肥大化させない。
 - 後から制約になる判断は `docs/decisions/` に残す。
 - 広い構造改善は必要に応じて `backlog/backlog.md` へ切り出すか、`maintenance-audit` skill の棚卸し対象とする。
-- workflow は 1 つの commit 単位で回す。Goal が複数 commit に分かれる場合は `goal-workflow` skill に従って commit 単位へ分けて繰り返す。
-- 単発依頼はコミットまで終えたら止まる（次のタスクはユーザー指示待ち）。Goal は完了したら止まる。
 
 ## Skills
 
@@ -58,17 +36,11 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 
 主に使うスキル:
 
-- `goal-workflow`: `/goal` または明示指定時だけグローバル skill（`~/.agents/skills/goal-workflow/`）を使う。Goal を 1 commit 単位へ分割して完了まで進める
-- `investigate`: 計画前の不明点を調査する
 - `design-decision`: 設計判断の価値基準を当てる
 - `maintenance-audit`: 複数タスク後の構造・負債を棚卸しする（light / deep を scope で指定）
 - `commit`: global skill を使い、review 済み差分だけを stage して Conventional Commits 形式でコミットする
 
 独立した調査・レビュー・実装は subagent で並列化してよい。1 subagent = 1 タスクに絞る。
-
-## Synchronization
-
-- `.claude/`・`CLAUDE.md`（Claude 側）と `.agents/`・`AGENTS.md`（Codex 側）は、目的・制約・判断基準の方向性を揃える。subagent、review delegation、tool 呼び出し、skill / workflow の実行手順は各エージェントの仕組みに合わせてよい。共有方針を片方で変更したら、同じコミットで他方にも反映する。
 
 ## mdhop Constraints
 
@@ -78,20 +50,6 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 - DB に Markdown 本文 TEXT を保存しない。スニペットは query 時にファイルから切り出す。
 - 曖昧解決は静かに誤解決しない。厳密モードとルート優先ルールを守る。
 - stdout JSON は agent 向け安定インターフェースとして扱う。warnings 等の付加情報は stderr に出す。
-- `delete --rm`, `move` などの破壊的操作は testdata 等の一時 vault で確認する。
-
-## Tooling
-
-```bash
-go test ./...
-go test ./internal/core/
-go test ./internal/core/ -run TestBuild
-go build ./...
-go vet ./...
-go build -o bin/mdhop ./cmd/mdhop
-```
-
-変更内容に応じて `bin/mdhop <args>` で stdout / stderr / 終了コード / DB 副作用を確認する。
 
 ## Language
 
