@@ -66,10 +66,10 @@
 
 ### YAML decode 差異による frontmatter wikilink の書き換え不一致
 
-- [ ] YAML decoder の値とファイル上のテキストが異なる quoted frontmatter wikilink を正しく rewrite する
+- [ ] YAML decoder の値とファイル上のテキストが異なる quoted frontmatter wikilink を、source occurrence と再抽出結果の対応を証明できる場合だけ rewrite する
   - disposition: follow_up_soon
   - Source: Goal Review v0-17-0 (opus + sol)
-  - decode 済みの値とファイル上のテキストが異なる場合も、正しく更新するか明示的に失敗する。誤った rewrite を静かに残さない
+  - decode 済みの値とファイル上のテキストが異なる場合は明示的に失敗し、部分文字列・YAML 解釈差異も file / DB / move の前に拒否する。通常の quoted scalar / list は同じ抽出規則で候補を検証して更新する
 
 ### directory `delete --rm` の部分失敗を可視化
 
