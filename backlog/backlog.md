@@ -44,7 +44,7 @@
 
 ### llm-wiki linktype matrix の quoted-only 同期
 
-- [ ] Regenerate `llm-wiki/03-linktype-matrix.md` and update `llm-wiki/06-resolve-rewrite.md` for quoted-only frontmatter wikilink helpers
+- [x] Regenerate `llm-wiki/03-linktype-matrix.md` and update `llm-wiki/06-resolve-rewrite.md` for quoted-only frontmatter wikilink helpers
   - disposition: follow_up_soon
   - `collectFrontmatterWikilinks` / `wikilinksFromQuotedScalar` へ置き換わった抽出 helper と ADR 0023 の事実に合わせ、削除済みの `parseFrontmatterWikilinks` 参照を除去する
   - `06-resolve-rewrite.md` の stale な行参照と quoted-only 表記を現行 source に同期する
