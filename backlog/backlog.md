@@ -51,6 +51,17 @@
   - `regen: full` に従い sources から再編纂し、行番号・関数名が現行 source を指すことを確認する
   - `03-linktype-matrix.md` の `sources` 完了条件に `docs/decisions/0023-frontmatter-wikilink-quoted-only.md` を含める
 
+### 既存機能を保つコードの簡約
+
+- [ ] 不要な状態・旧 API・中継処理を削除し、理解・変更・検証の負担を減らす
+  - DB を変更しないリンク検証は解決パスを直接返し、一時 ID・双方向マップ・採番状態をなくす。解決順序の共有は維持する
+  - 書き換えエントリのファイル別振り分けを既存の適用関数へ集約し、呼び出し元の重複処理と移動用ラッパーを削除する
+  - 未使用の `ExpandMoveTemplate` を削除し、有用なテストは現行の `PlanMoveTemplate` / `MoveTemplate` を検証する形に移す
+  - asset 対応前の `HasNonMDFiles` と専用テストを削除し、対応する test-plan を現行の directory move/delete 契約へ同期する
+  - 関連する設計記録とリンク解決ガイドを同期し、共有ヘルパー表を現ソースから再生成する
+  - ユーザー向け機能、保存データ、CLI の入出力契約、曖昧リンクの拒否・ルート優先・失敗時の復元保証を維持する
+  - 集中テスト、`go test ./...`、`go build ./...`、`go vet ./...` を通し、変更前後の実バイナリで出力・終了コード・ファイル・DB を比較する
+
 ## v0.17.1
 
 ### quoted frontmatter wikilink rewrite when YAML decode differs from file text
@@ -82,12 +93,10 @@
   - `delete --rm` の transaction 順見直し項目を「自動 rollback はないが、`--rm` なしの再実行で DB を復旧できる」と直し、実装優先度は再評価しない
   - ユーザー向け挙動と保存データは変更しない
 
-### obsolete asset rejection helper の削除と test-plan 同期
+### test-plan の現行 CLI surface 同期
 
-- [ ] asset 対応前の `HasNonMDFiles` と専用テストを削除し、`docs/specs/test-plan.md` を現在の CLI surface に同期する
-  - directory move/delete は非 Markdown asset を拒否せず、登録済み・未登録の扱いに従って一緒に操作する現在の契約を記載する
+- [ ] `docs/specs/test-plan.md` を現在の CLI surface に同期する
   - `set`、`search`、`reachable`、`graph`、`meta-check`、`meta-validate`、`init-meta` について、最小正常系、主要な失敗系、安定契約を判定できる項目を追加する
-  - production から参照されない helper と、その存在だけを固定するテストを残さない
   - `go test ./...` が通ることを確認する
 
 ### `llm-wiki` の sources からの再編纂
