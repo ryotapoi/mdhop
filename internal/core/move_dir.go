@@ -104,7 +104,7 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	result = &MoveDirResult{}
 
 	// 4.1: apply external rewrites.
-	externalMtimes, externalBackups, externalRestoreFailures, err := groupAndApplyExternalRewrites(vaultPath, allExternalRewrites)
+	externalMtimes, externalBackups, externalRestoreFailures, err := applyFileRewritesWithRollbackFailures(vaultPath, allExternalRewrites)
 	if err != nil {
 		return nil, wrapRollbackFailures(err, externalRestoreFailures)
 	}

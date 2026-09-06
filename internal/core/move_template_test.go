@@ -9,84 +9,80 @@ import (
 	"testing"
 )
 
-func TestExpandMoveTemplate_BacklogExample(t *testing.T) {
+func TestMoveTemplate_BacklogExample(t *testing.T) {
 	vault := newMoveVault(t, map[string]string{
 		"Projects/Alpha.v1.md": "---\nclient: Acme\nupdated: 2026-07-04\ntags: [project, active]\n---\n# Alpha\n",
 	})
 
-	to, err := ExpandMoveTemplate(vault, MoveTemplateOptions{
+	result, err := MoveTemplate(vault, MoveTemplateOptions{
 		From:     "Projects/Alpha.v1.md",
 		Template: "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}",
 	})
 	if err != nil {
-		t.Fatalf("expand template: %v", err)
+		t.Fatalf("move template: %v", err)
 	}
 	want := "99-Archive/02-Projects/Acme/2026/Alpha.v1.md"
-	if to != want {
-		t.Fatalf("expanded path = %q, want %q", to, want)
-	}
-
-	if _, err := Move(vault, MoveOptions{From: "Projects/Alpha.v1.md", To: to}); err != nil {
-		t.Fatalf("move expanded path: %v", err)
+	if len(result.Moved) != 1 || result.Moved[0] != (MovedFile{From: "Projects/Alpha.v1.md", To: want}) {
+		t.Fatalf("moved = %+v, want one move to %q", result.Moved, want)
 	}
 	if _, err := os.Stat(filepath.Join(vault, want)); err != nil {
 		t.Fatalf("expanded destination should exist: %v", err)
 	}
 }
 
-func TestExpandMoveTemplate_DatePartsUseNormalizedSortValue(t *testing.T) {
+func TestPlanMoveTemplate_DatePartsUseNormalizedSortValue(t *testing.T) {
 	vault := newMoveVault(t, map[string]string{
 		"mdhop.yaml": "meta:\n  types:\n    updated: date\n",
 		"Project.md": "---\nupdated: 2026/7/4\n---\n# Project\n",
 	})
 
-	to, err := ExpandMoveTemplate(vault, MoveTemplateOptions{
+	plan, err := PlanMoveTemplate(vault, MoveTemplateOptions{
 		From:     "Project.md",
 		Template: "archive/{updated:year}/{updated:month}/{updated:day}/{basename}",
 	})
 	if err != nil {
-		t.Fatalf("expand template: %v", err)
+		t.Fatalf("plan move template: %v", err)
 	}
-	if to != "archive/2026/07/04/Project.md" {
-		t.Fatalf("expanded path = %q", to)
+	if len(plan.Moved) != 1 || plan.Moved[0] != (MovedFile{From: "Project.md", To: "archive/2026/07/04/Project.md"}) {
+		t.Fatalf("plan = %+v", plan)
 	}
 }
 
-func TestExpandMoveTemplate_FallbackLiteral(t *testing.T) {
+func TestPlanMoveTemplate_FallbackLiteral(t *testing.T) {
 	vault := newMoveVault(t, map[string]string{
 		"Project.md": "---\nupdated: 2026-07-04\n---\n# Project\n",
 	})
 
-	to, err := ExpandMoveTemplate(vault, MoveTemplateOptions{
+	plan, err := PlanMoveTemplate(vault, MoveTemplateOptions{
 		From:     "Project.md",
 		Template: "archive/{client|others}/{basename}",
 	})
 	if err != nil {
-		t.Fatalf("expand template: %v", err)
+		t.Fatalf("plan move template: %v", err)
 	}
-	if to != "archive/others/Project.md" {
-		t.Fatalf("expanded path = %q", to)
+	if len(plan.Moved) != 1 || plan.Moved[0] != (MovedFile{From: "Project.md", To: "archive/others/Project.md"}) {
+		t.Fatalf("plan = %+v", plan)
 	}
 }
 
-func TestExpandMoveTemplate_DatePartFallbackOnlyWhenMissing(t *testing.T) {
+func TestPlanMoveTemplate_DatePartFallbackOnlyWhenMissing(t *testing.T) {
 	vault := newMoveVault(t, map[string]string{
 		"Missing.md": "---\nupdated: 2026-07-04\n---\n# Missing\n",
 		"Invalid.md": "---\nclosed: someday\n---\n# Invalid\n",
 	})
 
-	to, err := ExpandMoveTemplate(vault, MoveTemplateOptions{
+	plan, err := PlanMoveTemplate(vault, MoveTemplateOptions{
 		From:     "Missing.md",
 		Template: "archive/{closed:year|2099}/{basename}",
 	})
 	if err != nil {
-		t.Fatalf("expand template with fallback: %v", err)
+		t.Fatalf("plan move template with fallback: %v", err)
 	}
-	if to != "archive/2099/Missing.md" {
-		t.Fatalf("expanded path = %q", to)
+	if len(plan.Moved) != 1 || plan.Moved[0] != (MovedFile{From: "Missing.md", To: "archive/2099/Missing.md"}) {
+		t.Fatalf("plan = %+v", plan)
 	}
 
-	_, err = ExpandMoveTemplate(vault, MoveTemplateOptions{
+	_, err = PlanMoveTemplate(vault, MoveTemplateOptions{
 		From:     "Invalid.md",
 		Template: "archive/{closed:year|2099}/{basename}",
 	})
@@ -95,7 +91,7 @@ func TestExpandMoveTemplate_DatePartFallbackOnlyWhenMissing(t *testing.T) {
 	}
 }
 
-func TestExpandMoveTemplate_Errors(t *testing.T) {
+func TestPlanMoveTemplate_Errors(t *testing.T) {
 	tests := []struct {
 		name     string
 		content  string
@@ -164,7 +160,7 @@ func TestExpandMoveTemplate_Errors(t *testing.T) {
 				"Project.md": tt.content,
 			})
 
-			_, err := ExpandMoveTemplate(vault, MoveTemplateOptions{
+			_, err := PlanMoveTemplate(vault, MoveTemplateOptions{
 				From:     "Project.md",
 				Template: tt.template,
 			})
@@ -276,13 +272,13 @@ func TestPlanMoveTemplate_DoesNotChangeDiskOrDB(t *testing.T) {
 	}
 }
 
-func TestExpandMoveTemplate_RequiresRegisteredNote(t *testing.T) {
+func TestPlanMoveTemplate_RequiresRegisteredNote(t *testing.T) {
 	vault := newMoveVault(t, map[string]string{
 		"Project.md": "# Project\n",
 		"image.png":  "not really a png\n",
 	})
 
-	_, err := ExpandMoveTemplate(vault, MoveTemplateOptions{
+	_, err := PlanMoveTemplate(vault, MoveTemplateOptions{
 		From:     "image.png",
 		Template: "archive/{basename}",
 	})

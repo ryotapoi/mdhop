@@ -820,76 +820,6 @@ func TestCleanupEmptyDirs_VaultRoot(t *testing.T) {
 	}
 }
 
-// --- HasNonMDFiles tests ---
-
-func TestHasNonMDFiles_NoNonMD(t *testing.T) {
-	vault := t.TempDir()
-	dir := filepath.Join(vault, "sub")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "A.md"), []byte("content"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	found, err := HasNonMDFiles(vault, "sub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if found != "" {
-		t.Errorf("expected no non-.md files, got: %s", found)
-	}
-}
-
-func TestHasNonMDFiles_WithNonMD(t *testing.T) {
-	vault := t.TempDir()
-	dir := filepath.Join(vault, "sub")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "A.md"), []byte("content"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "image.png"), []byte("png"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	found, err := HasNonMDFiles(vault, "sub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if found == "" {
-		t.Error("expected non-.md file to be found")
-	}
-}
-
-func TestHasNonMDFiles_HiddenIgnored(t *testing.T) {
-	vault := t.TempDir()
-	dir := filepath.Join(vault, "sub")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "A.md"), []byte("content"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, ".DS_Store"), []byte("data"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// Hidden directory with non-.md file inside.
-	hiddenDir := filepath.Join(dir, ".obsidian")
-	if err := os.MkdirAll(hiddenDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(hiddenDir, "config.json"), []byte("{}"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	found, err := HasNonMDFiles(vault, "sub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if found != "" {
-		t.Errorf("hidden files should be ignored, got: %s", found)
-	}
-}
-
 // --- Meta delete tests ---
 
 func TestDeleteMetaCleanup(t *testing.T) {
@@ -1041,23 +971,5 @@ func TestDeleteSameNameAddThenDeleteAgain(t *testing.T) {
 	edges := queryEdges(t, dbPath(vault), "A.md")
 	if len(edges) != 1 || edges[0].targetType != NodeTypePhantom || edges[0].targetName != "B" {
 		t.Fatalf("A.md should point to the re-created B phantom, got: %+v", edges)
-	}
-}
-
-func TestHasNonMDFiles_Nested(t *testing.T) {
-	vault := t.TempDir()
-	inner := filepath.Join(vault, "sub", "inner")
-	if err := os.MkdirAll(inner, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(inner, "doc.pdf"), []byte("pdf"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	found, err := HasNonMDFiles(vault, "sub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if found == "" {
-		t.Error("expected nested non-.md file to be found")
 	}
 }

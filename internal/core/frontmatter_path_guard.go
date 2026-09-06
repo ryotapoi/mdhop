@@ -86,10 +86,9 @@ func validateFrontmatterPathEdges(db dbExecer, rm *resolveMaps, movedFromTo map[
 // without creating phantom nodes, returning the resolved vault path ("" if
 // the value would become a phantom).
 func resolveFrontmatterPathDry(sourcePath string, link linkOccur, rm *resolveMaps) (string, error) {
-	backend := newDryLinkResolver(rm)
-	id, _, err := resolveLinkWithBackend(sourcePath, link, backend)
+	resolved, _, err := resolveLinkWithBackend(sourcePath, link, dryLinkResolver{rm: rm})
 	if err != nil {
 		return "", err
 	}
-	return backend.pathForID(id), nil
+	return resolved, nil
 }

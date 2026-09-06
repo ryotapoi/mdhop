@@ -187,7 +187,14 @@ func wrapRollbackFailures(primary error, failures []rollbackFailure) error {
 // the primary error and any rollback failures for the caller to report together.
 // When entries carry sourceID=0 (scan-mode callers), their mtimes collapse onto
 // key 0; this is safe only for callers that discard the mtime map.
-func applyFileRewritesWithRollbackFailures(vaultPath string, groups map[string][]rewriteEntry) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {
+func applyFileRewritesWithRollbackFailures(vaultPath string, rewrites []rewriteEntry) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {
+	if len(rewrites) == 0 {
+		return nil, nil, nil, nil
+	}
+	groups := make(map[string][]rewriteEntry)
+	for _, re := range rewrites {
+		groups[re.sourcePath] = append(groups[re.sourcePath], re)
+	}
 	newMtimes := make(map[int64]int64)
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 	sourcePaths := make([]string, 0, len(groups))

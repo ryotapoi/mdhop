@@ -4,6 +4,8 @@ sources:
   - internal/core/parse.go
   - internal/core/parse_frontmatter.go
   - internal/core/link_resolver.go
+  - internal/core/frontmatter_path_guard.go
+  - internal/core/meta_check.go
   - internal/core/link_ambiguity.go
   - internal/core/resolve.go
   - internal/core/resolve_maps.go
@@ -22,6 +24,7 @@ sources:
   - internal/core/query_entry.go
   - docs/specs/overview.md
   - docs/decisions/0004-root-priority-for-ambiguous-basename.md
+  - docs/decisions/0021-shared-link-resolver-backend.md
 ---
 
 # リンク解決・リライトの編纂ガイド
@@ -65,7 +68,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 
 ### 2A. 共通ディスパッチ
 
-`link_resolver.go` `resolveLinkWithBackend(sourcePath, link, backend)` — build 時と resolve コマンド時で共有するメインディスパッチャ。
+`link_resolver.go` `resolveLinkWithBackend[T](sourcePath, link, backend)` — build、resolve コマンド、DB を変更しないパス検証が共有するディスパッチャ。`linkResolverBackend[T]` の結果は build / DB では node ID（`int64`）、dry 検証では vault 相対パス（`string`）。解決順序は結果の型に依存しない。
 
 | 条件 | 処理 | 関数 |
 |---|---|---|
@@ -74,9 +77,8 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 | `link.isRelative` | vault escape 検査 → `filepath.Join(dir, target)` | backend `resolvePath` |
 | vault 外逃げ（相対 / 絶対） | `ErrLinkEscapesVault` | `resolveLinkWithBackend` |
 | `/` 始まり | 先頭 `/` を除去 | backend `resolvePath` |
-| wikilink かつ `/` 含む（パス形式） | vault 相対パス | backend `resolvePath` |
 | `link.isBasename` | basename 解決 | backend `resolveBasename` |
-| それ以外（markdown パス） | path 解決 | backend `resolvePath` |
+| それ以外（wikilink / markdown / frontmatter のパス形式） | vault 相対 path 解決 | backend `resolvePath` |
 
 ### 2B. build 時（インメモリマップ使用）
 
@@ -104,6 +106,10 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 `resolvePathFromDB`: note exact → note+.md → asset → phantom の順（DB クエリ）。
 
 `resolveBasenameFromDB`: `queryBasenameMatches` で全 note を走査 → `pickBasenameMatch` でルート優先適用。複数候補かつ root-priority で一意化できない場合は `ErrAmbiguousLink` を返す。
+
+### DB を変更しないパス検証
+
+`frontmatter_path_guard.go` の `resolveFrontmatterPathDry` は `dryLinkResolver` を使い、実在 note / asset のパスを直接返す。未解決は空文字で、phantom / tag を作らない。`meta-check` の値検査と、add / move 後に frontmatter raw path の参照先が変わらないことの検証が利用する。曖昧性の拒否は各呼び出し元が行う。
 
 ### 2D. ルート優先ルール（ADR 0004）
 
@@ -134,7 +140,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 | `rewriteRawLink(rawLink, linkType, targetPath)` | `rewrite.go:73` | rawLink の target 部分を新パスに置換して返す |
 | `buildRewritePath(targetPath)` | `rewrite.go:65` | `.md` 末尾だけ除去（他の拡張子はそのまま） |
 | `replaceOutsideInlineCode(line, old, new)` | `rewrite.go:114` | インラインコードスパン外のみ置換 |
-| `applyFileRewritesWithRollbackFailures(vaultPath, groups)` | `rewrite.go:190` | 全ファイルへの書き込み（フェーズ1: 読む、フェーズ2: 書く、失敗時ロールバック） |
+| `applyFileRewritesWithRollbackFailures(vaultPath, rewrites)` | `rewrite.go:190` | エントリをファイル別に振り分け、全原本を読んでから順に書き込み、失敗時ロールバック |
 | `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:286` | rawLink が basename 形式かを判定 |
 | `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo)` | `move_rewrite.go:484` | 相対リンク（`./` `../`）を移動後の新パスへ `filepath.Rel` で再計算 |
 
@@ -198,7 +204,7 @@ rawLink が入力されてから解決・リライトされるまでの流れを
 | エラー | 定義 | 発生 |
 |---|---|---|
 | `ErrAmbiguousLink` | `errors.go:17` | build バリデーション `build.go:85` / `link_ambiguity.go:72` / `resolve.go:191` |
-| `ErrLinkEscapesVault` | `errors.go:21` | build `build.go:81` `build.go:83` / resolve `link_resolver.go:111` `link_resolver.go:119` |
+| `ErrLinkEscapesVault` | `errors.go:21` | build `build.go:81` `build.go:83` / resolve `link_resolver.go` `resolveLinkWithBackend` |
 | `ErrLinkNotFound` | `errors.go:19` | resolve コマンド `resolve.go:72` / `resolvePathFromDB` `resolve.go:173` / `resolveBasenameFromDB` `resolve.go:217` |
 | `ErrEntryNotFound` | `errors.go:20` | query の tag / phantom / name entry lookup `query_entry.go:80` / `query_entry.go:84` / `query_entry.go:126` |
 

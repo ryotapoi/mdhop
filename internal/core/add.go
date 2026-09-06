@@ -275,14 +275,9 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 	var newMtimes map[int64]int64
 	var backups []rewriteBackup
 	if len(allRewrites) > 0 {
-		// Group rewrites by source file.
-		groups := make(map[string][]rewriteEntry)
-		for _, re := range allRewrites {
-			groups[re.sourcePath] = append(groups[re.sourcePath], re)
-		}
 		var rollbackFailures []rollbackFailure
 		var applyErr error
-		newMtimes, backups, rollbackFailures, applyErr = applyFileRewritesWithRollbackFailures(vaultPath, groups)
+		newMtimes, backups, rollbackFailures, applyErr = applyFileRewritesWithRollbackFailures(vaultPath, allRewrites)
 		if applyErr != nil {
 			return nil, wrapRollbackFailures(applyErr, rollbackFailures)
 		}

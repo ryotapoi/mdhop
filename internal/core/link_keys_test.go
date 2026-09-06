@@ -142,7 +142,7 @@ func TestBuildLinkKeysVaultEscapeFails(t *testing.T) {
 
 func TestResolveFrontmatterPathDryUsesCanonicalResolverWithoutPhantoms(t *testing.T) {
 	rm := newResolveMaps(
-		[]string{"A.md", "sub/A.md", "sub/B.md"},
+		[]string{"A.md", "Caf\u00e9.md", "sub/A.md", "sub/B.md"},
 		[]string{"assets/image.png"},
 	)
 
@@ -150,12 +150,15 @@ func TestResolveFrontmatterPathDryUsesCanonicalResolverWithoutPhantoms(t *testin
 		name       string
 		sourcePath string
 		raw        string
+		link       linkOccur
 		want       string
 		wantErr    error
 	}{
+		{name: "self", sourcePath: "Source.md", link: linkOccur{subpath: "#Heading", linkType: LinkTypeFrontmatterPath}, want: "Source.md"},
 		{name: "root priority", sourcePath: "Source.md", raw: "A.md", want: "A.md"},
 		{name: "relative note", sourcePath: "sub/Source.md", raw: "./B.md", want: "sub/B.md"},
 		{name: "vault absolute", sourcePath: "sub/Source.md", raw: "/sub/B.md", want: "sub/B.md"},
+		{name: "unicode normalized path", sourcePath: "Source.md", raw: "Cafe\u0301.md", want: "Caf\u00e9.md"},
 		{name: "asset", sourcePath: "Source.md", raw: "assets/image.png", want: "assets/image.png"},
 		{name: "phantom", sourcePath: "Source.md", raw: "missing.md", want: ""},
 		{name: "escape", sourcePath: "sub/Source.md", raw: "../../outside.md", wantErr: ErrLinkEscapesVault},
@@ -163,9 +166,13 @@ func TestResolveFrontmatterPathDryUsesCanonicalResolverWithoutPhantoms(t *testin
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			link, ok := frontmatterPathOccur(tt.raw, 0)
-			if !ok {
-				t.Fatalf("frontmatterPathOccur(%q) = false", tt.raw)
+			link := tt.link
+			if link.linkType == "" {
+				var ok bool
+				link, ok = frontmatterPathOccur(tt.raw, 0)
+				if !ok {
+					t.Fatalf("frontmatterPathOccur(%q) = false", tt.raw)
+				}
 			}
 			got, err := resolveFrontmatterPathDry(tt.sourcePath, link, rm)
 			if !errors.Is(err, tt.wantErr) {

@@ -65,11 +65,7 @@ func scanAndRewrite(vaultPath string, opts scanRewriteOptions) ([]rewriteEntry, 
 		return rewrites, nil
 	}
 
-	groups := make(map[string][]rewriteEntry)
-	for _, re := range rewrites {
-		groups[re.sourcePath] = append(groups[re.sourcePath], re)
-	}
-	if _, _, rollbackFailures, err := applyFileRewritesWithRollbackFailures(vaultPath, groups); err != nil {
+	if _, _, rollbackFailures, err := applyFileRewritesWithRollbackFailures(vaultPath, rewrites); err != nil {
 		return nil, wrapRollbackFailures(err, rollbackFailures)
 	}
 

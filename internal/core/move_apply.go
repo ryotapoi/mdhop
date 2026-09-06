@@ -8,19 +8,6 @@ import (
 	"strings"
 )
 
-// groupAndApplyExternalRewrites groups rewrites by source path and applies them.
-// Returns per-sourceID mtimes and backups for rollback.
-func groupAndApplyExternalRewrites(vaultPath string, rewrites []rewriteEntry) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {
-	if len(rewrites) == 0 {
-		return nil, nil, nil, nil
-	}
-	groups := make(map[string][]rewriteEntry)
-	for _, re := range rewrites {
-		groups[re.sourcePath] = append(groups[re.sourcePath], re)
-	}
-	return applyFileRewritesWithRollbackFailures(vaultPath, groups)
-}
-
 // applyOutgoingRewritesToContent applies outgoing rewrites to file content,
 // returning new content. The original content is not modified.
 func applyOutgoingRewritesToContent(content []byte, rewrites []outgoingRewrite) []byte {

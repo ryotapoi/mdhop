@@ -192,11 +192,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 	}
 
 	// Apply disk rewrites.
-	groups := make(map[string][]rewriteEntry)
-	for _, re := range rewrites {
-		groups[re.sourcePath] = append(groups[re.sourcePath], re)
-	}
-	newMtimes, backups, rollbackFailures, applyErr := applyFileRewritesWithRollbackFailures(vaultPath, groups)
+	newMtimes, backups, rollbackFailures, applyErr := applyFileRewritesWithRollbackFailures(vaultPath, rewrites)
 	if applyErr != nil {
 		return nil, wrapRollbackFailures(applyErr, rollbackFailures)
 	}

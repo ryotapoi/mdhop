@@ -196,21 +196,17 @@ func TestApplyFileRewritesPreservesPermission(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	groups := map[string][]rewriteEntry{
-		filePath: {
-			{
-				edgeID:     1,
-				rawLink:    "[[OldTarget]]",
-				linkType:   LinkTypeWikilink,
-				lineStart:  1,
-				sourcePath: filePath,
-				sourceID:   100,
-				newRawLink: "[[NewTarget]]",
-			},
-		},
-	}
+	rewrites := []rewriteEntry{{
+		edgeID:     1,
+		rawLink:    "[[OldTarget]]",
+		linkType:   LinkTypeWikilink,
+		lineStart:  1,
+		sourcePath: filePath,
+		sourceID:   100,
+		newRawLink: "[[NewTarget]]",
+	}}
 
-	_, backups, rollbackFailures, err := applyFileRewritesWithRollbackFailures(vault, groups)
+	_, backups, rollbackFailures, err := applyFileRewritesWithRollbackFailures(vault, rewrites)
 	if err != nil {
 		t.Fatalf("applyFileRewritesWithRollbackFailures: %v", err)
 	}
@@ -245,19 +241,19 @@ func TestApplyFileRewritesPreservesPermission(t *testing.T) {
 
 func TestApplyFileRewritesRollbackFailuresHaveDeterministicPathOrder(t *testing.T) {
 	vault := t.TempDir()
-	groups := make(map[string][]rewriteEntry)
+	var rewrites []rewriteEntry
 	for i, path := range []string{"Two.md", "Three.md", "One.md"} {
 		if err := os.WriteFile(filepath.Join(vault, path), []byte("[[Old]]\n"), 0o644); err != nil {
 			t.Fatalf("write %s: %v", path, err)
 		}
-		groups[path] = []rewriteEntry{{
+		rewrites = append(rewrites, rewriteEntry{
 			rawLink:    "[[Old]]",
 			linkType:   LinkTypeWikilink,
 			lineStart:  1,
 			sourcePath: path,
 			sourceID:   int64(i + 1),
 			newRawLink: "[[New]]",
-		}}
+		})
 	}
 
 	oldRewriteWriteFile := rewriteWriteFile
@@ -278,7 +274,7 @@ func TestApplyFileRewritesRollbackFailuresHaveDeterministicPathOrder(t *testing.
 	}
 	t.Cleanup(func() { rollbackWriteFile = oldRollbackWriteFile })
 
-	_, _, failures, err := applyFileRewritesWithRollbackFailures(vault, groups)
+	_, _, failures, err := applyFileRewritesWithRollbackFailures(vault, rewrites)
 	if err == nil || !strings.Contains(err.Error(), "primary rewrite blocked") {
 		t.Fatalf("primary error = %v", err)
 	}

@@ -21,45 +21,6 @@ type MoveTemplatePlanResult struct {
 	Moved []MovedFile
 }
 
-// ExpandMoveTemplate expands a move destination template from the source note's
-// indexed frontmatter values and basename. The returned path is vault-relative
-// and validated with the same containment rules as Move destinations.
-func ExpandMoveTemplate(vaultPath string, opts MoveTemplateOptions) (string, error) {
-	db, err := openDBChecked(vaultPath)
-	if err != nil {
-		return "", err
-	}
-	defer db.Close()
-
-	from, err := validateMoveTemplateOptions(opts)
-	if err != nil {
-		return "", err
-	}
-
-	nodeID, err := lookupTemplateSourceNote(db, from)
-	if err != nil {
-		return "", err
-	}
-	meta, err := queryMetaByNode(db, nodeID)
-	if err != nil {
-		return "", err
-	}
-	values := metaRowsByKey(meta)
-
-	to, err := expandMoveTemplate(opts.Template, values, filepath.Base(from))
-	if err != nil {
-		return "", err
-	}
-	if err := validateExpandedMoveTemplatePath(to); err != nil {
-		return "", err
-	}
-	to = NormalizePath(to)
-	if err := validateExpandedMoveTemplatePath(to); err != nil {
-		return "", err
-	}
-	return to, nil
-}
-
 // PlanMoveTemplate expands and validates move --to-template destinations without
 // changing disk or DB state.
 func PlanMoveTemplate(vaultPath string, opts MoveTemplateOptions) (*MoveTemplatePlanResult, error) {
