@@ -68,47 +68,14 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 }
 
 func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, diskOnlyFiles []diskOnlyMove, needDiskMove bool) (result *MoveDirResult, err error) {
-	// Phase 1: build maps and adjust for post-move state.
-	dm, err := adjustMapsForDirMove(db, moves)
+	prepared, err := prepareMoveRewrites(vaultPath, db, moves, needDiskMove)
 	if err != nil {
 		return nil, err
 	}
-
-	// Frontmatter_path raw values must keep resolving to the same target
-	// after the move (they cannot be rewritten).
-	if err := validateFrontmatterPathEdges(db, dm.rm, dm.movedFromTo); err != nil {
-		return nil, err
-	}
-
-	// Phase 2 + 2.5: external link rewrites (incoming + collateral).
-	incomingRewrites, err := collectIncomingRewritesForDir(db, moves, dm)
-	if err != nil {
-		return nil, err
-	}
-	collateralRewrites, err := collectCollateralRewritesForDir(db, moves, dm)
-	if err != nil {
-		return nil, err
-	}
-	// Allocate a new slice to avoid aliasing incomingRewrites's backing array.
-	allExternalRewrites := make([]rewriteEntry, 0, len(incomingRewrites)+len(collateralRewrites))
-	allExternalRewrites = append(allExternalRewrites, incomingRewrites...)
-	allExternalRewrites = append(allExternalRewrites, collateralRewrites...)
-
-	// Phase 3: outgoing link rewrites for moved notes.
-	movedFileRewrites, err := buildMovedFileRewrites(db, vaultPath, moves, dm, needDiskMove)
-	if err != nil {
-		return nil, err
-	}
-	// Prepare both sets before the operation's first disk side effect. In
-	// particular, an unsupported rewrite inside a moved note must not let an
-	// external rewrite start first.
-	preparedExternalRewrites, err := prepareFileRewrites(vaultPath, allExternalRewrites)
-	if err != nil {
-		return nil, err
-	}
-	if err := prepareMovedFileRewrites(movedFileRewrites); err != nil {
-		return nil, err
-	}
+	dm := prepared.maps
+	allExternalRewrites := prepared.externalEntries
+	movedFileRewrites := prepared.moved
+	preparedExternalRewrites := prepared.external
 
 	// Phase 4: disk operations.
 	result = &MoveDirResult{}
@@ -297,4 +264,61 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	committed = true
 
 	return result, nil
+}
+
+type preparedMoveRewrites struct {
+	maps            *dirMoveMaps
+	external        []preparedFileRewrite
+	externalEntries []rewriteEntry
+	moved           []movedFileRewrite
+}
+
+func prepareMoveRewrites(vaultPath string, db dbExecer, moves []moveInfo, needDiskMove bool) (*preparedMoveRewrites, error) {
+	// Phase 1: build maps and adjust for post-move state.
+	dm, err := adjustMapsForDirMove(db, moves)
+	if err != nil {
+		return nil, err
+	}
+
+	// Frontmatter_path raw values must keep resolving to the same target
+	// after the move (they cannot be rewritten).
+	if err := validateFrontmatterPathEdges(db, dm.rm, dm.movedFromTo); err != nil {
+		return nil, err
+	}
+
+	// Phase 2 + 2.5: external link rewrites (incoming + collateral).
+	incomingRewrites, err := collectIncomingRewritesForDir(db, moves, dm)
+	if err != nil {
+		return nil, err
+	}
+	collateralRewrites, err := collectCollateralRewritesForDir(db, moves, dm)
+	if err != nil {
+		return nil, err
+	}
+	// Allocate a new slice to avoid aliasing incomingRewrites's backing array.
+	allExternalRewrites := make([]rewriteEntry, 0, len(incomingRewrites)+len(collateralRewrites))
+	allExternalRewrites = append(allExternalRewrites, incomingRewrites...)
+	allExternalRewrites = append(allExternalRewrites, collateralRewrites...)
+
+	// Phase 3: outgoing link rewrites for moved notes.
+	movedFileRewrites, err := buildMovedFileRewrites(db, vaultPath, moves, dm, needDiskMove)
+	if err != nil {
+		return nil, err
+	}
+	// Prepare both sets before the operation's first disk side effect. In
+	// particular, an unsupported rewrite inside a moved note must not let an
+	// external rewrite start first.
+	preparedExternalRewrites, err := prepareFileRewrites(vaultPath, allExternalRewrites)
+	if err != nil {
+		return nil, err
+	}
+	if err := prepareMovedFileRewrites(movedFileRewrites); err != nil {
+		return nil, err
+	}
+	return &preparedMoveRewrites{
+		maps:            dm,
+		external:        preparedExternalRewrites,
+		externalEntries: allExternalRewrites,
+		moved:           movedFileRewrites,
+	}, nil
 }

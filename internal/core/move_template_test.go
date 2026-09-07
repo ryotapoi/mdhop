@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -269,6 +270,72 @@ func TestPlanMoveTemplate_DoesNotChangeDiskOrDB(t *testing.T) {
 	}
 	if _, err := Query(vault, EntrySpec{File: "Project.md"}, QueryOptions{}); err != nil {
 		t.Fatalf("Project.md should remain in DB after planning: %v", err)
+	}
+}
+
+func TestPlanMoveTemplate_PreflightsRewriteCandidatesLikeExecution(t *testing.T) {
+	tests := []struct {
+		name  string
+		files map[string]string
+	}{
+		{
+			name: "unsafe external incoming rewrite",
+			files: map[string]string{
+				"B.md":     "# B\n",
+				"Other.md": "---\nref: \"\\u005b\\u005bB\\u005d\\u005d\"\n---\n",
+			},
+		},
+		{
+			name: "unsafe moved note outgoing rewrite",
+			files: map[string]string{
+				"B.md":      "---\nref: \"\\u005b\\u005b./Target\\u005d\\u005d\"\n---\n",
+				"Target.md": "# Target\n",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := newMoveVault(t, tt.files)
+			originalB := readVaultFile(t, vault, "B.md")
+			originalDB := queryNodes(t, dbPath(vault), NodeTypeNote)
+			opts := MoveTemplateOptions{From: "B.md", Template: "archive/Renamed.md"}
+
+			if _, err := PlanMoveTemplate(vault, opts); err == nil || !strings.Contains(err.Error(), "correspondence") {
+				t.Fatalf("plan error = %v, want correspondence rejection", err)
+			}
+			if got := readVaultFile(t, vault, "B.md"); got != originalB {
+				t.Fatalf("B.md changed during rejected plan:\n%s", got)
+			}
+			if _, err := os.Stat(filepath.Join(vault, "archive")); !os.IsNotExist(err) {
+				t.Fatalf("archive directory exists after rejected plan, err=%v", err)
+			}
+			if got := queryNodes(t, dbPath(vault), NodeTypeNote); !reflect.DeepEqual(got, originalDB) {
+				t.Fatalf("DB changed during rejected plan: got %+v, want %+v", got, originalDB)
+			}
+
+			if _, err := MoveTemplate(vault, opts); err == nil || !strings.Contains(err.Error(), "correspondence") {
+				t.Fatalf("execution error = %v, want correspondence rejection", err)
+			}
+			if got := readVaultFile(t, vault, "B.md"); got != originalB {
+				t.Fatalf("B.md changed during rejected execution:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestPlanMoveTemplate_AllowsSafeRewriteCandidate(t *testing.T) {
+	vault := newMoveVault(t, map[string]string{
+		"B.md":     "# B\n",
+		"Other.md": "---\nref: \"[[B]]\"\n---\n",
+	})
+	opts := MoveTemplateOptions{From: "B.md", Template: "archive/Renamed.md"}
+
+	if _, err := PlanMoveTemplate(vault, opts); err != nil {
+		t.Fatalf("plan move template: %v", err)
+	}
+	if _, err := MoveTemplate(vault, opts); err != nil {
+		t.Fatalf("move template: %v", err)
 	}
 }
 

@@ -34,6 +34,9 @@ func PlanMoveTemplate(vaultPath string, opts MoveTemplateOptions) (*MoveTemplate
 	if err != nil {
 		return nil, err
 	}
+	if _, err := prepareMoveRewrites(vaultPath, db, prepared.moves, prepared.needDiskMove); err != nil {
+		return nil, err
+	}
 	return &MoveTemplatePlanResult{Moved: movedFilesFromMoves(prepared.moves)}, nil
 }
 

@@ -580,6 +580,55 @@ func TestSimplifyFrontmatterWikilinkApplied(t *testing.T) {
 	}
 }
 
+func TestSimplifyDryRunPreflightsFrontmatterCandidates(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		content string
+		wantErr bool
+	}{
+		{
+			name:    "unsafe encoded candidate",
+			content: "---\nref: \"\\u005b\\u005bsub/B\\u005d\\u005d\"\n---\n",
+			wantErr: true,
+		},
+		{
+			name:    "safe quoted candidate",
+			content: "---\nref: \"[[sub/B]]\"\n---\n",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := t.TempDir()
+			writeFile(t, vault, "A.md", tt.content)
+			writeFile(t, vault, "sub/B.md", "# B\n")
+			original, err := os.ReadFile(filepath.Join(vault, "A.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, dryRunErr := core.Simplify(vault, core.SimplifyOptions{DryRun: true})
+			if (dryRunErr != nil) != tt.wantErr {
+				t.Fatalf("dry-run error = %v, wantErr %v", dryRunErr, tt.wantErr)
+			}
+			if dryRunErr != nil && !strings.Contains(dryRunErr.Error(), "correspondence") {
+				t.Fatalf("dry-run error = %v, want correspondence rejection", dryRunErr)
+			}
+			if got, err := os.ReadFile(filepath.Join(vault, "A.md")); err != nil || string(got) != string(original) {
+				t.Fatalf("A.md changed during dry-run: got %q, err=%v", got, err)
+			}
+
+			_, executionErr := core.Simplify(vault, core.SimplifyOptions{})
+			if (executionErr != nil) != tt.wantErr {
+				t.Fatalf("execution error = %v, wantErr %v", executionErr, tt.wantErr)
+			}
+			if tt.wantErr {
+				if got, err := os.ReadFile(filepath.Join(vault, "A.md")); err != nil || string(got) != string(original) {
+					t.Fatalf("A.md changed during rejected execution: got %q, err=%v", got, err)
+				}
+			}
+		})
+	}
+}
+
 // writeFile is a test helper that writes content to a file relative to dir.
 func writeFile(t *testing.T, dir, rel, content string) {
 	t.Helper()

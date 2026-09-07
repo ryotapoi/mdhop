@@ -47,9 +47,9 @@ sources:
 | `move-dir` | 複数 node 一括更新 | 複数 Rename ＋ リンク書き換え | なし（失敗時ロールバック） | ディスク先・DB 後 |
 | `disambiguate` | edges raw_link 更新、nodes mtime 更新 | リンク書き換え（basename → full path） | なし（ DB バックアップ+ロールバック） | ディスク先・DB 後 |
 | `disambiguate --scan` | なし（DB 不要） | リンク書き換えのみ | なし | ディスク のみ |
-| `simplify` | なし（DB 不要） | リンク書き換え（path/relative → basename。`--dry-run` 時は行わない） | なし | ディスク のみ |
-| `convert` | なし（DB 不要） | リンク書き換え（`--dry-run` 時は行わない） | なし | ディスク のみ |
-| `repair` | なし（DB 不要） | リンク書き換え（`--dry-run` 時は行わない） | なし | ディスク のみ |
+| `simplify` | なし（DB 不要） | リンク書き換え（path/relative → basename。`--dry-run` は実行時と同じ候補検証後、書き込みを行わない） | なし | ディスク のみ |
+| `convert` | なし（DB 不要） | リンク書き換え（`--dry-run` は実行時と同じ候補検証後、書き込みを行わない） | なし | ディスク のみ |
+| `repair` | なし（DB 不要） | リンク書き換え（`--dry-run` は実行時と同じ候補検証後、書き込みを行わない） | なし | ディスク のみ |
 | `init-meta --write` | なし | `mdhop.yaml`（temp+rename で上書き） | 既存キー以外を追記 | ディスク のみ |
 
 ---
@@ -89,7 +89,7 @@ sources:
 ### 3-4. move / move-dir
 
 - **実行経路**: 単体 `move` は `move.go:25–56` で 1 件の `moveInfo` を作り、`move_dir.go:68` の `executeMoves` に委譲する。directory mode も同じ executor を使う
-- **`--to-template`**: CLI で `--to` の代わりに指定できる単体 note move mode。`internal/core/move_template.go` が source note の indexed frontmatter と source filename `{basename}` から destination path を先に展開し、その path を通常の `Move` に渡す。directory mode / asset move / `--to` 併用は不可。展開エラー（missing field、複数値、invalid date year extraction、空・vault escape・directory path）は mutation 前に失敗する
+- **`--to-template`**: CLI で `--to` の代わりに指定できる単体 note move mode。`internal/core/move_template.go` が source note の indexed frontmatter と source filename `{basename}` から destination path を先に展開する。dry-run と実行は、incoming / collateral / outgoing の書き換え候補を同じ副作用前経路で検証する。directory mode / asset move / `--to` 併用は不可。展開・候補検証エラーは mutation 前に失敗する
 - **incoming rewrite（Phase 2）**: 移動元への path リンクをすべて書き換える。basename リンクは basename が変わった場合か、ambiguous になった場合のみ書き換える（`move_rewrite.go:90–184`）
 - **collateral rewrite（Phase 2.5）**: 移動先 basename と一致する他の note / asset への basename リンクが ambiguous になる場合に、それらを full path に書き換える → ADR 0008（`move_rewrite.go:191–255`）
 - **outgoing rewrite（Phase 3）**: 移動したノートの outgoing basename リンクのうち、移動後に解決先が変わるものと、relative リンクを書き換える（`move_rewrite.go:259–365`）
@@ -107,7 +107,7 @@ sources:
 ### 3-6. simplify / convert / repair
 
 - **DB 不要**: いずれもインデックスを使わず disk scan で動作（in-memory resolve maps を都度構築）
-- **simplify**: 解決可能な path/relative リンクを basename リンクに短縮する（`simplify.go:26`、書き換えは `basenameTarget` へ `rewriteRawLink`、`simplify.go:170`）。`--dry-run` 対応。ambiguous になるものは短縮しない
+- **simplify**: 解決可能な path/relative リンクを basename リンクに短縮する（`simplify.go:26`、書き換えは `basenameTarget` へ `rewriteRawLink`、`simplify.go:170`）。`--dry-run` は実行時と同じ候補検証を行うが書き込まない。ambiguous になるものは短縮しない
 - **convert**: wikilink ↔ markdown の形式変換（`convert.go:25`）。`--dry-run` で実際のファイル書き換えをスキップ
 - **repair**: vault 外逃げリンク（escaping）と broken path リンクをデフォルト basename 形式に書き換える（`repair.go:35`）。`--dry-run` 対応。body links のみ対象（frontmatter wikilink は除外、`repair.go:219–225`）。候補 2 件以上の broken path リンクはスキップ・`Skipped` に報告
 

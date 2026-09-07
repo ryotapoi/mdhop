@@ -61,11 +61,18 @@ func scanAndRewrite(vaultPath string, opts scanRewriteOptions) ([]rewriteEntry, 
 		rewrites = append(rewrites, entries...)
 	}
 
-	if opts.DryRun || len(rewrites) == 0 {
+	if len(rewrites) == 0 {
+		return rewrites, nil
+	}
+	prepared, err := prepareFileRewrites(vaultPath, rewrites)
+	if err != nil {
+		return nil, err
+	}
+	if opts.DryRun {
 		return rewrites, nil
 	}
 
-	if _, _, rollbackFailures, err := applyFileRewritesWithRollbackFailures(vaultPath, rewrites); err != nil {
+	if _, _, rollbackFailures, err := applyPreparedFileRewrites(prepared); err != nil {
 		return nil, wrapRollbackFailures(err, rollbackFailures)
 	}
 

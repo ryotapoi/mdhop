@@ -244,7 +244,7 @@ meta:
 - `move`
   - 必須: `--from`, `--to` または `--to-template`
   - 任意: `--vault`, `--format`, `--dry-run`
-  - `--dry-run`: `--to-template` 指定時のみ使用可。展開済み move plan を既存の move 出力形式で返し、ディスク・DB は変更しない
+  - `--dry-run`: `--to-template` 指定時のみ使用可。展開済み move plan を既存の move 出力形式で返す前に、実行時と同じリンク書き換え候補の対応検証を行う。ディスク・DB は変更しない（将来の I/O 成功は保証しない）
   - `--to-template`: 登録済み note の indexed frontmatter と source filename から移動先を展開する。`--to` とは同時指定不可。directory mode では配下の登録済み note 全件を展開し、全件の展開・destination 検証が成功してから batch move する
     - 構文:
       - `{field}`: source note の frontmatter key `field` の値
@@ -304,7 +304,7 @@ meta:
   - 補足: 壊れたパスリンクは basename の候補が 0-1 個のみ修復。2 個以上はスキップ（`disambiguate` で個別解決する）
   - 補足: basename リンク（`[[X]]`）は対象外（パスリンクのみ）
   - 補足: リンク先ファイルがディスク上に存在する場合はスキップ（`build.exclude_paths` で除外されたファイルへのリンクを壊さない）
-  - 補足: `--dry-run` はディスク変更せず結果のみ返す
+  - 補足: `--dry-run` は実行時と同じ書き換え候補の対応検証を行い、ディスク変更せず結果のみ返す（将来の I/O 成功は保証しない）
   - 補足: repair 後に `build` を実行してインデックスを作成・更新する
   - 補足: repair 後に build が曖昧リンクで失敗する場合は `disambiguate` で対応する
   - 補足: URL リンク、tag/frontmatter リンクは対象外
@@ -317,7 +317,7 @@ meta:
   - 補足: 壊れたリンク・vault-escape リンクはスキップ（`repair` で対応）
   - 補足: asset のパスリンクは、note namespace に同名 basename が存在しない場合のみ短縮する
   - 補足: `--file` で対象ファイルを制限できる（複数回指定可）
-  - 補足: `--dry-run` はディスク変更せず結果のみ返す
+  - 補足: `--dry-run` は実行時と同じ書き換え候補の対応検証を行い、ディスク変更せず結果のみ返す（将来の I/O 成功は保証しない）
   - 補足: simplify 後に `build` を実行してインデックスを更新する
   - 補足: `build.exclude_paths` に従う
   - 補足: URL リンク、tag/frontmatter リンクは対象外
@@ -329,7 +329,7 @@ meta:
   - 補足: URL リンク、tag、frontmatter リンクは対象外
   - 補足: `build.exclude_paths` に従う（除外ファイルは走査しない）
   - 補足: `--file` 指定時は対象ファイルのみ変換する
-  - 補足: `--dry-run` はディスク変更せず結果のみ返す
+  - 補足: `--dry-run` は実行時と同じ書き換え候補の対応検証を行い、ディスク変更せず結果のみ返す（将来の I/O 成功は保証しない）
   - 補足: convert 後に `build` を実行してインデックスを作成・更新する
 - `resolve`
   - 必須: `--from`, `--link`
