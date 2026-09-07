@@ -66,10 +66,27 @@
 
 ### YAML decode 差異による frontmatter wikilink の書き換え不一致
 
-- [ ] YAML decoder の値とファイル上のテキストが異なる quoted frontmatter wikilink を、source occurrence と再抽出結果の対応を証明できる場合だけ rewrite する
-  - disposition: follow_up_soon
-  - Source: Goal Review v0-17-0 (opus + sol)
-  - decode 済みの値とファイル上のテキストが異なる場合は明示的に失敗し、部分文字列・YAML 解釈差異も file / DB / move の前に拒否する。通常の quoted scalar / list は同じ抽出規則で候補を検証して更新する
+目的は、書き換えが成功したのにファイルと DB が食い違い、再 build でリンク先が変わる不具合を防ぐこと。Source: Goal Review v0-17-0 (opus + sol)、disposition: follow_up_soon。
+
+各項目を 1 Change とし、1 → 2 → 3 の順に進める。
+
+共通制限: 既存の抽出規則を維持し、YAML 全形式への対応や無関係な整理へ広げない。変更に直接必要な文書だけを同じ Change で同期し、検証は `docs/rules/verification.md` に従う。
+
+再利用資料: main の未コミット差分は旧版。後続修正版と評価記録は `/private/tmp/mdhop-v0171-repair`（記録は配下の `tmp/workflow/v0-17-1-repair/changes/yaml-frontmatter-rewrite/`）。既報の回帰を確認し、今回の項目に必要な差分だけを選ぶ。未コミット差分や既存の完了印を合格済みとは扱わない。
+
+- [ ] 1. quoted frontmatter の書き換え候補と source の対応を、副作用のない変換として検証する
+  - 予定した出現だけを更新し、同じ規則で再抽出した結果が予定と一致する候補を返す。対象外のテキスト・リンクと重複件数を保ち、対応不能な decode/source 差異や置換後の YAML 解釈差異は明示的に拒否する
+  - 通常の quoted scalar / list の更新を維持する。未対象の decode 差異や、本文だけを更新する際の無関係な不正 frontmatter を新たな拒否理由にしない
+  - 既報の誤置換・過剰拒否を検出する局所的な回帰テストで確認する。実更新経路への接続は 2 で行う
+
+- [ ] 2. 実更新の全候補を副作用前に検証する（1 に依存）
+  - 共通 rewrite・scan の実更新と Move / MoveDir / template move に接続する。移動では外部ファイルと移動ノート自身の書き換えを同一操作として検証する
+  - 対応不能な候補があれば、最初の file / DB 更新・移動・出力先作成より前にエラーにし、操作前の状態を保つ。後続候補の失敗を、先行更新の rollback だけで処理しない
+  - 成功後のファイルと関連 DB edge が再 build 後も整合すること、および複数ファイル・移動時の事前拒否を確認する。既存のエラー出力・復元保証・dry-run の計画表示と無変更を維持する
+
+- [ ] 3. dry-run でも実行時と同じ対応不能候補を拒否する（2 に依存）
+  - scan と template move の dry-run にも同じ対応検証を適用し、書き換え不能なら非ゼロ終了と stderr で明示し、成功結果を出さない
+  - 同じ入力状態で実行時と対応検証の成否が一致し、成功・失敗とも file / DB / path を変更しないことを確認する。将来の I/O 障害まで成功保証に含めない
 
 ### directory `delete --rm` の部分失敗を可視化
 
