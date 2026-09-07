@@ -141,19 +141,9 @@ func stripMarkdownLinks(line string) string {
 
 func parseWikiLinks(line string, lineNum int) []linkOccur {
 	var out []linkOccur
-	remaining := line
-	for {
-		start := strings.Index(remaining, "[[")
-		if start == -1 {
-			break
-		}
-		end := strings.Index(remaining[start+2:], "]]")
-		if end == -1 {
-			break
-		}
-		end = start + 2 + end
-		inner := remaining[start+2 : end]
-		rawLink := "[[" + inner + "]]"
+	for _, span := range wikiLinkSpans(line) {
+		rawLink := span.raw
+		inner := rawLink[2 : len(rawLink)-2]
 
 		name := splitAlias(inner)
 		target, subpath := extractSubpath(name)
@@ -182,9 +172,36 @@ func parseWikiLinks(line string, lineNum int) []linkOccur {
 				lineEnd:    lineNum,
 			})
 		}
-		remaining = remaining[end+2:]
 	}
 	return out
+}
+
+type wikiLinkSpan struct {
+	raw        string
+	start, end int
+}
+
+func wikiLinkSpans(line string) []wikiLinkSpan {
+	var spans []wikiLinkSpan
+	for offset := 0; ; {
+		start := strings.Index(line[offset:], "[[")
+		if start < 0 {
+			return spans
+		}
+		start += offset
+		close := strings.Index(line[start+2:], "]]")
+		if close < 0 {
+			return spans
+		}
+		end := start + 2 + close + 2
+		inner := line[start+2 : end-2]
+		name := splitAlias(inner)
+		target, subpath := extractSubpath(name)
+		if target != "" || subpath != "" {
+			spans = append(spans, wikiLinkSpan{raw: line[start:end], start: start, end: end})
+		}
+		offset = end
+	}
 }
 
 func parseMarkdownLinks(line string, lineNum int) []linkOccur {

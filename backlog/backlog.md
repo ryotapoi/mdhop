@@ -74,7 +74,7 @@
 
 再利用資料: main の未コミット差分は旧版。後続修正版と評価記録は `/private/tmp/mdhop-v0171-repair`（記録は配下の `tmp/workflow/v0-17-1-repair/changes/yaml-frontmatter-rewrite/`）。既報の回帰を確認し、今回の項目に必要な差分だけを選ぶ。未コミット差分や既存の完了印を合格済みとは扱わない。
 
-- [ ] 1. quoted frontmatter の書き換え候補と source の対応を、副作用のない変換として検証する
+- [x] 1. quoted frontmatter の書き換え候補と source の対応を、副作用のない変換として検証する
   - 予定した出現だけを更新し、同じ規則で再抽出した結果が予定と一致する候補を返す。対象外のテキスト・リンクと重複件数を保ち、対応不能な decode/source 差異や置換後の YAML 解釈差異は明示的に拒否する
   - 通常の quoted scalar / list の更新を維持する。未対象の decode 差異や、本文だけを更新する際の無関係な不正 frontmatter を新たな拒否理由にしない
   - 既報の誤置換・過剰拒否を検出する局所的な回帰テストで確認する。実更新経路への接続は 2 で行う
