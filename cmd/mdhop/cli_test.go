@@ -1222,6 +1222,115 @@ func TestRunDelete_DirExpansion(t *testing.T) {
 	}
 }
 
+func TestRunDelete_DirRm_AssetCleanupErrorAfterDBUpdate(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+	asset := filepath.Join(vault, "sub", "late.bin")
+	if err := os.WriteFile(asset, []byte("asset"), 0o644); err != nil {
+		t.Fatalf("write asset: %v", err)
+	}
+
+	assetCleanupErr := errors.New("asset cleanup denied")
+	originalRemove := deleteRemove
+	deleteRemove = func(path string) error {
+		if path == asset {
+			return assetCleanupErr
+		}
+		return os.Remove(path)
+	}
+	t.Cleanup(func() { deleteRemove = originalRemove })
+
+	originalStdout := os.Stdout
+	readStdout, writeStdout, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdout pipe: %v", err)
+	}
+	os.Stdout = writeStdout
+	err = runDelete([]string{"--vault", vault, "--file", "sub/", "--rm"})
+	if closeErr := writeStdout.Close(); closeErr != nil {
+		t.Fatalf("close stdout pipe: %v", closeErr)
+	}
+	os.Stdout = originalStdout
+	var stdout bytes.Buffer
+	if _, readErr := stdout.ReadFrom(readStdout); readErr != nil {
+		t.Fatalf("read stdout: %v", readErr)
+	}
+
+	if !errors.Is(err, assetCleanupErr) {
+		t.Fatalf("delete error = %v, want asset cleanup error", err)
+	}
+	for _, want := range []string{"post-delete cleanup failed", "registered files and database updates completed", asset} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("delete error = %q, missing %q", err, want)
+		}
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want no success output", stdout.String())
+	}
+	if _, statErr := os.Stat(filepath.Join(vault, "sub", "A.md")); !os.IsNotExist(statErr) {
+		t.Errorf("registered file remains after returned cleanup error: %v", statErr)
+	}
+	result, statErr := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
+	if statErr != nil {
+		t.Fatalf("stats: %v", statErr)
+	}
+	if result.NotesTotal != 1 {
+		t.Errorf("notes_total = %d, want 1 after deleting sub notes", result.NotesTotal)
+	}
+}
+
+func TestRunDelete_DirRm_AssetWalkErrorAfterDBUpdate(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+	walkPath := filepath.Join(vault, "sub", "late.bin")
+	walkErr := errors.New("asset walk denied")
+	originalWalk := deleteWalk
+	deleteWalk = func(_ string, walkFn filepath.WalkFunc) error {
+		return walkFn(walkPath, nil, walkErr)
+	}
+	t.Cleanup(func() { deleteWalk = originalWalk })
+
+	err := runDelete([]string{"--vault", vault, "--file", "sub/", "--rm"})
+	if !errors.Is(err, walkErr) {
+		t.Fatalf("delete error = %v, want asset walk error", err)
+	}
+	for _, want := range []string{"post-delete cleanup failed", "registered files and database updates completed", walkPath} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("delete error = %q, missing %q", err, want)
+		}
+	}
+	result, statErr := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
+	if statErr != nil {
+		t.Fatalf("stats: %v", statErr)
+	}
+	if result.NotesTotal != 1 {
+		t.Errorf("notes_total = %d, want 1 after deleting sub notes", result.NotesTotal)
+	}
+}
+
+func TestRunDelete_DirRm_EmptyDirCleanupErrorAfterDBUpdate(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_delete_dir")
+	cleanupErr := errors.New("empty directory cleanup denied")
+	originalCleanup := deleteCleanupEmptyDirs
+	deleteCleanupEmptyDirs = func(_ string, _ []string) error { return cleanupErr }
+	t.Cleanup(func() { deleteCleanupEmptyDirs = originalCleanup })
+
+	err := runDelete([]string{"--vault", vault, "--file", "sub/", "--rm"})
+	if !errors.Is(err, cleanupErr) {
+		t.Fatalf("delete error = %v, want empty directory cleanup error", err)
+	}
+	for _, want := range []string{"post-delete cleanup failed", "registered files and database updates completed", cleanupErr.Error()} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("delete error = %q, missing %q", err, want)
+		}
+	}
+	result, statErr := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
+	if statErr != nil {
+		t.Fatalf("stats: %v", statErr)
+	}
+	if result.NotesTotal != 1 {
+		t.Errorf("notes_total = %d, want 1 after deleting sub notes", result.NotesTotal)
+	}
+}
+
 func TestRunDelete_DirEmpty(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_delete_dir")
 

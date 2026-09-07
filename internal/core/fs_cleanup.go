@@ -1,9 +1,12 @@
 package core
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // CleanupEmptyDirs removes empty directories left after file deletion.
@@ -27,7 +30,10 @@ func CleanupEmptyDirs(vaultPath string, paths []string) error {
 			}
 			err = os.Remove(dir)
 			if err != nil {
-				break // non-empty or permission error
+				if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTEMPTY) {
+					break
+				}
+				return fmt.Errorf("remove empty directory %s: %w", dir, err)
 			}
 			cleaned[dir] = true
 			dir = filepath.Dir(dir)

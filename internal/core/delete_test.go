@@ -2,10 +2,12 @@ package core
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -798,6 +800,29 @@ func TestCleanupEmptyDirs_NonEmpty(t *testing.T) {
 	// Directory should NOT be removed (has remaining file).
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		t.Error("a/ should NOT be removed (has image.png)")
+	}
+}
+
+func TestCleanupEmptyDirs_UnexpectedError(t *testing.T) {
+	vault := t.TempDir()
+	blocked := filepath.Join(vault, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := CleanupEmptyDirs(vault, []string{"blocked/child/X.md"})
+	if !errors.Is(err, syscall.ENOTDIR) {
+		t.Fatalf("CleanupEmptyDirs error = %v, want ENOTDIR", err)
+	}
+	if !strings.Contains(err.Error(), filepath.Join(vault, "blocked", "child")) {
+		t.Errorf("cleanup error should name failed path: %v", err)
+	}
+}
+
+func TestCleanupEmptyDirs_MissingDirectory(t *testing.T) {
+	vault := t.TempDir()
+	if err := CleanupEmptyDirs(vault, []string{"gone/X.md"}); err != nil {
+		t.Fatalf("CleanupEmptyDirs missing directory: %v", err)
 	}
 }
 

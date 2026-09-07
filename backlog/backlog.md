@@ -90,7 +90,7 @@
 
 ### directory `delete --rm` の部分失敗を可視化
 
-- [ ] directory 指定の `delete --rm` で未登録 asset または空 directory の cleanup に予期しない失敗があった場合、成功扱いにせず部分完了として報告する
+- [x] directory 指定の `delete --rm` で未登録 asset または空 directory の cleanup に予期しない失敗があった場合、成功扱いにせず部分完了として報告する
   - 非ゼロ終了し、stdout に成功結果を出さない。stderr に失敗した path と原因、登録済みファイルの削除と DB 更新は完了済みであることを示す
   - `NotExist`、通常の skip、成功時の出力契約は維持する
 

@@ -31,6 +31,10 @@ Examples:
 
 `
 
+var deleteWalk = filepath.Walk
+var deleteRemove = os.Remove
+var deleteCleanupEmptyDirs = core.CleanupEmptyDirs
+
 // isDirArg returns true if the argument refers to a directory
 // (trailing slash or existing directory on disk).
 func isDirArg(vaultPath, arg string) bool {
@@ -97,9 +101,12 @@ func runDelete(args []string) error {
 			dirPrefix := core.NormalizePath(strings.TrimSuffix(f, "/"))
 			absDir := filepath.Join(*vault, dirPrefix)
 			// Walk to delete remaining files (assets added after build, etc.).
-			_ = filepath.Walk(absDir, func(path string, info os.FileInfo, walkErr error) error {
+			if err := deleteWalk(absDir, func(path string, info os.FileInfo, walkErr error) error {
 				if walkErr != nil {
-					return nil // best-effort
+					if os.IsNotExist(walkErr) {
+						return nil
+					}
+					return fmt.Errorf("walk %s: %w", path, walkErr)
 				}
 				if info.IsDir() {
 					if strings.HasPrefix(info.Name(), ".") {
@@ -111,18 +118,20 @@ func runDelete(args []string) error {
 				if strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
 					return nil
 				}
-				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-					return nil // best-effort
+				if err := deleteRemove(path); err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("remove %s: %w", path, err)
 				}
 				return nil
-			})
+			}); err != nil {
+				return deletePostUpdateCleanupError(err)
+			}
 		}
 
 		var allPaths []string
 		allPaths = append(allPaths, result.Deleted...)
 		allPaths = append(allPaths, result.Phantomed...)
-		if err := core.CleanupEmptyDirs(*vault, allPaths); err != nil {
-			return err
+		if err := deleteCleanupEmptyDirs(*vault, allPaths); err != nil {
+			return deletePostUpdateCleanupError(err)
 		}
 	}
 
@@ -133,4 +142,8 @@ func runDelete(args []string) error {
 		printDeleteText(os.Stdout, result)
 		return nil
 	}
+}
+
+func deletePostUpdateCleanupError(err error) error {
+	return fmt.Errorf("post-delete cleanup failed after registered files and database updates completed: %w", err)
 }
