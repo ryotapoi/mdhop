@@ -296,3 +296,50 @@ func TestApplyFileRewritesRollbackFailuresHaveDeterministicPathOrder(t *testing.
 		t.Fatalf("rollback detail order is not deterministic:\n%s", wrapped)
 	}
 }
+
+func TestApplyFileRewritesPreflightsAllCandidatesBeforeWriting(t *testing.T) {
+	vault := t.TempDir()
+	write := func(path, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("First.md", "[[Old]]\n")
+	unsupported := "---\nref: \"\\u005b\\u005bOld\\u005d\\u005d\"\n---\n"
+	write("Later.md", unsupported)
+
+	oldWrite := rewriteWriteFile
+	writes := 0
+	rewriteWriteFile = func(path string, content []byte, perm os.FileMode) error {
+		writes++
+		return oldWrite(path, content, perm)
+	}
+	t.Cleanup(func() { rewriteWriteFile = oldWrite })
+
+	_, _, _, err := applyFileRewritesWithRollbackFailures(vault, []rewriteEntry{
+		{sourcePath: "First.md", sourceID: 1, rawLink: "[[Old]]", newRawLink: "[[New]]", linkType: LinkTypeWikilink, lineStart: 1},
+		{sourcePath: "Later.md", sourceID: 2, rawLink: "[[Old]]", newRawLink: "[[New]]", linkType: LinkTypeFrontmatterWikilink, lineStart: 2},
+	})
+	if err == nil || !strings.Contains(err.Error(), "correspondence") {
+		t.Fatalf("error = %v, want frontmatter correspondence rejection", err)
+	}
+	if writes != 0 {
+		t.Fatalf("writes = %d, want 0 before candidate rejection", writes)
+	}
+	if got := string(mustReadFile(t, filepath.Join(vault, "First.md"))); got != "[[Old]]\n" {
+		t.Fatalf("First.md = %q, want unchanged", got)
+	}
+	if got := string(mustReadFile(t, filepath.Join(vault, "Later.md"))); got != unsupported {
+		t.Fatalf("Later.md = %q, want unchanged", got)
+	}
+}
+
+func mustReadFile(t *testing.T, path string) []byte {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return content
+}

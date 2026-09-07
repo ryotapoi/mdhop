@@ -13,11 +13,13 @@ import (
 type outgoingRewrite struct {
 	rawLink    string
 	newRawLink string
+	linkType   LinkType
 	lineStart  int
 }
 
 // movedFileRewrite records the original content and outgoing rewrites for one moved note.
 type movedFileRewrite struct {
+	original    []byte
 	content     []byte
 	perm        os.FileMode
 	outRewrites []outgoingRewrite
@@ -278,7 +280,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 		if err != nil {
 			return nil, err
 		}
-		movedFileRewrites[i] = movedFileRewrite{content: content, perm: info.Mode().Perm()}
+		movedFileRewrites[i] = movedFileRewrite{original: content, content: content, perm: info.Mode().Perm()}
 
 		links := parseLinks(string(content)).Links
 		for _, link := range links {
@@ -321,6 +323,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 					movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
 						rawLink:    link.rawLink,
 						newRawLink: newRL,
+						linkType:   link.linkType,
 						lineStart:  link.lineStart,
 					})
 				}
@@ -336,6 +339,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 					movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
 						rawLink:    link.rawLink,
 						newRawLink: newRL,
+						linkType:   link.linkType,
 						lineStart:  link.lineStart,
 					})
 				}
@@ -357,6 +361,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 				movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
 					rawLink:    link.rawLink,
 					newRawLink: newRL,
+					linkType:   link.linkType,
 					lineStart:  link.lineStart,
 				})
 			}

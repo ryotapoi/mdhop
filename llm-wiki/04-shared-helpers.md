@@ -78,6 +78,7 @@ sources:
 
 | 関数・定義位置 | 責務 | 呼び出し位置 |
 |---|---|---|
-| `applyMovedFileRewrites` (`internal/core/move_apply.go:34`) | 移動ファイル自身を書き換え、復元情報を返す | `internal/core/move_dir.go:113` |
-| `updateExternalEdgesAndMtimes` (`internal/core/move_apply.go:61`) | 外部リンクの edge と mtime を DB に反映 | `internal/core/add.go:372` / `internal/core/disambiguate.go:214` / `internal/core/move_dir.go:241` |
-| `promotePhantom` (`internal/core/move_apply.go:97`) | phantom を実ノードへ昇格し edge を付け替え | `internal/core/add.go:335` / `internal/core/move_dir.go:274` |
+| `prepareMovedFileRewrites` (`internal/core/move_apply.go:13`) | 移動ノートの候補を副作用前に検証し、DB 再解析にも使う内容を準備 | `internal/core/move_dir.go:109` |
+| `applyMovedFileRewrites` (`internal/core/move_apply.go:34`) | 準備済みの移動ノート内容を書き換え、復元情報を返す | `internal/core/move_dir.go:122` |
+| `updateExternalEdgesAndMtimes` (`internal/core/move_apply.go:58`) | 外部リンクの edge と mtime を DB に反映 | `internal/core/add.go:372` / `internal/core/disambiguate.go:214` / `internal/core/move_dir.go:250` |
+| `promotePhantom` (`internal/core/move_apply.go:94`) | phantom を実ノードへ昇格し edge を付け替え | `internal/core/add.go:335` / `internal/core/move_dir.go:283` |

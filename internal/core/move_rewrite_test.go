@@ -1474,3 +1474,41 @@ func TestMove_FrontmatterWikilink_RelativeLinkInMovedNote(t *testing.T) {
 		t.Errorf("DB should contain frontmatter_wikilink edge with rawLink [[../old/Target]] from new/RelA.md, got edges: %+v", edges)
 	}
 }
+
+func TestMovePreflightsExternalAndMovedFrontmatterCandidates(t *testing.T) {
+	vault := newMoveVault(t, map[string]string{
+		"old/B.md":      "---\nref: \"\\u005b\\u005b./Target\\u005d\\u005d\"\n---\nbody\n",
+		"old/Target.md": "target\n",
+		"Other.md":      "---\nref: \"[[old/B]]\"\n---\n",
+	})
+	originalB := readVaultFile(t, vault, "old/B.md")
+	originalOther := readVaultFile(t, vault, "Other.md")
+
+	oldWrite := rewriteWriteFile
+	writes := 0
+	rewriteWriteFile = func(path string, content []byte, perm os.FileMode) error {
+		writes++
+		return oldWrite(path, content, perm)
+	}
+	t.Cleanup(func() { rewriteWriteFile = oldWrite })
+
+	_, err := Move(vault, MoveOptions{From: "old/B.md", To: "new/B.md"})
+	if err == nil || !strings.Contains(err.Error(), "correspondence") {
+		t.Fatalf("error = %v, want frontmatter correspondence rejection", err)
+	}
+	if writes != 0 {
+		t.Fatalf("writes = %d, want 0 before moved-note rejection", writes)
+	}
+	if got := readVaultFile(t, vault, "old/B.md"); got != originalB {
+		t.Fatalf("old/B.md changed before rejection:\n%s", got)
+	}
+	if got := readVaultFile(t, vault, "Other.md"); got != originalOther {
+		t.Fatalf("Other.md changed before rejection:\n%s", got)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "new")); !os.IsNotExist(err) {
+		t.Fatalf("new directory exists or stat failed: %v", err)
+	}
+	if nodes := queryNodes(t, dbPath(vault), "note"); len(nodes) != 3 || nodes[0].path == "new/B.md" || nodes[1].path == "new/B.md" || nodes[2].path == "new/B.md" {
+		t.Fatalf("DB nodes changed before rejection: %+v", nodes)
+	}
+}

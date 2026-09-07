@@ -99,12 +99,22 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	if err != nil {
 		return nil, err
 	}
+	// Prepare both sets before the operation's first disk side effect. In
+	// particular, an unsupported rewrite inside a moved note must not let an
+	// external rewrite start first.
+	preparedExternalRewrites, err := prepareFileRewrites(vaultPath, allExternalRewrites)
+	if err != nil {
+		return nil, err
+	}
+	if err := prepareMovedFileRewrites(movedFileRewrites); err != nil {
+		return nil, err
+	}
 
 	// Phase 4: disk operations.
 	result = &MoveDirResult{}
 
 	// 4.1: apply external rewrites.
-	externalMtimes, externalBackups, externalRestoreFailures, err := applyFileRewritesWithRollbackFailures(vaultPath, allExternalRewrites)
+	externalMtimes, externalBackups, externalRestoreFailures, err := applyPreparedFileRewrites(preparedExternalRewrites)
 	if err != nil {
 		return nil, wrapRollbackFailures(err, externalRestoreFailures)
 	}

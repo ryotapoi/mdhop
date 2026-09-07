@@ -60,6 +60,15 @@ type rewriteEntry struct {
 	newRawLink string
 }
 
+type preparedFileRewrite struct {
+	path      string
+	fullPath  string
+	original  []byte
+	candidate []byte
+	perm      os.FileMode
+	entries   []rewriteEntry
+}
+
 // buildRewritePath constructs the vault-relative rewritten path for a link target.
 // Only .md extension is removed (e.g. "A.md" → "A", "image.png" → "image.png").
 func buildRewritePath(targetPath string) string {
@@ -191,11 +200,20 @@ func applyFileRewritesWithRollbackFailures(vaultPath string, rewrites []rewriteE
 	if len(rewrites) == 0 {
 		return nil, nil, nil, nil
 	}
+	prepared, err := prepareFileRewrites(vaultPath, rewrites)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return applyPreparedFileRewrites(prepared)
+}
+
+// prepareFileRewrites reads and validates every candidate before a caller can
+// write any file. The candidate is also the exact content later written.
+func prepareFileRewrites(vaultPath string, rewrites []rewriteEntry) ([]preparedFileRewrite, error) {
 	groups := make(map[string][]rewriteEntry)
 	for _, re := range rewrites {
 		groups[re.sourcePath] = append(groups[re.sourcePath], re)
 	}
-	newMtimes := make(map[int64]int64)
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 	sourcePaths := make([]string, 0, len(groups))
 	for sourcePath := range groups {
@@ -203,39 +221,65 @@ func applyFileRewritesWithRollbackFailures(vaultPath string, rewrites []rewriteE
 	}
 	sort.Strings(sourcePaths)
 
-	// Phase 1: read all originals before any writes.
-	originals := make(map[string][]byte, len(groups))
-	perms := make(map[string]os.FileMode, len(groups))
-	fullPaths := make(map[string]string, len(groups))
+	prepared := make([]preparedFileRewrite, 0, len(sourcePaths))
 	for _, sourcePath := range sourcePaths {
 		fullPath, err := diskPaths.existingPath(sourcePath)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
-		fullPaths[sourcePath] = fullPath
 		info, err := os.Stat(fullPath)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
-		perms[sourcePath] = info.Mode().Perm()
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
-		originals[sourcePath] = content
+		candidate, err := rewriteContentCandidate(content, groups[sourcePath])
+		if err != nil {
+			return nil, err
+		}
+		prepared = append(prepared, preparedFileRewrite{path: sourcePath, fullPath: fullPath, original: content, candidate: candidate, perm: info.Mode().Perm(), entries: groups[sourcePath]})
+	}
+	return prepared, nil
+}
+
+func rewriteContentCandidate(content []byte, rewrites []rewriteEntry) ([]byte, error) {
+	candidate, err := rewriteFrontmatterCandidate(content, rewrites)
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(string(candidate), "\n")
+	lineEntries := make(map[int][]rewriteEntry)
+	for _, re := range rewrites {
+		if re.linkType != LinkTypeFrontmatterWikilink {
+			lineEntries[re.lineStart] = append(lineEntries[re.lineStart], re)
+		}
+	}
+	for lineNum, res := range lineEntries {
+		if lineNum < 1 || lineNum > len(lines) {
+			continue
+		}
+		for _, re := range res {
+			lines[lineNum-1] = replaceOutsideInlineCode(lines[lineNum-1], re.rawLink, re.newRawLink)
+		}
+	}
+	return []byte(strings.Join(lines, "\n")), nil
+}
+
+func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {
+	newMtimes := make(map[int64]int64)
+	fullPaths := make(map[string]string, len(prepared))
+	for _, file := range prepared {
+		fullPaths[file.path] = file.fullPath
 	}
 
-	// Phase 2: compute new content and write files.
 	var written []rewriteBackup
 
 	restore := func() []rollbackFailure {
 		var failures []rollbackFailure
 		for _, fb := range written {
-			fullPath := fullPaths[fb.path]
-			if fullPath == "" {
-				fullPath = filepath.Join(vaultPath, fb.path)
-			}
-			if err := rollbackWriteFile(fullPath, fb.content, fb.perm); err != nil {
+			if err := rollbackWriteFile(fullPaths[fb.path], fb.content, fb.perm); err != nil {
 				failures = append(failures, rollbackFailure{
 					action: "restore",
 					path:   fb.path,
@@ -246,43 +290,20 @@ func applyFileRewritesWithRollbackFailures(vaultPath string, rewrites []rewriteE
 		return failures
 	}
 
-	for _, sourcePath := range sourcePaths {
-		entries := groups[sourcePath]
-		fullPath := fullPaths[sourcePath]
-		original := originals[sourcePath]
-		lines := strings.Split(string(original), "\n")
-
-		// Group entries by line number.
-		lineEntries := make(map[int][]rewriteEntry)
-		for _, re := range entries {
-			lineEntries[re.lineStart] = append(lineEntries[re.lineStart], re)
-		}
-
-		// Apply replacements line by line.
-		for lineNum, res := range lineEntries {
-			if lineNum < 1 || lineNum > len(lines) {
-				continue
-			}
-			idx := lineNum - 1 // convert 1-based to 0-based
-			for _, re := range res {
-				lines[idx] = replaceOutsideInlineCode(lines[idx], re.rawLink, re.newRawLink)
-			}
-		}
-
-		newContent := []byte(strings.Join(lines, "\n"))
-		if err := rewriteWriteFile(fullPath, newContent, perms[sourcePath]); err != nil {
+	for _, file := range prepared {
+		if err := rewriteWriteFile(file.fullPath, file.candidate, file.perm); err != nil {
 			restoreFailures := restore()
 			return nil, nil, restoreFailures, err
 		}
-		written = append(written, rewriteBackup{path: sourcePath, content: original, perm: perms[sourcePath]})
+		written = append(written, rewriteBackup{path: file.path, content: file.original, perm: file.perm})
 
 		// Collect new mtime.
-		info, err := os.Stat(fullPath)
+		info, err := os.Stat(file.fullPath)
 		if err != nil {
 			restoreFailures := restore()
 			return nil, nil, restoreFailures, err
 		}
-		sourceID := entries[0].sourceID
+		sourceID := file.entries[0].sourceID
 		newMtimes[sourceID] = info.ModTime().Unix()
 	}
 

@@ -8,24 +8,24 @@ import (
 	"strings"
 )
 
-// applyOutgoingRewritesToContent applies outgoing rewrites to file content,
-// returning new content. The original content is not modified.
-func applyOutgoingRewritesToContent(content []byte, rewrites []outgoingRewrite) []byte {
-	lines := strings.Split(string(content), "\n")
-	lineRewrites := make(map[int][]outgoingRewrite)
-	for _, ow := range rewrites {
-		lineRewrites[ow.lineStart] = append(lineRewrites[ow.lineStart], ow)
-	}
-	for lineNum, ows := range lineRewrites {
-		if lineNum < 1 || lineNum > len(lines) {
+// prepareMovedFileRewrites validates every moved-note candidate before disk
+// writes begin. The candidate remains attached for both writing and DB reparse.
+func prepareMovedFileRewrites(movedFileRewrites []movedFileRewrite) error {
+	for i, mfr := range movedFileRewrites {
+		if len(mfr.outRewrites) == 0 {
 			continue
 		}
-		idx := lineNum - 1
-		for _, ow := range ows {
-			lines[idx] = replaceOutsideInlineCode(lines[idx], ow.rawLink, ow.newRawLink)
+		rewrites := make([]rewriteEntry, 0, len(mfr.outRewrites))
+		for _, ow := range mfr.outRewrites {
+			rewrites = append(rewrites, rewriteEntry{rawLink: ow.rawLink, newRawLink: ow.newRawLink, linkType: ow.linkType, lineStart: ow.lineStart})
 		}
+		candidate, err := rewriteContentCandidate(mfr.content, rewrites)
+		if err != nil {
+			return err
+		}
+		movedFileRewrites[i].content = candidate
 	}
-	return []byte(strings.Join(lines, "\n"))
+	return nil
 }
 
 // applyMovedFileRewrites writes outgoing rewrites to moved files and returns
@@ -43,15 +43,12 @@ func applyMovedFileRewrites(vaultPath string, moves []moveInfo, movedFileRewrite
 			diskPath = m.from
 		}
 
-		newContent := applyOutgoingRewritesToContent(mfr.content, mfr.outRewrites)
-		movedFileRewrites[i].content = newContent
-
 		fullPath := filepath.Join(vaultPath, diskPath)
-		if err := writeFilePreservePerm(fullPath, newContent, mfr.perm); err != nil {
+		if err := writeFilePreservePerm(fullPath, mfr.content, mfr.perm); err != nil {
 			restoreFailures := restoreBackupFiles(vaultPath, backups)
 			return backups, restoreFailures, err
 		}
-		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.content, perm: mfr.perm})
+		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.original, perm: mfr.perm})
 	}
 	return backups, nil, nil
 }

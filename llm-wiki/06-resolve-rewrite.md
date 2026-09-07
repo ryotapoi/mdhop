@@ -73,12 +73,12 @@ build は `resolveLink()`（`build.go:214`）と `mapLinkResolver`、resolve com
 
 | 関数 | ファイル:行 | 役割 |
 |---|---|---|
-| `rewriteRawLink(rawLink, linkType, targetPath)` | `rewrite.go:73` | link 構文の target 部分を新パスへ置換する |
-| `applyFileRewritesWithRollbackFailures(vaultPath, rewrites)` | `rewrite.go:190` | ファイル別に書き込み、失敗時は rollback する |
-| `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:293` | raw link が basename 形式かを判定する |
-| `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo)` | `move_rewrite.go:484` | moved file 内の相対 link を移動後の起点から再計算する |
+| `rewriteRawLink(rawLink, linkType, targetPath)` | `rewrite.go:82` | link 構文の target 部分を新パスへ置換する |
+| `applyFileRewritesWithRollbackFailures(vaultPath, rewrites)` | `rewrite.go:199` | 全ファイルの候補を検証してから書き込み、失敗時は rollback する |
+| `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:314` | raw link が basename 形式かを判定する |
+| `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo)` | `move_rewrite.go:489` | moved file 内の相対 link を移動後の起点から再計算する |
 
-quoted frontmatter wikilink は `rewriteLinkTypes` に含まれ、rewrite entry の `rawLink` は `rewriteRawLink` の wikilink 系分岐で変換される。これは対象集合と変換経路の説明であり、引用符付き値すべてでファイル上の置換が成功することは表さない。`frontmatter_path` は raw 値なので書き換えない。操作前検証と手動更新が必要になる理由は ADR 0014 を参照する。
+quoted frontmatter wikilink は `rewriteLinkTypes` に含まれ、rewrite entry の `rawLink` は `rewriteRawLink` の wikilink 系分岐で変換される。実更新では `rewriteFrontmatterCandidate` を使い、全候補の source/decode 対応を確認してから書き込む。move は外部ファイルと移動ノートの候補を一括準備する。対応を証明できない候補は副作用前に操作全体を拒否する。`frontmatter_path` は raw 値なので書き換えない。操作前検証と手動更新が必要になる理由は ADR 0014 を参照する。
 
 `repair` は `isBodyPathLinkType()`（`repair.go:186`）で本文の `wikilink` と `markdown` に限定する。frontmatter wikilink を `repair` が直すとは読まない。
 

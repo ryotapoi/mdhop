@@ -30,8 +30,7 @@ type frontmatterScalarReplacement struct {
 }
 
 // rewriteFrontmatterCandidate returns a validated, in-memory candidate for a
-// set of quoted-frontmatter rewrites. It deliberately has no caller in this
-// change: applying the candidate belongs to the later mutation change.
+// set of quoted-frontmatter rewrites used by common rewrite and move preflight paths.
 func rewriteFrontmatterCandidate(content []byte, rewrites []rewriteEntry) ([]byte, error) {
 	frontmatterRewrites := make([]rewriteEntry, 0, len(rewrites))
 	for _, rewrite := range rewrites {
