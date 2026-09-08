@@ -16,11 +16,16 @@ sources:
   - cmd/mdhop/format_add.go
   - cmd/mdhop/format_delete.go
   - cmd/mdhop/format_update.go
+  - cmd/mdhop/format_set.go
   - cmd/mdhop/format_graph.go
   - cmd/mdhop/format_reachable.go
   - cmd/mdhop/format_meta_check.go
   - cmd/mdhop/format_meta_validate.go
   - cmd/mdhop/main.go
+  - cmd/mdhop/build.go
+  - cmd/mdhop/add.go
+  - cmd/mdhop/update.go
+  - cmd/mdhop/set.go
 ---
 
 # stdout 出力契約ガイド
@@ -38,7 +43,7 @@ CLI の stdout / stderr 分離方針と、JSON 出力の構造的なポイント
 
 **stderr の出力パターン（`cmd/mdhop/format.go` および各コマンドファイル）:**
 
-- `printWarnings(warnings []string)` — `warning: <msg>` 形式で各行を stderr に書く。build/add/update が呼び出す
+- `printWarnings(warnings []string)` — `warning: <msg>` 形式で各行を stderr に書く。build/add/update/set が呼び出す
 - `formatCommandError(command, err)` — `error: <command>: <message>` 形式でトップレベルエラーを整形する（`main.go:82`）
 - `fmt.Fprintln(os.Stderr, "hint: ...")` — index が存在しない場合のヒント（repair/simplify/convert）
 - `fmt.Fprint(os.Stderr, "Usage: ...")` — main.go:97 でサブコマンド不明時
@@ -70,11 +75,11 @@ queryJSONOutput.Meta      map[string][]string `json:"meta,omitempty"`
 
 リクエストされなかったフィールドは nil のまま → `omitempty` で JSON から落ちる。
 
-**罠:** nil スライスと空スライス `[]` は `omitempty` では同じ扱い（両方省略）。しかし **mutation 系コマンド（add/delete/update/move/repair/simplify/convert/disambiguate）は常に全フィールドを返す** ため、nil を `[]` に変換してから encode する（下記参照）。
+**罠:** nil スライスと空スライス `[]` は `omitempty` では同じ扱い（両方省略）。しかし **slice field を持つ mutation 系コマンド（add/delete/update/move/repair/simplify/convert/disambiguate）は常に全フィールドを返す** ため、nil を `[]` に変換してから encode する。`set` は scalar 4 field のみで、この正規化を使わない（下記参照）。
 
 ### パターン B — nil → 空配列への正規化（mutation 系）
 
-mutation 系の JSON formatter はすべて、encode 前に `emptyIfNil`（`format.go:15-20`）で nil スライスを空スライスへ正規化する（代表例 `format_add.go:21-27`）。これにより、操作がなかった場合も `"added": []` のように空配列が出力され、フィールドが消えない。agent がフィールド存在を前提に parse できる安定 IF。
+slice field を持つ mutation 系の JSON formatter は、encode 前に `emptyIfNil`（`format.go:15-20`）で nil スライスを空スライスへ正規化する（代表例 `format_add.go:21-27`）。これにより、操作がなかった場合も `"added": []` のように空配列が出力され、フィールドが消えない。`set` はこの対象外で、scalar 4 field を直接 encode する。agent がフィールド存在を前提に parse できる安定 IF。
 
 ### パターン C — map[string]any / map[string]int（フィールド選択型）
 
@@ -96,7 +101,7 @@ diagnose の phantoms は例外的に、map へ `emptyIfNil` で正規化した�
 
 ## `jsonNodeInfo` — note/asset/phantom/tag の共通型
 
-`format.go:105-119` で定義（type / name / path / exists の 4 フィールド。定義本体は正本を読む）。
+`format.go:105–110` で定義し、`format.go:112–119` で `core.NodeInfo` から変換する（type / name / path / exists の 4 フィールド。定義本体は正本を読む）。
 
 - `Path` と `Exists` は `type == note || type == asset` のときのみセットされる
 - `Exists` は `*bool` + `omitempty` — **bool を直接使うと false が JSON から落ちる**
@@ -132,6 +137,7 @@ diagnose の phantoms は例外的に、map へ `emptyIfNil` で正規化した�
 | add | struct `addJSONOutput` | added, promoted, rewritten | |
 | delete | struct `deleteJSONOutput` | deleted, phantomed | |
 | update | struct `updateJSONOutput` | updated, deleted, phantomed | |
+| set | struct `setJSONOutput` | 不要 | file, key, value, created を常出力（`format_set.go:10–28`） |
 | repair | `rewriteResultJSONOutput` | rewritten, skipped | printRewriteResultJSON |
 | simplify | `rewriteResultJSONOutput` | rewritten, skipped | printRewriteResultJSON |
 | disambiguate | struct `disambiguateJSONOutput` | rewritten | |

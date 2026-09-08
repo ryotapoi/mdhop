@@ -10,6 +10,7 @@ sources:
   - cmd/mdhop/meta_check.go
   - cmd/mdhop/meta_validate.go
   - cmd/mdhop/delete.go
+  - cmd/mdhop/set.go
   - cmd/mdhop/update.go
   - cmd/mdhop/add.go
   - cmd/mdhop/move.go
@@ -29,6 +30,7 @@ sources:
   - internal/core/meta_check.go
   - internal/core/meta_validate.go
   - internal/core/delete.go
+  - internal/core/set.go
   - internal/core/update.go
   - internal/core/add.go
   - internal/core/move.go
@@ -47,44 +49,45 @@ sources:
 
 ルーティング起点: `cmd/mdhop/main.go:21`（`switch os.Args[1]`）
 
-振る舞い仕様の正本: `docs/specs/overview.md`（§コマンド詳細（必須/任意）, 行193–）
+振る舞い仕様の正本: `docs/specs/overview.md:209`（「コマンド詳細（必須/任意）」）
 
 ## インデックス系コマンド
 
 | コマンド | cmd/mdhop 実装ファイル (run 関数:行) | internal/core 中核関数 (ファイル:行) | 仕様ポインタ |
 |---|---|---|---|
-| `build` | `build.go:9` `runBuild` | `build.go:19` `Build` | overview.md:195 |
-| `add` | `add.go:11` `runAdd` | `add.go:33` `Add` | overview.md:208 |
-| `update` | `update.go:11` `runUpdate` | `update.go:26` `Update` | overview.md:203 |
-| `delete` | `delete.go:23` `runDelete` | `delete.go:25` `Delete` | overview.md:234 |
-| `move` | `move.go:12` `runMove` | `move.go:25` `Move` / `move_dir.go:28` `MoveDir` | overview.md:215 |
-| `disambiguate` | `disambiguate.go:11` `runDisambiguate` | `disambiguate.go:26` `Disambiguate` / `disambiguate.go:275` `DisambiguateScan` | overview.md:242 |
-| `simplify` | `simplify.go:11` `runSimplify` | `simplify.go:26` `Simplify` | overview.md:264 |
-| `repair` | `repair.go:11` `runRepair` | `repair.go:35` `Repair` | overview.md:250 |
-| `convert` | `convert.go:11` `runConvert` | `convert.go:25` `Convert` | overview.md:277 |
+| `build` | `build.go:26` `runBuild` | `build.go:19` `Build` | overview.md:211 |
+| `add` | `add.go:40` `runAdd` | `add.go:32` `Add` | overview.md:237 |
+| `update` | `update.go:31` `runUpdate` | `update.go:24` `Update` | overview.md:220 |
+| `set` | `set.go:44` `runSet` | `set.go:35` `Set` | overview.md:225 |
+| `delete` | `delete.go:48` `runDelete` | `delete.go:25` `Delete` | overview.md:281 |
+| `move` | `move.go:48` `runMove` | `move.go:22` `Move` / `move_dir.go:31` `MoveDir` | overview.md:244 |
+| `disambiguate` | `disambiguate.go:33` `runDisambiguate` | `disambiguate.go:25` `Disambiguate` / `disambiguate.go:258` `DisambiguateScan` | overview.md:289 |
+| `simplify` | `simplify.go:32` `runSimplify` | `simplify.go:25` `Simplify` | overview.md:311 |
+| `repair` | `repair.go:33` `runRepair` | `repair.go:34` `Repair` | overview.md:297 |
+| `convert` | `convert.go:32` `runConvert` | `convert.go:23` `Convert` | overview.md:324 |
 
 ## クエリ系コマンド
 
 | コマンド | cmd/mdhop 実装ファイル (run 関数:行) | internal/core 中核関数 (ファイル:行) | 仕様ポインタ |
 |---|---|---|---|
-| `resolve` | `resolve.go:11` `runResolve` | `resolve.go:21` `Resolve` | overview.md:287 |
-| `query` | `query.go:10` `runQuery` | `query.go:88` `Query` | overview.md:290 |
-| `search` | `search.go:10` `runSearch` | `search.go:94` `Search` | overview.md:295 |
-| `reachable` | `reachable.go:10` `runReachable` | `reachable.go:38` `Reachable` | overview.md:337 |
-| `graph` | `graph.go:11` `runGraph` | `graph.go:48` `Graph` | overview.md:345 |
-| `stats` | `stats.go:10` `runStats` | `stats.go:19` `Stats` | overview.md:354 |
-| `diagnose` | `diagnose.go:10` `runDiagnose` | `diagnose.go:257` `Diagnose` | overview.md:312 |
-| `meta-check` | `meta_check.go:10` `runMetaCheck` | `meta_check.go:54` `MetaCheck` | overview.md:320 |
-| `meta-validate` | `meta_validate.go:10` `runMetaValidate` | `meta_validate.go:53` `MetaValidate` | overview.md:329 |
+| `resolve` | `resolve.go:36` `runResolve` | `resolve.go:30` `Resolve` | overview.md:334 |
+| `query` | `query.go:52` `runQuery` | `query.go:106` `Query` | overview.md:337 |
+| `search` | `search.go:48` `runSearch` | `search.go:97` `Search` | overview.md:342 |
+| `reachable` | `reachable.go:35` `runReachable` | `reachable.go:43` `Reachable` | overview.md:388 |
+| `graph` | `graph.go:32` `runGraph` | `graph.go:48` `Graph` | overview.md:396 |
+| `stats` | `stats.go:33` `runStats` | `stats.go:30` `Stats` | overview.md:406 |
+| `diagnose` | `diagnose.go:34` `runDiagnose` | `diagnose.go:267` `Diagnose` | overview.md:361 |
+| `meta-check` | `meta_check.go:37` `runMetaCheck` | `meta_check.go:60` `MetaCheck` | overview.md:370 |
+| `meta-validate` | `meta_validate.go:37` `runMetaValidate` | `meta_validate.go:56` `MetaValidate` | overview.md:379 |
 
 ## セットアップ系コマンド
 
 | コマンド | cmd/mdhop 実装ファイル (run 関数:行) | internal/core 中核関数 (ファイル:行) | 仕様ポインタ |
 |---|---|---|---|
-| `init-meta` | `init_meta.go:12` `runInitMeta` | `init_meta.go:49` `InitMeta` | overview.md:357 |
+| `init-meta` | `init_meta.go:33` `runInitMeta` | `init_meta.go:49` `InitMeta` | overview.md:409 |
 
 ## 備考
 
-- `move` は `--from` 末尾 `/` またはディスク上ディレクトリの場合に `MoveDir` へ分岐（条件 `cmd/mdhop/move.go:33` `if fromIsDir`、呼び出し `cmd/mdhop/move.go:41` `core.MoveDir`）
-- `disambiguate` は `--scan` フラグ指定時に `DisambiguateScan` へ分岐 (`cmd/mdhop/disambiguate.go:32`)
+- `move` は `--from` 末尾 `/` またはディスク上ディレクトリの場合に `MoveDir` へ分岐（条件 `cmd/mdhop/move.go:98` `if fromIsDir`、呼び出し `cmd/mdhop/move.go:105` `core.MoveDir`）
+- `disambiguate` は `--scan` フラグ指定時に `DisambiguateScan` へ分岐 (`cmd/mdhop/disambiguate.go:54`)
 - フォーマッタは各 `cmd/mdhop/format_<cmd>.go` に分離。共通ヘルパーは `cmd/mdhop/format.go`
