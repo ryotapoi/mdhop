@@ -22,9 +22,9 @@ CREATE TABLE nodes (
   type      TEXT NOT NULL,
   name      TEXT NOT NULL,
   path      TEXT,
-  exists    INTEGER NOT NULL DEFAULT 1,
+  exists_flag INTEGER NOT NULL DEFAULT 1,
   mtime     INTEGER,
-  lines     INTEGER  -- note の行数（build/update 時に確定、frontmatter 含む全体）。asset/phantom は NULL
+  lines     INTEGER  -- note の行数（build/update 時に確定、frontmatter 含む全体）。note 以外は NULL
 );
 
 CREATE INDEX idx_nodes_type_name ON nodes(type, name);
@@ -100,25 +100,29 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 
 ### 2.1 Node 種別
 
-- `note`: 実ファイル（Vault相対パスを持つ）
+- `note`: 実 Markdown ファイル（Vault相対パスを持つ）
+- `asset`: 実ファイルの asset（Vault相対パスを持つ）
 - `phantom`: ファイルが存在しないリンク先
 - `tag`: `#tag`（frontmatter tags 含む）
-- `url`: 外部URL（任意機能）
 
 ### 2.2 一意性キー
 
-- note: `path`（Vault相対）で一意
-- phantom/tag/url: 正規化した `name`（または node_key）で一意
+- note: `note:path:<Vault相対path>` の `node_key` で一意
+- asset: `asset:path:<Vault相対path>` の `node_key` で一意
+- phantom/tag: 正規化した `name` を含む `node_key` で一意
 - path / node_key / basename key は NFC 正規化した表現で保持・比較する。既存 index に NFD path が残っている場合の完全移行は `build` による再生成で行う
 
 ### 2.3 推奨カラム（v2を踏襲しつつ拡張余地）
 
-- `node_key`（UNIQUE）: `note:path:folder/A.md` 等の正規化キー
+- `node_key`（UNIQUE）: `note:path:folder/A.md`、`asset:path:images/A.png` 等の正規化キー
 - `name`: 表示名（noteは basename、tagは #付き、phantomはリンク名）
-- `path`: noteのみ（phantom/tag/urlはNULL）
-- `type`: `note|phantom|tag|url`
-- `exists`: noteのみ意味を持つ（phantom/tag/urlは0固定でも可）
-- `mtime`: noteのみ（stale判定/差分更新に使用）
+- `path`: note/asset の Vault相対パス（phantom/tag は NULL）
+- `type`: `note|asset|phantom|tag`
+- `exists_flag`: DB列。note/asset の存在状態を持ち、phantom/tag は 0
+- `mtime`: note/asset の更新時刻（stale判定/差分更新に使用）
+- `lines`: note のみ。asset を含む他の種別は本文・行数を持たない
+
+公開 JSON の存在状態は `exists` であり、DB列名の `exists_flag` とは区別する。
 
 ---
 
@@ -127,7 +131,7 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 ### 3.1 基本
 
 - 有向: `source(note) -> target(node)`
-- `link_type`: `wikilink | markdown | tag | frontmatter | frontmatter_wikilink | frontmatter_path | url`
+- `link_type`: `wikilink | markdown | tag | frontmatter | frontmatter_wikilink | frontmatter_path`
   - `frontmatter_wikilink`: Obsidian property link と同様、**引用符で囲まれた YAML scalar / list item 値**に現れた `[[...]]`（`tags` キー以外。double quote / single quote）
     - bare `key: [[Note]]` と bare list item `- [[Note]]` は YAML 上の nested sequence であり edge 化しない
     - block scalar（`key: |` / `key: >`）内の `[[...]]` も対象外
@@ -136,16 +140,14 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 ### 3.2 occurrence（同一ターゲットの複数出現）
 
 - 1ファイル内で同一ターゲットが複数回出現する場合があるため、基本は “出現ごと” にレコードを持つ
-- これにより `--include-context` の精度が上がる
+- これにより `--include-snippet` の精度が上がる
 
 ### 3.3 位置情報（context抽出用）
 
 - DBには “位置情報（行番号）” のみを保存し、本文は保存しない
 - 実装上の注意:
   - 行番号は編集でズレるため、**context返却時に mtime を比較して stale を検知**
-  - stale の場合は:
-    - そのファイルのみ自動updateして位置情報を再生成（推奨）
-    - または context を省略/フォールバック検索
+  - stale の場合は `ErrSourceStale` を返す。query は自動 update せず、利用者が `mdhop update` 等でインデックスを更新する
 
 > 書き換え（mutate）用途では、位置情報に依存せず「該当ファイルを再パースして置換」すればよい。
 > 位置情報はあくまで “スニペット抽出のキャッシュ” として位置づける。
@@ -180,7 +182,7 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 
 定義:
 - `A -> X` かつ `B -> X` を満たす B を two-hop とする
-- X は `note|phantom|tag|url(任意)` を含む
+- X は `note|asset|phantom|tag` を含む
 - A/B は原則 note（sourceになれるのは実ファイルのみ）
 
 phantom クエリ用 seed:
@@ -189,8 +191,7 @@ phantom クエリ用 seed:
 - auto: noteなら outbound、phantomなら inbound
 
 ノイズ対策:
-- 上限で切る（max_*）
-- via の degree が大きすぎるものを除外できる（via_max_degree）
+- `--max-backlinks`、`--max-twohop`、`--max-via-per-target` で返却件数を制限する
 
 ### 4.4 メタデータフィルタ（--where）
 
@@ -225,17 +226,15 @@ SQL パターン: `SELECT key, value, sort_value, value_type FROM meta WHERE nod
 
 ## 5. “Shortest path” と曖昧性制御（DB視点）
 
-### 5.1 曖昧解決ポリシー
+### 5.1 曖昧解決
 
-- `note_resolution.ambiguous`:
-  - `error`（デフォルト）: 候補一覧を返し、静かに誤解決しない
-  - `lexicographic`
-  - `shortest_path`
+- basename 解決は、候補が一意でなければエラーにする。設定で候補を選択する方針は持たず、静かに誤解決しない
+- 同名候補に Vault ルート直下の note があれば、その note を優先して解決する
 
 ### 5.2 needs-path の導出
 
 - basename = `name`（noteの場合）に対して
-- `COUNT(note where name=basename and exists=true)` が 2以上なら path必須
+- `COUNT(note where name=basename and exists_flag=1)` が 2以上なら path必須
   - **例外**: ルート直下にそのファイルがある場合、`[[basename]]` はルートファイルに解決されるため path 不要
 
 この導出は DB から可能なので、固定的な lockfile は必須ではない。
@@ -252,24 +251,20 @@ SQL パターン: `SELECT key, value, sort_value, value_type FROM meta WHERE nod
 
 ## 6. スニペット系（Cosense風の把握のため）
 
-### 6.1 include-content（ノート冒頭）
+### 6.1 `--include-head`（ノート冒頭）
 
-- 各ノートの先頭 N 行を返す（Nは設定/オプション）
-- phantom/tag は content 無し
+- `--include-head <N>` で各ノートの先頭 N 行を返す
+- note だけが本文を持つ。asset/phantom/tag は head を持たない
 
-### 6.2 include-context（リンク周辺）
+### 6.2 `--include-snippet`（リンク周辺）
 
-- DBの位置情報を使い、リンク周辺 N 行を返す
-- scope/pick/max で制御
-  - backlinksだけ / twohopも / 全部
-  - first/last/all
-  - ペアあたり最大N件
+- `--include-snippet <N>` で DB の位置情報を使い、リンク周辺 N 行を返す
+- head は `--include-head`、snippet は `--include-snippet` を指定したときだけ返す
 
 ---
 
 ## 7. 今後の拡張ポイント
 
-- URLノードの正式対応（現在は任意）
 - 相対パスのより高度な扱い（`./` / `../`）
 - 書き換え系（mutate）を “安全装置つき” で拡張
 - alias / 表示テキストで検索できる `find` 系の追加

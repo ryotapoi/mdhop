@@ -4,7 +4,7 @@
 
 mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdown リポジトリ内のリンク関係を SQLite に事前解析し、grep に頼らず関連ノートへ辿れるようにする。詳細は `docs/rules/01-concept.md`。
 
-複数タスク後の構造・負債の棚卸しは、ユーザー起点で global `maintenance-audit` skill を使う。
+複数タスク後の構造・負債の棚卸しは、明示的に依頼された場合だけ global `maintenance-audit` skill を使う。
 
 Claude Code 由来の `.claude/` は参考資料であり、Codex の入口ではない。
 
@@ -37,7 +37,7 @@ Codex 用のプロジェクトスキルは `.agents/skills/` に置く。グロ�
 主に使うスキル:
 
 - `design-decision`: 設計判断の価値基準を当てる
-- `maintenance-audit`: 複数タスク後の構造・負債を棚卸しする（light / deep を scope で指定）
+- `maintenance-audit`: 明示的に依頼された場合に、既存コード全体からリファクタリング候補を棚卸しする
 - `commit`: global skill を使い、review 済み差分だけを stage して Conventional Commits 形式でコミットする
 
 独立した調査・レビュー・実装は subagent で並列化してよい。1 subagent = 1 タスクに絞る。

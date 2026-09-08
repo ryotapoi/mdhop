@@ -5,12 +5,12 @@
 mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリンク関係（wikilink / markdown link / tag / frontmatter）** を事前解析してキャッシュし、**Coding Agent（Claude Code / Codex など）が grep を乱発せずに「関連ノートへ辿る」ための CLI** です。
 
 - Vault 配下の `**/*.md` を解析して **リンクグラフ**を作る
-- `(from_note, link文字列)` から **解決先ノートの Vault 相対パス**（または phantom/tag/url）を返す
+- `(from_note, link文字列)` から **解決先ノードの Vault 相対パス**（または asset/phantom/tag）を返す
 - 指定ノートの **Backlinks / 2 Hop Links / Tags** を返す
-- 返却は **JSON** と、LLM に貼り付けやすい **圧縮テキスト（prompt）** をサポートする
+- 返却は `--format json|text` で **JSON** または、LLM に貼り付けやすい **圧縮テキスト**を選べる
 
 > 2 Hop Link は「共通ターゲット方式（A→X かつ B→X）」を採用する。
-> X は `note | phantom | tag`（任意で url）を含められる。
+> X は `note | asset | phantom | tag` を含められる。
 
 ---
 
@@ -26,10 +26,10 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 ### 2.2 mdhop が提供する“省コンテキスト能力”
 
 - “どこを見ればよいか” を **DBクエリで即決**できる（= grep しない）
-- `--fields` / `--include-content` / `--include-context` により
+- `--fields` / `--include-head` / `--include-snippet` により
   - 必要なフィールドだけ返す
-  - ノート冒頭やリンク周辺の **最小スニペット**を返す
-- phantom/tag をノードとして扱い、存在しないノートでも関連探索（two-hop 含む）が可能
+  - `--include-head` でノート冒頭、`--include-snippet` でリンク周辺の **最小スニペット**を返す
+- asset/phantom/tag をノードとして扱い、存在しないノートでも関連探索（two-hop 含む）が可能
 
 ---
 

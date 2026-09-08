@@ -19,6 +19,8 @@ mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdo
 
 ## 開発スタイル
 
+複数タスク後の構造・負債の棚卸しに `maintenance-audit` skill を使うのは、明示的に依頼された場合だけとする。
+
 ### サブエージェント活用
 
 メインコンテキストを汚さないために、skill 以外の場面でもサブエージェントを積極的に使う。

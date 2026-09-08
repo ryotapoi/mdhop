@@ -96,7 +96,7 @@
 
 ### 正本・入口文書の現行契約同期
 
-- [ ] 現行コード・CLI help・仕様を基準に、正本と作業入口に残る過去の契約を同期する
+- [x] 現行コード・CLI help・仕様を基準に、正本と作業入口に残る過去の契約を同期する
   - `docs/rules/01-concept.md` と `docs/rules/03-data-model.md` の旧 query flag、未実装の `note_resolution.ambiguous` 設定、asset の記載漏れ、列名 `exists_flag` を現行契約へ合わせる
   - `AGENTS.md` と `CLAUDE.md` の maintenance-audit 案内を現在の skill に合わせる
 
