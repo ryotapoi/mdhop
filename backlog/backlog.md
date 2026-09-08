@@ -102,7 +102,7 @@
 
 ### test-plan の現行 CLI surface 同期
 
-- [ ] `docs/specs/test-plan.md` に不足している重要な現行 CLI 契約を補う
+- [x] `docs/specs/test-plan.md` に不足している重要な現行 CLI 契約を補う
   - 確認対象: `set`、`search`、`reachable`、`graph`、`meta-check`、`meta-validate`、`init-meta`
 
 ### `llm-wiki` の古い参照と説明の修正

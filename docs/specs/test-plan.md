@@ -278,3 +278,59 @@
 - `--target` 不一致時のエラー
 - ルート優先: ルートファイルが target → rewrite 結果が変化なし（0件）
 - `--scan` が `build.exclude_paths` に従う（除外ファイルが候補・走査対象にならない）
+
+## set
+
+- `--file` と `--key`、および `--value` / `--date` のちょうど一方が必須。空値・不正な相対日付はエラー
+- 1 回の実行で 1 ファイルの 1 scalar key だけを更新し、`--value` は相対日付展開せず YAML 値として書く。`--date` は相対日付を `YYYY-MM-DD` に展開する
+- frontmatter がなければ先頭に作成し、key がなければ閉じ `---` の直前に追加する。結果は file/key/value/created を JSON/text で返す
+- 未登録・ディスク不在・stale な対象はエラー。対象 key の list、複数行値、重複 key も拒否する
+- 成功時はファイルと index を更新する。index 更新失敗時は本文・permission・mtime を復元し、復元失敗もエラーで報告する
+
+## search
+
+- 起点不要で、実在する note のみを検索する
+- `--where` 複数指定は AND、式内の `||` は OR。相対日付も条件に使える
+- `--path` は包含（複数指定は OR）、`--exclude` と config の除外を適用し、`--no-exclude` で config 除外だけを無効化する。`--no-tags` / `--no-outgoing` / `--no-incoming` で孤立条件を絞れる
+- meta key / computed field の昇降順 sort、limit/offset のページングを適用し、total はページング前の件数を返す
+- `--sample` はフィルタ後・ページング前から無作為に返し、sort/limit/offset と併用不可。`--count` は件数だけを JSON/text で返し、fields/head/sample/sort/ページングと併用不可
+- `--fields` と `--include-head` は追加出力。空結果は JSON で total=0 / items=[]、text で `total: 0` を返す
+- unknown field、負の `--limit` / `--offset`、明示指定した `--sample <= 0`、不正 glob はエラー
+
+## reachable
+
+- 実在する note の `--from` が必須。未登録 path / asset / 不正 glob はエラー
+- navigation link（wikilink / markdown / frontmatter link）だけを辿り、tag edge は到達性に数えない
+- `--path` / `--exclude` で対象 note 集合を絞り、reachable と unreachable に分ける。起点自身は対象内なら 0 hop で reachable
+- 対象外 note は結果に含めないが、到達経路の中継には使う。`--route` は最短 route を追加する
+- `--fields`、JSON/text 出力を確認する。path/exclude は CLI 引数だけであり config の除外は適用しない
+
+## graph
+
+- 実在する note / asset を node 集合とし、両端が集合内の link 出現ごとに edge を返す誘導部分グラフ
+- tag node / edge は出力せず、`--include-phantoms` で集合内 note が参照する phantom だけを追加できる
+- 既定 JSON と DOT を出力し、text format と `--fields` は非対応。node ID は出力内で edge の source / target を参照する
+- `--path` / `--exclude`、空結果、不正 glob / format を確認する。ID の build 間安定性は要求しない
+- path/exclude は CLI 引数だけであり config の除外は適用しない
+
+## meta-check
+
+- `--key` は必須かつ複数指定可。`--kind path|wikilink|auto`（既定 path）で値を解釈する
+- scalar / list を値単位で検査し、空値と URL は skip する。path の末尾 `/` は実在ディレクトリなら有効
+- 未解決値を issues として JSON/text に返し、reason は not_found / ambiguous / vault_escape / not_wikilink。issues の検出自体はコマンドエラーとしない
+- `--path` / `--exclude` は source note を glob で絞り、config の除外は適用しない。`--key` 未指定、無効な kind、不正 glob はエラー
+
+## meta-validate
+
+- `--require` は非空 key を要求し、欠落・空値は missing。複数指定できる
+- meta.profiles は path 条件別の required key を定め、CLI の `--require` はその実行時だけ profile の必須 key を置き換える
+- 非 string の meta.types は type / enum を検査し、`--require` の有無にかかわらず継続する。require / profile / 非 string type がなければエラー
+- `--path` / `--exclude` は source note を glob で絞り、config の除外は適用しない。結果は violations として JSON/text に返し、違反の検出自体はコマンドエラーとしない
+- 現在の meta 設定で build された DB を前提にする
+
+## init-meta
+
+- `--preset` / `--scan` の少なくとも一方が必須で、DB なしで実行できる
+- scan は frontmatter から型を推定し、tags / aliases は対象外。preset と併用時は scan 結果を優先する
+- 既定では YAML を stdout に出しファイルを変更しない。`--no-comment` はコメントを省く
+- `--write` は mdhop.yaml を更新し、既存の設定と既存 meta.types を保持する。追加・skip は stderr に通知する
