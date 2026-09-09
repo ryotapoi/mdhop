@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // --- Test 1: from not registered in DB → error ---
@@ -231,10 +230,7 @@ func TestMove_StaleFromError(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	time.Sleep(1100 * time.Millisecond) // ensure mtime changes
-	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("modified\n"), 0o644); err != nil {
-		t.Fatalf("write A.md: %v", err)
-	}
+	writeStaleTestFile(t, filepath.Join(vault, "A.md"), []byte("modified\n"))
 
 	_, err := Move(vault, MoveOptions{From: "A.md", To: "X.md"})
 	if err == nil {
@@ -353,10 +349,7 @@ func TestMove_AlreadyMovedStale(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(1100 * time.Millisecond)
-	if err := os.WriteFile(filepath.Join(vault, "newsub", "A.md"), []byte("modified content\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeStaleTestFile(t, filepath.Join(vault, "newsub", "A.md"), []byte("modified content\n"))
 
 	_, err := Move(vault, MoveOptions{From: "A.md", To: "newsub/A.md"})
 	if err == nil {

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ryotapoi/mdhop/internal/testutil"
 )
@@ -612,12 +611,14 @@ func TestQueryHeadNoFrontmatter(t *testing.T) {
 func TestQueryHeadStale(t *testing.T) {
 	vault := setupFullVault(t)
 	// Modify the file after build to make it stale.
-	time.Sleep(1100 * time.Millisecond) // ensure mtime changes (1s resolution)
 	path := filepath.Join(vault, "Index.md")
-	content, _ := os.ReadFile(path)
-	os.WriteFile(path, append(content, []byte("\nmodified\n")...), 0o644)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read Index.md: %v", err)
+	}
+	writeStaleTestFile(t, path, append(content, []byte("\nmodified\n")...))
 
-	_, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{
+	_, err = Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{
 		Fields:      []string{"head"},
 		IncludeHead: 3,
 	})
@@ -678,12 +679,14 @@ func TestQuerySnippet(t *testing.T) {
 func TestQuerySnippetStale(t *testing.T) {
 	vault := setupFullVault(t)
 	// Modify a source file after build.
-	time.Sleep(1100 * time.Millisecond)
 	path := filepath.Join(vault, "Index.md")
-	content, _ := os.ReadFile(path)
-	os.WriteFile(path, append(content, []byte("\nmodified\n")...), 0o644)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read Index.md: %v", err)
+	}
+	writeStaleTestFile(t, path, append(content, []byte("\nmodified\n")...))
 
-	_, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
+	_, err = Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
 		Fields:         []string{"snippet"},
 		IncludeSnippet: 1,
 	})

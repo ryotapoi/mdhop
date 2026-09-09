@@ -513,10 +513,7 @@ func TestMoveDir_ExternalRewriteWithStaleFile(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	time.Sleep(1100 * time.Millisecond)
-	if err := os.WriteFile(filepath.Join(vault, "Other.md"), []byte("[[A]]\n[[sub/B]]\nmodified\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeStaleTestFile(t, filepath.Join(vault, "Other.md"), []byte("[[A]]\n[[sub/B]]\nmodified\n"))
 
 	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
 	if err != nil {
@@ -584,10 +581,7 @@ func TestMoveDir_Stale(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	time.Sleep(1100 * time.Millisecond)
-	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("modified\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeStaleTestFile(t, filepath.Join(vault, "sub", "A.md"), []byte("modified\n"))
 
 	_, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
 	if err == nil {

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ryotapoi/mdhop/internal/testutil"
 )
@@ -47,6 +48,28 @@ func copyVault(t *testing.T, name string) string {
 		t.Fatalf("copy vault: %v", err)
 	}
 	return dst
+}
+
+func writeStaleTestFile(t *testing.T, path string, content []byte) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+	staleMtime := time.Unix(info.ModTime().Unix()+1, 0)
+	if err := os.Chtimes(path, staleMtime, staleMtime); err != nil {
+		t.Fatalf("set stale mtime for %s: %v", path, err)
+	}
+	updatedInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s after setting stale mtime: %v", path, err)
+	}
+	if got := updatedInfo.ModTime().Unix(); got != staleMtime.Unix() {
+		t.Fatalf("mtime for %s = %d, want %d", path, got, staleMtime.Unix())
+	}
 }
 
 func openTestDB(t *testing.T, dbp string) *sql.DB {

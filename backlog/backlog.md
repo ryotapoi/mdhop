@@ -116,7 +116,7 @@
 
 ### mtime test の固定 sleep 除去
 
-- [ ] query、move、disambiguate の stale detection テストから固定待機を減らす
+- [x] query、move、disambiguate の stale detection テストから固定待機を減らす
   - stale / non-stale の検出は維持する
 
 ### example skill の references 見直し

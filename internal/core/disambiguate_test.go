@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestDisambiguateReportsRewriteRollbackFailure(t *testing.T) {
@@ -313,10 +312,7 @@ func TestDisambiguateStaleSource(t *testing.T) {
 
 	// Modify B.md after build to make it stale.
 	bPath := filepath.Join(vault, "B.md")
-	time.Sleep(1100 * time.Millisecond) // ensure mtime changes
-	if err := os.WriteFile(bPath, []byte("[[A]]\nmodified\n"), 0o644); err != nil {
-		t.Fatalf("write B.md: %v", err)
-	}
+	writeStaleTestFile(t, bPath, []byte("[[A]]\nmodified\n"))
 
 	_, err := Disambiguate(vault, DisambiguateOptions{Name: "A"})
 	if err == nil {

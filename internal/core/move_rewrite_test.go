@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // --- Test 4: move causes ambiguous links (root priority resolves) ---
@@ -393,10 +392,7 @@ func TestMove_ExternalRewriteWithStaleFile(t *testing.T) {
 	}
 
 	// Modify C.md (which has a path link to A.md) after build to make it stale.
-	time.Sleep(1100 * time.Millisecond)
-	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("[link to A](./A.md)\n[[B]]\nmodified\n"), 0o644); err != nil {
-		t.Fatalf("write C.md: %v", err)
-	}
+	writeStaleTestFile(t, filepath.Join(vault, "C.md"), []byte("[link to A](./A.md)\n[[B]]\nmodified\n"))
 
 	// Rename A.md to X.md — C.md is stale but external rewrite should still succeed.
 	_, err := Move(vault, MoveOptions{From: "A.md", To: "X.md"})
@@ -1245,10 +1241,7 @@ func TestMove_CollateralRewriteWithStaleFile(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	time.Sleep(1100 * time.Millisecond)
-	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\nmodified\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeStaleTestFile(t, filepath.Join(vault, "B.md"), []byte("[[A]]\nmodified\n"))
 
 	_, err := Move(vault, MoveOptions{From: "C.md", To: "sub2/A.md"})
 	if err != nil {
