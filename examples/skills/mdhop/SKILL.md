@@ -125,10 +125,3 @@ mdhop init-meta --preset --scan
 ```
 
 Run `mdhop init-meta --help` for write and comment options.
-
-## References
-
-Read only the reference needed for the task:
-
-- Query/search/read-only command guide: [references/query.md](references/query.md)
-- File operation and rewrite command guide: [references/commands.md](references/commands.md)

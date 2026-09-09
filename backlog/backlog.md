@@ -121,7 +121,7 @@
 
 ### example skill の references 見直し
 
-- [ ] `examples/skills/mdhop/references/` と CLI help の重複管理を減らす
+- [x] `examples/skills/mdhop/references/` と CLI help の重複管理を減らす
   - `references/query.md` と `references/commands.md` を `mdhop <command> --help` と照合し、不要な重複を削る
   - 必要な安全制約・コマンド選択の案内を保ち、削除箇所への参照を直す
 
