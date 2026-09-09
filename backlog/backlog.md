@@ -111,7 +111,7 @@
 
 ### MoveDir rollback test の環境非依存化
 
-- [ ] MoveDir の rename 失敗時の復元保証を、実行権限に左右されず検証できるようにする
+- [x] MoveDir の rename 失敗時の復元保証を、実行権限に左右されず検証できるようにする
   - 現在 root で skip されるテストが守るファイル・本文・外部リンク・DB の復元について、既存テストで不足する検証を補う
 
 ### mtime test の固定 sleep 除去

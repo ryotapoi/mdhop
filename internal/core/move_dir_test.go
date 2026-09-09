@@ -1027,13 +1027,10 @@ func TestMoveDir_CollateralSkipsPathLink(t *testing.T) {
 
 // --- MoveDir: rollback paths ---
 
-// TestMoveDir_Rollback_RenameFails covers move_dir.go lines 606-619:
-// when an os.Rename in Phase 4.3 fails, the deferred rollback restores
-// previously completed renames, moved-file content, and external rewrites.
+// TestMoveDir_Rollback_RenameFails verifies that a Phase 4.3 rename failure
+// after one completed rename restores completed moves, external rewrites, and
+// the unchanged DB state.
 func TestMoveDir_Rollback_RenameFails(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root bypasses directory permission checks")
-	}
 	vault := copyVault(t, "vault_move_dir")
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
@@ -1046,19 +1043,35 @@ func TestMoveDir_Rollback_RenameFails(t *testing.T) {
 		t.Fatalf("read Other.md: %v", err)
 	}
 
-	// Create the destination directory ahead of time and remove its write
-	// permission so os.Rename into it fails for every moved file.
-	newdir := filepath.Join(vault, "newdir")
-	if err := os.MkdirAll(newdir, 0o755); err != nil {
-		t.Fatalf("mkdir newdir: %v", err)
+	primaryRenameFailure := errors.New("injected primary rename failure")
+	oldRename := moveRename
+	primaryMoves := 0
+	successfulPrimaryMoves := 0
+	moveRename = func(from, to string) error {
+		fromRel, fromErr := filepath.Rel(vault, from)
+		toRel, toErr := filepath.Rel(vault, to)
+		if fromErr == nil && toErr == nil &&
+			strings.HasPrefix(filepath.ToSlash(fromRel), "sub/") &&
+			strings.HasPrefix(filepath.ToSlash(toRel), "newdir/") {
+			primaryMoves++
+			if primaryMoves == 2 {
+				return primaryRenameFailure
+			}
+			err := oldRename(from, to)
+			if err == nil {
+				successfulPrimaryMoves++
+			}
+			return err
+		}
+		return oldRename(from, to)
 	}
-	if err := os.Chmod(newdir, 0o555); err != nil {
-		t.Fatalf("chmod newdir: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(newdir, 0o755) })
+	t.Cleanup(func() { moveRename = oldRename })
 
-	if _, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"}); err == nil {
-		t.Fatal("expected MoveDir to fail when rename target dir is read-only")
+	if _, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"}); !errors.Is(err, primaryRenameFailure) {
+		t.Fatalf("expected injected rename failure, got: %v", err)
+	}
+	if successfulPrimaryMoves != 1 {
+		t.Fatalf("successful primary renames = %d, want 1", successfulPrimaryMoves)
 	}
 
 	// Disk: every from-path must still exist; no to-paths created.
@@ -1104,17 +1117,10 @@ func TestMoveDir_Rollback_RenameFails(t *testing.T) {
 	}
 }
 
-// TestMoveDir_Rollback_MovedFileRestore covers move_dir.go lines 583-590
-// (Phase 4.2 inline rollback) and 611-617 (deferred moved-file restore):
-// when a moved file has scheduled outgoing rewrites, Phase 4.2 writes them
-// to disk and registers backups; any later failure must restore those bytes.
-// We force Phase 4.3's rename to fail via a read-only destination directory
-// after Phase 4.2 has already rewritten every moved file.
+// TestMoveDir_Rollback_MovedFileRestore verifies that, after Phase 4.2
+// rewrites moved-file links and a later Phase 4.3 rename fails, the original
+// moved-file bytes are restored.
 func TestMoveDir_Rollback_MovedFileRestore(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root bypasses directory permission checks")
-	}
-
 	// Each moved file owns a relative `../external.md` link. MoveDir(sub →
 	// newdir/inner) shifts every sub/*.md from depth 1 to depth 2, so the
 	// link must become `../../external.md` — that is what makes Phase 3
@@ -1146,20 +1152,35 @@ func TestMoveDir_Rollback_MovedFileRestore(t *testing.T) {
 		t.Fatalf("read sub/B.md: %v", err)
 	}
 
-	// Pre-create the destination's inner dir read-only so Phase 4.3's
-	// Rename(...) fails. MkdirAll is a no-op on existing dirs and does not
-	// fail; Rename into a read-only directory does.
-	innerDir := filepath.Join(vault, "newdir", "inner")
-	if err := os.MkdirAll(innerDir, 0o755); err != nil {
-		t.Fatalf("mkdir inner: %v", err)
+	primaryRenameFailure := errors.New("injected primary rename failure")
+	oldRename := moveRename
+	primaryMoves := 0
+	successfulPrimaryMoves := 0
+	moveRename = func(from, to string) error {
+		fromRel, fromErr := filepath.Rel(vault, from)
+		toRel, toErr := filepath.Rel(vault, to)
+		if fromErr == nil && toErr == nil &&
+			strings.HasPrefix(filepath.ToSlash(fromRel), "sub/") &&
+			strings.HasPrefix(filepath.ToSlash(toRel), "newdir/inner/") {
+			primaryMoves++
+			if primaryMoves == 2 {
+				return primaryRenameFailure
+			}
+			err := oldRename(from, to)
+			if err == nil {
+				successfulPrimaryMoves++
+			}
+			return err
+		}
+		return oldRename(from, to)
 	}
-	if err := os.Chmod(innerDir, 0o555); err != nil {
-		t.Fatalf("chmod inner: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(innerDir, 0o755) })
+	t.Cleanup(func() { moveRename = oldRename })
 
-	if _, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir/inner"}); err == nil {
-		t.Fatal("expected MoveDir to fail when destination dir is read-only")
+	if _, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir/inner"}); !errors.Is(err, primaryRenameFailure) {
+		t.Fatalf("expected injected rename failure, got: %v", err)
+	}
+	if successfulPrimaryMoves != 1 {
+		t.Fatalf("successful primary renames = %d, want 1", successfulPrimaryMoves)
 	}
 
 	// Moved file content must be restored to pre-move bytes; if rollback was
