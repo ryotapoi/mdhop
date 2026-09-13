@@ -4,6 +4,25 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.17.1] - 2026-09-14
+
+### Added
+
+- Added `meta-check --kind auto` to validate mixed frontmatter references in one pass. Values are classified as paths or wikilinks individually, while URLs and empty values remain allowed.
+
+### Changed
+
+- Aligned frontmatter wikilink extraction with Obsidian property links. Only wikilinks in quoted YAML scalar or list-item values are indexed; bare values and block scalar contents no longer create frontmatter link edges, phantom nodes, or rewrite targets.
+
+### Fixed
+
+- Validated all frontmatter rewrite candidates before writing files, updating the database, or moving paths. Unsupported YAML decode/source mappings now fail without partial changes, and dry-run reports the same validation result as execution.
+- Directory `delete --rm` now reports unexpected failures while removing unregistered assets or empty directories as errors instead of reporting success after partial completion. Normal missing-file and non-empty-directory handling is preserved.
+
+### Documentation
+
+- Synchronized command specifications, the test plan, and the example agent skill with the current CLI behavior, keeping detailed command usage in `mdhop <command> --help`.
+
 ## [v0.16.6] - 2026-07-26
 
 ### Changed

@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+## [v0.17.1] - 2026-09-14
+
+### 追加
+
+- `meta-check --kind auto` を追加。同じ frontmatter key に混在する path と wikilink を値ごとに判定し、一度に検証できるようにした。URL と空値は従来どおり許可する。
+
+### 変更
+
+- frontmatter の wikilink 抽出を Obsidian の property link に合わせた。引用符付き YAML scalar / list item 内の wikilink だけを index 化し、bare 値と block scalar 内の値は frontmatter link edge、phantom node、書き換え対象を生成しない。
+
+### 修正
+
+- frontmatter の全書き換え候補を、ファイル書き込み・DB 更新・path 移動より前に検証するよう修正。YAML の decode 結果と source の対応を証明できない場合は部分変更を行わず失敗し、dry-run も実行時と同じ検証結果を返す。
+- ディレクトリ指定の `delete --rm` で未登録 asset の削除や空ディレクトリの cleanup に予期しない失敗が起きた場合、部分完了を成功として報告せずエラーにするよう修正。通常のファイル不在と、空でないディレクトリの扱いは維持する。
+
+### ドキュメント
+
+- 現行 CLI 挙動に合わせてコマンド仕様、test-plan、example agent skill を同期し、詳細なコマンド使用法を `mdhop <command> --help` に集約した。
+
 ## [v0.16.6] - 2026-07-26
 
 ### 変更
