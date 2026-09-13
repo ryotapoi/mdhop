@@ -110,13 +110,13 @@ sources:
 ### 3-6. simplify / convert / repair
 
 - **DB 不要**: いずれもインデックスを使わず disk scan で動作（in-memory resolve maps を都度構築）
-- **simplify**: 解決可能な path/relative リンクを basename リンクに短縮する（`simplify.go:26`、書き換えは `basenameTarget` へ `rewriteRawLink`、`simplify.go:170`）。`--dry-run` は実行時と同じ候補検証を行うが書き込まない。ambiguous になるものは短縮しない
+- **simplify**: 解決可能な path/relative リンクを basename リンクに短縮する（`simplify.go:26`、書き換えは `basenameTarget` へ `rewriteRawLink`、`simplify.go:146`）。`--dry-run` は実行時と同じ候補検証を行うが書き込まない。ambiguous になるものは短縮しない
 - **convert**: wikilink ↔ markdown の形式変換（`convert.go:25`）。`--dry-run` で実際のファイル書き換えをスキップ
-- **repair**: vault 外逃げリンク（escaping）と broken path リンクをデフォルト basename 形式に書き換える（`repair.go:35`）。`--dry-run` 対応。body links のみ対象（frontmatter wikilink は除外、`repair.go:219–225`）。候補 2 件以上の broken path リンクはスキップ・`Skipped` に報告
+- **repair**: vault 外逃げリンク（escaping）と broken path リンクをデフォルト basename 形式に書き換える（`repair.go:35`）。`--dry-run` 対応。body links のみ対象（frontmatter wikilink は除外、`repair.go:74–76`）。候補 2 件以上の broken path リンクはスキップ・`Skipped` に報告
 
 ### 3-7. init-meta --write
 
-- **対象ファイル**: `mdhop.yaml`（vault ルート）のみ。temp ファイル → `os.Rename` のアトミック書き換え（`cmd/mdhop/init_meta.go:35–40`）
+- **対象ファイル**: `mdhop.yaml`（vault ルート）のみ。temp ファイル → `os.Rename` のアトミック書き換え（`cmd/mdhop/init_meta.go:54–63`）
 - **DB 変更なし**。既存キーは変更しない（`internal/core/init_meta.go:13` `mergeMetaConfig`）
 
 ---
