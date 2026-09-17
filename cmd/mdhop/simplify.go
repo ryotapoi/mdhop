@@ -54,11 +54,11 @@ func runSimplify(args []string) error {
 
 	switch *format {
 	case "json":
-		if err := printSimplifyJSON(os.Stdout, result); err != nil {
+		if err := printRewriteResultJSON(os.Stdout, result.Rewritten, result.Skipped); err != nil {
 			return err
 		}
 	default:
-		printSimplifyText(os.Stdout, result)
+		printRewriteResultText(os.Stdout, result.Rewritten, result.Skipped)
 	}
 	if !*dryRun && len(result.Rewritten) > 0 {
 		fmt.Fprintln(os.Stderr, buildIndexHint)

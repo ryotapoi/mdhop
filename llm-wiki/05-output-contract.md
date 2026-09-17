@@ -9,10 +9,10 @@ sources:
   - cmd/mdhop/format_search.go
   - cmd/mdhop/format_move.go
   - cmd/mdhop/format_movedir.go
-  - cmd/mdhop/format_repair.go
-  - cmd/mdhop/format_simplify.go
-  - cmd/mdhop/format_disambiguate.go
-  - cmd/mdhop/format_convert.go
+  - cmd/mdhop/convert.go
+  - cmd/mdhop/disambiguate.go
+  - cmd/mdhop/repair.go
+  - cmd/mdhop/simplify.go
   - cmd/mdhop/format_add.go
   - cmd/mdhop/format_delete.go
   - cmd/mdhop/format_update.go
@@ -79,7 +79,7 @@ queryJSONOutput.Meta      map[string][]string `json:"meta,omitempty"`
 
 ### パターン B — nil → 空配列への正規化（mutation 系）
 
-slice field を持つ mutation 系の JSON formatter は、encode 前に `emptyIfNil`（`format.go:15-20`）で nil スライスを空スライスへ正規化する（代表例 `format_add.go:21-27`）。これにより、操作がなかった場合も `"added": []` のように空配列が出力され、フィールドが消えない。`set` はこの対象外で、scalar 4 field を直接 encode する。agent がフィールド存在を前提に parse できる安定 IF。
+slice field を持つ mutation 系の JSON formatter は、encode 前に `emptyIfNil`（`format.go:15-20`、代表例 `format_add.go:21-27`）または `toRewrittenJSON` / `toSkippedJSON`（`format.go:130-136`, `format.go:188-199`）が返す nonnil slice で nil を空スライスへ正規化する。これにより、操作がなかった場合も `"added": []` や `"rewritten": []` のように空配列が出力され、フィールドが消えない。`set` はこの対象外で、scalar 4 field を直接 encode する。agent がフィールド存在を前提に parse できる安定 IF。
 
 ### パターン C — map[string]any / map[string]int（フィールド選択型）
 
@@ -115,9 +115,10 @@ diagnose の phantoms は例外的に、map へ `emptyIfNil` で正規化した�
 |---|---|---|
 | `rewrittenJSON` | `file`, `old`, `new` | リンク書き換え1件 |
 | `skippedJSON` | `file`, `raw_link`, `basename`, `candidates` | 曖昧で書き換えスキップ |
+| `rewrittenJSONOutput` | `rewritten` | convert/disambiguate の共通出力 |
 | `rewriteResultJSONOutput` | `rewritten`, `skipped` | repair/simplify 共通出力 |
 
-`printRewriteResultJSON()` は repair と simplify の両方が使う。rewritten/skipped ともに nil → `[]` 変換済み。
+`printRewrittenJSON()` は convert と disambiguate の両方が使う。`printRewriteResultJSON()` は repair と simplify の両方が使う。rewritten/skipped ともに nil → `[]` 変換済み。
 
 ---
 
@@ -140,8 +141,8 @@ diagnose の phantoms は例外的に、map へ `emptyIfNil` で正規化した�
 | set | struct `setJSONOutput` | 不要 | file, key, value, created を常出力（`format_set.go:10–28`） |
 | repair | `rewriteResultJSONOutput` | rewritten, skipped | printRewriteResultJSON |
 | simplify | `rewriteResultJSONOutput` | rewritten, skipped | printRewriteResultJSON |
-| disambiguate | struct `disambiguateJSONOutput` | rewritten | |
-| convert | struct `convertJSONOutput` | rewritten | |
+| disambiguate | `rewrittenJSONOutput` | rewritten | printRewrittenJSON |
+| convert | `rewrittenJSONOutput` | rewritten | printRewrittenJSON |
 | meta-check | struct `metaCheckJSONOutput` | issues（nil なら `[]` を生成） | |
 | meta-validate | struct `metaValidateJSONOutput` | violations（nil なら `[]` を生成） | |
 

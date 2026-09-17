@@ -69,9 +69,9 @@ func runDisambiguate(args []string) error {
 	}
 	switch *format {
 	case "json":
-		return printDisambiguateJSON(os.Stdout, result)
+		return printRewrittenJSON(os.Stdout, result.Rewritten)
 	default:
-		printDisambiguateText(os.Stdout, result)
+		printRewrittenText(os.Stdout, result.Rewritten)
 		return nil
 	}
 }

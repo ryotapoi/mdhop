@@ -135,6 +135,14 @@ func toRewrittenJSON(rls []core.RewrittenLink) []rewrittenJSON {
 	return out
 }
 
+type rewrittenJSONOutput struct {
+	Rewritten []rewrittenJSON `json:"rewritten"`
+}
+
+func printRewrittenJSON(w io.Writer, rewritten []core.RewrittenLink) error {
+	return encodeJSON(w, rewrittenJSONOutput{Rewritten: toRewrittenJSON(rewritten)})
+}
+
 func printRewrittenText(w io.Writer, rls []core.RewrittenLink) {
 	if len(rls) == 0 {
 		return
@@ -172,6 +180,11 @@ func printSkippedText(w io.Writer, sls []core.SkippedLink) {
 	}
 }
 
+func printRewriteResultText(w io.Writer, rewritten []core.RewrittenLink, skipped []core.SkippedLink) {
+	printRewrittenText(w, rewritten)
+	printSkippedText(w, skipped)
+}
+
 func toSkippedJSON(sls []core.SkippedLink) []skippedJSON {
 	out := make([]skippedJSON, len(sls))
 	for i, s := range sls {
@@ -192,8 +205,8 @@ type rewriteResultJSONOutput struct {
 
 func printRewriteResultJSON(w io.Writer, rewritten []core.RewrittenLink, skipped []core.SkippedLink) error {
 	out := rewriteResultJSONOutput{
-		Rewritten: emptyIfNil(toRewrittenJSON(rewritten)),
-		Skipped:   emptyIfNil(toSkippedJSON(skipped)),
+		Rewritten: toRewrittenJSON(rewritten),
+		Skipped:   toSkippedJSON(skipped),
 	}
 	return encodeJSON(w, out)
 }

@@ -59,7 +59,7 @@ func runConvert(args []string) error {
 
 	switch *format {
 	case "json":
-		if err := printConvertJSON(os.Stdout, result); err != nil {
+		if err := printRewrittenJSON(os.Stdout, result.Rewritten); err != nil {
 			return err
 		}
 	default:

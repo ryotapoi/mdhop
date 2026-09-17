@@ -3,12 +3,28 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
+
+func assertJSONEqual(t *testing.T, actual []byte, expected string) {
+	t.Helper()
+
+	var got, want any
+	if err := json.Unmarshal(actual, &got); err != nil {
+		t.Fatalf("unmarshal actual JSON: %v", err)
+	}
+	if err := json.Unmarshal([]byte(expected), &want); err != nil {
+		t.Fatalf("unmarshal expected JSON: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("JSON differs:\ngot:  %s\nwant: %s", actual, expected)
+	}
+}
 
 func TestParseFields(t *testing.T) {
 	tests := []struct {
@@ -753,60 +769,53 @@ func TestPrintMoveJSON(t *testing.T) {
 	}
 }
 
-func TestPrintDisambiguateText(t *testing.T) {
-	r := &core.DisambiguateResult{
-		Rewritten: []core.RewrittenLink{
-			{File: "B.md", OldLink: "[[A]]", NewLink: "[[sub/A]]"},
-		},
-	}
-	var buf bytes.Buffer
-	printDisambiguateText(&buf, r)
-	got := buf.String()
-	if !strings.Contains(got, "rewritten:\n- file: B.md\n") {
-		t.Errorf("missing rewritten:\n%s", got)
-	}
+func TestPrintRewrittenText(t *testing.T) {
+	links := []core.RewrittenLink{{File: "B.md", OldLink: "[[A]]", NewLink: "[[sub/A]]"}}
+
+	t.Run("populated", func(t *testing.T) {
+		var buf bytes.Buffer
+		printRewrittenText(&buf, links)
+		want := "rewritten:\n- file: B.md\n  old: \"[[A]]\"\n  new: \"[[sub/A]]\"\n"
+		if got := buf.String(); got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		var buf bytes.Buffer
+		printRewrittenText(&buf, nil)
+		if got := buf.String(); got != "" {
+			t.Errorf("got %q, want empty output", got)
+		}
+	})
 }
 
-func TestPrintDisambiguateText_Empty(t *testing.T) {
-	r := &core.DisambiguateResult{}
-	var buf bytes.Buffer
-	printDisambiguateText(&buf, r)
-	if buf.String() != "" {
-		t.Errorf("expected empty output, got:\n%s", buf.String())
-	}
+func TestPrintRewrittenJSON(t *testing.T) {
+	t.Run("populated", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := printRewrittenJSON(&buf, []core.RewrittenLink{{File: "Note.md", OldLink: "[Target](Target.md)", NewLink: "[[Target]]"}}); err != nil {
+			t.Fatal(err)
+		}
+		assertJSONEqual(t, buf.Bytes(), `{"rewritten":[{"file":"Note.md","old":"[Target](Target.md)","new":"[[Target]]"}]}`)
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := printRewrittenJSON(&buf, nil); err != nil {
+			t.Fatal(err)
+		}
+		assertJSONEqual(t, buf.Bytes(), `{"rewritten":[]}`)
+	})
 }
 
-func TestPrintDisambiguateJSON(t *testing.T) {
-	r := &core.DisambiguateResult{}
-	var buf bytes.Buffer
-	if err := printDisambiguateJSON(&buf, r); err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
-		t.Fatal(err)
-	}
-	if string(m["rewritten"]) != "[]" {
-		t.Errorf("rewritten = %s, want []", m["rewritten"])
-	}
-}
+func TestPrintRewriteResultText(t *testing.T) {
+	rewritten := []core.RewrittenLink{{File: "A.md", OldLink: "[[old/path/X]]", NewLink: "[[X]]"}}
+	skipped := []core.SkippedLink{{File: "A.md", RawLink: "[[old/M]]", Basename: "M", Candidates: []string{"dir1/M.md", "dir2/M.md"}}}
 
-// --- Repair format tests ---
-
-func TestPrintRepairText_Full(t *testing.T) {
-	r := &core.RepairResult{
-		Rewritten: []core.RewrittenLink{
-			{File: "A.md", OldLink: "[[old/path/X]]", NewLink: "[[X]]"},
-		},
-		Skipped: []core.SkippedLink{
-			{File: "A.md", RawLink: "[[old/M]]", Basename: "M", Candidates: []string{"dir1/M.md", "dir2/M.md"}},
-		},
-	}
-	var buf bytes.Buffer
-	printRepairText(&buf, r)
-	got := buf.String()
-
-	want := `rewritten:
+	t.Run("skipped present", func(t *testing.T) {
+		var buf bytes.Buffer
+		printRewriteResultText(&buf, rewritten, skipped)
+		want := `rewritten:
 - file: A.md
   old: "[[old/path/X]]"
   new: "[[X]]"
@@ -818,169 +827,47 @@ skipped:
   - dir1/M.md
   - dir2/M.md
 `
-	if got != want {
-		t.Errorf("got:\n%s\nwant:\n%s", got, want)
-	}
+		if got := buf.String(); got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+
+	t.Run("skipped absent", func(t *testing.T) {
+		var buf bytes.Buffer
+		printRewriteResultText(&buf, rewritten, nil)
+		if got, want := buf.String(), "rewritten:\n- file: A.md\n  old: \"[[old/path/X]]\"\n  new: \"[[X]]\"\n"; got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		var buf bytes.Buffer
+		printRewriteResultText(&buf, nil, nil)
+		if got := buf.String(); got != "" {
+			t.Errorf("got %q, want empty output", got)
+		}
+	})
 }
 
-func TestPrintRepairText_Empty(t *testing.T) {
-	r := &core.RepairResult{}
-	var buf bytes.Buffer
-	printRepairText(&buf, r)
-	if buf.String() != "" {
-		t.Errorf("expected empty output, got:\n%s", buf.String())
-	}
-}
+func TestPrintRewriteResultJSON(t *testing.T) {
+	rewritten := []core.RewrittenLink{{File: "A.md", OldLink: "[[old/path/X]]", NewLink: "[[X]]"}}
+	skipped := []core.SkippedLink{{File: "A.md", RawLink: "[[old/M]]", Basename: "M", Candidates: []string{"dir1/M.md", "dir2/M.md"}}}
 
-func TestPrintRepairJSON_Full(t *testing.T) {
-	r := &core.RepairResult{
-		Rewritten: []core.RewrittenLink{
-			{File: "A.md", OldLink: "[[old/path/X]]", NewLink: "[[X]]"},
-		},
-		Skipped: []core.SkippedLink{
-			{File: "A.md", RawLink: "[[old/M]]", Basename: "M", Candidates: []string{"dir1/M.md", "dir2/M.md"}},
-		},
-	}
-	var buf bytes.Buffer
-	if err := printRepairJSON(&buf, r); err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]any
-	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
-		t.Fatal(err)
-	}
-	rewritten, ok := m["rewritten"].([]any)
-	if !ok || len(rewritten) != 1 {
-		t.Fatalf("rewritten = %v, want 1 entry", m["rewritten"])
-	}
-	rw := rewritten[0].(map[string]any)
-	if rw["file"] != "A.md" || rw["old"] != "[[old/path/X]]" || rw["new"] != "[[X]]" {
-		t.Errorf("rewritten[0] = %v", rw)
-	}
-	skipped, ok := m["skipped"].([]any)
-	if !ok || len(skipped) != 1 {
-		t.Fatalf("skipped = %v, want 1 entry", m["skipped"])
-	}
-	sk := skipped[0].(map[string]any)
-	if sk["file"] != "A.md" || sk["raw_link"] != "[[old/M]]" || sk["basename"] != "M" {
-		t.Errorf("skipped[0] = %v", sk)
-	}
-	candidates, ok := sk["candidates"].([]any)
-	if !ok || len(candidates) != 2 || candidates[0] != "dir1/M.md" || candidates[1] != "dir2/M.md" {
-		t.Errorf("candidates = %v", sk["candidates"])
-	}
-}
+	t.Run("populated", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := printRewriteResultJSON(&buf, rewritten, skipped); err != nil {
+			t.Fatal(err)
+		}
+		assertJSONEqual(t, buf.Bytes(), `{"rewritten":[{"file":"A.md","old":"[[old/path/X]]","new":"[[X]]"}],"skipped":[{"file":"A.md","raw_link":"[[old/M]]","basename":"M","candidates":["dir1/M.md","dir2/M.md"]}]}`)
+	})
 
-func TestPrintRepairJSON_Empty(t *testing.T) {
-	r := &core.RepairResult{}
-	var buf bytes.Buffer
-	if err := printRepairJSON(&buf, r); err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
-		t.Fatal(err)
-	}
-	if string(m["rewritten"]) != "[]" {
-		t.Errorf("rewritten = %s, want []", m["rewritten"])
-	}
-	if string(m["skipped"]) != "[]" {
-		t.Errorf("skipped = %s, want []", m["skipped"])
-	}
-}
-
-// --- Simplify format tests ---
-
-func TestPrintSimplifyText_Full(t *testing.T) {
-	r := &core.SimplifyResult{
-		Rewritten: []core.RewrittenLink{
-			{File: "A.md", OldLink: "[[sub/B]]", NewLink: "[[B]]"},
-		},
-		Skipped: []core.SkippedLink{
-			{File: "A.md", RawLink: "[[dir1/M]]", Basename: "M", Candidates: []string{"dir1/M.md", "dir2/M.md"}},
-		},
-	}
-	var buf bytes.Buffer
-	printSimplifyText(&buf, r)
-	got := buf.String()
-
-	want := `rewritten:
-- file: A.md
-  old: "[[sub/B]]"
-  new: "[[B]]"
-skipped:
-- file: A.md
-  raw_link: "[[dir1/M]]"
-  basename: M
-  candidates:
-  - dir1/M.md
-  - dir2/M.md
-`
-	if got != want {
-		t.Errorf("got:\n%s\nwant:\n%s", got, want)
-	}
-}
-
-func TestPrintSimplifyJSON_Empty(t *testing.T) {
-	r := &core.SimplifyResult{}
-	var buf bytes.Buffer
-	if err := printSimplifyJSON(&buf, r); err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
-		t.Fatal(err)
-	}
-	if string(m["rewritten"]) != "[]" {
-		t.Errorf("rewritten = %s, want []", m["rewritten"])
-	}
-	if string(m["skipped"]) != "[]" {
-		t.Errorf("skipped = %s, want []", m["skipped"])
-	}
-}
-
-// --- Convert format tests ---
-
-func TestPrintConvertJSON_Full(t *testing.T) {
-	r := &core.ConvertResult{
-		Rewritten: []core.RewrittenLink{
-			{File: "Note.md", OldLink: "[Target](Target.md)", NewLink: "[[Target]]"},
-		},
-	}
-	var buf bytes.Buffer
-	if err := printConvertJSON(&buf, r); err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]any
-	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
-		t.Fatal(err)
-	}
-	rewritten, ok := m["rewritten"].([]any)
-	if !ok || len(rewritten) != 1 {
-		t.Fatalf("rewritten = %v, want 1 entry", m["rewritten"])
-	}
-	rw := rewritten[0].(map[string]any)
-	if rw["file"] != "Note.md" || rw["old"] != "[Target](Target.md)" || rw["new"] != "[[Target]]" {
-		t.Errorf("rewritten[0] = %v", rw)
-	}
-	if _, ok := m["skipped"]; ok {
-		t.Errorf("convert output should not have skipped field: %v", m)
-	}
-}
-
-func TestPrintConvertJSON_Empty(t *testing.T) {
-	r := &core.ConvertResult{}
-	var buf bytes.Buffer
-	if err := printConvertJSON(&buf, r); err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
-		t.Fatal(err)
-	}
-	if string(m["rewritten"]) != "[]" {
-		t.Errorf("rewritten = %s, want []", m["rewritten"])
-	}
+	t.Run("empty", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := printRewriteResultJSON(&buf, nil, nil); err != nil {
+			t.Fatal(err)
+		}
+		assertJSONEqual(t, buf.Bytes(), `{"rewritten":[],"skipped":[]}`)
+	})
 }
 
 // --- Search text format tests ---
