@@ -172,7 +172,11 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 
 	if isFieldActive(FieldQueryHead, opts.Fields) && opts.IncludeHead > 0 {
 		if info.Type == NodeTypeNote && info.Exists {
-			head, err := readHead(db, vaultPath, nodeID, opts.IncludeHead)
+			source, err := queryHeadSource(db, nodeID)
+			if err != nil {
+				return nil, err
+			}
+			head, err := readHead(vaultPath, source, opts.IncludeHead)
 			if err != nil {
 				return nil, err
 			}
@@ -181,7 +185,11 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	}
 
 	if isFieldActive(FieldQuerySnippet, opts.Fields) && opts.IncludeSnippet > 0 {
-		snippets, err := readSnippets(db, vaultPath, nodeID, opts.IncludeSnippet, ef, opts.Path)
+		sources, err := querySnippetSources(db, nodeID, ef, opts.Path)
+		if err != nil {
+			return nil, err
+		}
+		snippets, err := readSnippets(vaultPath, sources, opts.IncludeSnippet)
 		if err != nil {
 			return nil, err
 		}

@@ -306,7 +306,11 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 		}
 
 		if wantHead && rd.node.Type == NodeTypeNote && rd.node.Exists {
-			head, err := readHead(db, vaultPath, rd.id, opts.IncludeHead)
+			source, err := queryHeadSource(db, rd.id)
+			if err != nil {
+				return nil, err
+			}
+			head, err := readHead(vaultPath, source, opts.IncludeHead)
 			if err != nil {
 				return nil, err
 			}

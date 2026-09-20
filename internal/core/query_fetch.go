@@ -1,10 +1,7 @@
 package core
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -314,48 +311,30 @@ func queryTwoHop(db dbExecer, entryID int64, entryType NodeType, maxTwoHop, maxV
 	return entries, nil
 }
 
-func readHead(db dbExecer, vaultPath string, nodeID int64, n int) ([]string, error) {
-	var path string
-	var mtime int64
+type contentSource struct {
+	path  string
+	mtime int64
+}
+
+type snippetSource struct {
+	contentSource
+	lineStart int
+	lineEnd   int
+}
+
+func queryHeadSource(db dbExecer, nodeID int64) (contentSource, error) {
+	var source contentSource
 	err := db.QueryRow(
 		`SELECT path, mtime FROM nodes WHERE id = ?`,
 		nodeID,
-	).Scan(&path, &mtime)
+	).Scan(&source.path, &source.mtime)
 	if err != nil {
-		return nil, err
+		return contentSource{}, err
 	}
-
-	fullPath := filepath.Join(vaultPath, path)
-	if err := checkStale(fullPath, mtime); err != nil {
-		return nil, err
-	}
-
-	lines, err := readFileLines(fullPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Skip frontmatter.
-	fmEnd := frontmatterEnd(lines)
-	start := 0
-	if fmEnd > 0 {
-		start = fmEnd + 1
-	}
-
-	// Skip leading blank lines.
-	for start < len(lines) && strings.TrimSpace(lines[start]) == "" {
-		start++
-	}
-
-	end := start + n
-	if end > len(lines) {
-		end = len(lines)
-	}
-
-	return lines[start:end], nil
+	return source, nil
 }
 
-func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines int, ef *ExcludeFilter, include []string) ([]SnippetEntry, error) {
+func querySnippetSources(db dbExecer, targetID int64, ef *ExcludeFilter, include []string) ([]snippetSource, error) {
 	q := `SELECT n.path, n.mtime, e.line_start, e.line_end
 		 FROM edges e JOIN nodes n ON n.id = e.source_id
 		 WHERE e.target_id = ?`
@@ -379,87 +358,16 @@ func readSnippets(db dbExecer, vaultPath string, targetID int64, contextLines in
 	}
 	defer rows.Close()
 
-	type edgeInfo struct {
-		path      string
-		mtime     int64
-		lineStart int
-		lineEnd   int
-	}
-
-	var edgeInfos []edgeInfo
+	var sources []snippetSource
 	for rows.Next() {
-		var ei edgeInfo
-		if err := rows.Scan(&ei.path, &ei.mtime, &ei.lineStart, &ei.lineEnd); err != nil {
+		var source snippetSource
+		if err := rows.Scan(&source.path, &source.mtime, &source.lineStart, &source.lineEnd); err != nil {
 			return nil, err
 		}
-		edgeInfos = append(edgeInfos, ei)
+		sources = append(sources, source)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
-	// Cache file lines per source path.
-	fileCache := make(map[string][]string)
-	var snippets []SnippetEntry
-
-	for _, ei := range edgeInfos {
-		fullPath := filepath.Join(vaultPath, ei.path)
-
-		if _, ok := fileCache[ei.path]; !ok {
-			if err := checkStale(fullPath, ei.mtime); err != nil {
-				return nil, err
-			}
-			lines, err := readFileLines(fullPath)
-			if err != nil {
-				return nil, err
-			}
-			fileCache[ei.path] = lines
-		}
-
-		lines := fileCache[ei.path]
-		// line_start and line_end are 1-based.
-		start := ei.lineStart - contextLines - 1 // 0-based
-		if start < 0 {
-			start = 0
-		}
-		end := ei.lineEnd + contextLines // 0-based exclusive
-		if end > len(lines) {
-			end = len(lines)
-		}
-
-		snippets = append(snippets, SnippetEntry{
-			SourcePath: ei.path,
-			LineStart:  start + 1, // back to 1-based
-			LineEnd:    end,
-			Lines:      lines[start:end],
-		})
-	}
-
-	return snippets, nil
-}
-
-func checkStale(fullPath string, dbMtime int64) error {
-	info, err := os.Stat(fullPath)
-	if err != nil {
-		return fmt.Errorf("%w: %s", ErrFileNotFound, fullPath)
-	}
-	if info.ModTime().Unix() != dbMtime {
-		return fmt.Errorf("%w: %s has been modified since last build", ErrSourceStale, filepath.Base(fullPath))
-	}
-	return nil
-}
-
-func readFileLines(path string) ([]string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var lines []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	return lines, scanner.Err()
+	return sources, nil
 }
