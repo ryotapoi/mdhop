@@ -606,6 +606,40 @@ func TestParseURLIgnored(t *testing.T) {
 	}
 }
 
+func TestParseExternalURIsAndColonPaths(t *testing.T) {
+	tests := []struct {
+		name     string
+		target   string
+		wantLink bool
+	}{
+		{name: "mailto", target: "mailto:user@example.com"},
+		{name: "uppercase FTP", target: "FTP://example.com/file"},
+		{name: "ftp opaque form", target: "ftp:resource"},
+		{name: "hierarchical URI", target: "git+ssh://example.com/repo"},
+		{name: "opaque colon note", target: "foo:bar", wantLink: true},
+		{name: "opaque colon filename", target: "foo:bar.md", wantLink: true},
+		{name: "windows slash path", target: "C:/notes/a.md", wantLink: true},
+		{name: "windows backslash path", target: `C:\notes\a.md`, wantLink: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			links := parseLinksSlice("[link](" + tt.target + ")\n")
+			if tt.wantLink && len(links) != 1 {
+				t.Fatalf("parseLinks(%q) returned %d links, want 1: %+v", tt.target, len(links), links)
+			}
+			if !tt.wantLink && len(links) != 0 {
+				t.Fatalf("parseLinks(%q) returned external URI as link: %+v", tt.target, links)
+			}
+		})
+	}
+
+	links := parseLinksSlice("[[foo:bar]]\n")
+	if len(links) != 1 || links[0].linkType != LinkTypeWikilink || links[0].target != "foo:bar" {
+		t.Errorf("wikilink with colon = %+v, want wikilink to foo:bar", links)
+	}
+}
+
 func TestParseWikiLinkWithMdExtension(t *testing.T) {
 	links := parseLinksSlice("[[Note.md]]\n")
 	if len(links) != 1 {

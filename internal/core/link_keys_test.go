@@ -8,6 +8,52 @@ import (
 	"testing"
 )
 
+func TestFrontmatterPathOccurExternalURIsAndColonPaths(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantOK  bool
+		wantRaw string
+	}{
+		{name: "mailto", value: "mailto:user@example.com"},
+		{name: "uppercase ftp", value: "FTP://example.com/file"},
+		{name: "ftp opaque form", value: "ftp:resource"},
+		{name: "hierarchical URI", value: "git+ssh://example.com/repo"},
+		{name: "opaque colon name", value: "foo:bar", wantOK: true, wantRaw: "foo:bar"},
+		{name: "windows slash path", value: "C:/notes/a.md", wantOK: true, wantRaw: "C:/notes/a.md"},
+		{name: "windows backslash path", value: `C:\notes\a.md`, wantOK: true, wantRaw: `C:\notes\a.md`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			occur, ok := frontmatterPathOccur(tt.value, 1)
+			if ok != tt.wantOK {
+				t.Fatalf("frontmatterPathOccur(%q) ok = %v, want %v", tt.value, ok, tt.wantOK)
+			}
+			if ok && (occur.linkType != LinkTypeFrontmatterPath || occur.rawLink != tt.wantRaw) {
+				t.Errorf("frontmatterPathOccur(%q) = %+v, want frontmatter_path raw=%q", tt.value, occur, tt.wantRaw)
+			}
+		})
+	}
+}
+
+func TestBuildMarkdownExternalURIsCreateNoEdgesOrPhantoms(t *testing.T) {
+	vault := t.TempDir()
+	content := "# Source\n\n[Email](mailto:user@example.com)\n[FTP](ftp://example.com/file)\n"
+	if err := os.WriteFile(filepath.Join(vault, "Source.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if edges := queryEdges(t, dbPath(vault), "Source.md"); len(edges) != 0 {
+		t.Errorf("external markdown URIs created edges: %+v", edges)
+	}
+	if phantoms := queryNodes(t, dbPath(vault), NodeTypePhantom); len(phantoms) != 0 {
+		t.Errorf("external markdown URIs created phantoms: %+v", phantoms)
+	}
+}
+
 func TestBuildLinkKeysCreatesFrontmatterPathEdges(t *testing.T) {
 	vault := copyVault(t, "vault_build_link_keys")
 	if _, err := Build(vault); err != nil {
@@ -47,8 +93,21 @@ func TestBuildLinkKeysCreatesFrontmatterPathEdges(t *testing.T) {
 
 	// URL value must not produce any edge.
 	for _, e := range edges {
-		if strings.Contains(e.rawLink, "example.com") {
-			t.Errorf("URL value should not become an edge: %+v", e)
+		if strings.Contains(e.rawLink, "example.com") || strings.HasPrefix(strings.ToLower(e.rawLink), "mailto:") || strings.HasPrefix(strings.ToLower(e.rawLink), "ftp:") {
+			t.Errorf("external URI value should not become an edge: %+v", e)
+		}
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "docs/index.md")
+	for _, want := range []string{"mailto:user@example.com", "FTP://example.com/file", "ftp:resource"} {
+		found := false
+		for _, entry := range meta {
+			if entry.Value == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("metadata value %q was not retained: %+v", want, meta)
 		}
 	}
 	// Wikilink value stays a frontmatter_wikilink edge (no duplicate path edge).

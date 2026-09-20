@@ -440,13 +440,13 @@ meta:
   - `note.md` は `[[note]]` と同一扱い
 - tag: `#tag`, `#nested/tag`, `#日本語タグ`, `#my-tag`, frontmatter `tags`
   - ネストタグは祖先に展開される: `#a/b/c` → `#a`, `#a/b`, `#a/b/c` の各タグが resolve 可能
-- url: `https://...`（将来拡張）
+- 外部 URI: `http://...` / `https://...`、`mailto:...`、`ftp:...`、および `scheme://...` 形式は内部リンクとして解析しない（scheme は大小文字を区別しない）。未知の opaque `foo:bar` は既存どおり内部名として扱う
 - frontmatter 内 wikilink: `tags` キー以外の全キーを対象に、Obsidian property link と同様 **引用符で囲まれた YAML scalar / list item 値** のみから `[[...]]` を解析する（double quote / single quote）
   - bare `key: [[Note]]` と bare list item `- [[Note]]` は YAML 上の nested sequence であり、frontmatter のリンクとして扱わない（edge・phantom・meta-check issue を生成しない）
   - rewrite を伴う実更新は、書き込み・DB 更新・move より前に、予定した引用符付き source と YAML decode 後の値の対応を検証する。対応を証明できない候補が一つでもあれば操作全体を変更せずエラーにする
 - frontmatter の raw path 値（`meta.link_keys` 設定時のみ）: 宣言した key の値を `frontmatter_path` の edge として解析する
   - 解決規則は markdown link と同じ（`./` `../` は note 起点、`/` を含めば vault 相対パス、含まなければ basename 解決）
-  - URL 値（`://` を含む）と wikilink 値（`[[...]]`、frontmatter_wikilink として解析済み）はスキップ
+  - 外部 URI（`http://...` / `https://...`、`mailto:...`、`ftp:...`、および `scheme://...` 形式）と wikilink 値（`[[...]]`、frontmatter_wikilink として解析済み）はスキップ。scheme は大小文字を区別せず、未知の opaque `foo:bar` は raw path として扱う
   - 値全体を path とみなす（`#` fragment の分離はしない）
   - 厳密モードの検証対象（vault escape・曖昧 basename は build / update / add / move / move 配下の再解析でエラー）。解決できない値は phantom になる
   - `link_keys` 未設定なら従来挙動（raw path 値は edge にならない）

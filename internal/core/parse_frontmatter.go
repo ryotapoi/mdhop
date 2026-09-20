@@ -200,7 +200,7 @@ func expandFrontmatterTag(normalized string, fileLine int, out []linkOccur) []li
 // into linkOccur entries with link type "frontmatter_path". Path classification
 // follows markdown link semantics: "./" / "../" prefixes are note-relative,
 // values containing "/" are vault-relative paths, and bare names resolve by
-// basename. Skipped values: empty, URLs (containing "://"), and wikilinks
+// basename. Skipped values: empty, external URIs, and wikilinks
 // (already parsed as frontmatter_wikilink). The whole value is treated as the
 // path; "#" fragments are not split off.
 func frontmatterPathLinks(meta []FrontmatterEntry, linkKeys []string) []linkOccur {
@@ -220,12 +220,12 @@ func frontmatterPathLinks(meta []FrontmatterEntry, linkKeys []string) []linkOccu
 }
 
 // frontmatterPathOccur classifies a single link-key value as a
-// frontmatter_path linkOccur. ok is false for skipped values: empty, URLs
-// (containing "://"), and values containing "[[" (well-formed wikilinks are
+// frontmatter_path linkOccur. ok is false for skipped values: empty, external
+// URIs, and values containing "[[" (well-formed wikilinks are
 // already parsed as frontmatter_wikilink; broken ones are not paths either).
 func frontmatterPathOccur(value string, line int) (linkOccur, bool) {
 	v := strings.TrimSpace(value)
-	if v == "" || strings.Contains(v, "://") || strings.Contains(v, "[[") {
+	if v == "" || isURL(v) || strings.Contains(v, "[[") {
 		return linkOccur{}, false
 	}
 	// normalizeBasename only strips a ".md" suffix, never a leading "./" or

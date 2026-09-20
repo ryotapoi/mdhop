@@ -5,6 +5,9 @@ related:
   - missing.md
 sources:
   - "https://example.com/article"
+  - "mailto:user@example.com"
+  - "FTP://example.com/file"
+  - "ftp:resource"
   - "[[Wiki Target]]"
 other:
   - topics/a.md

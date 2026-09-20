@@ -395,5 +395,27 @@ func isRelativePath(target string) bool {
 }
 
 func isURL(target string) bool {
-	return strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://")
+	lower := strings.ToLower(target)
+	if strings.HasPrefix(lower, "mailto:") || strings.HasPrefix(lower, "ftp:") {
+		return true
+	}
+
+	// A hierarchical URI has a valid scheme followed by ://. Keep opaque
+	// schemes other than the explicitly supported mailto and ftp internal so
+	// colon-containing note names retain their existing interpretation.
+	schemeEnd := strings.Index(lower, "://")
+	if schemeEnd <= 0 || !isURIScheme(lower[:schemeEnd]) {
+		return false
+	}
+	return true
+}
+
+func isURIScheme(s string) bool {
+	for i, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (i > 0 && ((r >= '0' && r <= '9') || r == '+' || r == '-' || r == '.')) {
+			continue
+		}
+		return false
+	}
+	return true
 }
