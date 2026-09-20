@@ -12,6 +12,40 @@ import (
 // MoveDir tests
 // ===============================================
 
+func setMoveDirTestMtime(t *testing.T, path string) int64 {
+	t.Helper()
+	mtime := time.Unix(946684800, 0)
+	if err := os.Chtimes(path, mtime, mtime); err != nil {
+		t.Fatalf("set mtime for %s: %v", path, err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s after setting mtime: %v", path, err)
+	}
+	if got := info.ModTime().Unix(); got != mtime.Unix() {
+		t.Fatalf("mtime for %s = %d, want %d", path, got, mtime.Unix())
+	}
+	return mtime.Unix()
+}
+
+func assertMoveDirNodeMtimeMatchesDisk(t *testing.T, vault, path string) int64 {
+	t.Helper()
+	info, err := os.Stat(filepath.Join(vault, path))
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	var dbMtime int64
+	if err := db.QueryRow("SELECT mtime FROM nodes WHERE path = ?", path).Scan(&dbMtime); err != nil {
+		t.Fatalf("query mtime for %s: %v", path, err)
+	}
+	if dbMtime != info.ModTime().Unix() {
+		t.Errorf("mtime for %s = %d, want disk mtime %d", path, dbMtime, info.ModTime().Unix())
+	}
+	return info.ModTime().Unix()
+}
+
 func TestMoveDir_Basic(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
 	if _, err := Build(vault); err != nil {
@@ -768,13 +802,11 @@ func TestMoveDir_ConsecutiveMovesNoStale(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	linkerMtime := setMoveDirTestMtime(t, filepath.Join(vault, "notes", "Linker.md"))
 
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
-
-	// Wait so that file rewrites produce a different mtime (Unix second precision).
-	time.Sleep(1100 * time.Millisecond)
 
 	// First move: dirA/ → notes/
 	result1, err := MoveDir(vault, MoveDirOptions{FromDir: "dirA", ToDir: "notes/dirA"})
@@ -791,10 +823,11 @@ func TestMoveDir_ConsecutiveMovesNoStale(t *testing.T) {
 	if !linkerRewritten {
 		t.Fatal("expected notes/Linker.md to have links rewritten after first move")
 	}
+	if got := assertMoveDirNodeMtimeMatchesDisk(t, vault, "notes/Linker.md"); got == linkerMtime {
+		t.Fatal("notes/Linker.md mtime should change after rewrite")
+	}
 
 	// Second move: dirB/ → notes/ — this must succeed.
-	// If the first move didn't update Linker.md's mtime in the DB,
-	// this will fail with "source file is stale: notes/Linker.md".
 	_, err = MoveDir(vault, MoveDirOptions{FromDir: "dirB", ToDir: "notes/dirB"})
 	if err != nil {
 		t.Fatalf("second MoveDir should succeed but got: %v", err)
@@ -835,13 +868,11 @@ func TestMoveDir_ConsecutiveMergeNoStale(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	hubMtime := setMoveDirTestMtime(t, filepath.Join(vault, "notes", "Hub.md"))
 
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
-
-	// Ensure mtime will differ after rewrite.
-	time.Sleep(1100 * time.Millisecond)
 
 	// First: move resources/ → notes/ (merges into existing dir).
 	result1, err := MoveDir(vault, MoveDirOptions{FromDir: "resources", ToDir: "notes"})
@@ -857,6 +888,9 @@ func TestMoveDir_ConsecutiveMergeNoStale(t *testing.T) {
 	}
 	if !hubRewritten {
 		t.Fatal("expected notes/Hub.md to be rewritten after first move")
+	}
+	if got := assertMoveDirNodeMtimeMatchesDisk(t, vault, "notes/Hub.md"); got == hubMtime {
+		t.Fatal("notes/Hub.md mtime should change after rewrite")
 	}
 
 	// Second: move thoughts/ → notes/ (merges into same dir).
@@ -878,12 +912,8 @@ func TestMoveDir_ConsecutiveMergeNoStale(t *testing.T) {
 	}
 }
 
-// Exact reproduction of the reported bug:
-//   - Moved file (04-Resources/A.md) has outgoing links to files in 05-Thoughts/
-//   - After move to 03-Notes/, the file's outgoing link is rewritten (Phase 4.2)
-//   - File's mtime changes on disk
-//   - Second move (05-Thoughts/ → 03-Notes/) needs to rewrite links in 03-Notes/A.md
-//     (now an external file), triggering stale check
+// Cross-links exercise both mtime storage paths: an external rewrite target and
+// a moved node whose mtime is recorded at its destination.
 func TestMoveDir_ConsecutiveWithCrossLinks(t *testing.T) {
 	vault := t.TempDir()
 
@@ -904,13 +934,12 @@ func TestMoveDir_ConsecutiveWithCrossLinks(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	resAMtime := setMoveDirTestMtime(t, filepath.Join(vault, "resources", "ResA.md"))
+	thoBMtime := setMoveDirTestMtime(t, filepath.Join(vault, "thoughts", "ThoB.md"))
 
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
-
-	// Ensure mtime will differ after rewrite.
-	time.Sleep(1100 * time.Millisecond)
 
 	// First move: resources/ → notes/
 	// ResA.md has [[thoughts/ThoB]] which doesn't change (thoughts/ isn't moving).
@@ -921,15 +950,14 @@ func TestMoveDir_ConsecutiveWithCrossLinks(t *testing.T) {
 		t.Fatalf("first MoveDir: %v", err)
 	}
 	_ = result1
+	if got := assertMoveDirNodeMtimeMatchesDisk(t, vault, "thoughts/ThoB.md"); got == thoBMtime {
+		t.Fatal("thoughts/ThoB.md mtime should change after rewrite")
+	}
+	if got := assertMoveDirNodeMtimeMatchesDisk(t, vault, "notes/ResA.md"); got != resAMtime {
+		t.Fatalf("notes/ResA.md mtime = %d, want %d", got, resAMtime)
+	}
 
 	// Second move: thoughts/ → notes/
-	// ThoB.md (being moved) has [[resources/ResA]] which was already rewritten
-	// to [[notes/ResA]] by the first move.
-	// notes/ResA.md (moved in first step) has [[thoughts/ThoB]] — incoming rewrite needed.
-	// This is the critical case: notes/ResA.md was written to disk by the first move
-	// (Phase 4.2 outgoing rewrite or Phase 4.1 if it was also an external rewrite target),
-	// so its disk mtime differs from build time. If the first move didn't update
-	// notes/ResA.md's mtime in DB, this will fail with stale error.
 	_, err = MoveDir(vault, MoveDirOptions{FromDir: "thoughts", ToDir: "notes"})
 	if err != nil {
 		t.Fatalf("second MoveDir should succeed but got: %v", err)
