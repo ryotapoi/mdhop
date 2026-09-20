@@ -55,7 +55,7 @@ func parseLinks(content string) parseResult {
 // inside a heading is preserved). This is the shared scan skeleton so
 // fence/frontmatter handling stays in one place.
 func walkBodyLines(lines []string, fmEnd int, fn func(lineNum int, raw, clean string)) {
-	inFence := false
+	var fence fenceDelimiter
 	startLine := 0
 	if fmEnd > 0 {
 		startLine = fmEnd + 1
@@ -63,15 +63,48 @@ func walkBodyLines(lines []string, fmEnd int, fn func(lineNum int, raw, clean st
 	for i := startLine; i < len(lines); i++ {
 		lineNum := i + 1 // 1-based
 		trim := strings.TrimSpace(lines[i])
-		if strings.HasPrefix(trim, "```") {
-			inFence = !inFence
+		if fence.marker != 0 {
+			if fence.closes(trim) {
+				fence = fenceDelimiter{}
+			}
 			continue
 		}
-		if inFence {
+		if opening, ok := parseFenceOpening(trim); ok {
+			fence = opening
 			continue
 		}
 		fn(lineNum, lines[i], stripInlineCode(lines[i]))
 	}
+}
+
+// fenceDelimiter records the marker and length of an opening fenced code
+// block. A closing fence must use the same marker at least as many times and
+// contain only whitespace after it.
+type fenceDelimiter struct {
+	marker byte
+	length int
+}
+
+func parseFenceOpening(line string) (fenceDelimiter, bool) {
+	if len(line) == 0 || (line[0] != '`' && line[0] != '~') {
+		return fenceDelimiter{}, false
+	}
+	length := 0
+	for length < len(line) && line[length] == line[0] {
+		length++
+	}
+	if length < 3 {
+		return fenceDelimiter{}, false
+	}
+	return fenceDelimiter{marker: line[0], length: length}, true
+}
+
+func (f fenceDelimiter) closes(line string) bool {
+	length := 0
+	for length < len(line) && line[length] == f.marker {
+		length++
+	}
+	return length >= f.length && strings.TrimSpace(line[length:]) == ""
 }
 
 // parseLinksWithLinkKeys parses links like parseLinks and additionally turns

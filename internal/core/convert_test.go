@@ -490,7 +490,17 @@ func TestConvertCodeFence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := Convert(tmp, ConvertOptions{
+	notePath := filepath.Join(tmp, "Note.md")
+	note, err := os.ReadFile(notePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	note = append(note, []byte("\n~~~~\n[Link](Link.md) [section](#Section) in a tilde fence\n~~~~\n")...)
+	if err := os.WriteFile(notePath, note, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Convert(tmp, ConvertOptions{
 		ToFormat: "wikilink",
 		DryRun:   false,
 	})
@@ -499,12 +509,15 @@ func TestConvertCodeFence(t *testing.T) {
 	}
 
 	// Verify code fence content is preserved.
-	content, err := os.ReadFile(filepath.Join(tmp, "Note.md"))
+	content, err := os.ReadFile(notePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(content), "[Link](Link.md) should not change") {
 		t.Error("code fence content should be preserved")
+	}
+	if !strings.Contains(string(content), "[Link](Link.md) [section](#Section) in a tilde fence") {
+		t.Error("tilde fence content should be preserved")
 	}
 }
 

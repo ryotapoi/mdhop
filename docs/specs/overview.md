@@ -16,6 +16,7 @@
   - asset の DB 登録は build 時のみ行う。build 後にディスクへ追加された asset は次の build まで phantom として扱われる
 - 主な利用者は CLI と Coding Agent
 - ローカル完結（SQLite）で動作する
+- fenced code block は 3 個以上の backtick または tilde で開始し、同種かつ開始時以上の連続数で、末尾が空白のみの行で閉じる。内部の link、tag、heading は解析しない。
 
 ## データ配置と設定
 

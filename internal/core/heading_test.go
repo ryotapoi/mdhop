@@ -23,6 +23,25 @@ func TestCollectHeadings(t *testing.T) {
 	}
 }
 
+func TestCollectHeadingsCodeFenceDelimiters(t *testing.T) {
+	content := "# Before\n" +
+		"~~~~\n" +
+		"# Hidden\n" +
+		"~~~\n" +
+		"# Still Hidden\n" +
+		"````\n" +
+		"# Also Hidden\n" +
+		"~~~~ trailing\n" +
+		"# Hidden Until Close\n" +
+		"~~~~  \n" +
+		"# After\n"
+	got := collectHeadings(content)
+	want := []string{"Before", "After"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("collectHeadings = %v, want %v", got, want)
+	}
+}
+
 func TestAtxHeadingText(t *testing.T) {
 	tests := []struct {
 		line string

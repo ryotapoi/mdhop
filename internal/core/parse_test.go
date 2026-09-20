@@ -209,6 +209,57 @@ func TestParseTagCodeFenceExcluded(t *testing.T) {
 	}
 }
 
+func TestParseCodeFenceDelimiters(t *testing.T) {
+	tests := []struct {
+		name         string
+		content      string
+		wantTargets  []string
+		wantLastLine int
+	}{
+		{
+			name:         "tilde fence",
+			content:      "[[Before]] #before\n~~~go\n[[Hidden]] [hidden](Hidden.md) #hidden\n# Hidden\n~~~~  \n[[After]] #after\n",
+			wantTargets:  []string{"Before", "#before", "After", "#after"},
+			wantLastLine: 6,
+		},
+		{
+			name:         "only a matching long enough blank-tailed fence closes",
+			content:      "[[Before]]\n````\n[[Hidden]] #hidden\n```\n~~~\n```` trailing\n[[StillHidden]] #still-hidden\n````  \n[[After]] #after\n",
+			wantTargets:  []string{"Before", "After", "#after"},
+			wantLastLine: 9,
+		},
+		{
+			name:         "short delimiter does not open a fence",
+			content:      "``\n[[Visible]] #visible\n",
+			wantTargets:  []string{"Visible", "#visible"},
+			wantLastLine: 2,
+		},
+		{
+			name:         "unclosed fence reaches eof",
+			content:      "[[Before]]\n~~~\n[[Hidden]] #hidden\n",
+			wantTargets:  []string{"Before"},
+			wantLastLine: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			links := parseLinksSlice(tt.content)
+			if len(links) != len(tt.wantTargets) {
+				t.Fatalf("parsed %d links, want %d: %+v", len(links), len(tt.wantTargets), links)
+			}
+			for i, want := range tt.wantTargets {
+				if links[i].target != want {
+					t.Errorf("link[%d].target = %q, want %q", i, links[i].target, want)
+				}
+			}
+			if got := links[len(links)-1].lineStart; got != tt.wantLastLine {
+				t.Errorf("last parsed link line = %d, want %d", got, tt.wantLastLine)
+			}
+		})
+	}
+}
+
 func TestParseTagInlineCodeExcluded(t *testing.T) {
 	content := "`#not-a-tag`\n"
 	links := parseLinksSlice(content)

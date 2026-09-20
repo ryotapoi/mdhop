@@ -843,7 +843,7 @@ func TestAddAutoDisambiguateCodeFenceIgnored(t *testing.T) {
 	vault := copyVault(t, "vault_add_disambiguate")
 
 	// Overwrite A.md with code fence content.
-	aContent := "[[B]]\n```\n[[B]]\n```\n"
+	aContent := "[[B]]\n```\n[[B]]\n```\n~~~\n[[B]]\n~~~\n"
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(aContent), 0o644); err != nil {
 		t.Fatalf("write A.md: %v", err)
 	}
@@ -875,6 +875,10 @@ func TestAddAutoDisambiguateCodeFenceIgnored(t *testing.T) {
 	// Line 3 (inside code fence): [[B]] → should NOT be rewritten
 	if lines[2] != "[[B]]" {
 		t.Errorf("line 3 (code fence) = %q, want [[B]]", lines[2])
+	}
+	// Line 6 (inside tilde fence): [[B]] → should NOT be rewritten.
+	if lines[5] != "[[B]]" {
+		t.Errorf("line 6 (tilde fence) = %q, want [[B]]", lines[5])
 	}
 }
 
