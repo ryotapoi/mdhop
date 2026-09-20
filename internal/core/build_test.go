@@ -1,7 +1,9 @@
 package core
 
 import (
+	"bytes"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -347,6 +349,57 @@ func TestBuildFailureKeepsExistingDB(t *testing.T) {
 	// Ensure DB file is a valid SQLite file.
 	if _, err := sql.Open("sqlite", dbPath(vault)); err != nil {
 		t.Fatalf("db should be readable: %v", err)
+	}
+}
+
+func TestBuildTempDBRemoveFailureKeepsExistingDB(t *testing.T) {
+	vault := copyVault(t, "vault_build_existing_db")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	dbFile := dbPath(vault)
+	before, err := os.ReadFile(dbFile)
+	if err != nil {
+		t.Fatalf("read existing db: %v", err)
+	}
+
+	tmpPath := dbFile + ".tmp"
+	if err := os.Mkdir(tmpPath, 0o755); err != nil {
+		t.Fatalf("create temp directory: %v", err)
+	}
+	remainingPath := filepath.Join(tmpPath, "remaining")
+	if err := os.WriteFile(remainingPath, []byte("keep"), 0o644); err != nil {
+		t.Fatalf("write temp directory file: %v", err)
+	}
+
+	_, err = Build(vault)
+	if err == nil {
+		t.Fatal("expected temp db removal error")
+	}
+	var pathErr *os.PathError
+	if !errors.As(err, &pathErr) {
+		t.Fatalf("build error = %T %v, want *os.PathError from remove", err, err)
+	}
+	if pathErr.Op != "remove" || pathErr.Path != tmpPath {
+		t.Fatalf("remove error = op %q path %q, want op %q path %q", pathErr.Op, pathErr.Path, "remove", tmpPath)
+	}
+	if os.IsNotExist(err) {
+		t.Fatalf("build error = %v, want non-IsNotExist removal error", err)
+	}
+
+	after, err := os.ReadFile(dbFile)
+	if err != nil {
+		t.Fatalf("read existing db after failed build: %v", err)
+	}
+	if !bytes.Equal(after, before) {
+		t.Fatal("existing db changed after temp db removal failure")
+	}
+	if got := countNotes(t, dbFile); got == 0 {
+		t.Fatal("existing db should remain readable after temp db removal failure")
+	}
+	if _, err := os.Stat(remainingPath); err != nil {
+		t.Fatalf("temp directory content should remain after removal failure: %v", err)
 	}
 }
 

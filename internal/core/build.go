@@ -128,7 +128,9 @@ func Build(vaultPath string) (*BuildResult, error) {
 
 	// Create temp DB.
 	tmpPath := dbPath(vaultPath) + ".tmp"
-	_ = os.Remove(tmpPath)
+	if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
 	defer os.Remove(tmpPath)
 
 	db, err := openDBAt(tmpPath)
