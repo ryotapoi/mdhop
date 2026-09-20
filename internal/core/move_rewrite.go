@@ -261,6 +261,12 @@ func collectCollateralRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveM
 // link rewrites. Assets have no outgoing links and yield empty entries.
 func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm *dirMoveMaps, needDiskMove bool) ([]movedFileRewrite, error) {
 	rm := dm.rm
+	linkMaps := movedLinkMaps{
+		movedFromTo:        dm.movedFromTo,
+		basenameToPath:     rm.basenameToPath,
+		rootBasenameToPath: rm.rootBasenameToPath,
+		basenameCounts:     rm.basenameCounts,
+	}
 	movedFileRewrites := make([]movedFileRewrite, len(moves))
 	for i, m := range moves {
 		if m.isAsset {
@@ -288,82 +294,20 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 				continue
 			}
 
-			if link.isBasename {
-				bk := basenameKey(link.target)
-				preMoveTargetPath, err := lookupEdgeTargetPath(db, m.nodeID, link.rawLink)
+			var preMoveTargetPath string
+			if link.isBasename || (!link.isRelative && link.target != "") {
+				var err error
+				preMoveTargetPath, err = lookupEdgeTargetPath(db, m.nodeID, link.rawLink)
 				if err != nil {
 					return nil, err
 				}
-				if preMoveTargetPath == "" {
-					continue
-				}
-
-				postMoveTargetPath := preMoveTargetPath
-				if newPath, ok := dm.movedFromTo[preMoveTargetPath]; ok {
-					postMoveTargetPath = newPath
-				}
-
-				needRewrite := false
-				if basenameKey(postMoveTargetPath) != bk {
-					needRewrite = true
-				} else if p, ok := rm.basenameToPath[bk]; ok {
-					if p != postMoveTargetPath {
-						needRewrite = true
-					}
-				} else if p, ok := rm.rootBasenameToPath[bk]; ok {
-					if p != postMoveTargetPath {
-						needRewrite = true
-					}
-				} else if rm.basenameCounts[bk] > 1 {
-					needRewrite = true
-				}
-
-				if needRewrite {
-					newRL := rewriteRawLink(link.rawLink, link.linkType, postMoveTargetPath)
-					movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
-						rawLink:    link.rawLink,
-						newRawLink: newRL,
-						linkType:   link.linkType,
-						lineStart:  link.lineStart,
-					})
-				}
-				continue
 			}
-
-			if link.isRelative {
-				newRL, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, m.from, m.to, dm.movedFromTo)
-				if err != nil {
-					return nil, err
-				}
-				if newRL != link.rawLink {
-					movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
-						rawLink:    link.rawLink,
-						newRawLink: newRL,
-						linkType:   link.linkType,
-						lineStart:  link.lineStart,
-					})
-				}
-				continue
-			}
-
-			if link.target == "" {
-				continue
-			}
-			preMoveTargetPath, err := lookupEdgeTargetPath(db, m.nodeID, link.rawLink)
+			rewrite, ok, err := rewriteMovedOutgoingLink(link, m.from, m.to, preMoveTargetPath, linkMaps)
 			if err != nil {
 				return nil, err
 			}
-			if preMoveTargetPath == "" {
-				continue
-			}
-			if newPath, ok := dm.movedFromTo[preMoveTargetPath]; ok {
-				newRL := rewriteRawLink(link.rawLink, link.linkType, newPath)
-				movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, outgoingRewrite{
-					rawLink:    link.rawLink,
-					newRawLink: newRL,
-					linkType:   link.linkType,
-					lineStart:  link.lineStart,
-				})
+			if ok {
+				movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, rewrite)
 			}
 		}
 	}
@@ -428,89 +372,4 @@ func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedN
 		result = append(result, re)
 	}
 	return result, rows.Err()
-}
-
-// relativeLinkParts contains syntax-specific pieces needed by the common
-// relative-link rewrite procedure. The target itself is always rewritten by
-// the shared path calculation below; only wrappers and extension policy vary by type.
-type relativeLinkParts struct {
-	prefix       string
-	target       string
-	suffix       string
-	preserveMD   bool
-	stripMovedMD bool
-}
-
-func parseRelativeLink(rawLink string, linkType LinkType) (relativeLinkParts, bool) {
-	switch linkType {
-	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
-		parts := splitWikilinkParts(rawLink)
-		return relativeLinkParts{prefix: "[[", target: parts.target, suffix: parts.subpath + parts.alias + "]]", stripMovedMD: true}, true
-	case LinkTypeMarkdown:
-		start := strings.Index(rawLink, "](")
-		if start < 0 {
-			return relativeLinkParts{}, false
-		}
-		prefix := rawLink[:start+2]
-		urlPart := strings.TrimSuffix(rawLink[start+2:], ")")
-		var fragment string
-		if idx := strings.Index(urlPart, "#"); idx >= 0 {
-			fragment = urlPart[idx:]
-			urlPart = urlPart[:idx]
-		}
-		return relativeLinkParts{prefix: prefix, target: urlPart, suffix: fragment + ")", preserveMD: strings.HasSuffix(strings.ToLower(urlPart), ".md")}, true
-	default:
-		return relativeLinkParts{}, false
-	}
-}
-
-func resolveMovedRelativeTarget(target string, movedFromTo map[string]string, stripMovedMD bool) string {
-	if movedFromTo == nil {
-		return target
-	}
-	keys := []string{target, target + ".md"}
-	if !stripMovedMD {
-		keys = append(keys, strings.TrimSuffix(target, ".md")+".md")
-	}
-	for _, key := range keys {
-		if newTarget, ok := movedFromTo[key]; ok {
-			if stripMovedMD {
-				return strings.TrimSuffix(newTarget, ".md")
-			}
-			return newTarget
-		}
-	}
-	return target
-}
-
-// rewriteOutgoingRelativeLink rewrites a relative link in the moved file
-// from the old path perspective to the new path perspective.
-// If movedFromTo is non-nil, it also checks whether the target was moved.
-func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to string, movedFromTo map[string]string) (string, error) {
-	parts, ok := parseRelativeLink(rawLink, linkType)
-	if !ok {
-		return rawLink, nil
-	}
-	resolvedTarget := NormalizePath(filepath.Join(filepath.Dir(from), parts.target))
-	resolvedTarget = resolveMovedRelativeTarget(resolvedTarget, movedFromTo, parts.stripMovedMD)
-
-	rel, err := filepath.Rel(filepath.Dir(to), resolvedTarget)
-	if err != nil {
-		return "", err
-	}
-	rel = filepath.ToSlash(filepath.Clean(rel))
-	if strings.HasPrefix(NormalizePath(filepath.Join(filepath.Dir(to), rel)), "..") {
-		return "", fmt.Errorf("rewritten link would escape vault: %s", rawLink)
-	}
-	if !strings.HasPrefix(rel, "..") {
-		rel = "./" + rel
-	}
-	if parts.preserveMD {
-		if !strings.HasSuffix(strings.ToLower(rel), ".md") {
-			rel += ".md"
-		}
-	} else {
-		rel = strings.TrimSuffix(rel, ".md")
-	}
-	return parts.prefix + rel + parts.suffix, nil
 }

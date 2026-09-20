@@ -26,7 +26,7 @@
 - [x] Build開始時の既存temp DB削除で `os.IsNotExist` 以外のエラーを返し、既存DBを維持したまま失敗する経路を検証する。
 - [x] Buildの入力収集・検証とDB構築の境界を明確にし、検証完了前にDBを作らない不変条件を追いやすくする。
 - [x] queryのグラフ取得とhead/snippet読出しの責務境界を分け、条件変更とファイル読出し変更を独立に確認できるようにする。
-- [ ] move rewriteのDB/FS候補収集から、DB/FSに依存しない相対path・link変換の責務を分ける。
+- [x] move rewriteのDB/FS候補収集から、DB/FSに依存しない相対path・link変換の責務を分ける。
 - [ ] MoveDirのmtime検証で固定sleepを使わず、明示した時刻で既存の検証内容を保つ。
 
 #### 設計・運用方針の決定
