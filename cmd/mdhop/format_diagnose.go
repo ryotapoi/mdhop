@@ -70,6 +70,8 @@ func printDiagnoseJSON(w io.Writer, r *core.DiagnoseResult, fields []string) err
 }
 
 func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	show := fieldSet(fields, validDiagnoseFieldsCLI)
 	if show[core.FieldDiagnoseBasenameConflicts] && len(r.BasenameConflicts) > 0 {
 		fmt.Fprintf(w, "%s:\n", core.FieldDiagnoseBasenameConflicts)
@@ -106,5 +108,5 @@ func printDiagnoseText(w io.Writer, r *core.DiagnoseResult, fields []string) err
 			fmt.Fprintf(w, "  fragment: %s\n", a.Fragment)
 		}
 	}
-	return nil
+	return output.err
 }

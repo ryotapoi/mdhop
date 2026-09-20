@@ -53,7 +53,6 @@ func runUpdate(args []string) error {
 	case "json":
 		return printUpdateJSON(os.Stdout, result)
 	default:
-		printUpdateText(os.Stdout, result)
-		return nil
+		return printUpdateText(os.Stdout, result)
 	}
 }

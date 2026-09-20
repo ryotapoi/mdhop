@@ -13,10 +13,13 @@ type moveJSONOutput struct {
 	Rewritten []rewrittenJSON `json:"rewritten"`
 }
 
-func printMoveText(w io.Writer, from, to string, r *core.MoveResult) {
+func printMoveText(w io.Writer, from, to string, r *core.MoveResult) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	fmt.Fprintf(w, "from: %s\n", from)
 	fmt.Fprintf(w, "to: %s\n", to)
 	printRewrittenText(w, r.Rewritten)
+	return output.err
 }
 
 func printMoveJSON(w io.Writer, from, to string, r *core.MoveResult) error {

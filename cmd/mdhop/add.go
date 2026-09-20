@@ -67,7 +67,6 @@ func runAdd(args []string) error {
 	case "json":
 		return printAddJSON(os.Stdout, result)
 	default:
-		printAddText(os.Stdout, result)
-		return nil
+		return printAddText(os.Stdout, result)
 	}
 }

@@ -35,6 +35,8 @@ func printMetaCheckText(w io.Writer, r *core.MetaCheckResult) error {
 	if len(r.Issues) == 0 {
 		return nil
 	}
+	output := &textErrorWriter{w: w}
+	w = output
 	fmt.Fprintln(w, "issues:")
 	for _, is := range r.Issues {
 		fmt.Fprintf(w, "- source_path: %s\n", is.SourcePath)
@@ -42,5 +44,5 @@ func printMetaCheckText(w io.Writer, r *core.MetaCheckResult) error {
 		fmt.Fprintf(w, "  value: %s\n", is.Value)
 		fmt.Fprintf(w, "  reason: %s\n", is.Reason)
 	}
-	return nil
+	return output.err
 }

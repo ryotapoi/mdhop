@@ -41,6 +41,8 @@ func printStatsJSON(w io.Writer, r *core.StatsResult, fields []string) error {
 }
 
 func printStatsText(w io.Writer, r *core.StatsResult, fields []string) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	show := fieldSet(fields, validStatsFieldsCLI)
 	if show[core.FieldStatsNotesTotal] {
 		fmt.Fprintf(w, "%s: %d\n", core.FieldStatsNotesTotal, r.NotesTotal)
@@ -60,5 +62,5 @@ func printStatsText(w io.Writer, r *core.StatsResult, fields []string) error {
 	if show[core.FieldStatsAssetsTotal] {
 		fmt.Fprintf(w, "%s: %d\n", core.FieldStatsAssetsTotal, r.AssetsTotal)
 	}
-	return nil
+	return output.err
 }

@@ -31,6 +31,8 @@ func printReachableJSON(w io.Writer, r *core.ReachableResult, fields []string) e
 }
 
 func printReachableText(w io.Writer, r *core.ReachableResult, fields []string) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	show := fieldSet(fields, validReachableFieldsCLI)
 	if show["reachable"] && len(r.Reachable) > 0 {
 		fmt.Fprintln(w, "reachable:")
@@ -55,5 +57,5 @@ func printReachableText(w io.Writer, r *core.ReachableResult, fields []string) e
 			fmt.Fprintf(w, "- %s: %s\n", t, strings.Join(r.Routes[t], " -> "))
 		}
 	}
-	return nil
+	return output.err
 }

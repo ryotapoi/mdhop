@@ -139,8 +139,7 @@ func runDelete(args []string) error {
 	case "json":
 		return printDeleteJSON(os.Stdout, result)
 	default:
-		printDeleteText(os.Stdout, result)
-		return nil
+		return printDeleteText(os.Stdout, result)
 	}
 }
 

@@ -93,6 +93,27 @@ func printStringListText(w io.Writer, label string, items []string) {
 	}
 }
 
+// textErrorWriter retains the first write error so text formatters can return it
+// after emitting their complete output shape.
+type textErrorWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (w *textErrorWriter) Write(p []byte) (int, error) {
+	if w.err != nil {
+		return 0, w.err
+	}
+	n, err := w.w.Write(p)
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
+	if err != nil {
+		w.err = err
+	}
+	return n, err
+}
+
 // encodeJSON writes v as indented JSON to w.
 func encodeJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
@@ -143,16 +164,19 @@ func printRewrittenJSON(w io.Writer, rewritten []core.RewrittenLink) error {
 	return encodeJSON(w, rewrittenJSONOutput{Rewritten: toRewrittenJSON(rewritten)})
 }
 
-func printRewrittenText(w io.Writer, rls []core.RewrittenLink) {
+func printRewrittenText(w io.Writer, rls []core.RewrittenLink) error {
 	if len(rls) == 0 {
-		return
+		return nil
 	}
+	output := &textErrorWriter{w: w}
+	w = output
 	fmt.Fprintln(w, "rewritten:")
 	for _, r := range rls {
 		fmt.Fprintf(w, "- file: %s\n", r.File)
 		fmt.Fprintf(w, "  old: %q\n", r.OldLink)
 		fmt.Fprintf(w, "  new: %q\n", r.NewLink)
 	}
+	return output.err
 }
 
 // --- Repair / Simplify shared helpers ---
@@ -180,9 +204,12 @@ func printSkippedText(w io.Writer, sls []core.SkippedLink) {
 	}
 }
 
-func printRewriteResultText(w io.Writer, rewritten []core.RewrittenLink, skipped []core.SkippedLink) {
+func printRewriteResultText(w io.Writer, rewritten []core.RewrittenLink, skipped []core.SkippedLink) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	printRewrittenText(w, rewritten)
 	printSkippedText(w, skipped)
+	return output.err
 }
 
 func toSkippedJSON(sls []core.SkippedLink) []skippedJSON {

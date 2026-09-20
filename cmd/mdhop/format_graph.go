@@ -34,6 +34,8 @@ func printGraphJSON(w io.Writer, r *core.GraphResult) error {
 }
 
 func printGraphDot(w io.Writer, r *core.GraphResult) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	fmt.Fprintln(w, "digraph mdhop {")
 	for _, n := range r.Nodes {
 		fmt.Fprintf(w, "  n%d [label=%s];\n", n.ID, dotQuote(n.DotLabel()))
@@ -42,7 +44,7 @@ func printGraphDot(w io.Writer, r *core.GraphResult) error {
 		fmt.Fprintf(w, "  n%d -> n%d;\n", e.Source, e.Target)
 	}
 	fmt.Fprintln(w, "}")
-	return nil
+	return output.err
 }
 
 // dotQuote renders a Graphviz double-quoted string literal. strconv.Quote

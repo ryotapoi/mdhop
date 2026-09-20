@@ -17,7 +17,9 @@ type moveDirJSONOutput struct {
 	Rewritten []rewrittenJSON `json:"rewritten"`
 }
 
-func printMoveDirText(w io.Writer, r *core.MoveDirResult) {
+func printMoveDirText(w io.Writer, r *core.MoveDirResult) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	if len(r.Moved) > 0 {
 		fmt.Fprintln(w, "moved:")
 		for _, m := range r.Moved {
@@ -26,6 +28,7 @@ func printMoveDirText(w io.Writer, r *core.MoveDirResult) {
 		}
 	}
 	printRewrittenText(w, r.Rewritten)
+	return output.err
 }
 
 func printMoveDirJSON(w io.Writer, r *core.MoveDirResult) error {

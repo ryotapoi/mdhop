@@ -35,6 +35,8 @@ func printMetaValidateText(w io.Writer, r *core.MetaValidateResult) error {
 	if len(r.Violations) == 0 {
 		return nil
 	}
+	output := &textErrorWriter{w: w}
+	w = output
 	fmt.Fprintln(w, "violations:")
 	for _, v := range r.Violations {
 		fmt.Fprintf(w, "- source_path: %s\n", v.SourcePath)
@@ -42,5 +44,5 @@ func printMetaValidateText(w io.Writer, r *core.MetaValidateResult) error {
 		fmt.Fprintf(w, "  value: %s\n", v.Value)
 		fmt.Fprintf(w, "  reason: %s\n", v.Reason)
 	}
-	return nil
+	return output.err
 }

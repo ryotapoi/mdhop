@@ -12,10 +12,13 @@ type updateJSONOutput struct {
 	Phantomed []string `json:"phantomed"`
 }
 
-func printUpdateText(w io.Writer, r *core.UpdateResult) {
+func printUpdateText(w io.Writer, r *core.UpdateResult) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	printStringListText(w, "updated", r.Updated)
 	printStringListText(w, "deleted", r.Deleted)
 	printStringListText(w, "phantomed", r.Phantomed)
+	return output.err
 }
 
 func printUpdateJSON(w io.Writer, r *core.UpdateResult) error {

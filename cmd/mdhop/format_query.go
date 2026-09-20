@@ -98,6 +98,8 @@ func printQueryJSON(w io.Writer, r *core.QueryResult) error {
 }
 
 func printQueryText(w io.Writer, r *core.QueryResult) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	fmt.Fprintln(w, "entry:")
 	writeNodeInfoText(w, r.Entry, "  ", "  ")
 
@@ -159,7 +161,7 @@ func printQueryText(w io.Writer, r *core.QueryResult) error {
 		}
 	}
 
-	return nil
+	return output.err
 }
 
 // writeNodeInfoText writes a NodeInfo in multi-line text format.

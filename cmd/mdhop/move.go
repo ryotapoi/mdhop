@@ -113,8 +113,7 @@ func runMove(args []string) error {
 		case "json":
 			return printMoveDirJSON(os.Stdout, result)
 		default:
-			printMoveDirText(os.Stdout, result)
-			return nil
+			return printMoveDirText(os.Stdout, result)
 		}
 	}
 
@@ -136,8 +135,7 @@ func runMove(args []string) error {
 	case "json":
 		return printMoveJSON(os.Stdout, normalizedFrom, normalizedTo, result)
 	default:
-		printMoveText(os.Stdout, normalizedFrom, normalizedTo, result)
-		return nil
+		return printMoveText(os.Stdout, normalizedFrom, normalizedTo, result)
 	}
 }
 
@@ -152,8 +150,7 @@ func printMoveTemplatePlan(format string, isDir bool, plan *core.MoveTemplatePla
 		case "json":
 			return printMoveDirJSON(os.Stdout, dirResult)
 		default:
-			printMoveDirText(os.Stdout, dirResult)
-			return nil
+			return printMoveDirText(os.Stdout, dirResult)
 		}
 	}
 	if len(plan.Moved) != 1 {
@@ -164,7 +161,6 @@ func printMoveTemplatePlan(format string, isDir bool, plan *core.MoveTemplatePla
 	case "json":
 		return printMoveJSON(os.Stdout, plan.Moved[0].From, plan.Moved[0].To, moveResult)
 	default:
-		printMoveText(os.Stdout, plan.Moved[0].From, plan.Moved[0].To, moveResult)
-		return nil
+		return printMoveText(os.Stdout, plan.Moved[0].From, plan.Moved[0].To, moveResult)
 	}
 }

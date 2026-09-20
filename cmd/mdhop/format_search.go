@@ -115,6 +115,8 @@ func printSearchJSON(w io.Writer, r *core.SearchResult, fields []string) error {
 }
 
 func printSearchText(w io.Writer, r *core.SearchResult, fields []string) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	metaKeys, metaAll := searchMetaKeys(fields)
 	wantLines := slices.Contains(fields, core.FieldLines)
 	wantOut := slices.Contains(fields, core.FieldOutgoingCount)
@@ -155,5 +157,5 @@ func printSearchText(w io.Writer, r *core.SearchResult, fields []string) error {
 			}
 		}
 	}
-	return nil
+	return output.err
 }

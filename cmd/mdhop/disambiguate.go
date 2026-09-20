@@ -71,7 +71,6 @@ func runDisambiguate(args []string) error {
 	case "json":
 		return printRewrittenJSON(os.Stdout, result.Rewritten)
 	default:
-		printRewrittenText(os.Stdout, result.Rewritten)
-		return nil
+		return printRewrittenText(os.Stdout, result.Rewritten)
 	}
 }

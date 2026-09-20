@@ -11,9 +11,12 @@ type deleteJSONOutput struct {
 	Phantomed []string `json:"phantomed"`
 }
 
-func printDeleteText(w io.Writer, r *core.DeleteResult) {
+func printDeleteText(w io.Writer, r *core.DeleteResult) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	printStringListText(w, "deleted", r.Deleted)
 	printStringListText(w, "phantomed", r.Phantomed)
+	return output.err
 }
 
 func printDeleteJSON(w io.Writer, r *core.DeleteResult) error {

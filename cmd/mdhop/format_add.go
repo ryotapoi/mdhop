@@ -12,10 +12,13 @@ type addJSONOutput struct {
 	Rewritten []rewrittenJSON `json:"rewritten"`
 }
 
-func printAddText(w io.Writer, r *core.AddResult) {
+func printAddText(w io.Writer, r *core.AddResult) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	printStringListText(w, "added", r.Added)
 	printStringListText(w, "promoted", r.Promoted)
 	printRewrittenText(w, r.Rewritten)
+	return output.err
 }
 
 func printAddJSON(w io.Writer, r *core.AddResult) error {

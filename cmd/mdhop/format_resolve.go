@@ -20,6 +20,8 @@ func printResolveJSON(w io.Writer, r *core.ResolveResult, fields []string) error
 }
 
 func printResolveText(w io.Writer, r *core.ResolveResult, fields []string) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	show := fieldSet(fields, validResolveFields)
 
 	if show[core.FieldResolveType] {
@@ -37,7 +39,7 @@ func printResolveText(w io.Writer, r *core.ResolveResult, fields []string) error
 	if show[core.FieldResolveSubpath] && r.Subpath != "" {
 		fmt.Fprintf(w, "%s: %s\n", core.FieldResolveSubpath, r.Subpath)
 	}
-	return nil
+	return output.err
 }
 
 func buildResolveMap(r *core.ResolveResult, fields []string) map[string]any {

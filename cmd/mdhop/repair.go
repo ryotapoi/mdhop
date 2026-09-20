@@ -62,7 +62,9 @@ func runRepair(args []string) error {
 			return err
 		}
 	default:
-		printRewriteResultText(os.Stdout, result.Rewritten, result.Skipped)
+		if err := printRewriteResultText(os.Stdout, result.Rewritten, result.Skipped); err != nil {
+			return err
+		}
 	}
 	if !*dryRun && len(result.Rewritten) > 0 {
 		fmt.Fprintln(os.Stderr, buildIndexHint)

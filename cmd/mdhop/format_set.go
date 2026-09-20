@@ -14,8 +14,11 @@ type setJSONOutput struct {
 	Created bool   `json:"created"`
 }
 
-func printSetText(w io.Writer, r *core.SetResult) {
+func printSetText(w io.Writer, r *core.SetResult) error {
+	output := &textErrorWriter{w: w}
+	w = output
 	fmt.Fprintf(w, "set: %s %s=%s\n", r.File, r.Key, r.Value)
+	return output.err
 }
 
 func printSetJSON(w io.Writer, r *core.SetResult) error {

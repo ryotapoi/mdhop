@@ -63,7 +63,9 @@ func runConvert(args []string) error {
 			return err
 		}
 	default:
-		printRewrittenText(os.Stdout, result.Rewritten)
+		if err := printRewrittenText(os.Stdout, result.Rewritten); err != nil {
+			return err
+		}
 	}
 	if !*dryRun && len(result.Rewritten) > 0 {
 		fmt.Fprintln(os.Stderr, buildIndexHint)

@@ -103,7 +103,6 @@ func runSet(args []string) error {
 	case "json":
 		return printSetJSON(os.Stdout, result)
 	default:
-		printSetText(os.Stdout, result)
-		return nil
+		return printSetText(os.Stdout, result)
 	}
 }
