@@ -78,6 +78,7 @@ meta:
 - `mdhop query --phantom name` : phantom 起点の関連情報を返す
 - `mdhop query --name name` : note/phantom/tag を意識せず関連情報を返す
 - `mdhop diagnose` : basename 衝突、phantom 一覧を検出する
+- `mdhop status` : ディスクと現在の索引を比較し、未登録・変更済み・削除済みの note / asset を一覧にする。索引・ファイルは変更しない
 - `mdhop reachable --from A.md --path "docs/*"` : 入口 note からリンクで到達できる / できない note を列挙する
 - `mdhop graph --path "docs/*"` : リンクグラフを誘導部分グラフとして JSON / Graphviz dot で出力する
 - `mdhop stats` : ノート数・リンク数などの統計情報を返す
@@ -101,6 +102,15 @@ meta:
 ### 共通オプション
 
 - `--vault <path>` : Vault ルートを指定（省略時はカレントディレクトリ）
+
+### status の出力
+
+- `--format json|text` : 出力形式を指定する（default: text）
+- JSON は常に `untracked`、`modified`、`deleted` の path 配列を持つ。path は Vault 相対・forward slash・NFC、各配列は辞書順
+- `untracked` は現在の build 対象（note / asset、`build.exclude_paths` 適用後）で索引にないファイル。query 用 `exclude` は適用しない
+- `modified` は登録済み note / asset のディスク上の mtime が索引の mtime と秒精度で異なるファイル。本文 hash・サイズ・同一秒内の変更は検査しない
+- `deleted` は登録済み note / asset がディスク上にないファイル。現在の build 除外に一致する登録済みファイルも比較対象とする
+- status は差分の有無で失敗せず、索引・vault・設定を更新しない
 
 ### resolve/query/diagnose/stats/reachable の出力
 

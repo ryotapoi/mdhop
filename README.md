@@ -60,6 +60,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `graph` | Export the link graph as JSON or Graphviz dot |
 | `stats` | Show vault statistics (note count, link count, etc.) |
 | `diagnose` | Detect basename conflicts, phantom nodes, and broken heading anchors |
+| `status` | Compare the disk with the current index without syncing |
 | `meta-check` | Check that frontmatter path/wikilink values resolve to real targets |
 | `meta-validate` | Check frontmatter against required keys, profiles, and declared `meta.types` |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.yaml` |
@@ -74,6 +75,7 @@ An up-to-date Codex/Claude-style skill is available under [`examples/skills/mdho
 
 ```bash
 mdhop stats --format json
+mdhop status --format json
 mdhop search --where "status=active || status=review" --fields meta --format json
 mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
 mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json

@@ -29,6 +29,8 @@ func main() {
 		err = runStats(os.Args[2:])
 	case "diagnose":
 		err = runDiagnose(os.Args[2:])
+	case "status":
+		err = runStatus(os.Args[2:])
 	case "meta-check":
 		err = runMetaCheck(os.Args[2:])
 	case "meta-validate":
@@ -116,6 +118,7 @@ Query Commands:
   graph      Export the link graph as JSON or Graphviz dot
   stats      Show vault statistics
   diagnose   Show basename conflicts and phantom nodes
+  status     Compare the disk with the current index
   meta-check Check that frontmatter path/wikilink values resolve
   meta-validate Check frontmatter against required keys and declared types
 
