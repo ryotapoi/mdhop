@@ -42,10 +42,10 @@
 - `link`（`[[...]]` / `[]()` / `#tag` / `https://...`）
 
 出力:
-- `type`: `note | phantom | tag | url`
+- `type`: `note | phantom | tag | url | asset`
 - `name`: 表示名
-- `path`: note の Vault 相対パス（note以外は null）
-- `exists`: note のみ有効
+- `path`: note / asset の Vault 相対パス（それ以外の type では出力しない）
+- `exists`: note / asset の存在フラグ
 - `subpath`: `#Heading` / `#^blockId`（あれば）
 
 解決ルール:

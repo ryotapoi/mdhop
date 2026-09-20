@@ -22,7 +22,7 @@
 - [x] `mailto:`・`ftp:` などHTTP以外の外部URIを内部リンクとして索引化しないようにし、colonを含むノート名やWindows風パスとの区別を既存入力契約に沿って検証する。
 - [x] `~~~` を含むコードフェンスの種類と長さを正しく扱い、内部のリンク・タグ・見出しを解析対象から除外する。
 - [x] text/DOT 出力の書き込みエラーを呼出元まで伝播し、出力失敗時にCLIが非0で終了するようにする。
-- [ ] requirements の resolve 出力契約を、asset の type・path・exists を含む現行仕様へ揃える。
+- [x] requirements の resolve 出力契約を、asset の type・path・exists を含む現行仕様へ揃える。
 - [ ] Build開始時の既存temp DB削除で `os.IsNotExist` 以外のエラーを返し、既存DBを維持したまま失敗する経路を検証する。
 - [ ] Buildの入力収集・検証とDB構築の境界を明確にし、検証完了前にDBを作らない不変条件を追いやすくする。
 - [ ] queryのグラフ取得とhead/snippet読出しの責務境界を分け、条件変更とファイル読出し変更を独立に確認できるようにする。
