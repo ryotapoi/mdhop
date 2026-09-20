@@ -17,6 +17,7 @@
 
 ## 非自明な制約と例外
 
+- 調査・検証用の使い捨て Go source は package directory ではなく `tmp/_go/` に置き、関連作業後に破棄する。先頭が `_` の directory は `go test ./...` の探索対象外になる。
 - CI の自動 gate は `go.mod` の Go version を使い、Ubuntu と macOS の両方で `go test ./...` を実行する。path、Unicode 正規化、file operation に関わる変更は platform 差を test で固定し、CI が動く変更では両 OS の結果を確認する。
 - `cmd/mdhop` の CLI test は主に `runQuery` などの run 関数を直接呼ぶため、process の終了コードや main で付与する error prefix までは保証しない。CLI contract に触れる変更では実バイナリ確認を省略しない。
 - `delete --rm`、`move`、`set`、rewrite 系など disk を変更する確認は、`testdata/vault_*` を一時 directory へコピーした vault または `tmp/` 配下の使い捨て vault で行う。repository の共有 fixture や利用者の vault を直接変更しない。file と DB の双方を確認し、dry-run がある command は無変更であることも確認する。

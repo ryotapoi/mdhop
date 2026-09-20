@@ -27,6 +27,12 @@ cmd/mdhop → internal/testutil (テストのみ)
 | `internal/core` | ファイルパース、DB スキーマ管理、リンク解決、インデックス構築・更新・クエリ | CLI フラグ解析、出力フォーマット、`os.Exit` |
 | `internal/testutil` | テスト用ファイルシステムセットアップ | プロダクションコードからの利用 |
 
+## DB の責務
+
+- `internal/core` は schema と共通 CRUD を所有する。feature 固有の選択・更新・削除、および join、order、limit、condition を含む SQL は、その feature に置く。
+- schema を変更する場合は、schema、影響する共通 CRUD、feature 固有 SQL と test を同じ変更で更新する。
+- 永続形式の変更に in-place migration は行わず、`build` で再生成する。確認方法は[変更時の検証](verification.md)に従う。
+
 ## 新モジュールを切る判断基準
 
 現時点では `internal/core` が全ビジネスロジックを担う。以下の場合に分割を検討する:
