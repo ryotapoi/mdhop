@@ -318,7 +318,7 @@
 - `--key` は必須かつ複数指定可。`--kind path|wikilink|auto`（既定 path）で値を解釈する
 - scalar / list を値単位で検査し、空値と URL は skip する。path の末尾 `/` は実在ディレクトリなら有効
 - 未解決値を issues として JSON/text に返し、reason は not_found / ambiguous / vault_escape / not_wikilink。issues の検出自体はコマンドエラーとしない
-- `--path` / `--exclude` は source note を glob で絞り、config の除外は適用しない。`--key` 未指定、無効な kind、不正 glob はエラー
+- `--path` / `--exclude` は source note を glob で絞る。`build.exclude_paths` で非索引の実在 note / asset も本文解析・DB 登録なしで参照先候補に含め、basename の曖昧性とルート優先を確認する。`--key` 未指定、無効な kind、不正 glob はエラー
 
 ## meta-validate
 

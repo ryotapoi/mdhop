@@ -376,7 +376,8 @@ meta:
   - 補足: `--kind path` で値が末尾 `/` の場合はディレクトリ参照として扱い、ディスク上に実在するディレクトリなら issue にしない。存在しない場合は `not_found`
   - 補足: 値はリスト・スカラーを問わず meta テーブルで値ごとに展開済みのため、`--kind` に list / scalar の区別はない
   - 補足: URL 値（`://` を含む）と空値は許可（issue にしない）。`reason` は `not_found` / `ambiguous`（basename 多重解決）/ `vault_escape` / `not_wikilink`（`--kind wikilink`、または `--kind auto` で wikilink と判定した値が有効な `[[...]]` でない）
-  - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ。`mdhop.yaml` の `exclude` 設定は適用されない）
+  - 補足: 検査元は索引済みの実在 source note の meta 値のみ。`build.exclude_paths` で索引から除外した実在 note / asset も、本文を解析・登録せず参照先候補として解決する。除外候補も basename の曖昧性判定に含め、既存のルート優先規則を適用する
+  - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ）。source 範囲外または `build.exclude_paths` で除外された実在参照先も解決候補に含める
 - `meta-validate`
   - 必須: なし（ただし `--require` も `mdhop.yaml` の `meta.profiles` も `meta.types`（string 以外の宣言）もどれも無い場合はエラー。検査対象が存在しない）
   - 任意: `--vault`, `--format`, `--require`（複数回指定可）, `--path`, `--exclude`

@@ -75,16 +75,16 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := LoadConfig(vaultPath)
-	if err != nil {
+	// Keep loading the config so meta-check retains its existing config
+	// validation behavior. Build exclusions restrict index sources, not the
+	// existing filesystem paths that frontmatter values may reference.
+	if _, err := LoadConfig(vaultPath); err != nil {
 		return nil, err
 	}
-	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
 	assetFiles, err := collectAssetFiles(vaultPath)
 	if err != nil {
 		return nil, err
 	}
-	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
 	rm := newResolveMaps(files, assetFiles)
 
 	db, err := openDBChecked(vaultPath)

@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -221,5 +222,147 @@ bare_wikilink:
 	}
 	if len(bareResult.Issues) != 0 {
 		t.Fatalf("bare wikilink issues = %+v, want none (not indexed in meta table)", bareResult.Issues)
+	}
+}
+
+func TestMetaCheckExcludedTargetsAreResolveCandidates(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "excluded"), 0o755); err != nil {
+		t.Fatalf("mkdir excluded: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - excluded/**\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	source := `---
+path_values:
+  - /excluded/Note.md
+  - /excluded/image.png
+  - /missing.md
+wikilink_values:
+  - "[[Note]]"
+  - "[[image.png]]"
+  - "[[Missing]]"
+auto_values:
+  - /excluded/Note.md
+  - "[[image.png]]"
+  - /missing.md
+---
+`
+	if err := os.WriteFile(filepath.Join(vault, "Source.md"), []byte(source), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	excludedNote := "---\npath_values: /missing-from-excluded.md\n---\n[[Missing]]\n#excluded\n"
+	if err := os.WriteFile(filepath.Join(vault, "excluded", "Note.md"), []byte(excludedNote), 0o644); err != nil {
+		t.Fatalf("write excluded note: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "excluded", "image.png"), []byte("image"), 0o644); err != nil {
+		t.Fatalf("write excluded asset: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	for _, node := range queryNodes(t, dbPath(vault), NodeTypeNote) {
+		if node.path == "excluded/Note.md" {
+			t.Fatal("excluded note was indexed")
+		}
+	}
+	for _, node := range queryNodes(t, dbPath(vault), NodeTypeAsset) {
+		if node.path == "excluded/image.png" {
+			t.Fatal("excluded asset was indexed")
+		}
+	}
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	var excludedSources int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM meta m JOIN nodes n ON n.id = m.node_id WHERE n.path = 'excluded/Note.md'`).Scan(&excludedSources); err != nil {
+		t.Fatalf("count excluded meta: %v", err)
+	}
+	if excludedSources != 0 {
+		t.Fatalf("excluded note meta rows = %d, want 0", excludedSources)
+	}
+
+	beforeNotes := countNotes(t, dbPath(vault))
+	beforeMeta := countMeta(t, dbPath(vault))
+	beforeEdges := countEdges(t, dbPath(vault))
+	beforeSource, err := os.ReadFile(filepath.Join(vault, "Source.md"))
+	if err != nil {
+		t.Fatalf("read source before meta-check: %v", err)
+	}
+	beforeExcluded, err := os.ReadFile(filepath.Join(vault, "excluded", "Note.md"))
+	if err != nil {
+		t.Fatalf("read excluded note before meta-check: %v", err)
+	}
+
+	tests := []struct {
+		key  string
+		kind MetaValueKind
+		want map[string]MetaIssueReason
+	}{
+		{"path_values", MetaKindPath, map[string]MetaIssueReason{"/missing.md": ReasonNotFound}},
+		{"wikilink_values", MetaKindWikilink, map[string]MetaIssueReason{"[[Missing]]": ReasonNotFound}},
+		{"auto_values", MetaKindAuto, map[string]MetaIssueReason{"/missing.md": ReasonNotFound}},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.kind), func(t *testing.T) {
+			result, err := MetaCheck(vault, MetaCheckOptions{Keys: []string{tt.key}, Kind: tt.kind})
+			if err != nil {
+				t.Fatalf("meta-check: %v", err)
+			}
+			got := make(map[string]MetaIssueReason, len(result.Issues))
+			for _, issue := range result.Issues {
+				got[issue.Value] = issue.Reason
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("issues = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+
+	if got := countNotes(t, dbPath(vault)); got != beforeNotes {
+		t.Errorf("note count after meta-check = %d, want %d", got, beforeNotes)
+	}
+	if got := countMeta(t, dbPath(vault)); got != beforeMeta {
+		t.Errorf("meta count after meta-check = %d, want %d", got, beforeMeta)
+	}
+	if got := countEdges(t, dbPath(vault)); got != beforeEdges {
+		t.Errorf("edge count after meta-check = %d, want %d", got, beforeEdges)
+	}
+	if got, err := os.ReadFile(filepath.Join(vault, "Source.md")); err != nil || string(got) != string(beforeSource) {
+		t.Errorf("source changed after meta-check: err=%v", err)
+	}
+	if got, err := os.ReadFile(filepath.Join(vault, "excluded", "Note.md")); err != nil || string(got) != string(beforeExcluded) {
+		t.Errorf("excluded note changed after meta-check: err=%v", err)
+	}
+}
+
+func TestMetaCheckExcludedCandidatesAffectBasenameResolution(t *testing.T) {
+	vault := t.TempDir()
+	for _, dir := range []string{"excluded/a", "excluded/b"} {
+		if err := os.MkdirAll(filepath.Join(vault, dir), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - excluded/**\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Source.md"), []byte("---\nsources:\n  - Duplicate\n  - RootChoice\n---\n"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+	for _, path := range []string{"excluded/a/Duplicate.md", "excluded/b/Duplicate.md", "RootChoice.md", "excluded/a/RootChoice.md", "excluded/b/RootChoice.md"} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte("# note\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := MetaCheck(vault, MetaCheckOptions{Keys: []string{"sources"}, Kind: MetaKindPath})
+	if err != nil {
+		t.Fatalf("meta-check: %v", err)
+	}
+	if len(result.Issues) != 1 || result.Issues[0].Value != "Duplicate" || result.Issues[0].Reason != ReasonAmbiguous {
+		t.Fatalf("issues = %+v, want Duplicate ambiguous only", result.Issues)
 	}
 }
