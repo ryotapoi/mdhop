@@ -24,7 +24,7 @@
 - [x] text/DOT 出力の書き込みエラーを呼出元まで伝播し、出力失敗時にCLIが非0で終了するようにする。
 - [x] requirements の resolve 出力契約を、asset の type・path・exists を含む現行仕様へ揃える。
 - [x] Build開始時の既存temp DB削除で `os.IsNotExist` 以外のエラーを返し、既存DBを維持したまま失敗する経路を検証する。
-- [ ] Buildの入力収集・検証とDB構築の境界を明確にし、検証完了前にDBを作らない不変条件を追いやすくする。
+- [x] Buildの入力収集・検証とDB構築の境界を明確にし、検証完了前にDBを作らない不変条件を追いやすくする。
 - [ ] queryのグラフ取得とhead/snippet読出しの責務境界を分け、条件変更とファイル読出し変更を独立に確認できるようにする。
 - [ ] move rewriteのDB/FS候補収集から、DB/FSに依存しない相対path・link変換の責務を分ける。
 - [ ] MoveDirのmtime検証で固定sleepを使わず、明示した時刻で既存の検証内容を保つ。

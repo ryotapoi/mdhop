@@ -320,6 +320,30 @@ func TestBuildFailsOnAmbiguousLink(t *testing.T) {
 	}
 }
 
+func TestBuildInvalidInputDoesNotTouchTempDB(t *testing.T) {
+	vault := copyVault(t, "vault_build_conflict")
+	if _, err := ensureDataDir(vault); err != nil {
+		t.Fatalf("create data dir: %v", err)
+	}
+	tmpPath := dbPath(vault) + ".tmp"
+	const sentinel = "preserve temp database sentinel"
+	if err := os.WriteFile(tmpPath, []byte(sentinel), 0o644); err != nil {
+		t.Fatalf("write temp sentinel: %v", err)
+	}
+
+	_, err := Build(vault)
+	if err == nil || !strings.Contains(err.Error(), "ambiguous link:") {
+		t.Fatalf("build error = %v, want ambiguous link error", err)
+	}
+	got, err := os.ReadFile(tmpPath)
+	if err != nil {
+		t.Fatalf("read temp sentinel: %v", err)
+	}
+	if string(got) != sentinel {
+		t.Fatalf("temp sentinel = %q, want %q", got, sentinel)
+	}
+}
+
 func TestBuildFailureKeepsExistingDB(t *testing.T) {
 	vault := copyVault(t, "vault_build_existing_db")
 	if _, err := Build(vault); err != nil {

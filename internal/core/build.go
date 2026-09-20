@@ -21,110 +21,14 @@ func Build(vaultPath string) (*BuildResult, error) {
 		return nil, err
 	}
 
-	// Pass 0: collect .md files.
-	files, err := collectMarkdownFiles(vaultPath)
+	prepared, err := prepareBuild(vaultPath)
 	if err != nil {
 		return nil, err
 	}
+	return buildPrepared(vaultPath, prepared)
+}
 
-	cfg, err := LoadConfig(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
-		return nil, err
-	}
-	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
-
-	// Pass 0.5: collect asset files.
-	assetFiles, err := collectAssetFiles(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
-
-	// Build resolve maps for notes and assets.
-	rm := newResolveMaps(files, assetFiles)
-	diskPaths := newVaultDiskPathResolver(vaultPath)
-
-	// Read all files, parse links, stat for mtime, and validate.
-	// Done before DB creation so failures leave no temp file behind.
-	type parsedFile struct {
-		path  string
-		mtime int64
-		lines int
-		links []linkOccur
-		meta  []FrontmatterEntry
-	}
-	parsed := make([]parsedFile, 0, len(files))
-	var userErrors []string
-	for _, rel := range files {
-		fullPath, err := diskPaths.existingPath(rel)
-		if err != nil {
-			return nil, err
-		}
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		pr := parseLinksWithLinkKeys(string(content), cfg.Meta.LinkKeys)
-
-		// Validate links: collect user errors (ambiguous, vault-escape) up to maxBuildErrors.
-		for _, link := range pr.Links {
-			if !isPathLinkType(link.linkType) {
-				continue
-			}
-			if link.isRelative && escapesVault(rel, link.target) {
-				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
-			} else if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
-				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
-			} else if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
-				candidates := ambiguousCandidates(link.target, rm)
-				userErrors = append(userErrors, fmt.Sprintf("ambiguous link: %s in %s (candidates: %s)", link.target, rel, strings.Join(candidates, ", ")))
-			} else {
-				continue
-			}
-			if len(userErrors) >= maxBuildErrors {
-				break
-			}
-		}
-		if len(userErrors) >= maxBuildErrors {
-			break
-		}
-
-		parsed = append(parsed, parsedFile{
-			path:  rel,
-			mtime: info.ModTime().Unix(),
-			lines: countLines(string(content)),
-			links: pr.Links,
-			meta:  pr.Meta,
-		})
-	}
-	if len(userErrors) > 0 {
-		return nil, formatBuildErrors(userErrors)
-	}
-
-	// Stat asset files for mtime.
-	type assetInfo struct {
-		path  string
-		mtime int64
-	}
-	assetInfos := make([]assetInfo, 0, len(assetFiles))
-	for _, rel := range assetFiles {
-		fullPath, err := diskPaths.existingPath(rel)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		assetInfos = append(assetInfos, assetInfo{path: rel, mtime: info.ModTime().Unix()})
-	}
+func buildPrepared(vaultPath string, prepared *preparedBuild) (*BuildResult, error) {
 
 	// Create temp DB.
 	tmpPath := dbPath(vaultPath) + ".tmp"
@@ -150,30 +54,30 @@ func Build(vaultPath string) (*BuildResult, error) {
 	defer tx.Rollback()
 
 	// Pass 1: insert all note nodes.
-	for _, pf := range parsed {
+	for _, pf := range prepared.notes {
 		name := basename(pf.path)
 		id, err := upsertNote(tx, pf.path, name, pf.mtime, pf.lines)
 		if err != nil {
 			return nil, err
 		}
-		rm.registerNote(pf.path, id)
+		prepared.resolveMaps.registerNote(pf.path, id)
 	}
 
 	// Pass 1.5: insert all asset nodes.
-	for _, ai := range assetInfos {
+	for _, ai := range prepared.assets {
 		name := filepath.Base(ai.path)
 		id, err := upsertAsset(tx, ai.path, name, ai.mtime)
 		if err != nil {
 			return nil, err
 		}
-		rm.registerAsset(ai.path, id)
+		prepared.resolveMaps.registerAsset(ai.path, id)
 	}
 
 	// Pass 2: resolve links and create edges (using cached parsed data).
-	for _, pf := range parsed {
-		sourceID := rm.pathToID[pf.path]
+	for _, pf := range prepared.notes {
+		sourceID := prepared.resolveMaps.pathToID[pf.path]
 		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.path, link, rm)
+			targetID, subpath, err := resolveLink(tx, pf.path, link, prepared.resolveMaps)
 			if err != nil {
 				return nil, err
 			}
@@ -188,9 +92,9 @@ func Build(vaultPath string) (*BuildResult, error) {
 
 	// Pass 3: insert frontmatter metadata.
 	var metaWarnings []string
-	for _, pf := range parsed {
-		nodeID := rm.pathToID[pf.path]
-		ws, err := insertMetaEntries(tx, nodeID, pf.path, pf.meta, cfg.Meta)
+	for _, pf := range prepared.notes {
+		nodeID := prepared.resolveMaps.pathToID[pf.path]
+		ws, err := insertMetaEntries(tx, nodeID, pf.path, pf.meta, MetaConfig{Types: prepared.metaTypes})
 		if err != nil {
 			return nil, err
 		}
