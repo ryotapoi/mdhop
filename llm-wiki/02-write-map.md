@@ -2,6 +2,7 @@
 regen: compiled
 sources:
   - internal/core/build.go
+  - internal/core/build_prepare.go
   - internal/core/add.go
   - internal/core/update.go
   - internal/core/delete.go
@@ -11,14 +12,13 @@ sources:
   - internal/core/move_load.go
   - internal/core/move_rewrite.go
   - internal/core/move_apply.go
+  - internal/core/move_link.go
   - internal/core/disambiguate.go
   - internal/core/simplify.go
   - internal/core/convert.go
   - internal/core/repair.go
   - internal/core/init_meta.go
-  - internal/core/init_meta_yaml.go
   - internal/core/rewrite.go
-  - internal/core/db.go
   - internal/core/frontmatter_path_guard.go
   - cmd/mdhop/init_meta.go
   - docs/decisions/0003-move-auto-detects-disk-state.md
@@ -30,108 +30,27 @@ sources:
 
 # 書き込み系コマンドの破壊性・波及マップ
 
-ディスク / DB を変更するコマンドの「何を書き換えるか」「破壊的か」「波及範囲」の早見表。
-エッジケースの実測値・罠は、各コマンドの実装コード（`internal/core/`）のコメントに置く。ルール原則は `docs/rules/information-management.md`。
+書き込み経路の入口と、ディスク・DB のどちらを先に確認すべきかの地図。振る舞いの正本は各コマンドの `docs/specs/overview.md` と ADR を読む。
 
----
+| コマンド | 主な変更先 | 読む入口 |
+|---|---|---|
+| `build` | temp DB を rename で置換 | 入力収集・検証は `build_prepare.go:30`、DB 書き込みは `build.go:31` |
+| `add` / `update` / `set` | note、edge、meta | `add.go:32` / `update.go:24` / `set.go:35` |
+| `delete` | node 削除または phantom 化、`--rm` はディスク削除 | `delete.go:25`、理由は ADR 0005 |
+| `move` / `move-dir` | rename と incoming / collateral / outgoing rewrite | `move.go:22` → `move_dir.go:70` |
+| `disambiguate` / `simplify` / `repair` / `convert` | 対象ファイルのリンク表記 | 各 core ファイルの公開関数を入口にする |
+| `init-meta --write` | vault root の `mdhop.yaml` | `cmd/mdhop/init_meta.go` と `internal/core/init_meta.go` |
 
-## 1. コマンド別マトリクス
+## build の境界
 
-| コマンド | DB 変更 | ディスク変更 | 破壊的操作 | 更新順序 |
-|---|---|---|---|---|
-| `build` | 全再構築（temp→rename） | なし | — | DB のみ |
-| `add` | nodes/edges INSERT | 他ファイルのリンク書き換え（auto-disambiguate 時） | なし | ディスク先・DB 後 |
-| `update` | edges 全削除→再挿入、nodes mtime 更新 | なし | ディスク不在ファイルを phantom 化 | DB のみ |
-| `set` | 対象 note のメタデータと edge を再解析 | frontmatter の scalar key を1件更新 | なし（更新失敗時はファイル内容と mtime を復元） | ディスク先・DB 後 |
-| `delete` | node 削除または phantom 変換 | `--rm` 時のみ `os.Remove` | `--rm` = ファイル削除 | ディスク先・DB 後 |
-| `move` | node path/key/mtime 更新、edges 全削除→再挿入 | ファイル移動（`os.Rename`）＋ incoming/collateral/outgoing 書き換え | なし（失敗時ロールバック） | ディスク先・DB 後 |
-| `move`（ディスク移動済み） | 同上 | リンク書き換えのみ（Rename スキップ） | なし | ADR 0003 参照 |
-| `move-dir` | 複数 node 一括更新 | 複数 Rename ＋ リンク書き換え | なし（失敗時ロールバック） | ディスク先・DB 後 |
-| `disambiguate` | edges raw_link 更新、nodes mtime 更新 | リンク書き換え（basename → full path） | なし（ DB バックアップ+ロールバック） | ディスク先・DB 後 |
-| `disambiguate --scan` | なし（DB 不要） | リンク書き換えのみ | なし | ディスク のみ |
-| `simplify` | なし（DB 不要） | リンク書き換え（path/relative → basename。`--dry-run` は実行時と同じ候補検証後、書き込みを行わない） | なし | ディスク のみ |
-| `convert` | なし（DB 不要） | リンク書き換え（`--dry-run` は実行時と同じ候補検証後、書き込みを行わない） | なし | ディスク のみ |
-| `repair` | なし（DB 不要） | リンク書き換え（`--dry-run` は実行時と同じ候補検証後、書き込みを行わない） | なし | ディスク のみ |
-| `init-meta --write` | なし | `mdhop.yaml`（temp+rename で上書き） | 既存キー以外を追記 | ディスク のみ |
+`Build` は `prepareBuild` でファイル収集・解析・リンク検証を完了してから temp DB を作る。temp ファイルの除去に失敗した場合も既存 DB を置換しない。build の失敗処理を変えるときは `build.go:31` と `build_prepare.go:30` を対で読む。
 
----
+## move の責務分割
 
-## 2. ディスク→DB の順序ルール
+単体 `Move` は移動情報を準備して `executeMoves` へ委譲し、directory mode も同じ executor を通る。incoming / collateral の収集は `move_rewrite.go:92` / `194`、移動 note の outgoing 収集は `move_rewrite.go:262`、個別の outgoing 判定と相対パス再計算は `move_link.go:21` / `137` が所有する。
 
-**ディスクを先に書き、その後 DB トランザクションを開始する**のが共通パターン。
-理由: DB ロールバックはトランザクション内で自動処理できるが、ディスク変更は `restoreBackupFiles` などで手動復元するため、失敗時にディスクとDB の二重巻き戻しを避けられる。
+書き込み前の候補検証・適用・復元は `rewrite.go` と `move_apply.go` に分離されている。raw frontmatter path は書き換えず、移動後も解決先が変わらないことを `frontmatter_path_guard.go` で検証する。理由は ADR 0014 を参照する。
 
-- `add.go:273–297` — ディスク rewrite → `db.Begin()` の順。transaction 開始・commit失敗時に `restoreBackupFiles` を呼ぶ
-- `set.go:77–105` — frontmatter を書き換えてから `Update` を呼ぶ。失敗時は内容と mtime を復元する
-- `move_dir.go:70–164` — `executeMoves` が単体 `move` と directory mode の外部ファイル書き換え（4.1）→ 移動ファイル書き換え（4.2）→ `os.Rename`（4.3）→ `db.Begin()`（Phase 5）を担う
-- `disambiguate.go:194–209` — `applyFileRewritesWithRollbackFailures` → `db.Begin()` の順
+## 更新順序の注意
 
----
-
-## 3. 波及範囲の詳細
-
-### 3-1. add
-
-- **phantom 変換**: 追加するファイルの basename に一致する phantom が存在すれば `promotePhantom`（`move_apply.go:94`）で note に昇格 → `AddResult.Promoted`
-- **basename 再カウント**: `rm.addNote` で in-memory カウントを更新し、既存リンクが ambiguous になるか検査（`add.go:99–203`）
-- **auto-disambiguate**: デフォルト ON（`--no-auto-disambiguate` で無効化。CLI フラグは `cmd/mdhop/add.go:17`、`AutoDisambiguate: !*noAutoDisambiguate` が `cmd/mdhop/add.go:60`）。pattern A（既存ユニーク note が重複になる場合）は、既存の basename リンクをフルパスに書き換える。pattern B（phantom が ambiguous になる場合）は auto-disambiguate が効かずエラー（`add.go:193–203`）
-- **ルート優先ルール**: 追加ファイルがルート直下なら basename collision でもエラーにしない → ADR 0004
-
-### 3-2. update
-
-- ディスク不在ファイルは `removeOrPhantomize`（`db.go:371`）で delete 判定と同じロジックへ
-- 存在ファイルは outgoing edges 全削除→再挿入（`update.go:145–181`）。meta エントリも削除→再挿入
-- `cleanupOrphanedNodes` で tags / phantoms / assets の孤立ノードを除去（`db.go:429`）
-
-### 3-3. delete
-
-- **`--rm`（`DeleteOptions.RemoveFiles`）**: `os.Remove` をディスク操作フェーズで実行（`delete.go:65–97`）。Phase 2 がディスク削除、Phase 3 が DB 更新。`--rm` 失敗後に TX に入らないのでロールバック問題なし
-- **phantom 変換条件**: incoming edges（自己リンク除く）が 1 件でもあれば phantom へ変換。なければノード完全削除（`db.go:368–426`）→ ADR 0005
-- **注意**: `--rm` 成功後に TX 失敗してもファイルは復元しない。`--rm` なしで再実行すれば DB は復旧可能（ADR 0005 Consequences）
-
-### 3-4. move / move-dir
-
-- **実行経路**: 単体 `move` は `move.go:22–53` で 1 件の `moveInfo` を作り、`move_dir.go:70` の `executeMoves` に委譲する。directory mode も同じ executor を使う
-- **`--to-template`**: CLI で `--to` の代わりに指定できる単体 note move mode。`internal/core/move_template.go` が source note の indexed frontmatter と source filename `{basename}` から destination path を先に展開する。dry-run と実行は、incoming / collateral / outgoing の書き換え候補を同じ副作用前経路で検証する。directory mode / asset move / `--to` 併用は不可。展開・候補検証エラーは mutation 前に失敗する
-- **incoming rewrite（Phase 2）**: 移動元への path リンクをすべて書き換える。basename リンクは basename が変わった場合か、ambiguous になった場合のみ書き換える（`move_rewrite.go:90–184`）
-- **collateral rewrite（Phase 2.5）**: 移動先 basename と一致する他の note / asset への basename リンクが ambiguous になる場合に、それらを full path に書き換える → ADR 0008（`move_rewrite.go:191–255`）
-- **outgoing rewrite（Phase 3）**: 移動したノートの outgoing basename リンクのうち、移動後に解決先が変わるものと、relative リンクを書き換える（`move_rewrite.go:259–365`）
-- **ルート優先ルール**: incoming/collateral の書き換えスキップ判定に `hasRootInPathSet` を使用（`move_rewrite.go:166–171`, `move_rewrite.go:206–209`, `move_rewrite.go:236–239`）→ ADR 0004
-- **ディスク移動自動検知**: from 不在・to 存在なら Rename スキップ（`move_load.go:192–212`）→ ADR 0003
-- **外部リライト stale チェック**: v0.12 で削除済み。ミスマッチ時は silent no-op で DB のみ更新（`build` で復旧）→ ADR 0012
-- **move-dir**: `executeMoves` を複数ファイルに適用する。directory mode だけ disk-only ファイル（DB 未登録）も `os.Rename` するが DB 更新はしない（`move_dir.go:139–150`）
-
-### 3-5. disambiguate
-
-- DB あり版（`Disambiguate`）: basename リンクに加え phantom 指し path リンクも対象（`disambiguate.go:97–142`）
-- DB なし版（`DisambiguateScan`、`disambiguate.go:258`）: DB を使わず disk scan のみ。broken path リンクは `isLinkBrokenForScan`（`disambiguate.go:374`）で判定
-- どちらも書き換え対象は source ファイルのディスク上コンテンツのみ。DB の edge raw_link も更新（DB あり版のみ）
-
-### 3-6. simplify / convert / repair
-
-- **DB 不要**: いずれもインデックスを使わず disk scan で動作（in-memory resolve maps を都度構築）
-- **simplify**: 解決可能な path/relative リンクを basename リンクに短縮する（`simplify.go:26`、書き換えは `basenameTarget` へ `rewriteRawLink`、`simplify.go:146`）。`--dry-run` は実行時と同じ候補検証を行うが書き込まない。ambiguous になるものは短縮しない
-- **convert**: wikilink ↔ markdown の形式変換（`convert.go:25`）。`--dry-run` で実際のファイル書き換えをスキップ
-- **repair**: vault 外逃げリンク（escaping）と broken path リンクをデフォルト basename 形式に書き換える（`repair.go:35`）。`--dry-run` 対応。body links のみ対象（frontmatter wikilink は除外、`repair.go:74–76`）。候補 2 件以上の broken path リンクはスキップ・`Skipped` に報告
-
-### 3-7. init-meta --write
-
-- **対象ファイル**: `mdhop.yaml`（vault ルート）のみ。temp ファイル → `os.Rename` のアトミック書き換え（`cmd/mdhop/init_meta.go:54–63`）
-- **DB 変更なし**。既存キーは変更しない（`internal/core/init_meta.go:13` `mergeMetaConfig`）
-
----
-
-## 4. frontmatter_path の特別扱い
-
-`frontmatter_path` リンクは書き換え不可能（raw YAML 値は構文が不定）。
-`add` / `move` / `move-dir` で移動後も解決先が変わらないことを事前検証する（`frontmatter_path_guard.go:validateFrontmatterPathEdges`）。
-解決先が変わる場合は操作を中断してエラーを返す（`frontmatter_path_guard.go:80`）。
-
----
-
-## 5. 共通ロールバック機構
-
-- `rewriteBackup`（`rewrite.go:34`）: 書き換え前のファイル内容と permissions を保持
-- `restoreBackupFiles`（`rewrite.go:163`）: best-effort でディスク書き換えを元に戻し、復元失敗を収集する
-- DB は `tx.Rollback()` を `defer` で保証。ディスクのロールバックは DB ロールバックと組み合わせて `restoreBackupFiles` を呼ぶ（`add.go:286–297`、`move_dir.go:104–125`）。move の移動ファイル本体は `applyMovedFileRewrites`（`move_apply.go:34`）が `rewriteBackup` を返し、失敗時は best-effort で復元する。move / move-dir は、ロールバック自体が失敗した場合でも残りのロールバックを続行し、返却エラーに復元・移動し戻しに失敗したファイルと `mdhop build` の復旧ヒントを含める
-- `build` は temp DB（`.mdhop/index.sqlite.tmp`）に全書き込み後 rename する。失敗時は temp ファイルを `defer os.Remove` で除去（`build.go:129–132`, `206`）
+通常の mutation はディスク操作を先に行い、その後 DB transaction を反映する。build は例外で、入力検証後に temp DB を完成させてから rename する。失敗時の復元範囲はコマンドごとに異なるため、実装変更時は該当関数の rollback 経路と ADR 0005 / 0012 を確認する。

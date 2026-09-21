@@ -28,6 +28,15 @@ mdhop search --where "status=active || status=review" --fields meta --format jso
 mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
 ```
 
+### Check Index Drift Without Changing It
+
+Use `status` before deciding whether to update or rebuild. It only lists untracked,
+modified, and deleted indexed files; it does not change the vault or index.
+
+```bash
+mdhop status --format json
+```
+
 ## When To Use Which Command
 
 ### Find Notes
@@ -49,9 +58,12 @@ Use `mdhop query` when you have an entry note, tag, phantom, or name and need ba
 ```bash
 mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
 mdhop query --tag architecture --fields backlinks --format json
+mdhop query --file Notes/Design.md --fields backlinks,outgoing --link-key sources --format json
 ```
 
-Run `mdhop query --help` for entry options, fields, metadata filters, limits, and include options.
+Use `--link-key <key>` only when direct backlinks and outgoing links should be
+limited to that frontmatter link key. Run `mdhop query --help` for entry options,
+fields, metadata filters, limits, and include options.
 
 ### Resolve One Link
 
@@ -84,6 +96,8 @@ mdhop meta-check --key sources --kind path --format json
 mdhop meta-validate --require type --require status --format json
 ```
 
+Issues and violations include source locations (`line` in JSON and `location` in text).
+After upgrading, rebuild an existing index with `mdhop build` before relying on line data.
 Run `mdhop meta-check --help` or `mdhop meta-validate --help` for issue/violation fields and filtering.
 
 ### Maintain the Index and Files

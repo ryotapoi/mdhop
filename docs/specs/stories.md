@@ -184,3 +184,28 @@
   1) `mdhop stats --vault .`
 - 期待結果:
   - ノート数、リンク数などの統計が返る
+
+## 19. 同期前の索引差分確認
+
+- 状況: 更新や build の前に、索引とディスクのずれだけを確認したい
+- 手順:
+  1) `mdhop status --vault . --format json`
+- 期待結果:
+  - 未登録・変更済み・削除済みが返り、索引と vault は変更されない
+
+## 20. frontmatter key に限定した関連探索
+
+- 状況: `sources` key 由来の直接参照だけを確認したい
+- 手順:
+  1) `mdhop query --vault . --file Notes/Design.md --link-key sources --fields backlinks,outgoing`
+- 期待結果:
+  - backlinks / outgoing は指定 key 由来に限定される
+
+## 21. frontmatter 診断から修正位置を開く
+
+- 状況: meta-check または meta-validate の finding を修正したい
+- 手順:
+  1) `mdhop meta-check --vault . --key sources --format json`
+  2) 結果の `source_path` と `line` を開く
+- 期待結果:
+  - finding ごとに source の行位置が得られる

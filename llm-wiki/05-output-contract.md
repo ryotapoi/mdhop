@@ -1,179 +1,35 @@
 ---
 regen: compiled
 sources:
+  - cmd/mdhop/main.go
   - cmd/mdhop/format.go
   - cmd/mdhop/format_query.go
   - cmd/mdhop/format_resolve.go
   - cmd/mdhop/format_stats.go
   - cmd/mdhop/format_diagnose.go
   - cmd/mdhop/format_search.go
-  - cmd/mdhop/format_move.go
-  - cmd/mdhop/format_movedir.go
-  - cmd/mdhop/convert.go
-  - cmd/mdhop/disambiguate.go
-  - cmd/mdhop/repair.go
-  - cmd/mdhop/simplify.go
-  - cmd/mdhop/format_add.go
-  - cmd/mdhop/format_delete.go
-  - cmd/mdhop/format_update.go
-  - cmd/mdhop/format_set.go
-  - cmd/mdhop/format_graph.go
   - cmd/mdhop/format_reachable.go
+  - cmd/mdhop/format_graph.go
+  - cmd/mdhop/format_status.go
   - cmd/mdhop/format_meta_check.go
   - cmd/mdhop/format_meta_validate.go
-  - cmd/mdhop/main.go
-  - cmd/mdhop/build.go
-  - cmd/mdhop/add.go
-  - cmd/mdhop/update.go
-  - cmd/mdhop/set.go
+  - cmd/mdhop/status.go
+  - docs/specs/overview.md
 ---
 
 # stdout 出力契約ガイド
 
-CLI の stdout / stderr 分離方針と、JSON 出力の構造的なポイントをまとめる。フィールド仕様の正本は `docs/specs/overview.md`。個々のフィールドの実装上の罠は `cmd/mdhop/format*.go` のコメントを参照。
+stdout は主結果、stderr は warning・hint・error・usage の経路。フィールドの正本は `docs/specs/overview.md`、実装の変更入口は次の表で辿る。
 
----
-
-## stdout / stderr の分離方針
-
-| ストリーム | 何を出力するか |
-|---|---|
-| stdout | コマンドの主結果（JSON または text）。agent が parse するもの |
-| stderr | warnings、hints、エラーメッセージ、usage |
-
-**stderr の出力パターン（`cmd/mdhop/format.go` および各コマンドファイル）:**
-
-- `printWarnings(warnings []string)` — `warning: <msg>` 形式で各行を stderr に書く。build/add/update/set が呼び出す
-- `formatCommandError(command, err)` — `error: <command>: <message>` 形式でトップレベルエラーを整形する（`main.go:82`）
-- `fmt.Fprintln(os.Stderr, "hint: ...")` — index が存在しない場合のヒント（repair/simplify/convert）
-- `fmt.Fprint(os.Stderr, "Usage: ...")` — main.go:97 でサブコマンド不明時
-
-**原則:** stdout に warning や hint を混ぜない。agent が stdout をそのまま parse できることが不変条件。
-
----
-
-## JSON エンコーダ共通仕様
-
-`format.go` の `encodeJSON(w, v)` を全コマンドで共有する。
-
-- `json.NewEncoder` + `SetIndent("", "  ")` → インデント付き JSON
-- 末尾に改行が自動付与される（`json.Encoder.Encode` の仕様）
-
----
-
-## JSON フィールドの出し方: 設計パターン
-
-### パターン A — struct + omitempty（リクエスト条件つきフィールド）
-
-**query コマンド** (`format_query.go:21-30`):
-
-```
-queryJSONOutput.Backlinks []jsonNodeInfo  `json:"backlinks,omitempty"`
-queryJSONOutput.TwoHop    []jsonTwoHop    `json:"twohop,omitempty"`
-queryJSONOutput.Meta      map[string][]string `json:"meta,omitempty"`
-```
-
-リクエストされなかったフィールドは nil のまま → `omitempty` で JSON から落ちる。
-
-**罠:** nil スライスと空スライス `[]` は `omitempty` では同じ扱い（両方省略）。しかし **slice field を持つ mutation 系コマンド（add/delete/update/move/repair/simplify/convert/disambiguate）は常に全フィールドを返す** ため、nil を `[]` に変換してから encode する。`set` は scalar 4 field のみで、この正規化を使わない（下記参照）。
-
-### パターン B — nil → 空配列への正規化（mutation 系）
-
-slice field を持つ mutation 系の JSON formatter は、encode 前に `emptyIfNil`（`format.go:15-20`、代表例 `format_add.go:21-27`）または `toRewrittenJSON` / `toSkippedJSON`（`format.go:130-136`, `format.go:188-199`）が返す nonnil slice で nil を空スライスへ正規化する。これにより、操作がなかった場合も `"added": []` や `"rewritten": []` のように空配列が出力され、フィールドが消えない。`set` はこの対象外で、scalar 4 field を直接 encode する。agent がフィールド存在を前提に parse できる安定 IF。
-
-### パターン C — map[string]any / map[string]int（フィールド選択型）
-
-**resolve / stats / diagnose / reachable** はリクエストされたフィールドのみ map に入れて encode する。
-
-```
-resolve:   buildResolveMap() → map[string]any  (format_resolve.go:43)
-stats:     printStatsJSON()  → map[string]int  (format_stats.go:19)
-diagnose:  printDiagnoseJSON() → map[string]any (format_diagnose.go:37)
-reachable: printReachableJSON() → map[string]any (format_reachable.go:17)
-```
-
-**罠:** `map[string]any` はリクエストされたフィールドが空でも常に key が出力される。一方 struct + `omitempty` だと空配列はフィールドごと消える。意図の違いに注意。
-
-diagnose の phantoms は例外的に、map へ `emptyIfNil` で正規化した空スライスを入れる:
-→ `format_diagnose.go:54-56`
-
----
-
-## `jsonNodeInfo` — note/asset/phantom/tag の共通型
-
-`format.go:105–110` で定義し、`format.go:112–119` で `core.NodeInfo` から変換する（type / name / path / exists の 4 フィールド。定義本体は正本を読む）。
-
-- `Path` と `Exists` は `type == note || type == asset` のときのみセットされる
-- `Exists` は `*bool` + `omitempty` — **bool を直接使うと false が JSON から落ちる**
-- query の entry は常に pointer (`*jsonNodeInfo`) で出力される（nil 不可）
-
----
-
-## mutation 系の共通型（format.go）
-
-| 型 | JSON フィールド | 用途 |
+| 出力経路 | 実装の入口 | 確認点 |
 |---|---|---|
-| `rewrittenJSON` | `file`, `old`, `new` | リンク書き換え1件 |
-| `skippedJSON` | `file`, `raw_link`, `basename`, `candidates` | 曖昧で書き換えスキップ |
-| `rewrittenJSONOutput` | `rewritten` | convert/disambiguate の共通出力 |
-| `rewriteResultJSONOutput` | `rewritten`, `skipped` | repair/simplify 共通出力 |
+| 共通 JSON / text error | `format.go:98` `textErrorWriter`、`118` `encodeJSON` | writer error を caller まで返す |
+| CLI error | `main.go:84` `formatCommandError` | 失敗時は stderr と非ゼロ終了 |
+| graph dot | `format_graph.go:36` `printGraphDot` | text writer 経由で error を返す |
+| status | `status.go:26`、`format_status.go:10` / `22` | JSON は `untracked` / `modified` / `deleted`、操作は read-only |
+| meta-check | `format_meta_check.go:22` / `36` | JSON の `line`、text の `location` |
+| meta-validate | `format_meta_validate.go:22` / `36` | missing は line 1、その他は値の位置 |
 
-`printRewrittenJSON()` は convert と disambiguate の両方が使う。`printRewriteResultJSON()` は repair と simplify の両方が使う。rewritten/skipped ともに nil → `[]` 変換済み。
+query は要求しないフィールドを `omitempty` で省略する。status と meta diagnostics の JSON 形状を変更する場合は、このページの source と `cmd/mdhop/format_test.go` を読む。
 
----
-
-## コマンド別 JSON 出力形状の早見表
-
-| コマンド | トップレベル型 | nil→[] 変換 | 備考 |
-|---|---|---|---|
-| resolve | `map[string]any` | 不要 | フィールド選択型 |
-| query | struct `queryJSONOutput` | 不要（omitempty） | entry は `*jsonNodeInfo` |
-| search | struct `searchJSONOutput` | 不要 | `total`, `items[]` 常出力 |
-| stats | `map[string]int` | 不要 | フィールド選択型 |
-| diagnose | `map[string]any` | phantoms のみ | anchors は opt-in |
-| reachable | `map[string]any` | reachable/unreachable | from は常出力 |
-| graph | `map[string]any` | 不要 | nodes/edges 常出力 |
-| move | struct `moveJSONOutput` | rewritten | from/to 常出力 |
-| movedir | struct `moveDirJSONOutput` | moved, rewritten | |
-| add | struct `addJSONOutput` | added, promoted, rewritten | |
-| delete | struct `deleteJSONOutput` | deleted, phantomed | |
-| update | struct `updateJSONOutput` | updated, deleted, phantomed | |
-| set | struct `setJSONOutput` | 不要 | file, key, value, created を常出力（`format_set.go:10–28`） |
-| repair | `rewriteResultJSONOutput` | rewritten, skipped | printRewriteResultJSON |
-| simplify | `rewriteResultJSONOutput` | rewritten, skipped | printRewriteResultJSON |
-| disambiguate | `rewrittenJSONOutput` | rewritten | printRewrittenJSON |
-| convert | `rewrittenJSONOutput` | rewritten | printRewrittenJSON |
-| meta-check | struct `metaCheckJSONOutput` | issues（nil なら `[]` を生成） | |
-| meta-validate | struct `metaValidateJSONOutput` | violations（nil なら `[]` を生成） | |
-
----
-
-## フィールドバリデーションのタイミング
-
-`validateFormat()` (`format.go:51`) / `validateFields()` (`format.go:60`) は DB オープン **前** に実行する。理由: index が存在しない状態でも unknown field エラーを即返せるようにするため。
-
----
-
-## search の特殊フィールド: *int + omitempty
-
-`searchJSONItem.Lines`, `OutgoingCount`, `IncomingCount` は `*int` + `omitempty`（`format_search.go:51-53`）。
-
-- リクエストされた場合のみポインタをセット → フィールドが出力される
-- リクエストされなかった場合は nil → `omitempty` で省略
-- `bool` と同じ理由で直接 `int` を使うと 0 と「未リクエスト」が区別できない
-
----
-
-## graph の特殊フォーマット: dot
-
-graph コマンドのみ `--format dot` が有効。`format_graph.go:36-46` で Graphviz digraph 形式を stdout に出力。`dotQuote()` は `strconv.Quote` を使い、ラベルをエスケープする。
-
----
-
-## text フォーマットの慣習
-
-- YAML 風の `key: value` 形式
-- リスト項目は `- ` プレフィックス
-- `writeNodeInfoText(w, n, firstIndent, restIndent)` — リスト項目の1行目は `- type: note`、続行は `  name: ...` とインデントを分ける（`format_query.go:167-174`）
-- `nodeInfoOneLine(n)` — twohop の via/targets 向けのコンパクト1行形式（`format_query.go:178-185`）
-- text フォーマットで「リクエストされなかったフィールド」と「リクエストされたが空だったフィールド」はどちらも出力されない（mutation 系は nil でも print するが空なら `printStringListText` がスキップ）
+meta diagnostics の位置は index snapshot 由来であり、既存 index を line 対応へ更新するときの正本は `docs/specs/overview.md:392` / `402`。stdout に warning や hint を混在させない。

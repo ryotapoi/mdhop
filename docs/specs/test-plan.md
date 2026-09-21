@@ -8,7 +8,7 @@
 - 正常系: Vault内の全Markdownを解析してDBを作成
 - 再build: 既存DBを上書き
 - 失敗系: 曖昧リンクが1件でもあればエラー
-- 失敗系: 失敗時は成果物を消すが、既存DBは残る
+- 失敗系: temp DB の削除失敗でも既存DBを残し、入力検証は DB 作成前に行う
 - 失敗系: vault外への相対パスリンクはエラー
 - 解析対象: `**/*.md` のみ、`.mdhop/` 配下は除外
 - case-insensitive basename: `[[note]]` → `Note.md` に解決
@@ -32,7 +32,8 @@
 - inline tag → tagノード + edge (link_type=tag)
 - frontmatter tag → tagノード + edge (link_type=frontmatter)、行番号はファイル全体の行番号
 - nested tag展開: `#a/b/c` → `#a`, `#a/b`, `#a/b/c`
-- code fence内のtagは無視
+- backtick / tilde fence は同じ delimiter 種別、開始時以上の連続数、末尾が空白だけの閉じ行を照合し、内部の link / tag / heading を無視する
+- 外部 URI（http(s)、mailto、ftp、scheme://）、opaque な colon 名、Windows path を区別して解析する
 - 複数ファイルの同一tagは同じtagノードを共有
 - inline tag Unicode: `#あいうえお`, `#my-tag` → 認識される
 - inline tag 先頭数字: `#123` → 認識されない
@@ -315,12 +316,22 @@
 - `--path` / `--exclude`、空結果、不正 glob / format を確認する。ID の build 間安定性は要求しない
 - path/exclude は CLI 引数だけであり config の除外は適用しない
 
+## 出力エラー
+
+- text formatter と DOT writer の書き込み失敗を返し、CLI は非ゼロ終了する
+
+## status
+
+- untracked / modified / deleted の note / asset を返し、差分の有無はエラーにしない
+- index、vault、設定を変更せず、build 除外中の既存 index entry も deleted 判定する
+
 ## meta-check
 
 - `--key` は必須かつ複数指定可。`--kind path|wikilink|auto`（既定 path）で値を解釈する
 - scalar / list を値単位で検査し、空値と URL は skip する。path の末尾 `/` は実在ディレクトリなら有効
 - 未解決値を issues として JSON/text に返し、reason は not_found / ambiguous / vault_escape / not_wikilink。JSON の line は値開始の 1 始まり行、text は vault 相対の location: path:line を返す。issues の検出自体はコマンドエラーとしない
 - `--path` / `--exclude` は source note を glob で絞る。`build.exclude_paths` で非索引の実在 note / asset も本文解析・DB 登録なしで参照先候補に含め、basename の曖昧性とルート優先を確認する。`--key` 未指定、無効な kind、不正 glob はエラー
+- issue の JSON line と text location が source の修正位置を示す
 
 ## meta-validate
 
@@ -329,6 +340,7 @@
 - 非 string の meta.types は type / enum を検査し、`--require` の有無にかかわらず継続する。require / profile / 非 string type がなければエラー
 - `--path` / `--exclude` は source note を glob で絞り、config の除外は適用しない。結果は violations として JSON/text に返し、値の JSON line は開始の 1 始まり行、text は vault 相対の location: path:line を返す。missing はノート先頭への編集導線として line 1 を返す。違反の検出自体はコマンドエラーとしない
 - 現在の meta 設定と line 保存形式で build された DB を前提にし、既存 index は build で再生成する
+- violation の JSON line と text location（missing は line 1）を確認する
 
 ## init-meta
 

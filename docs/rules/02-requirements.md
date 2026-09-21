@@ -21,9 +21,10 @@
   - frontmatter メタデータ（scalar 値と scalar 配列要素を meta テーブルに格納。null・マッピングはスキップ。型宣言に基づき sort_value を正規化）
 - 型設定: `mdhop.yaml` の `meta.types` で frontmatter キーの型を宣言（5 型: string, number, date, semver, ordered）。形式は docs/specs/overview.md 参照
 - 誤検出対策（最低限）:
-  - コードフェンス/インラインコード内のタグ抽出を抑止
+  - backtick / tilde の同種 delimiter で始まり、開始時以上の連続数の delimiter で閉じるコードフェンスの内部、およびインラインコード内のリンク・tag・heading 抽出を抑止
   - 見出し `# Heading` を tag として扱わない
   - URL の `#fragment` を tag と誤認しない
+  - `http(s)`, `mailto`, `ftp`, および `scheme://` 形式の外部 URI を内部リンクとして扱わない。opaque な `foo:bar` は内部名として扱う
 - phantom:
   - 解決不能な内部リンクを phantom node として保持し、`note -> phantom` を張る
 
@@ -72,6 +73,7 @@
   - priority（backlink > tags > two-hop(link) > two-hop(tag deep) > two-hop(tag shallow)）
   - 上限 (`max_backlinks`, `max_twohop`, `max_via_per_target`) で切る
   - ハブ via を避けるオプション（via_max_degree）
+- `--link-key <key>` は direct な backlinks / outgoing を指定 frontmatter key 由来のリンクに限定する
 
 - メタデータフィルタ（`--where`）:
   - frontmatter の値によるノードフィルタリング
@@ -112,6 +114,15 @@
 - プリセット出力 + Vault スキャンによる型推定
 - DB 不要（ファイル走査ベース）。build 前に実行可能
 - コマンド詳細は docs/specs/overview.md 参照
+
+### 2.9 インデックス状態の確認（status）
+
+- 未登録・変更済み・削除済みの note / asset を、索引やファイルを変更せずに一覧する
+
+### 2.10 frontmatter 診断
+
+- `meta-check` は、`build.exclude_paths` により索引・本文解析の対象外である実在ファイルも参照先候補として検査できる
+- 各 finding は source の行位置を返し、既存 index で行情報が必要な場合は再 build を要求する
 
 ---
 
