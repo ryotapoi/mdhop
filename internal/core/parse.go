@@ -11,9 +11,12 @@ type linkOccur struct {
 	isRelative bool
 	linkType   LinkType
 	rawLink    string
-	subpath    string
-	lineStart  int
-	lineEnd    int
+	// frontmatterKey is set only for links parsed from YAML frontmatter.
+	// Body links keep it empty and are stored as NULL in edges.frontmatter_key.
+	frontmatterKey string
+	subpath        string
+	lineStart      int
+	lineEnd        int
 }
 
 type parseResult struct {

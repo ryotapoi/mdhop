@@ -26,6 +26,9 @@ type QueryOptions struct {
 	MaxViaPerTarget int            // default 10
 	Exclude         *ExcludeFilter // nil = no exclusion
 	Where           *WhereClause   // nil = no filtering
+	// LinkKey restricts direct outgoing and backlinks to occurrences parsed
+	// from the named YAML frontmatter key.
+	LinkKey string
 	// Path restricts result nodes (backlinks, outgoing, twohop targets,
 	// snippet sources) to paths matching the globs. NULL-path nodes
 	// (phantom/tag) are kept, and twohop via nodes are not filtered.
@@ -135,7 +138,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	wc := opts.Where
 
 	if isFieldActive(FieldQueryBacklinks, opts.Fields) {
-		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef, wc, opts.Path)
+		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef, wc, opts.Path, opts.LinkKey)
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +147,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 
 	if isFieldActive(FieldQueryOutgoing, opts.Fields) {
 		if info.Type == NodeTypeNote {
-			og, err := queryOutgoing(db, nodeID, ef, wc, opts.Path)
+			og, err := queryOutgoing(db, nodeID, ef, wc, opts.Path, opts.LinkKey)
 			if err != nil {
 				return nil, err
 			}

@@ -121,14 +121,15 @@ func initSchema(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_nodes_type_name ON nodes(type, name);`,
 		`CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path);`,
 		`CREATE TABLE IF NOT EXISTS edges (
-			id         INTEGER PRIMARY KEY,
-			source_id  INTEGER NOT NULL,
-			target_id  INTEGER NOT NULL,
-			link_type  TEXT NOT NULL,
-			raw_link   TEXT NOT NULL,
-			subpath    TEXT,
-			line_start INTEGER,
-			line_end   INTEGER,
+			id              INTEGER PRIMARY KEY,
+			source_id       INTEGER NOT NULL,
+			target_id       INTEGER NOT NULL,
+			link_type       TEXT NOT NULL,
+			raw_link        TEXT NOT NULL,
+			frontmatter_key TEXT,
+			subpath         TEXT,
+			line_start      INTEGER,
+			line_end        INTEGER,
 			FOREIGN KEY(source_id) REFERENCES nodes(id),
 			FOREIGN KEY(target_id) REFERENCES nodes(id)
 		);`,
@@ -347,11 +348,15 @@ func queryMetaByNode(db dbExecer, nodeID int64) ([]MetaRow, error) {
 	return result, rows.Err()
 }
 
-func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, subpath string, lineStart, lineEnd int) error {
+func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, frontmatterKey, subpath string, lineStart, lineEnd int) error {
+	var key any
+	if frontmatterKey != "" {
+		key = frontmatterKey
+	}
 	_, err := db.Exec(
-		`INSERT INTO edges (source_id, target_id, link_type, raw_link, subpath, line_start, line_end)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		sourceID, targetID, string(linkType), rawLink, subpath, lineStart, lineEnd,
+		`INSERT INTO edges (source_id, target_id, link_type, raw_link, frontmatter_key, subpath, line_start, line_end)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		sourceID, targetID, string(linkType), rawLink, key, subpath, lineStart, lineEnd,
 	)
 	return err
 }

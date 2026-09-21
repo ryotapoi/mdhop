@@ -31,14 +31,15 @@ CREATE INDEX idx_nodes_type_name ON nodes(type, name);
 CREATE INDEX idx_nodes_path ON nodes(path);
 
 CREATE TABLE edges (
-  id          INTEGER PRIMARY KEY,
-  source_id   INTEGER NOT NULL,
-  target_id   INTEGER NOT NULL,
-  link_type   TEXT NOT NULL,
-  raw_link    TEXT NOT NULL,
-  subpath     TEXT,
-  line_start  INTEGER,
-  line_end    INTEGER,
+  id              INTEGER PRIMARY KEY,
+  source_id       INTEGER NOT NULL,
+  target_id       INTEGER NOT NULL,
+  link_type       TEXT NOT NULL,
+  raw_link        TEXT NOT NULL,
+  frontmatter_key TEXT, -- frontmatter の YAML key。本文 link は NULL
+  subpath         TEXT,
+  line_start      INTEGER,
+  line_end        INTEGER,
   FOREIGN KEY(source_id) REFERENCES nodes(id),
   FOREIGN KEY(target_id) REFERENCES nodes(id)
 );
@@ -49,6 +50,8 @@ CREATE INDEX idx_edges_source_target ON edges(source_id, target_id);
 ```
 
 edge の集計値（`outgoing_count` / `incoming_count`）は nodes に列を持たず、edges からの実行時集計で算出する。counts は edges の派生であり常に edges と一致させるため、lines（edges から導出できないファイル内容の事実）とは異なり永続化しない。
+
+スキーマ変更時は既存インデックスを移行せず、`mdhop build` で再生成する。`frontmatter_key` は build/update/add/move の各エッジ再解析時に保存される。
 
 ### 1.2 meta テーブル（v0.6.0）
 

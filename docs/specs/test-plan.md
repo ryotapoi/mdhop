@@ -75,6 +75,8 @@
 - `--include-head/--include-snippet` の出力
 - stale（mtime不一致）検出でエラー
 - `max-*` の上限適用
+- `--link-key <key>` は任意の frontmatter key 由来の link occurrence に限定して direct backlinks / outgoing を返す。同一 node への複数出現は 1 件に重複排除される
+  - 省略または空値は従来どおり非フィルタ。twohop、tags、head、snippet、meta、reachable には適用しない
 - `--exclude` でパス除外: backlinks/outgoing/twohop/snippet から除外パスが消える
 - `--exclude` 複数パス除外
 - `--exclude-tag` でタグ除外: tags から消える、twohop の via から消える

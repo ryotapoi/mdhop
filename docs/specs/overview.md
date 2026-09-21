@@ -171,6 +171,7 @@ meta:
 - `--max-backlinks <N>` : Backlinks の上限（default: 100）
 - `--max-twohop <N>` : two-hop の上限（default: 100）
 - `--max-via-per-target <N>` : two-hop の共通ターゲットごとの上限（default: 10）
+- `--link-key <key>` : direct な backlinks / outgoing を指定した frontmatter YAML key 由来のリンク出現に限定する。tags、twohop、head、snippet、meta、reachable には適用しない
 - `--path <glob>` : 結果ノード（backlinks / outgoing / twohop の targets / snippet）を一致するパスに絞る（複数回指定可、OR 結合）
   - path を持たない node（phantom / tag）は除外されない（`--exclude` と同じ NULL 保護）
   - twohop の via には適用しない（範囲外の via 経由で範囲内の targets に届くケースを保つ）
@@ -348,7 +349,7 @@ meta:
 - `query`
   - 必須: `--file` または `--tag` または `--phantom` または `--name`
   - 任意: `--vault`, `--format`, `--fields`, `--include-head`, `--include-snippet`,
-    `--max-backlinks`, `--max-twohop`, `--max-via-per-target`,
+    `--max-backlinks`, `--max-twohop`, `--max-via-per-target`, `--link-key`,
     `--path`, `--exclude`, `--exclude-tag`, `--no-exclude`, `--where`
 - `search`
   - 必須: なし

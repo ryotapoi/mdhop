@@ -71,7 +71,7 @@ func parseFrontmatter(lines []string) frontmatterResult {
 			continue
 		}
 		fr.meta = collectMeta(key.Value, val, offset, fr.meta)
-		fr.links = append(fr.links, collectFrontmatterWikilinks(val, offset)...)
+		fr.links = append(fr.links, collectFrontmatterWikilinks(key.Value, val, offset)...)
 	}
 	return fr
 }
@@ -80,17 +80,17 @@ func parseFrontmatter(lines []string) frontmatterResult {
 // list-item values only, matching Obsidian property link semantics. Bare
 // `key: [[Note]]` and bare list items `- [[Note]]` are YAML nested sequences,
 // not quoted scalars, and are ignored.
-func collectFrontmatterWikilinks(val *yaml.Node, offset int) []linkOccur {
+func collectFrontmatterWikilinks(key string, val *yaml.Node, offset int) []linkOccur {
 	if val == nil || val.Tag == "!!null" {
 		return nil
 	}
 	switch val.Kind {
 	case yaml.ScalarNode:
-		return wikilinksFromQuotedScalar(val, offset)
+		return wikilinksFromQuotedScalar(key, val, offset)
 	case yaml.SequenceNode:
 		var out []linkOccur
 		for _, item := range val.Content {
-			out = append(out, collectFrontmatterWikilinks(item, offset)...)
+			out = append(out, collectFrontmatterWikilinks(key, item, offset)...)
 		}
 		return out
 	default:
@@ -98,7 +98,7 @@ func collectFrontmatterWikilinks(val *yaml.Node, offset int) []linkOccur {
 	}
 }
 
-func wikilinksFromQuotedScalar(val *yaml.Node, offset int) []linkOccur {
+func wikilinksFromQuotedScalar(key string, val *yaml.Node, offset int) []linkOccur {
 	if val.Kind != yaml.ScalarNode || val.Value == "" {
 		return nil
 	}
@@ -109,6 +109,7 @@ func wikilinksFromQuotedScalar(val *yaml.Node, offset int) []linkOccur {
 	var out []linkOccur
 	for _, l := range parseWikiLinks(val.Value, fileLine) {
 		l.linkType = LinkTypeFrontmatterWikilink
+		l.frontmatterKey = key
 		out = append(out, l)
 	}
 	return out
@@ -186,11 +187,12 @@ func expandFrontmatterTag(normalized string, fileLine int, out []linkOccur) []li
 	for j := range parts {
 		prefix := "#" + strings.Join(parts[:j+1], "/")
 		out = append(out, linkOccur{
-			target:    prefix,
-			linkType:  LinkTypeFrontmatter,
-			rawLink:   prefix,
-			lineStart: fileLine,
-			lineEnd:   fileLine,
+			target:         prefix,
+			linkType:       LinkTypeFrontmatter,
+			rawLink:        prefix,
+			frontmatterKey: "tags",
+			lineStart:      fileLine,
+			lineEnd:        fileLine,
 		})
 	}
 	return out
@@ -213,6 +215,7 @@ func frontmatterPathLinks(meta []FrontmatterEntry, linkKeys []string) []linkOccu
 			continue
 		}
 		if occ, ok := frontmatterPathOccur(m.Value, m.Line); ok {
+			occ.frontmatterKey = m.Key
 			out = append(out, occ)
 		}
 	}

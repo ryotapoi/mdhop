@@ -24,6 +24,7 @@ Options:
   --max-backlinks <N>         Backlinks limit. Default: 100.
   --max-twohop <N>            Two-hop result limit. Default: 100.
   --max-via-per-target <N>    Via entries per two-hop target. Default: 10.
+  --link-key <key>            Restrict direct backlinks and outgoing links to a frontmatter key.
   --path <glob>               Optional, repeatable. Include result paths matching any glob.
   --exclude <glob>            Optional, repeatable. Exclude result paths matching the glob.
   --exclude-tag <tag>         Optional, repeatable. Exclude matching tags.
@@ -64,6 +65,7 @@ func runQuery(args []string) error {
 	maxBacklinks := fs.Int("max-backlinks", core.DefaultMaxBacklinks, "max backlinks")
 	maxTwoHop := fs.Int("max-twohop", core.DefaultMaxTwoHop, "max twohop entries")
 	maxViaPerTarget := fs.Int("max-via-per-target", core.DefaultMaxViaPerTarget, "max via entries per twohop target")
+	linkKey := fs.String("link-key", "", "frontmatter key for direct link results")
 	var pathPatterns multiString
 	var excludePaths multiString
 	var excludeTags multiString
@@ -124,6 +126,7 @@ func runQuery(args []string) error {
 		MaxViaPerTarget: *maxViaPerTarget,
 		Exclude:         ef,
 		Where:           wc,
+		LinkKey:         *linkKey,
 		Path:            pathPatterns,
 	}
 

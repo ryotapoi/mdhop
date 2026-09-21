@@ -354,7 +354,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 			if targetID == 0 {
 				continue
 			}
-			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, subpath, link.lineStart, link.lineEnd); err != nil {
+			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, subpath, link.lineStart, link.lineEnd); err != nil {
 				return nil, err
 			}
 		}

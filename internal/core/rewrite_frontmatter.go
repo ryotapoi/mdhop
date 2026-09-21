@@ -129,7 +129,7 @@ func frontmatterRewriteOccurrences(lines []string, doc *yaml.Node) ([]frontmatte
 		key, value := doc.Content[0].Content[i], doc.Content[0].Content[i+1]
 		if key.Value != "tags" {
 			var err error
-			occurrences, err = appendRewriteOccurrences(lines, value, occurrences)
+			occurrences, err = appendRewriteOccurrences(lines, key.Value, value, occurrences)
 			if err != nil {
 				return nil, err
 			}
@@ -138,14 +138,14 @@ func frontmatterRewriteOccurrences(lines []string, doc *yaml.Node) ([]frontmatte
 	return occurrences, nil
 }
 
-func appendRewriteOccurrences(lines []string, value *yaml.Node, out []frontmatterRewriteOccurrence) ([]frontmatterRewriteOccurrence, error) {
+func appendRewriteOccurrences(lines []string, key string, value *yaml.Node, out []frontmatterRewriteOccurrence) ([]frontmatterRewriteOccurrence, error) {
 	if value == nil || value.Tag == "!!null" {
 		return out, nil
 	}
 	if value.Kind == yaml.SequenceNode {
 		for _, item := range value.Content {
 			var err error
-			out, err = appendRewriteOccurrences(lines, item, out)
+			out, err = appendRewriteOccurrences(lines, key, item, out)
 			if err != nil {
 				return nil, err
 			}
@@ -168,6 +168,7 @@ func appendRewriteOccurrences(lines []string, value *yaml.Node, out []frontmatte
 	for _, span := range spans {
 		link := parseWikiLinks(span.raw, value.Line+1)[0]
 		link.linkType = LinkTypeFrontmatterWikilink
+		link.frontmatterKey = key
 		out = append(out, frontmatterRewriteOccurrence{
 			linkOccur: link,
 			start:     contentStart + span.start,
@@ -280,6 +281,7 @@ func expectedFrontmatterOccurrences(original []frontmatterRewriteOccurrence, rew
 			if !used[i] && occurrence.lineStart == rewrite.lineStart && occurrence.rawLink == rewrite.rawLink {
 				updated := parseWikiLinks(rewrite.newRawLink, rewrite.lineStart)[0]
 				updated.linkType = LinkTypeFrontmatterWikilink
+				updated.frontmatterKey = occurrence.frontmatterKey
 				result[i] = updated
 				used[i] = true
 				break

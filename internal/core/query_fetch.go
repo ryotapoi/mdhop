@@ -6,11 +6,15 @@ import (
 	"strings"
 )
 
-func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, wc *WhereClause, include []string) ([]NodeInfo, error) {
+func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, wc *WhereClause, include []string, linkKey string) ([]NodeInfo, error) {
 	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.source_id
 		 WHERE e.target_id = ?`
 	args := []any{targetID}
+	if linkKey != "" {
+		q += ` AND e.frontmatter_key = ?`
+		args = append(args, linkKey)
+	}
 
 	if ef != nil {
 		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
@@ -48,11 +52,15 @@ func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, w
 	return result, rows.Err()
 }
 
-func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClause, include []string) ([]NodeInfo, error) {
+func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClause, include []string, linkKey string) ([]NodeInfo, error) {
 	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
 		 FROM edges e JOIN nodes n ON n.id = e.target_id
 		 WHERE e.source_id = ? AND e.target_id != ? AND n.type IN ('note','phantom','asset')`
 	args := []any{sourceID, sourceID}
+	if linkKey != "" {
+		q += ` AND e.frontmatter_key = ?`
+		args = append(args, linkKey)
+	}
 
 	if ef != nil {
 		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")

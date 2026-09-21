@@ -952,6 +952,47 @@ func TestRunQuery_PathFilter(t *testing.T) {
 	}
 }
 
+func TestRunQuery_LinkKey(t *testing.T) {
+	vault := t.TempDir()
+	for path, content := range map[string]string{
+		"Source.md": "---\nquoted: \"[[Quoted]]\"\n---\n[[Body]]\n",
+		"Quoted.md": "# Quoted\n",
+		"Body.md":   "# Body\n",
+	} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runQuery([]string{"--vault", vault, "--file", "Source.md", "--link-key", "quoted", "--fields", "outgoing", "--format", "json"})
+	})
+	var result struct {
+		Outgoing []struct {
+			Path string `json:"path"`
+		} `json:"outgoing"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, out)
+	}
+	if len(result.Outgoing) != 1 || result.Outgoing[0].Path != "Quoted.md" {
+		t.Errorf("outgoing = %#v, want Quoted.md only", result.Outgoing)
+	}
+
+	out = captureStdout(t, func() error {
+		return runQuery([]string{"--vault", vault, "--file", "Source.md", "--link-key", "", "--fields", "outgoing", "--format", "json"})
+	})
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("json unmarshal empty link key: %v\noutput: %s", err, out)
+	}
+	if len(result.Outgoing) != 2 {
+		t.Errorf("empty link key outgoing = %#v, want unfiltered results", result.Outgoing)
+	}
+}
+
 func TestRunDiagnose_BrokenAnchors(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_anchor_check")
 
