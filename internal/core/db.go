@@ -141,6 +141,7 @@ func initSchema(db *sql.DB) error {
 			node_id    INTEGER NOT NULL,
 			key        TEXT NOT NULL,
 			value      TEXT NOT NULL,
+			line       INTEGER NOT NULL,
 			sort_value TEXT,
 			value_type TEXT,
 			FOREIGN KEY(node_id) REFERENCES nodes(id)
@@ -306,18 +307,18 @@ func insertMetaEntries(db dbExecer, nodeID int64, path string, entries []Frontma
 			warnings = append(warnings, fmt.Sprintf("%s:%d: %s (key=%s)", path, entry.Line, warning, entry.Key))
 			storedType = string(MetaTypeString)
 		}
-		if err := insertMeta(db, nodeID, entry.Key, entry.Value, sortValue, storedType); err != nil {
+		if err := insertMeta(db, nodeID, entry.Key, entry.Value, entry.Line, sortValue, storedType); err != nil {
 			return nil, err
 		}
 	}
 	return warnings, nil
 }
 
-func insertMeta(db dbExecer, nodeID int64, key, value, sortValue, valueType string) error {
+func insertMeta(db dbExecer, nodeID int64, key, value string, line int, sortValue, valueType string) error {
 	_, err := db.Exec(
-		`INSERT INTO meta (node_id, key, value, sort_value, value_type)
-		 VALUES (?, ?, ?, ?, ?)`,
-		nodeID, key, value, sortValue, valueType,
+		`INSERT INTO meta (node_id, key, value, line, sort_value, value_type)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		nodeID, key, value, line, sortValue, valueType,
 	)
 	return err
 }

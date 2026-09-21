@@ -2373,6 +2373,7 @@ func TestRunMetaCheck_PathKind(t *testing.T) {
 			SourcePath string `json:"source_path"`
 			Key        string `json:"key"`
 			Value      string `json:"value"`
+			Line       int    `json:"line"`
 			Reason     string `json:"reason"`
 		} `json:"issues"`
 	}
@@ -2384,6 +2385,9 @@ func TestRunMetaCheck_PathKind(t *testing.T) {
 	}
 	if m.Issues[0].Value != "./missing.md" || m.Issues[0].Reason != "not_found" {
 		t.Errorf("issue = %+v, want ./missing.md not_found", m.Issues[0])
+	}
+	if m.Issues[0].Line != 4 {
+		t.Errorf("issue line = %d, want 4", m.Issues[0].Line)
 	}
 }
 
@@ -2496,6 +2500,7 @@ func TestRunMetaValidate_TypeAndEnum(t *testing.T) {
 		SourcePath string `json:"source_path"`
 		Key        string `json:"key"`
 		Value      string `json:"value"`
+		Line       int    `json:"line"`
 		Reason     string `json:"reason"`
 	}
 	var m struct {
@@ -2518,12 +2523,18 @@ func TestRunMetaValidate_TypeAndEnum(t *testing.T) {
 	if tv.SourcePath != "bad_date.md" || tv.Key != "updated" || tv.Value != "someday" {
 		t.Errorf("type violation = %+v, want bad_date.md/updated/someday", tv)
 	}
+	if tv.Line != 3 {
+		t.Errorf("type violation line = %d, want 3", tv.Line)
+	}
 	ev, ok := byReason["enum"]
 	if !ok {
 		t.Fatalf("no enum violation in %+v", m.Violations)
 	}
 	if ev.SourcePath != "bad_enum.md" || ev.Key != "severity" || ev.Value != "urgent" {
 		t.Errorf("enum violation = %+v, want bad_enum.md/severity/urgent", ev)
+	}
+	if ev.Line != 3 {
+		t.Errorf("enum violation line = %d, want 3", ev.Line)
 	}
 }
 
@@ -2539,6 +2550,7 @@ func TestRunMetaValidate_Required(t *testing.T) {
 			SourcePath string `json:"source_path"`
 			Key        string `json:"key"`
 			Value      string `json:"value"`
+			Line       int    `json:"line"`
 			Reason     string `json:"reason"`
 		} `json:"violations"`
 	}
@@ -2555,6 +2567,9 @@ func TestRunMetaValidate_Required(t *testing.T) {
 		}
 		if v.Value != "" {
 			t.Errorf("missing value = %q, want empty", v.Value)
+		}
+		if v.Line != 1 {
+			t.Errorf("missing line = %d, want 1", v.Line)
 		}
 		missing = append(missing, v.SourcePath)
 	}

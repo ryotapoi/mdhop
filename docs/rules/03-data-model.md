@@ -63,6 +63,7 @@ CREATE TABLE meta (
   node_id    INTEGER NOT NULL,
   key        TEXT NOT NULL,
   value      TEXT NOT NULL,
+  line       INTEGER NOT NULL,
   sort_value TEXT,
   value_type TEXT,
   FOREIGN KEY(node_id) REFERENCES nodes(id)
@@ -74,6 +75,7 @@ CREATE INDEX idx_meta_key_sort_value ON meta(key, sort_value);
 
 カラム設計:
 - `value`: frontmatter の生値（表示・LIKE 検索用）
+- `line`: 値の開始位置（ファイル全体で 1 始まり）。値と同じ build/update 時点の snapshot から保存する
 - `sort_value`: 型ごとに正規化された比較用文字列（→ 1.3 参照）
 - `value_type`: 型名（string/date/number/semver/ordered）。比較演算子の型ガードに使用
 

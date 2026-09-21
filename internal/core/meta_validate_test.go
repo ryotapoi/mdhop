@@ -57,6 +57,9 @@ func TestMetaValidate_Required(t *testing.T) {
 		if v.Value != "" {
 			t.Errorf("missing value = %q, want empty", v.Value)
 		}
+		if v.Line != 1 {
+			t.Errorf("missing line = %d, want 1", v.Line)
+		}
 		missing = append(missing, v.SourcePath)
 	}
 	sort.Strings(missing)
@@ -67,6 +70,40 @@ func TestMetaValidate_Required(t *testing.T) {
 	for i := range want {
 		if missing[i] != want[i] {
 			t.Errorf("missing[%d] = %s, want %s", i, missing[i], want[i])
+		}
+	}
+}
+
+func TestMetaValidate_MissingUsesFirstLine(t *testing.T) {
+	vault := t.TempDir()
+	for path, content := range map[string]string{
+		"Absent.md": "# No frontmatter\n",
+		"Empty.md":  "---\nstatus:\n---\n",
+		"Null.md":   "---\nstatus: null\n---\n",
+	} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	result, err := MetaValidate(vault, MetaValidateOptions{Require: []string{"status"}})
+	if err != nil {
+		t.Fatalf("meta-validate: %v", err)
+	}
+	var missing []MetaViolation
+	for _, violation := range result.Violations {
+		if violation.Reason == ReasonMissing && violation.Key == "status" {
+			missing = append(missing, violation)
+		}
+	}
+	if len(missing) != 3 {
+		t.Fatalf("missing violations = %+v, want 3", missing)
+	}
+	for _, violation := range missing {
+		if violation.Line != 1 {
+			t.Errorf("missing violation = %+v, want line 1", violation)
 		}
 	}
 }
@@ -95,6 +132,9 @@ func TestMetaValidate_TypeAndEnum(t *testing.T) {
 	if typeV.SourcePath != "bad_date.md" || typeV.Key != "updated" || typeV.Value != "someday" {
 		t.Errorf("type violation = %+v, want bad_date.md/updated/someday", typeV)
 	}
+	if typeV.Line != 3 {
+		t.Errorf("type violation line = %d, want 3", typeV.Line)
+	}
 
 	enumV, ok := byReason[ReasonEnum]
 	if !ok {
@@ -102,6 +142,9 @@ func TestMetaValidate_TypeAndEnum(t *testing.T) {
 	}
 	if enumV.SourcePath != "bad_enum.md" || enumV.Key != "severity" || enumV.Value != "urgent" {
 		t.Errorf("enum violation = %+v, want bad_enum.md/severity/urgent", enumV)
+	}
+	if enumV.Line != 3 {
+		t.Errorf("enum violation line = %d, want 3", enumV.Line)
 	}
 }
 

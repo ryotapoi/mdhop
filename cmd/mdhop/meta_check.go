@@ -24,7 +24,11 @@ Output fields:
   source_path  Note containing the frontmatter value.
   key          Frontmatter key.
   value        Unresolved value.
+  line         1-based source line where the value starts, from the index snapshot.
   reason       not_found, ambiguous, vault_escape, or not_wikilink.
+
+Text output also includes location: <source_path>:<line>. Rebuild with
+mdhop build after upgrading an existing index to store line information.
 
 Examples:
   mdhop meta-check --key sources --kind path --format json

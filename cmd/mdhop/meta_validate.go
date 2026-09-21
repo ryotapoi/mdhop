@@ -26,7 +26,12 @@ Output fields:
   source_path   Note containing the violation.
   key           Frontmatter key.
   value         Invalid value when applicable.
+  line          1-based source line where the value starts, from the index snapshot.
   reason        missing, type, or enum.
+
+Missing values use line 1 as the note editing start point. Text output also includes
+location: <source_path>:<line>. Rebuild with mdhop build after upgrading an existing
+index to store line information.
 
 Examples:
   mdhop meta-validate --require type --require status --format json

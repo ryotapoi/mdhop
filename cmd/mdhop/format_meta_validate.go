@@ -11,6 +11,7 @@ type metaViolationJSON struct {
 	SourcePath string `json:"source_path"`
 	Key        string `json:"key"`
 	Value      string `json:"value"`
+	Line       int    `json:"line"`
 	Reason     string `json:"reason"`
 }
 
@@ -25,6 +26,7 @@ func printMetaValidateJSON(w io.Writer, r *core.MetaValidateResult) error {
 			SourcePath: v.SourcePath,
 			Key:        v.Key,
 			Value:      v.Value,
+			Line:       v.Line,
 			Reason:     string(v.Reason),
 		}
 	}
@@ -42,6 +44,7 @@ func printMetaValidateText(w io.Writer, r *core.MetaValidateResult) error {
 		fmt.Fprintf(w, "- source_path: %s\n", v.SourcePath)
 		fmt.Fprintf(w, "  key: %s\n", v.Key)
 		fmt.Fprintf(w, "  value: %s\n", v.Value)
+		fmt.Fprintf(w, "  location: %s:%d\n", v.SourcePath, v.Line)
 		fmt.Fprintf(w, "  reason: %s\n", v.Reason)
 	}
 	return output.err

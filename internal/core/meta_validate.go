@@ -32,6 +32,7 @@ type MetaViolation struct {
 	SourcePath string              // note holding (or missing) the key
 	Key        string              // frontmatter key
 	Value      string              // offending value ("" for missing)
+	Line       int                 // 1-based file line where the value starts (1 for missing)
 	Reason     MetaViolationReason // why it failed
 }
 
@@ -153,6 +154,7 @@ func validateRequiredKey(db dbExecer, key string, inclSQL string, inclArgs []any
 		result.Violations = append(result.Violations, MetaViolation{
 			SourcePath: path,
 			Key:        key,
+			Line:       1,
 			Reason:     ReasonMissing,
 		})
 	}
@@ -189,11 +191,11 @@ func validateTypes(db dbExecer, typedKeys map[string]MetaTypeInfo, inclSQL strin
 	if len(typedKeys) == 0 {
 		return nil
 	}
-	query := `SELECT n.path, m.key, m.value, COALESCE(m.value_type,'')
+	query := `SELECT n.path, m.key, m.value, m.line, COALESCE(m.value_type,'')
 		FROM meta m
 		JOIN nodes n ON n.id = m.node_id
 		WHERE n.type='note' AND n.exists_flag=1` + inclSQL + exclSQL + `
-		ORDER BY n.path, m.key, m.value`
+		ORDER BY n.path, m.key, m.value, m.line`
 	args := append(append([]any{}, inclArgs...), exclArgs...)
 	rows, err := db.Query(query, args...)
 	if err != nil {
@@ -202,7 +204,8 @@ func validateTypes(db dbExecer, typedKeys map[string]MetaTypeInfo, inclSQL strin
 	defer rows.Close()
 	for rows.Next() {
 		var path, key, value, storedType string
-		if err := rows.Scan(&path, &key, &value, &storedType); err != nil {
+		var line int
+		if err := rows.Scan(&path, &key, &value, &line, &storedType); err != nil {
 			return err
 		}
 		info, ok := typedKeys[key]
@@ -220,6 +223,7 @@ func validateTypes(db dbExecer, typedKeys map[string]MetaTypeInfo, inclSQL strin
 			SourcePath: path,
 			Key:        key,
 			Value:      value,
+			Line:       line,
 			Reason:     reason,
 		})
 	}

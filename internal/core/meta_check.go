@@ -47,6 +47,7 @@ type MetaIssue struct {
 	SourcePath string          // note holding the frontmatter key
 	Key        string          // frontmatter key
 	Value      string          // the raw value that failed
+	Line       int             // 1-based file line where the value starts
 	Reason     MetaIssueReason // why it failed
 }
 
@@ -98,16 +99,16 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 		keySet[k] = true
 	}
 
-	// Fetch (source path, key, value) rows for the requested keys from notes
+	// Fetch (source path, key, value, line) rows for the requested keys from notes
 	// matching the path filter.
 	ef := &ExcludeFilter{PathGlobs: opts.Exclude}
 	inclSQL, inclArgs := pathIncludeSQL("n.path", opts.Path)
 	exclSQL, exclArgs := ef.PathExcludeSQL("n.path")
-	query := `SELECT n.path, m.key, m.value
+	query := `SELECT n.path, m.key, m.value, m.line
 		FROM meta m
 		JOIN nodes n ON n.id = m.node_id
 		WHERE n.type='note' AND n.exists_flag=1` + inclSQL + exclSQL + `
-		ORDER BY n.path, m.key, m.value`
+		ORDER BY n.path, m.key, m.value, m.line`
 	args := append(append([]any{}, inclArgs...), exclArgs...)
 
 	rows, err := db.Query(query, args...)
@@ -119,13 +120,14 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 	result := &MetaCheckResult{}
 	for rows.Next() {
 		var srcPath, key, value string
-		if err := rows.Scan(&srcPath, &key, &value); err != nil {
+		var line int
+		if err := rows.Scan(&srcPath, &key, &value, &line); err != nil {
 			return nil, err
 		}
 		if !keySet[key] {
 			continue
 		}
-		if issue, ok := checkMetaValue(vaultPath, srcPath, key, value, opts.Kind, rm); ok {
+		if issue, ok := checkMetaValue(vaultPath, srcPath, key, value, line, opts.Kind, rm); ok {
 			result.Issues = append(result.Issues, issue)
 		}
 	}
@@ -134,13 +136,13 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 
 // checkMetaValue resolves a single value and returns a MetaIssue if it fails.
 // ok is false when the value is valid or intentionally skipped (URL/empty).
-func checkMetaValue(vaultPath, srcPath, key, value string, kind MetaValueKind, rm *resolveMaps) (MetaIssue, bool) {
+func checkMetaValue(vaultPath, srcPath, key, value string, line int, kind MetaValueKind, rm *resolveMaps) (MetaIssue, bool) {
 	v := strings.TrimSpace(value)
 	if v == "" || strings.Contains(v, "://") {
 		return MetaIssue{}, false // empty or URL: allowed
 	}
 
-	issue := MetaIssue{SourcePath: srcPath, Key: key, Value: value}
+	issue := MetaIssue{SourcePath: srcPath, Key: key, Value: value, Line: line}
 
 	checkKind := kind
 	if kind == MetaKindAuto {

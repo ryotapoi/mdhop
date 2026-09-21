@@ -42,4 +42,4 @@
 - [x] 索引から除外したファイルも、本文を解析対象に加えずに meta-check の参照先として実在確認できるようにする。
 - [x] ディスクと索引を比較し、未登録・変更済み・削除済みファイルを一覧化する。差分同期は含めない。
 - [x] 任意の frontmatter キーで query の直接 outgoing / backlinks を絞り込めるようにする。reachable には適用しない。
-- [ ] meta-check・meta-validate の指摘に位置情報を付け、問題箇所を直接開けるようにする。
+- [x] meta-check・meta-validate の指摘に位置情報を付け、問題箇所を直接開けるようにする。

@@ -935,8 +935,8 @@ func TestPrintMetaCheckText(t *testing.T) {
 
 	t.Run("issues", func(t *testing.T) {
 		r := &core.MetaCheckResult{Issues: []core.MetaIssue{
-			{SourcePath: "Notes/A.md", Key: "related", Value: "Missing.md", Reason: core.ReasonNotFound},
-			{SourcePath: "Notes/B.md", Key: "parent", Value: "../outside.md", Reason: core.ReasonVaultEscape},
+			{SourcePath: "Notes/A.md", Key: "related", Value: "Missing.md", Line: 4, Reason: core.ReasonNotFound},
+			{SourcePath: "Notes/B.md", Key: "parent", Value: "../outside.md", Line: 7, Reason: core.ReasonVaultEscape},
 		}}
 		var buf bytes.Buffer
 		if err := printMetaCheckText(&buf, r); err != nil {
@@ -946,16 +946,29 @@ func TestPrintMetaCheckText(t *testing.T) {
 - source_path: Notes/A.md
   key: related
   value: Missing.md
+  location: Notes/A.md:4
   reason: not_found
 - source_path: Notes/B.md
   key: parent
   value: ../outside.md
+  location: Notes/B.md:7
   reason: vault_escape
 `
 		if got := buf.String(); got != want {
 			t.Errorf("got:\n%s\nwant:\n%s", got, want)
 		}
 	})
+}
+
+func TestPrintMetaCheckJSON(t *testing.T) {
+	r := &core.MetaCheckResult{Issues: []core.MetaIssue{
+		{SourcePath: "Notes/A.md", Key: "related", Value: "Missing.md", Line: 4, Reason: core.ReasonNotFound},
+	}}
+	var buf bytes.Buffer
+	if err := printMetaCheckJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	assertJSONEqual(t, buf.Bytes(), `{"issues":[{"source_path":"Notes/A.md","key":"related","value":"Missing.md","line":4,"reason":"not_found"}]}`)
 }
 
 func TestPrintMetaValidateText(t *testing.T) {
@@ -971,8 +984,8 @@ func TestPrintMetaValidateText(t *testing.T) {
 
 	t.Run("violations", func(t *testing.T) {
 		r := &core.MetaValidateResult{Violations: []core.MetaViolation{
-			{SourcePath: "Notes/A.md", Key: "status", Value: "", Reason: core.ReasonMissing},
-			{SourcePath: "Notes/B.md", Key: "due", Value: "tomorrow", Reason: core.ReasonType},
+			{SourcePath: "Notes/A.md", Key: "status", Value: "", Line: 1, Reason: core.ReasonMissing},
+			{SourcePath: "Notes/B.md", Key: "due", Value: "tomorrow", Line: 5, Reason: core.ReasonType},
 		}}
 		var buf bytes.Buffer
 		if err := printMetaValidateText(&buf, r); err != nil {
@@ -981,14 +994,27 @@ func TestPrintMetaValidateText(t *testing.T) {
 		want := `violations:
 - source_path: Notes/A.md
   key: status
-  value:` + " \n" + `  reason: missing
+  value:` + " \n" + `  location: Notes/A.md:1
+  reason: missing
 - source_path: Notes/B.md
   key: due
   value: tomorrow
+  location: Notes/B.md:5
   reason: type
 `
 		if got := buf.String(); got != want {
 			t.Errorf("got:\n%s\nwant:\n%s", got, want)
 		}
 	})
+}
+
+func TestPrintMetaValidateJSON(t *testing.T) {
+	r := &core.MetaValidateResult{Violations: []core.MetaViolation{
+		{SourcePath: "Notes/A.md", Key: "status", Value: "", Line: 1, Reason: core.ReasonMissing},
+	}}
+	var buf bytes.Buffer
+	if err := printMetaValidateJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	assertJSONEqual(t, buf.Bytes(), `{"violations":[{"source_path":"Notes/A.md","key":"status","value":"","line":1,"reason":"missing"}]}`)
 }

@@ -37,6 +37,80 @@ func TestMetaCheck_PathKind(t *testing.T) {
 	if is.SourcePath != "docs/index.md" || is.Key != "sources" {
 		t.Errorf("issue source/key = %s/%s, want docs/index.md/sources", is.SourcePath, is.Key)
 	}
+	if is.Line != 4 {
+		t.Errorf("issue line = %d, want 4", is.Line)
+	}
+}
+
+func TestMetaCheck_PersistsValueLinesAcrossUpdate(t *testing.T) {
+	vault := t.TempDir()
+	notePath := filepath.Join(vault, "Index.md")
+	initial := "---\nsources:\n  - Missing.md\n  - Missing.md\n---\n"
+	if err := os.WriteFile(notePath, []byte(initial), 0o644); err != nil {
+		t.Fatalf("write initial note: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	assertLines := func(want []int) {
+		t.Helper()
+		result, err := MetaCheck(vault, MetaCheckOptions{Keys: []string{"sources"}, Kind: MetaKindPath})
+		if err != nil {
+			t.Fatalf("meta-check: %v", err)
+		}
+		if len(result.Issues) != len(want) {
+			t.Fatalf("issues = %+v, want %d", result.Issues, len(want))
+		}
+		for i, issue := range result.Issues {
+			if issue.Value != "Missing.md" || issue.Line != want[i] {
+				t.Errorf("issue[%d] = %+v, want Missing.md at line %d", i, issue, want[i])
+			}
+		}
+	}
+	assertLines([]int{3, 4})
+
+	updated := "---\nsources:\n  - Missing.md\n\n  - Missing.md\n---\n"
+	if err := os.WriteFile(notePath, []byte(updated), 0o644); err != nil {
+		t.Fatalf("write updated note: %v", err)
+	}
+	if _, err := Update(vault, UpdateOptions{Files: []string{"Index.md"}}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	assertLines([]int{3, 5})
+}
+
+func TestMetaCheck_BuildReplacesLegacyMetaSchema(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "Index.md"), []byte("---\nsources: Missing.md\n---\n"), 0o644); err != nil {
+		t.Fatalf("write note: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(dbPath(vault)), 0o755); err != nil {
+		t.Fatalf("create legacy index directory: %v", err)
+	}
+	legacy, err := openDBAt(dbPath(vault))
+	if err != nil {
+		t.Fatalf("open legacy DB: %v", err)
+	}
+	if _, err := legacy.Exec(`CREATE TABLE meta (
+		id INTEGER PRIMARY KEY, node_id INTEGER NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
+		sort_value TEXT, value_type TEXT)`); err != nil {
+		legacy.Close()
+		t.Fatalf("create legacy meta table: %v", err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatalf("close legacy DB: %v", err)
+	}
+
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build replacement index: %v", err)
+	}
+	result, err := MetaCheck(vault, MetaCheckOptions{Keys: []string{"sources"}, Kind: MetaKindPath})
+	if err != nil {
+		t.Fatalf("meta-check after build: %v", err)
+	}
+	if len(result.Issues) != 1 || result.Issues[0].Line != 2 {
+		t.Fatalf("issues = %+v, want Missing.md at line 2", result.Issues)
+	}
 }
 
 func TestMetaCheckResolvesNFCValueToNFDPath(t *testing.T) {

@@ -11,6 +11,7 @@ type metaIssueJSON struct {
 	SourcePath string `json:"source_path"`
 	Key        string `json:"key"`
 	Value      string `json:"value"`
+	Line       int    `json:"line"`
 	Reason     string `json:"reason"`
 }
 
@@ -25,6 +26,7 @@ func printMetaCheckJSON(w io.Writer, r *core.MetaCheckResult) error {
 			SourcePath: is.SourcePath,
 			Key:        is.Key,
 			Value:      is.Value,
+			Line:       is.Line,
 			Reason:     string(is.Reason),
 		}
 	}
@@ -42,6 +44,7 @@ func printMetaCheckText(w io.Writer, r *core.MetaCheckResult) error {
 		fmt.Fprintf(w, "- source_path: %s\n", is.SourcePath)
 		fmt.Fprintf(w, "  key: %s\n", is.Key)
 		fmt.Fprintf(w, "  value: %s\n", is.Value)
+		fmt.Fprintf(w, "  location: %s:%d\n", is.SourcePath, is.Line)
 		fmt.Fprintf(w, "  reason: %s\n", is.Reason)
 	}
 	return output.err

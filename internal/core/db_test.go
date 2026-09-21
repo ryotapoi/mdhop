@@ -202,10 +202,10 @@ func TestInsertMeta(t *testing.T) {
 	}
 
 	// Insert two rows with the same key (list values).
-	if err := insertMeta(db, nodeID, "tags", "go", "go", "string"); err != nil {
+	if err := insertMeta(db, nodeID, "tags", "go", 2, "go", "string"); err != nil {
 		t.Fatalf("insertMeta 1: %v", err)
 	}
-	if err := insertMeta(db, nodeID, "tags", "cli", "cli", "string"); err != nil {
+	if err := insertMeta(db, nodeID, "tags", "cli", 3, "cli", "string"); err != nil {
 		t.Fatalf("insertMeta 2: %v", err)
 	}
 
@@ -230,13 +230,13 @@ func TestDeleteMetaByNode(t *testing.T) {
 		t.Fatalf("upsertNote 2: %v", err)
 	}
 
-	if err := insertMeta(db, node1, "key1", "v1", "v1", "string"); err != nil {
+	if err := insertMeta(db, node1, "key1", "v1", 2, "v1", "string"); err != nil {
 		t.Fatal(err)
 	}
-	if err := insertMeta(db, node1, "key2", "v2", "v2", "string"); err != nil {
+	if err := insertMeta(db, node1, "key2", "v2", 3, "v2", "string"); err != nil {
 		t.Fatal(err)
 	}
-	if err := insertMeta(db, node2, "key1", "v1", "v1", "string"); err != nil {
+	if err := insertMeta(db, node2, "key1", "v1", 2, "v1", "string"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -267,16 +267,16 @@ func TestQueryMetaByNode(t *testing.T) {
 		t.Fatalf("upsertNote: %v", err)
 	}
 
-	if err := insertMeta(db, nodeID, "date", "2024-01-15", "2024-01-15", "date"); err != nil {
+	if err := insertMeta(db, nodeID, "date", "2024-01-15", 2, "2024-01-15", "date"); err != nil {
 		t.Fatal(err)
 	}
-	if err := insertMeta(db, nodeID, "tags", "cli", "cli", "string"); err != nil {
+	if err := insertMeta(db, nodeID, "tags", "cli", 3, "cli", "string"); err != nil {
 		t.Fatal(err)
 	}
-	if err := insertMeta(db, nodeID, "tags", "go", "go", "string"); err != nil {
+	if err := insertMeta(db, nodeID, "tags", "go", 4, "go", "string"); err != nil {
 		t.Fatal(err)
 	}
-	if err := insertMeta(db, nodeID, "weight", "42", "0000000042", "number"); err != nil {
+	if err := insertMeta(db, nodeID, "weight", "42", 5, "0000000042", "number"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -318,8 +318,8 @@ func TestQueryMetaByNode(t *testing.T) {
 
 	// COALESCE: NULL sort_value and value_type become empty strings.
 	if _, err := db.Exec(
-		"INSERT INTO meta (node_id, key, value, sort_value, value_type) VALUES (?, ?, ?, NULL, NULL)",
-		nodeID, "nulltest", "val",
+		"INSERT INTO meta (node_id, key, value, line, sort_value, value_type) VALUES (?, ?, ?, ?, NULL, NULL)",
+		nodeID, "nulltest", "val", 6,
 	); err != nil {
 		t.Fatal(err)
 	}

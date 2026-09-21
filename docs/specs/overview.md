@@ -389,6 +389,7 @@ meta:
   - 補足: URL 値（`://` を含む）と空値は許可（issue にしない）。`reason` は `not_found` / `ambiguous`（basename 多重解決）/ `vault_escape` / `not_wikilink`（`--kind wikilink`、または `--kind auto` で wikilink と判定した値が有効な `[[...]]` でない）
   - 補足: 検査元は索引済みの実在 source note の meta 値のみ。`build.exclude_paths` で索引から除外した実在 note / asset も、本文を解析・登録せず参照先候補として解決する。除外候補も basename の曖昧性判定に含め、既存のルート優先規則を適用する
   - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ）。source 範囲外または `build.exclude_paths` で除外された実在参照先も解決候補に含める
+  - 出力: 各 issue は既存の `source_path` / `key` / `value` / `reason` に加えて、値開始位置の 1 始まり整数 `line` を JSON に返す。text は `location: <source_path>:<line>` も返す。位置は値と同じ index snapshot の vault 相対 path であり、既存 index は `mdhop build` で再生成する
 - `meta-validate`
   - 必須: なし（ただし `--require` も `mdhop.yaml` の `meta.profiles` も `meta.types`（string 以外の宣言）もどれも無い場合はエラー。検査対象が存在しない）
   - 任意: `--vault`, `--format`, `--require`（複数回指定可）, `--path`, `--exclude`
@@ -398,6 +399,7 @@ meta:
   - 補足: `mdhop.yaml` の `meta.types` で `date` / `number` / `semver` 宣言された key の値が型として解釈できない場合 `type` を、`ordered` 宣言の key の値が一覧外の場合 `enum` を報告する。`string` / 未宣言の key は型・enum 制約を持たないため対象外
   - 補足: 型／enum 検査は `--require` の有無に関わらず常に走る（`meta.types` 宣言が根拠）。`--require` は欠落検査を追加するだけ
   - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ。`mdhop.yaml` の `exclude` 設定は適用されない）
+  - 出力: 各 violation は既存の `source_path` / `key` / `value` / `reason` に加えて、値開始位置の 1 始まり整数 `line` を JSON に返す。text は `location: <source_path>:<line>` も返す。`missing` は実在する値の位置ではないため、ノート先頭の編集開始位置として常に `line: 1` を返す。位置は index snapshot の vault 相対 path であり、既存 index は `mdhop build` で再生成する
 - `reachable`
   - 必須: `--from`（vault 相対の note path。asset / 未登録 path はエラー）
   - 任意: `--vault`, `--format`, `--fields`, `--path`, `--exclude`, `--route`
