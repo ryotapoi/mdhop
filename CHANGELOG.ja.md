@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+## [v0.18.0] - 2026-09-21
+
+### 追加
+
+- Vault や index を変更せず、未登録・変更済み・削除済みの note と asset の path を一覧する `status` を追加。
+- 指定した frontmatter key の下で記録された link だけに、直接 backlinks / outgoing を絞り込む `query --link-key` を追加。
+- `meta-check` と `meta-validate` の診断に 1 始まりの位置情報を追加し、指摘箇所を直接開けるようにした。
+
+### 修正
+
+- HTTP 以外の外部 URI を内部 link として index 化しないよう修正。
+- code fence の marker と長さを正しく扱い、内部の link・tag・heading を解析しないよう修正。
+- text / DOT 出力の書き込み失敗時に、CLI が非 0 で終了するよう修正。
+- build から除外されている既存ファイルも `meta-check` が解決できるよう修正。
+- build の一時 DB cleanup 失敗時に処理を続行せず、既存 index を維持するよう修正。
+
+### 変更
+
+- build・query・move・出力の内部経路をリファクタリングし、対象を絞った回帰テストを安定化。CLI 契約の変更は意図していない。
+
+### ドキュメント
+
+- `resolve` の asset 出力契約を整合させ、現行コマンドのドキュメントと test plan を更新。
+
 ## [v0.17.1] - 2026-09-14
 
 ### 追加

@@ -4,6 +4,30 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.18.0] - 2026-09-21
+
+### Added
+
+- Added `status` to list untracked, modified, and deleted note and asset paths without changing the vault or index.
+- Added `query --link-key` to restrict direct backlinks and outgoing links to links recorded under the specified frontmatter key.
+- Added 1-based locations to `meta-check` and `meta-validate` diagnostics for direct navigation to the reported issue.
+
+### Fixed
+
+- Excluded non-HTTP external URIs from internal-link indexing.
+- Corrected code-fence parsing to respect fence marker and length, so enclosed links, tags, and headings are not parsed.
+- Made text and DOT output write failures cause a nonzero CLI exit.
+- Allowed `meta-check` to resolve existing files excluded from the build.
+- Made build temporary-database cleanup failures preserve the existing index instead of proceeding.
+
+### Changed
+
+- Refactored internal build, query, move, and output paths and stabilized focused regression coverage; no CLI contract change is intended.
+
+### Documentation
+
+- Aligned the `resolve` asset output contract and refreshed current command documentation and test plans.
+
 ## [v0.17.1] - 2026-09-14
 
 ### Added
