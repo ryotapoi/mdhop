@@ -4,6 +4,12 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.19.0] - 2026-09-23
+
+### Added
+
+- Added `set --list <json-array>` to replace a frontmatter key with a complete string list while updating the index. List order, duplicates, empty strings, and empty lists are preserved.
+
 ## [v0.18.0] - 2026-09-21
 
 ### Added

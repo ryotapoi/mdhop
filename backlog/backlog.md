@@ -11,17 +11,15 @@
 
 ## タスク
 
-### v0.19.0 Frontmatter リスト設定
+### v0.19.1 バグ修正・保守整備
 
-- [x] `mdhop set` で任意の frontmatter キーに文字列リスト全体を設定できるようにする。対象外の frontmatter と本文を保持し、成功時に index を更新する。要素単位の追加・削除はスコープ外とする。CLI 構文、重複、空リストなどの扱いは未決事項として実装前に決める。
-
-### 監査後の simplify-code 実行
+#### 監査後の simplify-code 実行
 
 - [ ] まず CODEX:HY-1、次に GROK:B20/B21、続いて CODEX:HY-3 + CODEX:A6-1 と GROK:N1 の文書整合を完了・検証してから、既存コード・test を対象に `$simplify-code` を実行する。
   - CODEX:HY-2、CODEX:A3-2/A3-3/A2-1、GROK:B9/N3/N4/B7 は検討入力であり、無条件の実装対象ではない。backlog 全件や GROK:D6 の完了は前提にしない。
   - 関連する test の観測強化は必要に応じて行い、全項目の先行完了を求めない。採用した簡素化は skill と project の方針に従って実装・検証し、残りの候補を完了・不要・継続必要に再評価して扱いを明記する。
 
-### 監査確認済みのバグ・保守負担
+#### 監査確認済みのバグ・保守負担
 
 - [ ] 書込み後に error となった現在ファイルも既存の backup/restore 対象に含め、復元不能 path を既存形式で報告する。原本・権限など既存の復元契約と DB 整合を確認し、mtime は Set の既存契約だけを保ち rewrite/Move に完全復元契約を新設しない。`internal/core/rewrite.go`、`move_apply.go`、`set.go` の既存 rollback 経路と、再現済み bug の代表的な最小 regression に限定し、新しい保存方式、全面的な atomic write、DI 層、test 専用 hook は導入しない。出典: CODEX:HY-1。完了: 部分書込み error 後の file 復元と既存形式の失敗報告を確認する。
 
@@ -45,7 +43,7 @@
 
 - [ ] `checkStale` で不存在だけを `ErrFileNotFound` にし、permission など他の `os.Stat` error は元 error を保持して返す。`internal/core/query_content.go` を対象に、再現済み権限誤診断の regression と既存 missing/stale test を最小層で確認する。新しい FS wrapper/hook は追加しない。出典: GROK:B21。完了: missing と権限 error が区別され、既存 stale 契約を満たす。
 
-### テストの観測強化
+#### テストの観測強化
 
 - [ ] `query --where --no-exclude` の既存 CLI test で JSON の選択 backlinks を断言する。`cmd/mdhop/cli_test.go` を対象に、通常 where の既存 E2E と重複させず弱い case を置換または統合し、production は変更しない。出典: GROK:N6。完了: `--no-exclude` 分岐の JSON backlinks が直接観測される。
 
@@ -63,7 +61,7 @@
 
 - [ ] 警告付き成功の `runAdd`（または `runUpdate`）を `--format json` で実行し、stdout 単独の JSON parse、stderr のみの warning、操作成功を代表1 case で確認する。`cmd/mdhop/cli_test.go`、`format.go`、`internal/core/add_test.go` で既存 capture と `date: not-a-date` fixture を再利用し、subprocess/E2E 基盤・production 変更・全 command への複製はしない。出典: GROK:B28。完了: warning 付き JSON 成功時の stream 分離と成功結果を確認する。
 
-### リファクタリング候補
+#### リファクタリング候補
 
 - [ ] repair/directory meta-check の vault escape 判定について、用途差と既存低水準 helper 共有を踏まえ、共有で変更箇所・読み解く条件が実際に減るか比較する。`internal/core/repair.go`、`meta_check.go`、`link_resolver.go` を対象に、現行の誤判定は未確認とし、特例・抽象化が増えるなら見送る。出典: GROK:B7。完了: 採用/見送りの理由と、採用時の最小範囲を決める。
 
