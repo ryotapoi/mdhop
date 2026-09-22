@@ -98,4 +98,28 @@ func TestQueryContentReaders(t *testing.T) {
 	if _, err := readSnippets(vault, []snippetSource{{contentSource: contentSource{path: "Note.md", mtime: source.mtime + 1}, lineStart: 1, lineEnd: 1}}, 0); !errors.Is(err, ErrSourceStale) {
 		t.Errorf("stale source error = %v, want ErrSourceStale", err)
 	}
+
+	lockedDir := filepath.Join(vault, "locked")
+	if err := os.Mkdir(lockedDir, 0o755); err != nil {
+		t.Fatalf("make locked directory: %v", err)
+	}
+	lockedPath := filepath.Join(lockedDir, "Note.md")
+	if err := os.WriteFile(lockedPath, []byte("locked\n"), 0o644); err != nil {
+		t.Fatalf("write locked note: %v", err)
+	}
+	if err := os.Chmod(lockedDir, 0o000); err != nil {
+		t.Fatalf("lock directory: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(lockedDir, 0o755); err != nil {
+			t.Errorf("unlock directory: %v", err)
+		}
+	})
+	_, err = readHead(vault, contentSource{path: "locked/Note.md", mtime: source.mtime}, 1)
+	if !errors.Is(err, os.ErrPermission) {
+		t.Errorf("permission error = %v, want permission error", err)
+	}
+	if errors.Is(err, ErrFileNotFound) {
+		t.Errorf("permission error = %v, must not be ErrFileNotFound", err)
+	}
 }

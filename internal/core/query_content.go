@@ -83,7 +83,10 @@ func readSnippets(vaultPath string, sources []snippetSource, contextLines int) (
 func checkStale(fullPath string, dbMtime int64) error {
 	info, err := os.Stat(fullPath)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrFileNotFound, fullPath)
+		if os.IsNotExist(err) {
+			return fmt.Errorf("%w: %s", ErrFileNotFound, fullPath)
+		}
+		return err
 	}
 	if info.ModTime().Unix() != dbMtime {
 		return fmt.Errorf("%w: %s has been modified since last build", ErrSourceStale, filepath.Base(fullPath))
