@@ -1,6 +1,6 @@
 ---
 name: mdhop
-description: Use mdhop for Markdown vault search, link queries, metadata filters, reachability checks, graph export, diagnostics, frontmatter checks, and link-safe file operations.
+description: Use mdhop for Markdown vault search, link queries, metadata filters, reachability checks, graph export, diagnostics, frontmatter checks and writes, and link-safe file operations.
 ---
 
 # mdhop
@@ -102,7 +102,7 @@ Run `mdhop meta-check --help` or `mdhop meta-validate --help` for issue/violatio
 
 ### Maintain the Index and Files
 
-Use `mdhop build` to create the index, `add` after creating files, `update` after editing files, `set` for one frontmatter key, `move` for link-safe moves, and `delete` for index/disk removal.
+Use `mdhop build` to create the index, `add` after creating files, `update` after editing files, `set` for one scalar or one whole string list, `move` for link-safe moves, and `delete` for index/disk removal.
 
 ```bash
 mdhop build
@@ -110,11 +110,14 @@ mdhop add --file Notes/NewNote.md --format json
 mdhop update --file Notes/Design.md --format json
 mdhop set --file Notes/Design.md --key reviewed --value 2026-07-04 --format json
 mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
+mdhop set --file Notes/Design.md --key aliases --list '["design","proposal"]' --format json
 mdhop move --from Notes/Old.md --to Notes/New.md --format json
 mdhop move --from Notes/Project.md --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}" --format json
 mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 mdhop delete --file Notes/Obsolete.md --rm --format json
 ```
+
+Use `--list` with a JSON string array to replace one key with a whole string list. `[]` writes an empty list. `--list` does not add or remove one item. Run `mdhop set --help` for how duplicates, empty strings, and existing scalars are handled.
 
 Run the matching `mdhop <command> --help` before performing file-changing operations, especially `move` and `delete --rm`.
 

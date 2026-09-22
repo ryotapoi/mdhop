@@ -35,7 +35,7 @@ sources:
 | コマンド | 主な変更先 | 読む入口 |
 |---|---|---|
 | `build` | temp DB を rename で置換 | 入力収集・検証は `build_prepare.go:30`、DB 書き込みは `build.go:31` |
-| `add` / `update` / `set` | note、edge、meta | `add.go:32` / `update.go:24` / `set.go:35` |
+| `add` / `update` / `set` | note、edge、meta | `add.go:32` / `update.go:24` / `set.go:37` |
 | `delete` | node 削除または phantom 化、`--rm` はディスク削除 | `delete.go:25`、理由は ADR 0005 |
 | `move` / `move-dir` | rename と incoming / collateral / outgoing rewrite | `move.go:22` → `move_dir.go:70` |
 | `disambiguate` / `simplify` / `repair` / `convert` | 対象ファイルのリンク表記 | 各 core ファイルの公開関数を入口にする |

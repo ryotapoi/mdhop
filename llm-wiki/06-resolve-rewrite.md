@@ -33,7 +33,7 @@ sources:
 
 # リンク解決・リライトの編纂ガイド
 
-raw link が入力されてから解決・書き換えられるまでの作業入口。リンク解釈の正本は `docs/specs/overview.md:458-464`、共通 resolver の設計判断は ADR 0021 を読む。
+raw link が入力されてから解決・書き換えられるまでの作業入口。リンク解釈の正本は `docs/specs/overview.md:460-466`、共通 resolver の設計判断は ADR 0021 を読む。
 
 ## 1. parse（入力 → linkOccur）
 
@@ -96,7 +96,7 @@ quoted frontmatter wikilink は `rewriteLinkTypes` に含まれ、rewrite entry 
 
 ## 5. 正本へのポインタ
 
-- リンク解釈と frontmatter の互換性: `docs/specs/overview.md:458-464`
+- リンク解釈と frontmatter の互換性: `docs/specs/overview.md:460-466`
 - ルート優先: `docs/decisions/0004-root-priority-for-ambiguous-basename.md`
 - frontmatter raw path (`link_keys`): `docs/decisions/0014-frontmatter-link-keys.md`
 - quoted-only frontmatter wikilink: `docs/decisions/0023-frontmatter-wikilink-quoted-only.md`

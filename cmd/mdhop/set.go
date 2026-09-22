@@ -28,6 +28,8 @@ Behavior notes:
   --date supports today, today-90d, today+1d, today-2w, today+3m, and today+1y.
   Files without frontmatter get a new frontmatter block at the start of the file.
   Missing keys are inserted before the closing ---.
+  --list replaces the whole value, including an existing scalar or sequence.
+  It keeps order, duplicates, and empty strings. [] writes an empty sequence.
   Scalar writes reject existing list values. Duplicate keys are rejected.
 
 Output fields:
