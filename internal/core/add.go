@@ -199,6 +199,9 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 			allRewrites = append(allRewrites, basenameEdges...)
 		} else {
 			// Pattern B or auto-disambiguate not enabled → error.
+			if isPatternA {
+				return nil, fmt.Errorf("%w: %s", ErrAddingMakesAmbiguous, basename(oldBasenameToPath[bk]))
+			}
 			return nil, ErrAddingMakesAmbiguous
 		}
 	}

@@ -511,9 +511,27 @@ func TestAddCausesExistingAmbiguityNoRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	beforeNotes := countNotes(t, dbPath(vault))
+	beforeEdges := countEdges(t, dbPath(vault))
+
 	_, err := Add(vault, AddOptions{Files: []string{"sub2/B.md"}})
-	if err == nil || !strings.Contains(err.Error(), "adding files would make existing links ambiguous") {
-		t.Errorf("expected existing ambiguity error, got: %v", err)
+	if err == nil {
+		t.Fatal("expected existing ambiguity error, got nil")
+	}
+	if !errors.Is(err, ErrAddingMakesAmbiguous) {
+		t.Errorf("errors.Is(err, ErrAddingMakesAmbiguous) = false, err: %v", err)
+	}
+	if !strings.Contains(err.Error(), "B") {
+		t.Errorf("expected conflicting basename B in error, got: %v", err)
+	}
+
+	afterNotes := countNotes(t, dbPath(vault))
+	afterEdges := countEdges(t, dbPath(vault))
+	if beforeNotes != afterNotes {
+		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
+	}
+	if beforeEdges != afterEdges {
+		t.Errorf("edges changed: %d → %d", beforeEdges, afterEdges)
 	}
 }
 
