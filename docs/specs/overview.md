@@ -61,6 +61,7 @@ meta:
   - `--file` は複数回指定できる
 - `mdhop set --file A.md --key reviewed --value 2026-07-03` : frontmatter の単一キーを書き換え、インデックスを更新する
 - `mdhop set --file A.md --key reviewed --date today-90d` : 相対日付を `YYYY-MM-DD` に展開して frontmatter に書き込む
+- `mdhop set --file A.md --key aliases --list '["a","b"]'` : JSON string array を frontmatter の sequence として書き換え、インデックスを更新する
 - `mdhop add --file ...` : 新規追加を反映する（未登録のみ）
 - `mdhop move --from A.md --to B.md` : ファイル移動を反映する（note / asset 両対応）
 - `mdhop move --from A.md --to-template "99-Archive/{client|others}/{updated:year}/{basename}"` : note の frontmatter 値から移動先を展開して移動する
@@ -235,16 +236,17 @@ meta:
   - 補足: 更新後の内容に、曖昧リンクが含まれる場合は **エラー**
     - 対象: `[[a]]` / `[x](a.md)` など basename 解決が必要なリンク
 - `set`
-  - 必須: `--file`, `--key`, `--value` または `--date` のどちらか一方
+  - 必須: `--file`, `--key`, および `--value` / `--date` / `--list` のちょうど一つ
   - 任意: `--vault`, `--format`
   - 補足: 1 コマンドで 1 ファイル 1 キーだけを書き換える
   - 補足: frontmatter がないファイルは、ファイル先頭に frontmatter block を新規作成して対象キーを書き込む
   - 補足: 対象キーがない場合は、frontmatter の閉じ `---` の直前に新規キーを追加する
   - 補足: `--value` は相対日付展開せず、渡された値をそのまま YAML 値として書き込む
   - 補足: `--date` は `today` / `today-90d` / `today+1y` など search と同じ相対日付構文を `YYYY-MM-DD` に展開して書き込む
-  - 補足: `--value` と `--date` の両方指定・両方省略は **エラー**
-  - 補足: 既存キーのリスト形式値は対象外として **エラー**
-  - 補足: 既存キーの値が複数行にまたがる場合（折り返しプレーンスカラー等）は対象外として **エラー**
+  - 補足: `--list` は JSON string array を受け取り、順序・重複・空文字列を保持して YAML sequence として書き込む。`[]` は空の YAML sequence を書き込む。JSON 出力の `value` は `--list` では string array（`[]` を含む）、`--value` / `--date` では string のまま。text 出力の list 値は compact JSON array 形式
+  - 補足: `--value` / `--date` / `--list` の複数指定または全省略は **エラー**。`--value` と `--date` による scalar write は既存 sequence を拒否し、`--list` は既存 scalar・block sequence・flow sequence を置換する
+  - 補足: scalar write は既存キーのリスト形式値を **エラー** とする
+  - 補足: scalar write は既存キーの値が複数行にまたがる場合（折り返しプレーンスカラー等）を **エラー** とする
   - 補足: 対象キーが frontmatter 内に複数回出現する（重複キー）場合は **エラー**
 - `add`
   - 必須: `--file`（複数回指定可）

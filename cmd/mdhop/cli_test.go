@@ -402,15 +402,15 @@ func TestRunSet_MissingKey(t *testing.T) {
 
 func TestRunSet_MissingValue(t *testing.T) {
 	err := runSet([]string{"--file", "A.md", "--key", "reviewed"})
-	if err == nil || !strings.Contains(err.Error(), "exactly one of --value or --date is required") {
-		t.Errorf("expected value/date required error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "exactly one of --value, --date, or --list is required") {
+		t.Errorf("expected value/date/list required error, got: %v", err)
 	}
 }
 
 func TestRunSet_ValueAndDateMutuallyExclusive(t *testing.T) {
 	err := runSet([]string{"--file", "A.md", "--key", "reviewed", "--value", "done", "--date", "today"})
-	if err == nil || !strings.Contains(err.Error(), "exactly one of --value or --date is required") {
-		t.Errorf("expected value/date mutually exclusive error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "exactly one of --value, --date, or --list is required") {
+		t.Errorf("expected value/date/list mutually exclusive error, got: %v", err)
 	}
 }
 
@@ -418,6 +418,36 @@ func TestRunSet_InvalidDate(t *testing.T) {
 	err := runSet([]string{"--file", "A.md", "--key", "reviewed", "--date", "yesterday"})
 	if err == nil || !strings.Contains(err.Error(), "--date must use relative date syntax") {
 		t.Errorf("expected invalid date error, got: %v", err)
+	}
+}
+
+func TestRunSet_ListValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		contains string
+	}{
+		{"value and list", []string{"--file", "A.md", "--key", "aliases", "--value", "one", "--list", "[\"one\"]"}, "exactly one of --value, --date, or --list is required"},
+		{"date and list", []string{"--file", "A.md", "--key", "aliases", "--date", "today", "--list", "[\"one\"]"}, "exactly one of --value, --date, or --list is required"},
+		{"not json", []string{"--file", "A.md", "--key", "aliases", "--list", "not-json"}, "--list must be a JSON string array"},
+		{"top-level object", []string{"--file", "A.md", "--key", "aliases", "--list", "{\"alias\":\"one\"}"}, "--list must be a JSON string array"},
+		{"null element", []string{"--file", "A.md", "--key", "aliases", "--list", "[null]"}, "--list must be a JSON string array"},
+		{"boolean element", []string{"--file", "A.md", "--key", "aliases", "--list", "[true]"}, "--list must be a JSON string array"},
+		{"number element", []string{"--file", "A.md", "--key", "aliases", "--list", "[1]"}, "--list must be a JSON string array"},
+		{"object element", []string{"--file", "A.md", "--key", "aliases", "--list", "[{}]"}, "--list must be a JSON string array"},
+		{"nested array element", []string{"--file", "A.md", "--key", "aliases", "--list", "[[\"one\"]]"}, "--list must be a JSON string array"},
+		{"null", []string{"--file", "A.md", "--key", "aliases", "--list", "null"}, "--list must be a JSON string array"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := runSet(tt.args)
+			if err == nil {
+				t.Fatal("runSet succeeded, want validation error")
+			}
+			if !strings.Contains(err.Error(), tt.contains) {
+				t.Fatalf("error = %v, want validation error containing %q", err, tt.contains)
+			}
+		})
 	}
 }
 
@@ -451,6 +481,46 @@ func TestRunSet_JSONOutput(t *testing.T) {
 	}
 	if got.File != "A.md" || got.Key != "reviewed" || got.Value != "2026-07-04" || !got.Created {
 		t.Fatalf("json = %+v, want A.md reviewed=2026-07-04 created=true", got)
+	}
+}
+
+func TestRunSet_ListOutput(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: A\n---\n# A\n"), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	out := captureStdout(t, func() error {
+		return runSet([]string{"--vault", vault, "--file", "A.md", "--key", "aliases", "--list", "[\"one\",\"\",\"one\"]", "--format", "json"})
+	})
+	var got struct {
+		Value []string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("json unmarshal: %v\n%s", err, out)
+	}
+	if !reflect.DeepEqual(got.Value, []string{"one", "", "one"}) {
+		t.Fatalf("value = %#v, want ordered list", got.Value)
+	}
+	if content := readCLIFile(t, filepath.Join(vault, "A.md")); !strings.Contains(content, "aliases:\n  - \"one\"\n  - \"\"\n  - \"one\"\n") {
+		t.Fatalf("file content missing list:\n%s", content)
+	}
+
+	out = captureStdout(t, func() error {
+		return runSet([]string{"--vault", vault, "--file", "A.md", "--key", "aliases", "--list", "[\"two\",\"\"]"})
+	})
+	if !strings.Contains(out, "aliases=[\"two\",\"\"]") {
+		t.Fatalf("text output = %q, want compact JSON list", out)
+	}
+
+	out = captureStdout(t, func() error {
+		return runSet([]string{"--vault", vault, "--file", "A.md", "--key", "aliases", "--list", "[]"})
+	})
+	if !strings.Contains(out, "aliases=[]") {
+		t.Fatalf("text output = %q, want compact JSON list", out)
 	}
 }
 

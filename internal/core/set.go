@@ -16,6 +16,7 @@ type SetOptions struct {
 	File  string // vault-relative path
 	Key   string
 	Value string
+	List  []string // non-nil writes a YAML sequence
 }
 
 // SetResult reports the outcome of the set operation.
@@ -23,6 +24,7 @@ type SetResult struct {
 	File     string
 	Key      string
 	Value    string
+	List     []string
 	Created  bool
 	Warnings []string
 }
@@ -30,7 +32,7 @@ type SetResult struct {
 var setUpdate = Update
 var setChtimes = os.Chtimes
 
-// Set rewrites one scalar frontmatter key in a registered note and refreshes
+// Set rewrites one frontmatter key in a registered note and refreshes
 // the index entry for that note.
 func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 	file := NormalizePath(opts.File)
@@ -78,7 +80,7 @@ func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	newContent, created, err := rewriteFrontmatterValue(original, opts.Key, opts.Value)
+	newContent, created, err := rewriteFrontmatterValue(original, opts.Key, opts.Value, opts.List)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +103,7 @@ func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 		File:     file,
 		Key:      opts.Key,
 		Value:    opts.Value,
+		List:     opts.List,
 		Created:  created,
 		Warnings: updateResult.Warnings,
 	}, nil
@@ -123,12 +126,15 @@ func restoreSetBackup(fullPath, path string, backup setBackup) []rollbackFailure
 	return failures
 }
 
-func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, error) {
+func rewriteFrontmatterValue(content []byte, key, value string, list []string) ([]byte, bool, error) {
 	text := string(content)
 	lines := strings.Split(text, "\n")
 	end := frontmatterEnd(lines)
+	newLines := formatSetYAMLLines(key, value, list)
 	if end < 0 {
-		newLines := append([]string{"---", key + ": " + formatSetYAMLValue(value), "---"}, lines...)
+		newLines := append([]string{"---"}, newLines...)
+		newLines = append(newLines, "---")
+		newLines = append(newLines, lines...)
 		return []byte(strings.Join(newLines, "\n")), true, nil
 	}
 
@@ -137,13 +143,12 @@ func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, e
 	if err := yaml.Unmarshal([]byte(yamlContent), &doc); err != nil {
 		return nil, false, err
 	}
-	newLine := key + ": " + formatSetYAMLValue(value)
 	// Empty frontmatter (e.g. "---\n---\n") unmarshals to a zero-value Node
 	// (doc.Kind == 0, not yaml.DocumentNode) rather than an empty mapping.
 	// Treat it the same as "key not present": append a new mapping entry.
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 || doc.Content[0].Kind == 0 ||
 		(doc.Content[0].Kind == yaml.ScalarNode && doc.Content[0].Tag == "!!null") {
-		lines = append(lines[:end], append([]string{newLine}, lines[end:]...)...)
+		lines = append(lines[:end], append(newLines, lines[end:]...)...)
 		return []byte(strings.Join(lines, "\n")), true, nil
 	}
 	if doc.Content[0].Kind != yaml.MappingNode {
@@ -165,6 +170,35 @@ func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, e
 	}
 	if matchIndex >= 0 {
 		valNode := mapping.Content[matchIndex+1]
+		if list != nil {
+			if valNode.Kind != yaml.ScalarNode && valNode.Kind != yaml.SequenceNode {
+				return nil, false, fmt.Errorf("frontmatter key %q has unsupported value; set supports scalar or sequence values for list writes", key)
+			}
+			if valNode.Kind == yaml.ScalarNode {
+				if valNode.Style == yaml.LiteralStyle || valNode.Style == yaml.FoldedStyle {
+					return nil, false, fmt.Errorf("frontmatter key %q has unsupported value; set supports single-line scalar values only", key)
+				}
+				if frontmatterValueLineCount(mapping, matchIndex, end, lines) > 1 {
+					return nil, false, fmt.Errorf("frontmatter key %q has multi-line value; set supports single-line scalar values only", key)
+				}
+				fileLine := valNode.Line + 1
+				if fileLine < 1 || fileLine > len(lines) {
+					return nil, false, fmt.Errorf("frontmatter key %q line is out of range", key)
+				}
+			}
+			start := mapping.Content[matchIndex].Line
+			stop := end
+			if nextKeyIndex := matchIndex + 2; nextKeyIndex < len(mapping.Content) {
+				stop = mapping.Content[nextKeyIndex].Line
+			}
+			stop = setListValueEnd(valNode, stop, lines)
+			if start < 1 || start > stop || stop > len(lines) {
+				return nil, false, fmt.Errorf("frontmatter key %q lines are out of range", key)
+			}
+			newLines[0] += yamlCommentSuffix(lines[start])
+			lines = append(lines[:start], append(newLines, lines[stop:]...)...)
+			return []byte(strings.Join(lines, "\n")), false, nil
+		}
 		if valNode.Kind == yaml.SequenceNode {
 			return nil, false, fmt.Errorf("frontmatter key %q has sequence value; set supports scalar values only", key)
 		}
@@ -180,12 +214,182 @@ func rewriteFrontmatterValue(content []byte, key, value string) ([]byte, bool, e
 		if fileLine < 1 || fileLine > len(lines) {
 			return nil, false, fmt.Errorf("frontmatter key %q line is out of range", key)
 		}
-		lines[fileLine-1] = newLine + yamlCommentSuffix(lines[fileLine-1])
+		lines[fileLine-1] = newLines[0] + yamlCommentSuffix(lines[fileLine-1])
 		return []byte(strings.Join(lines, "\n")), false, nil
 	}
 
-	lines = append(lines[:end], append([]string{newLine}, lines[end:]...)...)
+	lines = append(lines[:end], append(newLines, lines[end:]...)...)
 	return []byte(strings.Join(lines, "\n")), true, nil
+}
+
+func formatSetYAMLLines(key, value string, list []string) []string {
+	if list == nil {
+		return []string{key + ": " + formatSetYAMLValue(value)}
+	}
+	if len(list) == 0 {
+		return []string{key + ": []"}
+	}
+	lines := []string{key + ":"}
+	for _, item := range list {
+		lines = append(lines, "  - "+strconv.Quote(item))
+	}
+	return lines
+}
+
+// setListValueEnd ends the replacement immediately after the parsed value,
+// preserving comments and formatting before the next key or frontmatter end.
+func setListValueEnd(value *yaml.Node, stop int, lines []string) int {
+	lastLine := value.Line
+	for _, child := range value.Content {
+		lastLine = max(lastLine, setListValueEnd(child, 0, lines))
+	}
+	lastLine = max(lastLine, setScalarValueEnd(value, lines))
+	if value.Kind == yaml.SequenceNode && value.Style == yaml.FlowStyle {
+		lastLine = max(lastLine, setFlowSequenceEnd(value.Line, lines))
+	}
+	if stop == 0 {
+		return lastLine
+	}
+	return min(stop, lastLine+1)
+}
+
+// setScalarValueEnd finds the last physical line of block and quoted scalar
+// sequence items. yaml.Node records their starting line, but not their end.
+func setScalarValueEnd(value *yaml.Node, lines []string) int {
+	if value.Kind != yaml.ScalarNode || value.Line < 0 || value.Line >= len(lines) {
+		return value.Line
+	}
+	switch value.Style {
+	case yaml.LiteralStyle, yaml.FoldedStyle:
+		return setBlockScalarEnd(value.Line, lines)
+	case yaml.DoubleQuotedStyle:
+		return setQuotedScalarEnd(value.Line, lines, '"')
+	case yaml.SingleQuotedStyle:
+		return setQuotedScalarEnd(value.Line, lines, '\'')
+	default:
+		if isBlockSequenceItem(lines[value.Line]) {
+			return setPlainSequenceItemEnd(value.Line, lines)
+		}
+		return value.Line
+	}
+}
+
+func isBlockSequenceItem(line string) bool {
+	trimmed := strings.TrimLeft(line, " \t")
+	return trimmed == "-" || strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "-\t")
+}
+
+func setPlainSequenceItemEnd(start int, lines []string) int {
+	indent := leadingIndent(lines[start])
+	end := start
+	for line := start + 1; line < len(lines); line++ {
+		if strings.TrimSpace(lines[line]) == "" {
+			continue
+		}
+		if leadingIndent(lines[line]) <= indent {
+			break
+		}
+		end = line
+	}
+	return end
+}
+
+func setFlowSequenceEnd(start int, lines []string) int {
+	depth := 0
+	inSingle := false
+	inDouble := false
+	for line := start; line < len(lines); line++ {
+	scanLine:
+		for column := 0; column < len(lines[line]); column++ {
+			ch := lines[line][column]
+			if inDouble {
+				if ch == '"' && !yamlQuoteEscaped(lines[line], column) {
+					inDouble = false
+				}
+				continue
+			}
+			if inSingle {
+				if ch == '\'' {
+					if column+1 < len(lines[line]) && lines[line][column+1] == '\'' {
+						column++
+						continue
+					}
+					inSingle = false
+				}
+				continue
+			}
+			switch ch {
+			case '#':
+				if column == 0 || lines[line][column-1] == ' ' || lines[line][column-1] == '\t' {
+					break scanLine
+				}
+			case '"':
+				inDouble = true
+			case '\'':
+				inSingle = true
+			case '[':
+				depth++
+			case ']':
+				if depth > 0 {
+					depth--
+					if depth == 0 {
+						return line
+					}
+				}
+			}
+		}
+	}
+	return start
+}
+
+func setBlockScalarEnd(start int, lines []string) int {
+	indent := leadingIndent(lines[start])
+	end := start
+	for line := start + 1; line < len(lines); line++ {
+		if strings.TrimSpace(lines[line]) == "" {
+			continue
+		}
+		if leadingIndent(lines[line]) <= indent {
+			break
+		}
+		end = line
+	}
+	return end
+}
+
+func setQuotedScalarEnd(start int, lines []string, quote byte) int {
+	opened := false
+	for line := start; line < len(lines); line++ {
+		for column := 0; column < len(lines[line]); column++ {
+			if lines[line][column] != quote {
+				continue
+			}
+			if quote == '"' && yamlQuoteEscaped(lines[line], column) {
+				continue
+			}
+			if quote == '\'' && opened && column+1 < len(lines[line]) && lines[line][column+1] == quote {
+				column++
+				continue
+			}
+			if opened {
+				return line
+			}
+			opened = true
+		}
+	}
+	return start
+}
+
+func yamlQuoteEscaped(line string, quoteIndex int) bool {
+	backslashes := 0
+	for index := quoteIndex - 1; index >= 0 && line[index] == '\\'; index-- {
+		backslashes++
+	}
+	return backslashes%2 == 1
+}
+
+func leadingIndent(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " \t"))
 }
 
 func frontmatterValueLineCount(mapping *yaml.Node, keyIndex, frontmatterEndLine int, lines []string) int {

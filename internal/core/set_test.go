@@ -4,9 +4,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestSetUpdatesExistingKey(t *testing.T) {
@@ -388,6 +391,214 @@ func TestSetSequenceValueError(t *testing.T) {
 	}
 }
 
+func TestSetListReplacesScalarAndSequencesAndRefreshesIndex(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{
+			name:    "scalar",
+			content: "---\ntitle: A\naliases: old # retained\nstatus: draft\n---\n# A\n",
+			want:    "---\ntitle: A\naliases: # retained\n  - \"one\"\n  - \"\"\n  - \"one\"\nstatus: draft\n---\n# A\n",
+		},
+		{
+			name:    "block sequence",
+			content: "---\ntitle: A\naliases: # retained\n  - old\n  - older\nstatus: draft\n---\n# A\n",
+			want:    "---\ntitle: A\naliases: # retained\n  - \"one\"\n  - \"\"\n  - \"one\"\nstatus: draft\n---\n# A\n",
+		},
+		{
+			name:    "flow sequence",
+			content: "---\ntitle: A\naliases: [old, older] # retained\nstatus: draft\n---\n# A\n",
+			want:    "---\ntitle: A\naliases: # retained\n  - \"one\"\n  - \"\"\n  - \"one\"\nstatus: draft\n---\n# A\n",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			vault := t.TempDir()
+			path := filepath.Join(vault, "A.md")
+			if err := os.WriteFile(path, []byte(tc.content), 0o644); err != nil {
+				t.Fatalf("write A.md: %v", err)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatalf("build: %v", err)
+			}
+
+			result, err := Set(vault, SetOptions{File: "A.md", Key: "aliases", List: []string{"one", "", "one"}})
+			if err != nil {
+				t.Fatalf("set list: %v", err)
+			}
+			if result.Created || !slices.Equal(result.List, []string{"one", "", "one"}) {
+				t.Fatalf("result = %+v, want existing list result", result)
+			}
+			if got := readTestFile(t, path); got != tc.want {
+				t.Fatalf("content =\n%s\nwant =\n%s", got, tc.want)
+			}
+			meta := queryMetaForPath(t, dbPath(vault), "A.md")
+			if metaCount(meta, "aliases", "one") != 2 {
+				t.Fatalf("list metadata = %+v, want duplicate entries", meta)
+			}
+		})
+	}
+}
+
+func TestSetListReplacementPreservesFollowingCommentAndFormatting(t *testing.T) {
+	content := "---\ntitle: A\naliases:\n  - old\n\n  # independent comment\n\nstatus: draft\n---\nbody\n"
+	got, created, err := rewriteFrontmatterValue([]byte(content), "aliases", "", []string{"new"})
+	if err != nil {
+		t.Fatalf("rewrite frontmatter: %v", err)
+	}
+	if created {
+		t.Fatal("created = true, want false")
+	}
+	want := "---\ntitle: A\naliases:\n  - \"new\"\n\n  # independent comment\n\nstatus: draft\n---\nbody\n"
+	if string(got) != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+	const preservedSuffix = "\n\n  # independent comment\n\nstatus: draft\n---\nbody\n"
+	if !strings.HasSuffix(string(got), preservedSuffix) {
+		t.Fatalf("content after old target = %q, want byte-for-byte suffix %q", got, preservedSuffix)
+	}
+}
+
+func TestSetListReplacesMultilineSequenceItemsAndRefreshesIndex(t *testing.T) {
+	vault := t.TempDir()
+	path := filepath.Join(vault, "A.md")
+	content := "---\ntitle: A\naliases:\n  - |\n    obsolete literal\n    continuation\n  - >\n    obsolete folded\n    continuation\n  - \"obsolete quoted\n    continuation\"\n  - 'obsolete single\n    continuation'\n\n  # independent comment\n\nstatus: draft\n---\nbody\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if meta := queryMetaForPath(t, dbPath(vault), "A.md"); !hasMeta(meta, "aliases", "obsolete quoted continuation") {
+		t.Fatalf("old list metadata missing before set: %+v", meta)
+	}
+
+	if _, err := Set(vault, SetOptions{File: "A.md", Key: "aliases", List: []string{"new"}}); err != nil {
+		t.Fatalf("set list: %v", err)
+	}
+	want := "---\ntitle: A\naliases:\n  - \"new\"\n\n  # independent comment\n\nstatus: draft\n---\nbody\n"
+	if got := readTestFile(t, path); got != want {
+		t.Fatalf("content =\n%s\nwant =\n%s", got, want)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "A.md")
+	if hasMeta(meta, "aliases", "obsolete quoted continuation") {
+		t.Fatalf("old list metadata remains: %+v", meta)
+	}
+	if !hasMeta(meta, "aliases", "new") {
+		t.Fatalf("new list metadata missing: %+v", meta)
+	}
+}
+
+func TestSetListReplacesComplexSequenceSyntaxAndRefreshesIndex(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{
+			name:    "multiline flow sequence with standalone close bracket",
+			content: "---\ntitle: A\naliases: [\n  obsolete,\n  older\n]\n\n# independent comment\n\nstatus: draft\n---\nbody\n",
+			want:    "---\ntitle: A\naliases:\n  - \"new\"\n\n# independent comment\n\nstatus: draft\n---\nbody\n",
+		},
+		{
+			name:    "block sequence with plain scalar continuation",
+			content: "---\ntitle: A\naliases:\n  - obsolete plain\n    continuation\n  - older plain\n    continuation\n\n# independent comment\n\nstatus: draft\n---\nbody\n",
+			want:    "---\ntitle: A\naliases:\n  - \"new\"\n\n# independent comment\n\nstatus: draft\n---\nbody\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := t.TempDir()
+			path := filepath.Join(vault, "A.md")
+			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
+				t.Fatalf("write A.md: %v", err)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatalf("build: %v", err)
+			}
+
+			if _, err := Set(vault, SetOptions{File: "A.md", Key: "aliases", List: []string{"new"}}); err != nil {
+				t.Fatalf("set list: %v", err)
+			}
+			if got := readTestFile(t, path); got != tt.want {
+				t.Fatalf("content =\n%s\nwant =\n%s", got, tt.want)
+			}
+			meta := queryMetaForPath(t, dbPath(vault), "A.md")
+			if hasMeta(meta, "aliases", "obsolete") || !hasMeta(meta, "aliases", "new") {
+				t.Fatalf("metadata after set = %+v, want only new list value", meta)
+			}
+		})
+	}
+}
+
+func TestSetListWritesExplicitYAMLStrings(t *testing.T) {
+	values := []string{"2026-01-02", "true", "123", "", "plain"}
+	content := "---\ntitle: A\n---\n"
+	got, _, err := rewriteFrontmatterValue([]byte(content), "aliases", "", values)
+	if err != nil {
+		t.Fatalf("rewrite frontmatter: %v", err)
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(got[4:len(got)-4], &doc); err != nil {
+		t.Fatalf("parse written YAML: %v", err)
+	}
+	mapping := doc.Content[0]
+	sequence := mapping.Content[3]
+	if sequence.Kind != yaml.SequenceNode || len(sequence.Content) != len(values) {
+		t.Fatalf("sequence = %#v, want %d items", sequence, len(values))
+	}
+	for i, item := range sequence.Content {
+		if item.Tag != "!!str" || item.Value != values[i] {
+			t.Errorf("item %d = tag %q value %q, want !!str %q", i, item.Tag, item.Value, values[i])
+		}
+	}
+}
+
+func TestSetListAddsMissingKeyAndWritesEmptySequence(t *testing.T) {
+	vault := t.TempDir()
+	path := filepath.Join(vault, "A.md")
+	content := "---\ntitle: A\n---\n# A\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Set(vault, SetOptions{File: "A.md", Key: "aliases", List: []string{}})
+	if err != nil {
+		t.Fatalf("set list: %v", err)
+	}
+	if !result.Created {
+		t.Fatal("Created = false, want true")
+	}
+	if got, want := readTestFile(t, path), "---\ntitle: A\naliases: []\n---\n# A\n"; got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+}
+
+func TestSetListCreatesFrontmatter(t *testing.T) {
+	vault := t.TempDir()
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte("# A\n"), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if _, err := Set(vault, SetOptions{File: "A.md", Key: "aliases", List: []string{"one"}}); err != nil {
+		t.Fatalf("set list: %v", err)
+	}
+	if got, want := readTestFile(t, path), "---\naliases:\n  - \"one\"\n---\n# A\n"; got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+}
+
 func TestSetMultilinePlainScalarValueError(t *testing.T) {
 	vault := t.TempDir()
 	content := "---\ntitle: This is a long\n  title that wraps\nstatus: draft\n---\n# A\n"
@@ -400,6 +611,26 @@ func TestSetMultilinePlainScalarValueError(t *testing.T) {
 	}
 
 	_, err := Set(vault, SetOptions{File: "A.md", Key: "title", Value: "New"})
+	if err == nil || !strings.Contains(err.Error(), "multi-line") {
+		t.Fatalf("error = %v, want multi-line", err)
+	}
+	if got := readTestFile(t, path); got != content {
+		t.Fatalf("content changed after failed set:\n%s\nwant:\n%s", got, content)
+	}
+}
+
+func TestSetListMultilinePlainScalarValueError(t *testing.T) {
+	vault := t.TempDir()
+	content := "---\ntitle: This is a long\n  title that wraps\nstatus: draft\n---\n# A\n"
+	path := filepath.Join(vault, "A.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write A.md: %v", err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	_, err := Set(vault, SetOptions{File: "A.md", Key: "title", List: []string{"New"}})
 	if err == nil || !strings.Contains(err.Error(), "multi-line") {
 		t.Fatalf("error = %v, want multi-line", err)
 	}
@@ -555,4 +786,14 @@ func hasMeta(rows []MetaRow, key, value string) bool {
 		}
 	}
 	return false
+}
+
+func metaCount(rows []MetaRow, key, value string) int {
+	count := 0
+	for _, row := range rows {
+		if row.Key == key && row.Value == value {
+			count++
+		}
+	}
+	return count
 }

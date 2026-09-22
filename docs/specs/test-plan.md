@@ -284,10 +284,11 @@
 
 ## set
 
-- `--file` と `--key`、および `--value` / `--date` のちょうど一方が必須。空値・不正な相対日付はエラー
-- 1 回の実行で 1 ファイルの 1 scalar key だけを更新し、`--value` は相対日付展開せず YAML 値として書く。`--date` は相対日付を `YYYY-MM-DD` に展開する
+- `--file` と `--key`、および `--value` / `--date` / `--list` のちょうど一方が必須。空の scalar 値・不正な相対日付・JSON string array でない `--list` はエラー
+- 1 回の実行で 1 ファイルの 1 key だけを更新する。`--value` は相対日付展開せず YAML scalar として書き、`--date` は相対日付を `YYYY-MM-DD` に展開する。`--list` は順序・重複・空文字列を保持する YAML sequence として書き、空配列は `[]` として書く
+- `--list` は既存 scalar、block sequence、flow sequence を局所的に置換し、他の frontmatter と本文を保持する。scalar write は既存 sequence を拒否する
 - frontmatter がなければ先頭に作成し、key がなければ閉じ `---` の直前に追加する。結果は file/key/value/created を JSON/text で返す
-- 未登録・ディスク不在・stale な対象はエラー。対象 key の list、複数行値、重複 key も拒否する
+- 未登録・ディスク不在・stale な対象はエラー。scalar write は対象 key の list と複数行値を拒否し、すべての write は重複 key を拒否する
 - 成功時はファイルと index を更新する。index 更新失敗時は本文・permission・mtime を復元し、復元失敗もエラーで報告する
 
 ## search
