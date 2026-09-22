@@ -291,11 +291,11 @@ func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64,
 	}
 
 	for _, file := range prepared {
+		written = append(written, rewriteBackup{path: file.path, content: file.original, perm: file.perm})
 		if err := rewriteWriteFile(file.fullPath, file.candidate, file.perm); err != nil {
 			restoreFailures := restore()
 			return nil, nil, restoreFailures, err
 		}
-		written = append(written, rewriteBackup{path: file.path, content: file.original, perm: file.perm})
 
 		// Collect new mtime.
 		info, err := os.Stat(file.fullPath)

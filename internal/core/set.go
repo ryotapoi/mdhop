@@ -91,7 +91,7 @@ func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 		modTime: info.ModTime(),
 	}
 	if err := writeFilePreservePerm(fullPath, newContent, backup.perm); err != nil {
-		return nil, err
+		return nil, wrapRollbackFailures(err, restoreSetBackup(fullPath, file, backup))
 	}
 
 	updateResult, err := setUpdate(vaultPath, UpdateOptions{Files: []string{file}})

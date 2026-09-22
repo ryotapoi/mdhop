@@ -44,11 +44,11 @@ func applyMovedFileRewrites(vaultPath string, moves []moveInfo, movedFileRewrite
 		}
 
 		fullPath := filepath.Join(vaultPath, diskPath)
+		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.original, perm: mfr.perm})
 		if err := writeFilePreservePerm(fullPath, mfr.content, mfr.perm); err != nil {
 			restoreFailures := restoreBackupFiles(vaultPath, backups)
 			return backups, restoreFailures, err
 		}
-		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.original, perm: mfr.perm})
 	}
 	return backups, nil, nil
 }
