@@ -78,12 +78,15 @@ meta:
 - `mdhop query --tag tag` : タグ起点の関連情報を返す
 - `mdhop query --phantom name` : phantom 起点の関連情報を返す
 - `mdhop query --name name` : note/phantom/tag を意識せず関連情報を返す
+- `mdhop search --where "status=active"` : ノートをメタデータ条件で検索する
 - `mdhop diagnose` : basename 衝突、phantom 一覧を検出する
 - `mdhop status` : ディスクと現在の索引を比較し、未登録・変更済み・削除済みの note / asset を一覧にする。索引・ファイルは変更しない
+- `mdhop meta-check --key sources` : frontmatter の指定キーが参照するパスを検査する
+- `mdhop meta-validate --require status` : frontmatter の必須キーと型を検証する
 - `mdhop reachable --from A.md --path "docs/*"` : 入口 note からリンクで到達できる / できない note を列挙する
 - `mdhop graph --path "docs/*"` : リンクグラフを誘導部分グラフとして JSON / Graphviz dot で出力する
 - `mdhop stats` : ノート数・リンク数などの統計情報を返す
-- `mdhop init-meta` : frontmatter 型定義の scaffold を生成する
+- `mdhop init-meta --preset` : frontmatter 型定義の scaffold を生成する
 
 ### モード
 

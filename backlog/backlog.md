@@ -33,7 +33,7 @@
 
 - [ ] node/link type の実行時 SQL predicate を既存 Go 定数の引数と `linkTypeSQLIn` へ置換し、手動同期を減らす。`internal/core/stats.go`、`reachable.go`、`graph.go`、`frontmatter_path_guard.go` などの原指摘箇所と `db.go` を対象に、feature 別集合・意味を保ち既存 query test を再利用する。schema、新分類表、新 helper の一律導入はしない。出典: CODEX:A2-1、GROK:B9。完了: 各 predicate が既存定数由来の値を使い、既存 query の意味が不変である。
 
-- [ ] 曖昧 resolve、`--note`、overview 冒頭の command 一覧を現行詳細仕様と CLI に整合させる。`docs/rules/01-concept.md`、`02-requirements.md`、`docs/specs/overview.md`、`cmd/mdhop/query.go`、`main.go` を照合対象とし、候補一覧機能・flag は追加しない。出典: GROK:N1。完了: 記載された resolve/flag/command 一覧が現行 CLI と詳細仕様に一致する。
+- [x] 曖昧 resolve、`--note`、overview 冒頭の command 一覧を現行詳細仕様と CLI に整合させる。`docs/rules/01-concept.md`、`02-requirements.md`、`docs/specs/overview.md`、`cmd/mdhop/query.go`、`main.go` を照合対象とし、候補一覧機能・flag は追加しない。出典: GROK:N1。完了: 記載された resolve/flag/command 一覧が現行 CLI と詳細仕様に一致する。
 
 - [ ] `go.mod` の `golang.org/x/text` を direct dependency として整合させる。version は変更せず、既存の norm 依存を正しく宣言する。出典: GROK:N2。完了: `go mod tidy -diff` が差分なしとなる。
 

@@ -88,7 +88,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 
 - `mdhop build` : Vault 全量を解析してDB作成
 - `mdhop update --file ...` : 指定ファイルのみ差分更新（ファイル削除も反映）
-- `mdhop resolve --from A.md --link '[[X]]'` : リンク解決（曖昧なら候補返却）
+- `mdhop resolve --from A.md --link '[[X]]'` : リンク解決（曖昧ならエラー）
 - `mdhop query --file A.md` : backlinks/tags/twohop を返す（fields で絞る）
 - `mdhop diagnose` : basename衝突、phantom一覧等を検出
 
