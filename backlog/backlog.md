@@ -41,7 +41,7 @@
 
 - [ ] Add の `ErrAddingMakesAmbiguous` に特定可能な衝突 basename を既存の `fmt.Errorf`/`%w` で付与する。`internal/core/add.go` と既存曖昧追加 test を対象に、機械分類と拒否時の無変更を保つ。汎用診断体系は作らない。出典: GROK:B20。完了: error から衝突 basename を特定でき、既存 sentinel 判定と state 不変を確認する。
 
-- [ ] `checkStale` で不存在だけを `ErrFileNotFound` にし、permission など他の `os.Stat` error は元 error を保持して返す。`internal/core/query_content.go` を対象に、再現済み権限誤診断の regression と既存 missing/stale test を最小層で確認する。新しい FS wrapper/hook は追加しない。出典: GROK:B21。完了: missing と権限 error が区別され、既存 stale 契約を満たす。
+- [x] `checkStale` で不存在だけを `ErrFileNotFound` にし、permission など他の `os.Stat` error は元 error を保持して返す。`internal/core/query_content.go` を対象に、再現済み権限誤診断の regression と既存 missing/stale test を最小層で確認する。新しい FS wrapper/hook は追加しない。出典: GROK:B21。完了: missing と権限 error が区別され、既存 stale 契約を満たす。
 
 #### テストの観測強化
 
