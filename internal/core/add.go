@@ -202,7 +202,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 			if isPatternA {
 				return nil, fmt.Errorf("%w: %s", ErrAddingMakesAmbiguous, basename(oldBasenameToPath[bk]))
 			}
-			return nil, ErrAddingMakesAmbiguous
+			return nil, fmt.Errorf("%w: %s", ErrAddingMakesAmbiguous, bk)
 		}
 	}
 

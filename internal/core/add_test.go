@@ -748,13 +748,79 @@ func TestAddAutoDisambiguatePatternBNoRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(vault, "sub2", "NonExistent.md"), []byte("# NE2\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
+	beforeNotes := countNotes(t, dbPath(vault))
+	beforeEdges := countEdges(t, dbPath(vault))
+	beforeA, err := os.ReadFile(filepath.Join(vault, "A.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	var phantomID int64
+	if err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'phantom'", phantomKey("nonexistent")).Scan(&phantomID); err != nil {
+		t.Fatalf("query phantom: %v", err)
+	}
+	var targetBefore int64
+	if err := db.QueryRow(`SELECT e.target_id FROM edges e JOIN nodes n ON n.id = e.source_id
+		WHERE n.path = 'A.md' AND e.raw_link = '[[NonExistent]]'`).Scan(&targetBefore); err != nil {
+		t.Fatalf("query link target: %v", err)
+	}
+	if targetBefore != phantomID {
+		t.Fatalf("link target = %d, want phantom %d", targetBefore, phantomID)
+	}
 
-	_, err := Add(vault, AddOptions{
+	_, err = Add(vault, AddOptions{
 		Files:            []string{"sub1/NonExistent.md", "sub2/NonExistent.md"},
 		AutoDisambiguate: true,
 	})
-	if err == nil || !strings.Contains(err.Error(), "adding files would make existing links ambiguous") {
-		t.Errorf("expected ambiguity error, got: %v", err)
+	if !errors.Is(err, ErrAddingMakesAmbiguous) {
+		t.Errorf("expected ErrAddingMakesAmbiguous, got: %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "nonexistent") {
+		t.Errorf("expected conflicting basename in error, got: %v", err)
+	}
+	if got := countNotes(t, dbPath(vault)); got != beforeNotes {
+		t.Errorf("notes changed: %d → %d", beforeNotes, got)
+	}
+	if got := countEdges(t, dbPath(vault)); got != beforeEdges {
+		t.Errorf("edges changed: %d → %d", beforeEdges, got)
+	}
+	var phantomType, phantomName string
+	if err := db.QueryRow("SELECT type, name FROM nodes WHERE id = ?", phantomID).Scan(&phantomType, &phantomName); err != nil {
+		t.Fatalf("query phantom after add: %v", err)
+	}
+	if phantomType != "phantom" || phantomName != "NonExistent" {
+		t.Errorf("phantom changed: type=%q name=%q", phantomType, phantomName)
+	}
+	var targetAfter int64
+	if err := db.QueryRow(`SELECT e.target_id FROM edges e JOIN nodes n ON n.id = e.source_id
+		WHERE n.path = 'A.md' AND e.raw_link = '[[NonExistent]]'`).Scan(&targetAfter); err != nil {
+		t.Fatalf("query link target after add: %v", err)
+	}
+	if targetAfter != targetBefore {
+		t.Errorf("link target changed: %d → %d", targetBefore, targetAfter)
+	}
+	for path, want := range map[string]string{
+		"A.md":                string(beforeA),
+		"sub1/NonExistent.md": "# NE1\n",
+		"sub2/NonExistent.md": "# NE2\n",
+	} {
+		got, err := os.ReadFile(filepath.Join(vault, path))
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		if string(got) != want {
+			t.Errorf("%s changed: %q", path, got)
+		}
+	}
+	for _, dir := range []string{"sub1", "sub2"} {
+		entries, err := os.ReadDir(filepath.Join(vault, dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 1 || entries[0].Name() != "NonExistent.md" {
+			t.Errorf("unexpected files in %s: %v", dir, entries)
+		}
 	}
 }
 
