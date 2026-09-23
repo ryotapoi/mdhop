@@ -23,7 +23,7 @@
 
 - [x] 書込み後に error となった現在ファイルも既存の backup/restore 対象に含め、復元不能 path を既存形式で報告する。原本・権限など既存の復元契約と DB 整合を確認し、mtime は Set の既存契約だけを保ち rewrite/Move に完全復元契約を新設しない。`internal/core/rewrite.go`、`move_apply.go`、`set.go` の既存 rollback 経路と、再現済み bug の代表的な最小 regression に限定し、新しい保存方式、全面的な atomic write、DI 層、test 専用 hook は導入しない。出典: CODEX:HY-1。完了: 部分書込み error 後の file 復元と既存形式の失敗報告を確認する。
 
-- [ ] move の source-relative 保持例外を上位要件へ明記し、現行実装・test と整合させる。`docs/rules/02-requirements.md`、`docs/specs/overview.md`、`internal/core/move_link.go` を対象とする docs-only の変更とし、挙動変更や既存 ADR 本文の書換えはしない。出典: CODEX:HY-3、CODEX:A6-1。完了: Move の既存相対リンク保持例外が両正本と既存 test に一致する。
+- [x] move の source-relative 保持例外を上位要件へ明記し、現行実装・test と整合させる。`docs/rules/02-requirements.md`、`docs/specs/overview.md`、`internal/core/move_link.go` を対象とする docs-only の変更とし、挙動変更や既存 ADR 本文の書換えはしない。出典: CODEX:HY-3、CODEX:A6-1。完了: Move の既存相対リンク保持例外が両正本と既存 test に一致する。
 
 - [ ] directory delete の入力展開、登録 file と DB 更新、未登録 asset cleanup を core の削除操作へ集約する。`cmd/mdhop/delete.go` から展開・Walk・Remove・cleanup を除き CLI は引数と出力だけを担い、`internal/core/delete.go`、`fs_cleanup.go`、`docs/specs/overview.md` を整合させる。単一 file 契約、未登録 directory error、hidden directory・未登録 Markdown の保持、post-update cleanup 失敗時に成功出力しない契約を維持し、既存 directory delete test の移設・再利用を主とする。汎用 FS service/new package は作らず、旧 ADR は履歴として扱う。出典: CODEX:HY-2。完了: directory delete の完了境界が core 一箇所となり、既存契約を確認する。
 
