@@ -54,7 +54,7 @@
 
 - [x] `AllowsSafeRewriteCandidate` の既存 case で計画の予定先、移動後 file/DB、quoted link 結果を必要最小限確認する。`internal/core/move_template_test.go` の既存 fixture を再利用し、別 E2E は追加せず production は変更しない。出典: GROK:N8。完了: 成功時の計画・disk・index・link 更新を観測し no-op/部分適用を検知する。
 
-- [ ] repair の frontmatter 保持既存 test の bare `[[...]]` を、実際に `frontmatter_wikilink` と判定される quoted fixture へ修正し、body 修復と frontmatter 不変を観測する。`internal/core/repair_test.go` を変更対象、`rewrite_test.go` と `repair.go` を参照対象とし、分類表列追加や同義 helper test は作らず production は変更しない。出典: GROK:B10。完了: quoted frontmatter を残して body のみ修復することを確認する。
+- [x] repair の frontmatter 保持既存 test の bare `[[...]]` を、実際に `frontmatter_wikilink` と判定される quoted fixture へ修正し、body 修復と frontmatter 不変を観測する。`internal/core/repair_test.go` を変更対象、`rewrite_test.go` と `repair.go` を参照対象とし、分類表列追加や同義 helper test は作らず production は変更しない。出典: GROK:B10。完了: quoted frontmatter を残して body のみ修復することを確認する。
 
 - [ ] Add self-link の既存 test fixture を root-priority の早期 skip に隠れないものへ修正し、self-link の意味と追加 node/edge 状態を直接確認する。`internal/core/add_test.go` の既存 case 置換だけとし production は変更しない。出典: GROK:B25。完了: self-link 追加後の node/edge 状態が期待どおりである。
 

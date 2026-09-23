@@ -168,7 +168,7 @@ func TestRepairNoBrokenLinks(t *testing.T) {
 
 func TestRepairFrontmatterWikilinkUntouched(t *testing.T) {
 	vault := t.TempDir()
-	content := "---\nrelated: [[missing/Target]]\n---\n\n[[missing/Target]]\n"
+	content := "---\nrelated: \"[[missing/Target]]\"\n---\n\n[[missing/Target]]\n"
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte(content), 0644); err != nil {
 		t.Fatalf("write A.md: %v", err)
 	}
@@ -189,11 +189,9 @@ func TestRepairFrontmatterWikilinkUntouched(t *testing.T) {
 		t.Fatalf("read A.md: %v", err)
 	}
 	got := string(gotBytes)
-	if !strings.Contains(got, "related: [[missing/Target]]") {
-		t.Fatalf("frontmatter wikilink was rewritten:\n%s", got)
-	}
-	if !strings.Contains(got, "\n[[Target]]\n") {
-		t.Fatalf("body wikilink was not rewritten:\n%s", got)
+	want := "---\nrelated: \"[[missing/Target]]\"\n---\n\n[[Target]]\n"
+	if got != want {
+		t.Fatalf("repaired content = %q, want %q", got, want)
 	}
 }
 
