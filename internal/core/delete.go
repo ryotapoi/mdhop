@@ -71,11 +71,16 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 
 	// Phase 2: disk operations.
 	if opts.RemoveFiles {
-		// Vault containment check + os.Remove for each file.
+		// Check every target before removing any file.
 		vaultAbs, err := filepath.Abs(vaultPath)
 		if err != nil {
 			return nil, err
 		}
+		vaultReal, err := filepath.EvalSymlinks(vaultAbs)
+		if err != nil {
+			return nil, err
+		}
+		var targets []string
 		for _, n := range nodes {
 			targetAbs, err := filepath.Abs(filepath.Join(vaultPath, n.path))
 			if err != nil {
@@ -89,7 +94,25 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 			if rel == ".." || strings.HasPrefix(rel, "../") {
 				return nil, fmt.Errorf("path escapes vault: %s", n.path)
 			}
-			if err := os.Remove(targetAbs); err != nil && !os.IsNotExist(err) {
+			// Remove acts on the final path entry, so resolve only its ancestors.
+			parentReal, err := filepath.EvalSymlinks(filepath.Dir(targetAbs))
+			if err != nil && !os.IsNotExist(err) {
+				return nil, err
+			}
+			if err == nil {
+				rel, err := filepath.Rel(vaultReal, parentReal)
+				if err != nil {
+					return nil, err
+				}
+				rel = filepath.ToSlash(rel)
+				if rel == ".." || strings.HasPrefix(rel, "../") {
+					return nil, fmt.Errorf("path escapes vault: %s", n.path)
+				}
+			}
+			targets = append(targets, targetAbs)
+		}
+		for _, target := range targets {
+			if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
 				return nil, err
 			}
 		}

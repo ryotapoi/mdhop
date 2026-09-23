@@ -560,6 +560,60 @@ func TestDeleteRemoveFiles_VaultEscape(t *testing.T) {
 	}
 }
 
+func TestDeleteRemoveFiles_SymlinkAncestorEscapesVault(t *testing.T) {
+	root := t.TempDir()
+	vault := filepath.Join(root, "vault")
+	original := filepath.Join(root, "original")
+	outside := filepath.Join(root, "outside")
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	insideFile := filepath.Join(vault, "sub", "A.md")
+	if err := os.WriteFile(insideFile, []byte("original\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.Rename(filepath.Join(vault, "sub"), original); err != nil {
+		t.Fatal(err)
+	}
+	outsideFile := filepath.Join(outside, "A.md")
+	if err := os.WriteFile(outsideFile, []byte("outside\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(vault, "sub")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	_, err := Delete(vault, DeleteOptions{Files: []string{"sub/"}, RemoveFiles: true})
+	if err == nil || !strings.Contains(err.Error(), "path escapes vault") {
+		t.Fatalf("delete error = %v, want path escapes vault", err)
+	}
+	for path, want := range map[string]string{
+		outsideFile:                     "outside\n",
+		filepath.Join(original, "A.md"): "original\n",
+	} {
+		got, err := os.ReadFile(path)
+		if err != nil || string(got) != want {
+			t.Errorf("file %s = %q, %v; want %q", path, got, err, want)
+		}
+	}
+	var nodeType string
+	var existsFlag int
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	if err := db.QueryRow("SELECT type, exists_flag FROM nodes WHERE path = ?", "sub/A.md").Scan(&nodeType, &existsFlag); err != nil {
+		t.Fatalf("registered path missing: %v", err)
+	}
+	if nodeType != "note" || existsFlag != 1 {
+		t.Errorf("registered path = (%s, %d), want (note, 1)", nodeType, existsFlag)
+	}
+}
+
 // --- Directory delete tests ---
 
 func TestDelete_DirExpansion(t *testing.T) {
