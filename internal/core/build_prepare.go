@@ -1,9 +1,7 @@
 package core
 
 import (
-	"fmt"
 	"os"
-	"strings"
 )
 
 type preparedBuild struct {
@@ -56,7 +54,7 @@ func prepareBuild(vaultPath string) (*preparedBuild, error) {
 
 	// Read all files, parse links, stat for mtime, and validate.
 	parsed := make([]preparedNote, 0, len(files))
-	var userErrors []string
+	var userErrors []error
 	for _, rel := range files {
 		fullPath, err := diskPaths.existingPath(rel)
 		if err != nil {
@@ -72,18 +70,10 @@ func prepareBuild(vaultPath string) (*preparedBuild, error) {
 		}
 		pr := parseLinksWithLinkKeys(string(content), cfg.Meta.LinkKeys)
 
-		// Validate links: collect user errors (ambiguous, vault-escape) up to maxBuildErrors.
+		// Collect link validation errors up to maxBuildErrors.
 		for _, link := range pr.Links {
-			if !isPathLinkType(link.linkType) {
-				continue
-			}
-			if link.isRelative && escapesVault(rel, link.target) {
-				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
-			} else if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
-				userErrors = append(userErrors, fmt.Sprintf("link escapes vault: %s in %s", link.rawLink, rel))
-			} else if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
-				candidates := ambiguousCandidates(link.target, rm)
-				userErrors = append(userErrors, fmt.Sprintf("ambiguous link: %s in %s (candidates: %s)", link.target, rel, strings.Join(candidates, ", ")))
+			if err := validateParsedLink(rel, link, rm); err != nil {
+				userErrors = append(userErrors, err)
 			} else {
 				continue
 			}

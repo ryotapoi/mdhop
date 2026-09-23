@@ -31,13 +31,13 @@ func prepareMovedFileRewrites(movedFileRewrites []movedFileRewrite) error {
 // applyMovedFileRewrites writes outgoing rewrites to moved files and returns
 // backups for later rollback. On write failure, already-written moved files are
 // restored best-effort.
-func applyMovedFileRewrites(vaultPath string, moves []moveInfo, movedFileRewrites []movedFileRewrite, needDiskMove bool) ([]rewriteBackup, []rollbackFailure, error) {
+func applyMovedFileRewrites(vaultPath string, movedFileRewrites []movedFileRewrite, needDiskMove bool) ([]rewriteBackup, []rollbackFailure, error) {
 	var backups []rewriteBackup
-	for i, mfr := range movedFileRewrites {
+	for _, mfr := range movedFileRewrites {
 		if len(mfr.outRewrites) == 0 {
 			continue
 		}
-		m := moves[i]
+		m := mfr.move
 		diskPath := m.to
 		if needDiskMove {
 			diskPath = m.from

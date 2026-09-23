@@ -261,7 +261,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 			cfg, err := LoadConfig(vaultPath)
 			return cfg.Build.ExcludePaths, err
 		},
-		Prepare: func(files []string) (scanRewritePlan, error) {
+		Prepare: func(files, _ []string) (scanRewritePlan, error) {
 			fileSet := make(map[string]bool, len(files))
 			pathSetLower := make(map[string]bool, len(files))
 			var candidates []string

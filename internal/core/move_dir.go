@@ -87,7 +87,7 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	}
 
 	// 4.2: apply outgoing rewrites to moved files.
-	movedFileBackups, movedFileRestoreFailures, err := applyMovedFileRewrites(vaultPath, moves, movedFileRewrites, needDiskMove)
+	movedFileBackups, movedFileRestoreFailures, err := applyMovedFileRewrites(vaultPath, movedFileRewrites, needDiskMove)
 	if err != nil {
 		restoreFailures := append(movedFileRestoreFailures, restoreBackupFiles(vaultPath, externalBackups)...)
 		return nil, wrapRollbackFailures(err, restoreFailures)
@@ -189,14 +189,12 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	}
 
 	// 5.2: delete old outgoing edges and re-parse (notes only; assets have no outgoing).
-	for i, m := range moves {
-		if m.isAsset {
-			continue
-		}
+	for _, mfr := range movedFileRewrites {
+		m := mfr.move
 		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", m.nodeID); err != nil {
 			return nil, err
 		}
-		newLinks := parseLinksWithLinkKeys(string(movedFileRewrites[i].content), cfg.Meta.LinkKeys).Links
+		newLinks := parseLinksWithLinkKeys(string(mfr.content), cfg.Meta.LinkKeys).Links
 		if err := validateParsedLinks(m.to, newLinks, dm.rm); err != nil {
 			return nil, err
 		}
@@ -222,10 +220,10 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	result.Rewritten = append(result.Rewritten, externalRewritten...)
 
 	// Add outgoing rewrites to result.
-	for i, mfr := range movedFileRewrites {
+	for _, mfr := range movedFileRewrites {
 		for _, ow := range mfr.outRewrites {
 			result.Rewritten = append(result.Rewritten, RewrittenLink{
-				File:    moves[i].to,
+				File:    mfr.move.to,
 				OldLink: ow.rawLink,
 				NewLink: ow.newRawLink,
 			})

@@ -470,29 +470,3 @@ func listDirNodesByType(db dbExecer, dirPrefix string, nodeType NodeType) ([]str
 	}
 	return paths, rows.Err()
 }
-
-// ListDirNotes returns vault-relative paths of all registered notes
-// under the given directory prefix.
-// dirPrefix should not have a trailing slash (e.g., "sub", "sub/inner").
-func ListDirNotes(vaultPath, dirPrefix string) ([]string, error) {
-	db, err := openDBChecked(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
-	return listDirNodesByType(db, dirPrefix, NodeTypeNote)
-}
-
-// ListDirAssets returns vault-relative paths of all registered assets
-// under the given directory prefix.
-// dirPrefix should not have a trailing slash (e.g., "sub", "sub/inner").
-func ListDirAssets(vaultPath, dirPrefix string) ([]string, error) {
-	db, err := openDBChecked(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
-	return listDirNodesByType(db, dirPrefix, NodeTypeAsset)
-}

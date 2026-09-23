@@ -17,8 +17,9 @@ type outgoingRewrite struct {
 	lineStart  int
 }
 
-// movedFileRewrite records the original content and outgoing rewrites for one moved note.
+// movedFileRewrite keeps one moved note together with its candidate content and rewrites.
 type movedFileRewrite struct {
+	move        moveInfo
 	original    []byte
 	content     []byte
 	perm        os.FileMode
@@ -258,7 +259,7 @@ func collectCollateralRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveM
 }
 
 // buildMovedFileRewrites reads each moved note from disk and computes its outgoing
-// link rewrites. Assets have no outgoing links and yield empty entries.
+// link rewrites. Assets have no outgoing links and are omitted.
 func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm *dirMoveMaps, needDiskMove bool) ([]movedFileRewrite, error) {
 	rm := dm.rm
 	linkMaps := movedLinkMaps{
@@ -267,8 +268,8 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 		rootBasenameToPath: rm.rootBasenameToPath,
 		basenameCounts:     rm.basenameCounts,
 	}
-	movedFileRewrites := make([]movedFileRewrite, len(moves))
-	for i, m := range moves {
+	var movedFileRewrites []movedFileRewrite
+	for _, m := range moves {
 		if m.isAsset {
 			continue
 		}
@@ -286,7 +287,12 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 		if err != nil {
 			return nil, err
 		}
-		movedFileRewrites[i] = movedFileRewrite{original: content, content: content, perm: info.Mode().Perm()}
+		mfr := movedFileRewrite{
+			move:     m,
+			original: content,
+			content:  content,
+			perm:     info.Mode().Perm(),
+		}
 
 		links := parseLinks(string(content)).Links
 		for _, link := range links {
@@ -307,9 +313,10 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 				return nil, err
 			}
 			if ok {
-				movedFileRewrites[i].outRewrites = append(movedFileRewrites[i].outRewrites, rewrite)
+				mfr.outRewrites = append(mfr.outRewrites, rewrite)
 			}
 		}
+		movedFileRewrites = append(movedFileRewrites, mfr)
 	}
 	return movedFileRewrites, nil
 }

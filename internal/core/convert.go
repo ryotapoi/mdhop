@@ -32,7 +32,7 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 			cfg, err := LoadConfig(vaultPath)
 			return cfg.Build.ExcludePaths, err
 		},
-		Prepare: func(files []string) (scanRewritePlan, error) {
+		Prepare: func(files, _ []string) (scanRewritePlan, error) {
 			fileSet := make(map[string]bool, len(files))
 			for _, f := range files {
 				fileSet[f] = true

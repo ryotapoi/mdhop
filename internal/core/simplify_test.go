@@ -404,18 +404,34 @@ func TestSimplifyBuildExclude(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create config that excludes deep/.
-	writeFile(t, tmp, "mdhop.yaml", "build:\n  exclude_paths:\n    - \"deep/**\"\n")
+	// Exclude deep notes and one of two same-named assets. Simplify should
+	// apply the same config to both file collections.
+	writeFile(t, tmp, "mdhop.yaml", "build:\n  exclude_paths:\n    - \"deep/**\"\n    - \"assets1/**\"\n")
+	aPath := filepath.Join(tmp, "A.md")
+	aContent, err := os.ReadFile(aPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(aPath, append(aContent, []byte("\n[[assets2/icon.png]]\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	foundUniqueAsset := false
 	for _, r := range result.Rewritten {
 		if r.File == "deep/D.md" {
 			t.Error("deep/D.md should be excluded by build.exclude_paths")
 		}
+		if r.File == "A.md" && r.OldLink == "[[assets2/icon.png]]" && r.NewLink == "[[icon.png]]" {
+			foundUniqueAsset = true
+		}
+	}
+	if !foundUniqueAsset {
+		t.Error("assets1 exclusion should leave assets2/icon.png as a unique asset target")
 	}
 }
 

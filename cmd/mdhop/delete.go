@@ -4,8 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
@@ -16,7 +14,7 @@ Remove registered files from the index. With --rm, remove them from disk as well
 
 Options:
   --file <path>       Required, repeatable. Vault-relative file or directory. A trailing / or disk directory enables directory mode.
-  --rm                Optional. Also delete registered files from disk.
+  --rm                Optional. Also delete files from disk.
   --vault <path>      Optional. Vault root directory. Default: ".".
   --format json|text  Optional. Output format. Default: text.
 
@@ -30,20 +28,6 @@ Examples:
   mdhop delete --file Notes/Obsolete.md
 
 `
-
-var deleteWalk = filepath.Walk
-var deleteRemove = os.Remove
-var deleteCleanupEmptyDirs = core.CleanupEmptyDirs
-
-// isDirArg returns true if the argument refers to a directory
-// (trailing slash or existing directory on disk).
-func isDirArg(vaultPath, arg string) bool {
-	if strings.HasSuffix(arg, "/") {
-		return true
-	}
-	info, err := os.Stat(filepath.Join(vaultPath, arg))
-	return err == nil && info.IsDir()
-}
 
 func runDelete(args []string) error {
 	fs := flag.NewFlagSet("delete", flag.ContinueOnError)
@@ -63,86 +47,13 @@ func runDelete(args []string) error {
 		return fmt.Errorf("--file is required")
 	}
 
-	var hasDirArg bool
-	var expanded []string
-	for _, f := range files {
-		if isDirArg(*vault, f) {
-			hasDirArg = true
-			dirPrefix := core.NormalizePath(strings.TrimSuffix(f, "/"))
-			notes, err := core.ListDirNotes(*vault, dirPrefix)
-			if err != nil {
-				return err
-			}
-			assets, err := core.ListDirAssets(*vault, dirPrefix)
-			if err != nil {
-				return err
-			}
-			if len(notes) == 0 && len(assets) == 0 {
-				return fmt.Errorf("no files registered under directory: %s", f)
-			}
-			expanded = append(expanded, notes...)
-			expanded = append(expanded, assets...)
-		} else {
-			expanded = append(expanded, f)
-		}
-	}
-
-	result, err := core.Delete(*vault, core.DeleteOptions{Files: expanded, RemoveFiles: *rm})
+	result, err := core.Delete(*vault, core.DeleteOptions{Files: files, RemoveFiles: *rm})
 	if err != nil {
 		return err
 	}
 
-	if *rm && hasDirArg {
-		// Remove any remaining unregistered files on disk (D5: disk-based deletion).
-		for _, f := range files {
-			if !isDirArg(*vault, f) {
-				continue
-			}
-			dirPrefix := core.NormalizePath(strings.TrimSuffix(f, "/"))
-			absDir := filepath.Join(*vault, dirPrefix)
-			// Walk to delete remaining files (assets added after build, etc.).
-			if err := deleteWalk(absDir, func(path string, info os.FileInfo, walkErr error) error {
-				if walkErr != nil {
-					if os.IsNotExist(walkErr) {
-						return nil
-					}
-					return fmt.Errorf("walk %s: %w", path, walkErr)
-				}
-				if info.IsDir() {
-					if strings.HasPrefix(info.Name(), ".") {
-						return filepath.SkipDir
-					}
-					return nil
-				}
-				// Only remove non-.md files (D5: disk-based deletion for assets only).
-				if strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
-					return nil
-				}
-				if err := deleteRemove(path); err != nil && !os.IsNotExist(err) {
-					return fmt.Errorf("remove %s: %w", path, err)
-				}
-				return nil
-			}); err != nil {
-				return deletePostUpdateCleanupError(err)
-			}
-		}
-
-		var allPaths []string
-		allPaths = append(allPaths, result.Deleted...)
-		allPaths = append(allPaths, result.Phantomed...)
-		if err := deleteCleanupEmptyDirs(*vault, allPaths); err != nil {
-			return deletePostUpdateCleanupError(err)
-		}
-	}
-
-	switch *format {
-	case "json":
+	if *format == "json" {
 		return printDeleteJSON(os.Stdout, result)
-	default:
-		return printDeleteText(os.Stdout, result)
 	}
-}
-
-func deletePostUpdateCleanupError(err error) error {
-	return fmt.Errorf("post-delete cleanup failed after registered files and database updates completed: %w", err)
+	return printDeleteText(os.Stdout, result)
 }

@@ -331,11 +331,44 @@ func TestPlanMoveTemplate_AllowsSafeRewriteCandidate(t *testing.T) {
 	})
 	opts := MoveTemplateOptions{From: "B.md", Template: "archive/Renamed.md"}
 
-	if _, err := PlanMoveTemplate(vault, opts); err != nil {
+	plan, err := PlanMoveTemplate(vault, opts)
+	if err != nil {
 		t.Fatalf("plan move template: %v", err)
 	}
-	if _, err := MoveTemplate(vault, opts); err != nil {
+	if len(plan.Moved) != 1 || plan.Moved[0] != (MovedFile{From: "B.md", To: "archive/Renamed.md"}) {
+		t.Fatalf("planned moves = %+v, want B.md → archive/Renamed.md", plan.Moved)
+	}
+	result, err := MoveTemplate(vault, opts)
+	if err != nil {
 		t.Fatalf("move template: %v", err)
+	}
+	if len(result.Moved) != 1 || result.Moved[0] != plan.Moved[0] {
+		t.Fatalf("executed moves = %+v, want %+v", result.Moved, plan.Moved)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "B.md")); !os.IsNotExist(err) {
+		t.Errorf("source B.md should be gone, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "archive", "Renamed.md")); err != nil {
+		t.Fatalf("destination note missing: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(vault, "Other.md"))
+	if err != nil {
+		t.Fatalf("read Other.md: %v", err)
+	}
+	if !strings.Contains(string(content), `ref: "[[archive/Renamed]]"`) {
+		t.Errorf("quoted link was not rewritten: %s", content)
+	}
+	var foundDestination, foundSource bool
+	for _, note := range queryNodes(t, dbPath(vault), NodeTypeNote) {
+		foundDestination = foundDestination || note.path == "archive/Renamed.md"
+		foundSource = foundSource || note.path == "B.md"
+	}
+	if !foundDestination || foundSource {
+		t.Errorf("DB paths: destination=%v source=%v", foundDestination, foundSource)
+	}
+	edges := queryEdges(t, dbPath(vault), "Other.md")
+	if len(edges) != 1 || edges[0].targetKey != noteKey("archive/Renamed.md") || edges[0].rawLink != "[[archive/Renamed]]" {
+		t.Errorf("Other.md edge = %+v, want rewritten quoted-link target", edges)
 	}
 }
 

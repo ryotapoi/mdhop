@@ -11,7 +11,7 @@ import (
 type scanRewriteOptions struct {
 	DryRun       bool
 	ExcludePaths func() ([]string, error)
-	Prepare      func(files []string) (scanRewritePlan, error)
+	Prepare      func(files, excludePaths []string) (scanRewritePlan, error)
 }
 
 // scanRewritePlan selects already-collected source files and decides their
@@ -38,7 +38,7 @@ func scanAndRewrite(vaultPath string, opts scanRewriteOptions) ([]rewriteEntry, 
 	files = filterBuildExcludes(files, excludePaths)
 	sort.Strings(files)
 
-	plan, err := opts.Prepare(files)
+	plan, err := opts.Prepare(files, excludePaths)
 	if err != nil {
 		return nil, err
 	}

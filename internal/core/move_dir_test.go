@@ -707,32 +707,50 @@ func TestMoveDir_DestExistsOnDisk(t *testing.T) {
 }
 
 func TestMoveDir_PhantomPromotion(t *testing.T) {
-	// A.md and B.md link to [[X]] which is a phantom.
-	// Move sub/X.md to a new dir. Since dir move doesn't change basename,
-	// this is essentially testing that phantom promotion works.
+	// A missing path link leaves a phantom even though a same-basename note
+	// exists elsewhere. Moving the note onto that path should promote it.
 	vault := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[X]]\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "Root.md"), []byte("[X](newdir/X.md)\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(vault, "sub", "Y.md"), []byte("content\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "sub", "X.md"), []byte("content\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
+	if phantoms := queryNodes(t, dbPath(vault), NodeTypePhantom); len(phantoms) != 1 || phantoms[0].name != "X" {
+		t.Fatalf("phantoms before move = %+v, want phantom X", phantoms)
+	}
 
-	// X is a phantom. Move sub → newdir won't promote X because basename
-	// doesn't change and there's no X.md in sub.
-	// This test just verifies no crash on phantom promotion code path.
 	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
 	if err != nil {
 		t.Fatalf("MoveDir: %v", err)
 	}
-	if len(result.Moved) != 1 {
-		t.Errorf("expected 1 moved file, got %d", len(result.Moved))
+	if len(result.Moved) != 1 || result.Moved[0] != (MovedFile{From: "sub/X.md", To: "newdir/X.md"}) {
+		t.Fatalf("Moved = %+v, want sub/X.md → newdir/X.md", result.Moved)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "newdir", "X.md")); err != nil {
+		t.Fatalf("moved note missing: %v", err)
+	}
+	var foundNote bool
+	for _, note := range queryNodes(t, dbPath(vault), NodeTypeNote) {
+		foundNote = foundNote || note.path == "newdir/X.md"
+	}
+	if !foundNote {
+		t.Fatal("DB does not contain moved note newdir/X.md")
+	}
+	for _, phantom := range queryNodes(t, dbPath(vault), NodeTypePhantom) {
+		if phantom.name == "X" {
+			t.Fatal("phantom X should be removed after promotion")
+		}
+	}
+	edges := queryEdges(t, dbPath(vault), "Root.md")
+	if len(edges) != 1 || edges[0].targetType != NodeTypeNote || edges[0].targetKey != noteKey("newdir/X.md") {
+		t.Fatalf("Root.md edge = %+v, want edge to moved note", edges)
 	}
 }
 
@@ -775,6 +793,12 @@ func TestMoveDir_HiddenFilesIgnored(t *testing.T) {
 	}
 	if len(result.Moved) == 0 {
 		t.Error("expected files to be moved")
+	}
+	if _, err := os.Stat(filepath.Join(vault, "sub", ".DS_Store")); err != nil {
+		t.Errorf("hidden file should remain at source: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "newdir", ".DS_Store")); !os.IsNotExist(err) {
+		t.Errorf("hidden file should not be moved to destination, got %v", err)
 	}
 }
 

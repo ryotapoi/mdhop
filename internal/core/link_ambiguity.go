@@ -58,19 +58,29 @@ func ambiguousCandidates(target string, rm *resolveMaps) []string {
 // so ambiguity must be rejected here.
 func validateParsedLinks(sourcePath string, links []linkOccur, rm *resolveMaps) error {
 	for _, link := range links {
-		if !isPathLinkType(link.linkType) {
-			continue
+		if err := validateParsedLink(sourcePath, link, rm); err != nil {
+			return err
 		}
-		if link.isRelative && escapesVault(sourcePath, link.target) {
-			return fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
-		}
-		if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
-			return fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
-		}
-		if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
-			candidates := ambiguousCandidates(link.target, rm)
-			return fmt.Errorf("%w: %s in %s (candidates: %s)", ErrAmbiguousLink, link.target, sourcePath, strings.Join(candidates, ", "))
-		}
+	}
+	return nil
+}
+
+// validateParsedLink checks one parsed link for vault escapes and ambiguous
+// basenames, returning an error that identifies its cause through the existing
+// sentinel errors.
+func validateParsedLink(sourcePath string, link linkOccur, rm *resolveMaps) error {
+	if !isPathLinkType(link.linkType) {
+		return nil
+	}
+	if link.isRelative && escapesVault(sourcePath, link.target) {
+		return fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
+	}
+	if !link.isRelative && !link.isBasename && pathEscapesVault(link.target) {
+		return fmt.Errorf("%w: %s in %s", ErrLinkEscapesVault, link.rawLink, sourcePath)
+	}
+	if link.isBasename && isAmbiguousBasenameLink(link.target, rm) {
+		candidates := ambiguousCandidates(link.target, rm)
+		return fmt.Errorf("%w: %s in %s (candidates: %s)", ErrAmbiguousLink, link.target, sourcePath, strings.Join(candidates, ", "))
 	}
 	return nil
 }

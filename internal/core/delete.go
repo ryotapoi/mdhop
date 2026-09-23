@@ -7,9 +7,13 @@ import (
 	"strings"
 )
 
+var deleteAssetWalk = filepath.Walk
+var deleteAssetRemove = os.Remove
+var deleteEmptyDirs = CleanupEmptyDirs
+
 // DeleteOptions controls which files to remove from the index.
 type DeleteOptions struct {
-	Files       []string // vault-relative paths
+	Files       []string // vault-relative file or directory paths
 	RemoveFiles bool     // if true, delete files from disk before updating DB
 }
 
@@ -19,9 +23,8 @@ type DeleteResult struct {
 	Phantomed []string // converted to phantom
 }
 
-// Delete removes the specified files from the index DB.
-// Files with incoming references are converted to phantom nodes.
-// Files without incoming references are completely removed.
+// Delete removes registered files from the index and can expand directory paths.
+// Files with incoming references are converted to phantom nodes; other files are removed.
 func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	db, err := openDBChecked(vaultPath)
 	if err != nil {
@@ -30,6 +33,11 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	defer db.Close()
 
 	rm, err := buildMapsFromDB(db)
+	if err != nil {
+		return nil, err
+	}
+
+	files, directories, err := expandDeletePaths(vaultPath, db, opts.Files)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +51,7 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	}
 	seen := make(map[string]bool)
 	var nodes []nodeInfo
-	for _, f := range opts.Files {
+	for _, f := range files {
 		np := NormalizePath(f)
 		if seen[np] {
 			continue
@@ -125,6 +133,77 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	if opts.RemoveFiles && len(directories) > 0 {
+		if err := cleanupDeletedDirectories(vaultPath, directories, result); err != nil {
+			return nil, fmt.Errorf("post-delete cleanup failed after registered files and database updates completed: %w", err)
+		}
+	}
 
 	return result, nil
+}
+
+func expandDeletePaths(vaultPath string, db dbExecer, inputs []string) (files, directories []string, err error) {
+	for _, input := range inputs {
+		if !isDeleteDirectoryArg(vaultPath, input) {
+			files = append(files, input)
+			continue
+		}
+
+		dirPrefix := NormalizePath(strings.TrimSuffix(input, "/"))
+		notes, err := listDirNodesByType(db, dirPrefix, NodeTypeNote)
+		if err != nil {
+			return nil, nil, err
+		}
+		assets, err := listDirNodesByType(db, dirPrefix, NodeTypeAsset)
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(notes) == 0 && len(assets) == 0 {
+			return nil, nil, fmt.Errorf("no files registered under directory: %s", input)
+		}
+		files = append(files, notes...)
+		files = append(files, assets...)
+		directories = append(directories, dirPrefix)
+	}
+	return files, directories, nil
+}
+
+func isDeleteDirectoryArg(vaultPath, path string) bool {
+	if strings.HasSuffix(path, "/") {
+		return true
+	}
+	info, err := os.Stat(filepath.Join(vaultPath, path))
+	return err == nil && info.IsDir()
+}
+
+func cleanupDeletedDirectories(vaultPath string, directories []string, result *DeleteResult) error {
+	for _, dir := range directories {
+		absDir := filepath.Join(vaultPath, dir)
+		if err := deleteAssetWalk(absDir, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				if os.IsNotExist(walkErr) {
+					return nil
+				}
+				return fmt.Errorf("walk %s: %w", path, walkErr)
+			}
+			if info.IsDir() {
+				if strings.HasPrefix(info.Name(), ".") {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+				return nil
+			}
+			if err := deleteAssetRemove(path); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("remove %s: %w", path, err)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
+	allPaths := append(append([]string(nil), result.Deleted...), result.Phantomed...)
+	return deleteEmptyDirs(vaultPath, allPaths)
 }

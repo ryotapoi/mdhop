@@ -380,35 +380,21 @@ func TestDeleteDirWithAssets(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Delete sub/ directory which contains B.md and photo.jpg.
-	os.Remove(filepath.Join(vault, "sub", "B.md"))
-	os.Remove(filepath.Join(vault, "sub", "photo.jpg"))
-
-	// Collect notes and assets under sub/.
-	notes, err := ListDirNotes(vault, "sub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	assets, err := ListDirAssets(vault, "sub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	allFiles := append(notes, assets...)
-	if len(allFiles) == 0 {
-		t.Fatal("expected files under sub/")
-	}
-
-	result, err := Delete(vault, DeleteOptions{Files: allFiles})
+	result, err := Delete(vault, DeleteOptions{Files: []string{"sub/"}, RemoveFiles: true})
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
-	// B.md should be phantomized (incoming link from sub/B.md → photo.jpg,
-	// but no incoming to B.md itself from outside, so it should be fully deleted).
-	// photo.jpg should be phantomized (incoming from sub/B.md, but B.md is also deleted → orphan cleanup).
+	// B.md has no incoming references and is deleted. Removing B.md also leaves
+	// photo.jpg unreferenced, so orphan cleanup removes that asset too.
 	totalProcessed := len(result.Deleted) + len(result.Phantomed)
-	if totalProcessed != len(allFiles) {
-		t.Fatalf("expected %d processed files, got deleted=%d phantomed=%d", len(allFiles), len(result.Deleted), len(result.Phantomed))
+	if totalProcessed != 2 {
+		t.Fatalf("expected 2 processed files, got deleted=%d phantomed=%d", len(result.Deleted), len(result.Phantomed))
+	}
+	for _, path := range []string{"sub/B.md", "sub/photo.jpg"} {
+		if _, err := os.Stat(filepath.Join(vault, path)); !os.IsNotExist(err) {
+			t.Errorf("%s should be deleted from disk, got %v", path, err)
+		}
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ryotapoi/mdhop/internal/core"
@@ -44,6 +45,14 @@ Examples:
   mdhop move --from OldDir/ --to NewDir/ --format json
 
 `
+
+func isDirArg(vaultPath, arg string) bool {
+	if strings.HasSuffix(arg, "/") {
+		return true
+	}
+	info, err := os.Stat(filepath.Join(vaultPath, arg))
+	return err == nil && info.IsDir()
+}
 
 func runMove(args []string) error {
 	fs := flag.NewFlagSet("move", flag.ContinueOnError)

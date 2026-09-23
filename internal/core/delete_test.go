@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"syscall"
 	"testing"
@@ -561,104 +560,58 @@ func TestDeleteRemoveFiles_VaultEscape(t *testing.T) {
 	}
 }
 
-// --- ListDirNotes tests ---
-
-func TestListDirNotes_Basic(t *testing.T) {
-	vault := copyVault(t, "vault_delete_dir")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	paths, err := ListDirNotes(vault, "sub")
-	if err != nil {
-		t.Fatalf("ListDirNotes: %v", err)
-	}
-	sort.Strings(paths)
-	want := []string{"sub/A.md", "sub/B.md", "sub/inner/C.md"}
-	if len(paths) != len(want) {
-		t.Fatalf("got %v, want %v", paths, want)
-	}
-	for i := range want {
-		if paths[i] != want[i] {
-			t.Errorf("paths[%d] = %s, want %s", i, paths[i], want[i])
-		}
-	}
-}
-
-func TestListDirNotes_Nested(t *testing.T) {
-	vault := copyVault(t, "vault_delete_dir")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	paths, err := ListDirNotes(vault, "sub/inner")
-	if err != nil {
-		t.Fatalf("ListDirNotes: %v", err)
-	}
-	if len(paths) != 1 || paths[0] != "sub/inner/C.md" {
-		t.Errorf("got %v, want [sub/inner/C.md]", paths)
-	}
-}
-
-func TestListDirNotes_NoMatch(t *testing.T) {
-	vault := copyVault(t, "vault_delete_dir")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	paths, err := ListDirNotes(vault, "nonexist")
-	if err != nil {
-		t.Fatalf("ListDirNotes: %v", err)
-	}
-	if len(paths) != 0 {
-		t.Errorf("got %v, want empty", paths)
-	}
-}
-
-func TestListDirNotes_SpecialChars(t *testing.T) {
-	// Test that _ and % in directory names are properly escaped for LIKE.
-	vault := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(vault, "dir_100%"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(vault, "dir_100%", "A.md"), []byte("content\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// Also create a dir that would match without escaping: "dirX100Y" matches "dir_100%"
-	if err := os.MkdirAll(filepath.Join(vault, "dirX100Y"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(vault, "dirX100Y", "B.md"), []byte("content\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	paths, err := ListDirNotes(vault, "dir_100%")
-	if err != nil {
-		t.Fatalf("ListDirNotes: %v", err)
-	}
-	if len(paths) != 1 || paths[0] != "dir_100%/A.md" {
-		t.Errorf("got %v, want [dir_100%%/A.md]", paths)
-	}
-}
-
-// --- Directory delete integration tests ---
+// --- Directory delete tests ---
 
 func TestDelete_DirExpansion(t *testing.T) {
+	// Test that _ and % in directory names are properly escaped for LIKE.
+	vault := t.TempDir()
+	for dir, name := range map[string]string{"dir_100%": "A.md", "dirX100Y": "B.md"} {
+		if err := os.MkdirAll(filepath.Join(vault, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(vault, dir, name), []byte("content\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	result, err := Delete(vault, DeleteOptions{Files: []string{"dir_100%"}, RemoveFiles: true})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(result.Deleted) != 1 || result.Deleted[0] != "dir_100%/A.md" {
+		t.Errorf("Deleted = %v, want [dir_100%%/A.md]", result.Deleted)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "dirX100Y", "B.md")); err != nil {
+		t.Errorf("similar directory should remain untouched: %v", err)
+	}
+}
+
+func TestDelete_DirRm_ExpansionAndCleanup(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Get files under sub/ for deletion.
-	notes, err := ListDirNotes(vault, "sub")
-	if err != nil {
-		t.Fatalf("ListDirNotes: %v", err)
+	lateAsset := filepath.Join(vault, "sub", "late.bin")
+	lateMarkdown := filepath.Join(vault, "sub", "late.md")
+	hiddenAsset := filepath.Join(vault, "sub", ".hidden", "keep.bin")
+	for path, content := range map[string]string{
+		lateAsset:    "asset",
+		lateMarkdown: "markdown",
+		hiddenAsset:  "hidden",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	result, err := Delete(vault, DeleteOptions{Files: notes, RemoveFiles: true})
+	result, err := Delete(vault, DeleteOptions{Files: []string{"sub"}, RemoveFiles: true})
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
@@ -672,11 +625,18 @@ func TestDelete_DirExpansion(t *testing.T) {
 		t.Errorf("Deleted = %v, want [sub/inner/C.md]", result.Deleted)
 	}
 
-	// Files should be gone from disk.
-	for _, n := range notes {
-		if _, err := os.Stat(filepath.Join(vault, n)); !os.IsNotExist(err) {
-			t.Errorf("%s should not exist on disk", n)
+	for _, path := range []string{"sub/A.md", "sub/B.md", "sub/inner/C.md", "sub/late.bin"} {
+		if _, err := os.Stat(filepath.Join(vault, path)); !os.IsNotExist(err) {
+			t.Errorf("%s should be gone, got %v", path, err)
 		}
+	}
+	for _, path := range []string{"sub/late.md", "sub/.hidden/keep.bin"} {
+		if _, err := os.Stat(filepath.Join(vault, path)); err != nil {
+			t.Errorf("%s should remain: %v", path, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(vault, "sub", "inner")); !os.IsNotExist(err) {
+		t.Errorf("empty nested directory should be removed, got %v", err)
 	}
 }
 
@@ -686,12 +646,9 @@ func TestDelete_DirEmpty(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	paths, err := ListDirNotes(vault, "nonexist")
-	if err != nil {
-		t.Fatalf("ListDirNotes: %v", err)
-	}
-	if len(paths) != 0 {
-		t.Errorf("expected empty paths for nonexistent directory")
+	_, err := Delete(vault, DeleteOptions{Files: []string{"nonexist/"}, RemoveFiles: true})
+	if err == nil || !strings.Contains(err.Error(), "no files registered under directory: nonexist/") {
+		t.Errorf("expected empty directory error, got: %v", err)
 	}
 }
 
@@ -701,57 +658,120 @@ func TestDelete_DirNoRm(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	notes, err := ListDirNotes(vault, "sub")
-	if err != nil {
-		t.Fatalf("ListDirNotes: %v", err)
-	}
-
 	// Remove files from disk first.
-	for _, n := range notes {
-		if err := os.Remove(filepath.Join(vault, n)); err != nil {
-			t.Fatalf("remove %s: %v", n, err)
+	for _, path := range []string{"sub/A.md", "sub/B.md", "sub/inner/C.md"} {
+		if err := os.Remove(filepath.Join(vault, path)); err != nil {
+			t.Fatalf("remove %s: %v", path, err)
 		}
 	}
 
-	result, err := Delete(vault, DeleteOptions{Files: notes, RemoveFiles: false})
+	result, err := Delete(vault, DeleteOptions{Files: []string{"sub/"}, RemoveFiles: false})
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
-	if len(result.Phantomed)+len(result.Deleted) != 3 {
-		t.Errorf("expected 3 total operations, got Phantomed=%v Deleted=%v", result.Phantomed, result.Deleted)
+	if got := len(result.Phantomed) + len(result.Deleted); got != 3 {
+		t.Errorf("processed %d paths, want 3; Phantomed=%v Deleted=%v", got, result.Phantomed, result.Deleted)
 	}
 }
 
-func TestDelete_DirRm_CleanupEmptyDirs(t *testing.T) {
+func TestDelete_DirRm_AssetCleanupErrorAfterDBUpdate(t *testing.T) {
 	vault := copyVault(t, "vault_delete_dir")
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
+	asset := filepath.Join(vault, "sub", "late.bin")
+	if err := os.WriteFile(asset, []byte("asset"), 0o644); err != nil {
+		t.Fatalf("write asset: %v", err)
+	}
 
-	notes, err := ListDirNotes(vault, "sub")
+	cleanupErr := errors.New("asset cleanup denied")
+	originalRemove := deleteAssetRemove
+	deleteAssetRemove = func(path string) error {
+		if path == asset {
+			return cleanupErr
+		}
+		return os.Remove(path)
+	}
+	t.Cleanup(func() { deleteAssetRemove = originalRemove })
+
+	_, err := Delete(vault, DeleteOptions{Files: []string{"sub/"}, RemoveFiles: true})
+	if !errors.Is(err, cleanupErr) {
+		t.Fatalf("delete error = %v, want asset cleanup error", err)
+	}
+	for _, want := range []string{"post-delete cleanup failed", "registered files and database updates completed", asset} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("delete error = %q, missing %q", err, want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(vault, "sub", "A.md")); !os.IsNotExist(err) {
+		t.Errorf("registered file remains after cleanup error: %v", err)
+	}
+	result, err := Stats(vault, StatsOptions{Fields: []string{"notes_total"}})
 	if err != nil {
-		t.Fatalf("ListDirNotes: %v", err)
+		t.Fatalf("stats: %v", err)
 	}
+	if result.NotesTotal != 1 {
+		t.Errorf("notes_total = %d, want 1 after deleting sub notes", result.NotesTotal)
+	}
+}
 
-	_, err = Delete(vault, DeleteOptions{Files: notes, RemoveFiles: true})
-	if err != nil {
-		t.Fatalf("delete: %v", err)
+func TestDelete_DirRm_AssetWalkErrorAfterDBUpdate(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
 	}
+	walkPath := filepath.Join(vault, "sub", "late.bin")
+	walkErr := errors.New("asset walk denied")
+	originalWalk := deleteAssetWalk
+	deleteAssetWalk = func(_ string, walkFn filepath.WalkFunc) error {
+		return walkFn(walkPath, nil, walkErr)
+	}
+	t.Cleanup(func() { deleteAssetWalk = originalWalk })
 
-	var allPaths []string
-	allPaths = append(allPaths, notes...)
-	if err := CleanupEmptyDirs(vault, allPaths); err != nil {
-		t.Fatalf("cleanup: %v", err)
+	_, err := Delete(vault, DeleteOptions{Files: []string{"sub/"}, RemoveFiles: true})
+	if !errors.Is(err, walkErr) {
+		t.Fatalf("delete error = %v, want asset walk error", err)
 	}
+	for _, want := range []string{"post-delete cleanup failed", "registered files and database updates completed", walkPath} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("delete error = %q, missing %q", err, want)
+		}
+	}
+	result, statErr := Stats(vault, StatsOptions{Fields: []string{"notes_total"}})
+	if statErr != nil {
+		t.Fatalf("stats: %v", statErr)
+	}
+	if result.NotesTotal != 1 {
+		t.Errorf("notes_total = %d, want 1 after deleting sub notes", result.NotesTotal)
+	}
+}
 
-	// sub/inner/ should be gone (was emptied).
-	if _, err := os.Stat(filepath.Join(vault, "sub", "inner")); !os.IsNotExist(err) {
-		t.Error("sub/inner/ should be cleaned up")
+func TestDelete_DirRm_EmptyDirCleanupErrorAfterDBUpdate(t *testing.T) {
+	vault := copyVault(t, "vault_delete_dir")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
 	}
-	// sub/ should be gone too (all files deleted).
-	if _, err := os.Stat(filepath.Join(vault, "sub")); !os.IsNotExist(err) {
-		t.Error("sub/ should be cleaned up")
+	cleanupErr := errors.New("empty directory cleanup denied")
+	originalCleanup := deleteEmptyDirs
+	deleteEmptyDirs = func(_ string, _ []string) error { return cleanupErr }
+	t.Cleanup(func() { deleteEmptyDirs = originalCleanup })
+
+	_, err := Delete(vault, DeleteOptions{Files: []string{"sub/"}, RemoveFiles: true})
+	if !errors.Is(err, cleanupErr) {
+		t.Fatalf("delete error = %v, want empty directory cleanup error", err)
+	}
+	for _, want := range []string{"post-delete cleanup failed", "registered files and database updates completed", cleanupErr.Error()} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("delete error = %q, missing %q", err, want)
+		}
+	}
+	result, statErr := Stats(vault, StatsOptions{Fields: []string{"notes_total"}})
+	if statErr != nil {
+		t.Fatalf("stats: %v", statErr)
+	}
+	if result.NotesTotal != 1 {
+		t.Errorf("notes_total = %d, want 1 after deleting sub notes", result.NotesTotal)
 	}
 }
 

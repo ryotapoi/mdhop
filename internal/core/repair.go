@@ -46,7 +46,7 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 			cfg, err := LoadConfig(vaultPath)
 			return cfg.Build.ExcludePaths, err
 		},
-		Prepare: func(files []string) (scanRewritePlan, error) {
+		Prepare: func(files, _ []string) (scanRewritePlan, error) {
 			diskPaths := newVaultDiskPathResolver(vaultPath)
 			pathSetLower := make(map[string]bool, len(files))
 			basenameMap := make(map[string][]string)

@@ -24,15 +24,13 @@ type SimplifyResult struct {
 // (no DB required).
 func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 	result := &SimplifyResult{}
-	var excludePaths []string
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		DryRun: opts.DryRun,
 		ExcludePaths: func() ([]string, error) {
 			cfg, err := LoadConfig(vaultPath)
-			excludePaths = cfg.Build.ExcludePaths
-			return excludePaths, err
+			return cfg.Build.ExcludePaths, err
 		},
-		Prepare: func(files []string) (scanRewritePlan, error) {
+		Prepare: func(files, excludePaths []string) (scanRewritePlan, error) {
 			assetFiles, err := collectAssetFiles(vaultPath)
 			if err != nil {
 				return scanRewritePlan{}, err
