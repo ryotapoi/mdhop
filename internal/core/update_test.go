@@ -1003,20 +1003,47 @@ func TestUpdateRootDeletedResolvesToSubdir(t *testing.T) {
 		t.Fatalf("update: %v", err)
 	}
 
-	// A.md should be phantom-converted or deleted.
-	if len(result.Phantomed)+len(result.Deleted) == 0 {
-		t.Error("A.md should be phantomed or deleted")
+	if len(result.Deleted) != 1 || result.Deleted[0] != "A.md" {
+		t.Errorf("Deleted = %v, want [A.md]", result.Deleted)
+	}
+	if len(result.Phantomed) != 0 {
+		t.Errorf("Phantomed = %v, want []", result.Phantomed)
+	}
+
+	var rootNoteExists bool
+	for _, n := range queryNodes(t, dbPath(vault), NodeTypeNote) {
+		if n.path == "A.md" {
+			rootNoteExists = true
+		}
+	}
+	if rootNoteExists {
+		t.Error("root note at A.md should be removed")
+	}
+
+	var phantomAExists bool
+	for _, n := range queryNodes(t, dbPath(vault), NodeTypePhantom) {
+		if n.name == "A" {
+			phantomAExists = true
+		}
+	}
+	if phantomAExists {
+		t.Error("phantom node A should not remain")
 	}
 
 	// B.md's [[A]] should now point to sub/A.md (the only remaining A).
 	edges := queryEdges(t, dbPath(vault), "B.md")
-	var foundA bool
+	notes := queryNodes(t, dbPath(vault), NodeTypeNote)
+	var targetPaths []string
 	for _, e := range edges {
 		if e.targetName == "A" && e.targetType == NodeTypeNote {
-			foundA = true
+			for _, n := range notes {
+				if n.nodeKey == e.targetKey {
+					targetPaths = append(targetPaths, n.path)
+				}
+			}
 		}
 	}
-	if !foundA {
-		t.Error("B→A edge should exist pointing to sub/A.md")
+	if len(targetPaths) != 1 || targetPaths[0] != "sub/A.md" {
+		t.Errorf("B→A edge target paths = %v, want [sub/A.md]", targetPaths)
 	}
 }

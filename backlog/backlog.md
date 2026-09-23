@@ -58,7 +58,7 @@
 
 - [x] Add self-link の既存 test fixture を root-priority の早期 skip に隠れないものへ修正し、self-link の意味と追加 node/edge 状態を直接確認する。`internal/core/add_test.go` の既存 case 置換だけとし production は変更しない。出典: GROK:B25。完了: self-link 追加後の node/edge 状態が期待どおりである。
 
-- [ ] Update batch の既存 test で Deleted/Phantomed のどちらでもよい断言を正しい完全削除へ固定し、参照先 path を確認する。`internal/core/update_test.go` の既存 case 修正のみとし production は変更しない。出典: GROK:B26。完了: 対象 node が完全削除され、参照先 path が期待どおりである。
+- [x] Update batch の既存 test で Deleted/Phantomed のどちらでもよい断言を正しい完全削除へ固定し、参照先 path を確認する。`internal/core/update_test.go` の既存 case 修正のみとし production は変更しない。出典: GROK:B26。完了: 対象 node が完全削除され、参照先 path が期待どおりである。
 
 - [ ] 公開 `PlanMoveTemplate` に空 Template、絶対 From、`../` による vault 外 From を渡す代表 table test で拒否を固定する。`internal/core/move_template_test.go` で既存 `newMoveVault` と `filepath` を再利用し、error 全文一致でなく失敗理由を識別して確認する。新 fixture 基盤/hook/DI/private 関数直 test/MoveTemplate との重複検証は不要。出典: GROK:N9。完了: 3種類の誤入力が公開入口で適切に拒否される。
 
