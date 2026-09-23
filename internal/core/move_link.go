@@ -49,6 +49,8 @@ func rewriteMovedOutgoingLink(link linkOccur, from, to, preMoveTargetPath string
 		return newOutgoingRewrite(link, rewriteRawLink(link.rawLink, link.linkType, postMoveTargetPath)), true, nil
 	}
 
+	// Move preserves existing source-relative outgoing links as an intentional
+	// exception to vault-relative rewrites.
 	if link.isRelative {
 		newRawLink, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, from, to, maps.movedFromTo)
 		if err != nil {
