@@ -1247,15 +1247,17 @@ func TestAddSelfLinkNotBlockedByAmbiguity(t *testing.T) {
 	// so adding a file with the same basename should be allowed.
 	vault := copyVault(t, "vault_add")
 
-	if err := os.WriteFile(filepath.Join(vault, "Note.md"), []byte("# Note\n\n[[#Heading]]\n[self](#other)\n"), 0o644); err != nil {
+	if err := os.MkdirAll(filepath.Join(vault, "existing"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "existing", "Note.md"), []byte("# Note\n\n[[#Heading]]\n[self](./Note.md#other)\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 
-	// Add a same-basename file in a subdirectory — should succeed because
-	// the only existing link to "Note" is a self-link, not a basename link.
+	// Add a same-basename file without a root note to exercise ambiguity checks.
 	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -1266,6 +1268,45 @@ func TestAddSelfLinkNotBlockedByAmbiguity(t *testing.T) {
 	_, err := Add(vault, AddOptions{Files: []string{"sub/Note.md"}})
 	if err != nil {
 		t.Fatalf("add should succeed but got: %v", err)
+	}
+
+	nodes := queryNodes(t, dbPath(vault), NodeTypeNote)
+	for _, path := range []string{"existing/Note.md", "sub/Note.md"} {
+		var found bool
+		for _, node := range nodes {
+			if node.nodeKey == noteKey(path) {
+				found = true
+				if node.path != path || node.existsFlag != 1 {
+					t.Errorf("node %s = %+v, want path %s and exists_flag=1", path, node, path)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("node %s not found", path)
+		}
+	}
+
+	edges := queryEdges(t, dbPath(vault), "existing/Note.md")
+	if len(edges) != 2 {
+		t.Fatalf("existing/Note.md edges = %+v, want 2 self-links", edges)
+	}
+	for i, want := range []struct {
+		linkType LinkType
+		rawLink  string
+		subpath  string
+	}{
+		{LinkTypeWikilink, "[[#Heading]]", "#Heading"},
+		{LinkTypeMarkdown, "[self](./Note.md#other)", "#other"},
+	} {
+		edge := edges[i]
+		if edge.targetKey != noteKey("existing/Note.md") || edge.targetType != NodeTypeNote ||
+			edge.linkType != want.linkType || edge.rawLink != want.rawLink || edge.subpath != want.subpath {
+			t.Errorf("edge %d = %+v, want target %s, type note, link type %s, raw link %q, subpath %q",
+				i, edge, noteKey("existing/Note.md"), want.linkType, want.rawLink, want.subpath)
+		}
+	}
+	if edges := queryEdges(t, dbPath(vault), "sub/Note.md"); len(edges) != 0 {
+		t.Errorf("sub/Note.md edges = %+v, want none", edges)
 	}
 }
 

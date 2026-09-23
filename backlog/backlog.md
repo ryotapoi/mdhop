@@ -56,7 +56,7 @@
 
 - [x] repair の frontmatter 保持既存 test の bare `[[...]]` を、実際に `frontmatter_wikilink` と判定される quoted fixture へ修正し、body 修復と frontmatter 不変を観測する。`internal/core/repair_test.go` を変更対象、`rewrite_test.go` と `repair.go` を参照対象とし、分類表列追加や同義 helper test は作らず production は変更しない。出典: GROK:B10。完了: quoted frontmatter を残して body のみ修復することを確認する。
 
-- [ ] Add self-link の既存 test fixture を root-priority の早期 skip に隠れないものへ修正し、self-link の意味と追加 node/edge 状態を直接確認する。`internal/core/add_test.go` の既存 case 置換だけとし production は変更しない。出典: GROK:B25。完了: self-link 追加後の node/edge 状態が期待どおりである。
+- [x] Add self-link の既存 test fixture を root-priority の早期 skip に隠れないものへ修正し、self-link の意味と追加 node/edge 状態を直接確認する。`internal/core/add_test.go` の既存 case 置換だけとし production は変更しない。出典: GROK:B25。完了: self-link 追加後の node/edge 状態が期待どおりである。
 
 - [ ] Update batch の既存 test で Deleted/Phantomed のどちらでもよい断言を正しい完全削除へ固定し、参照先 path を確認する。`internal/core/update_test.go` の既存 case 修正のみとし production は変更しない。出典: GROK:B26。完了: 対象 node が完全削除され、参照先 path が期待どおりである。
 
