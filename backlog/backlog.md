@@ -38,7 +38,7 @@
 
 - [x] 曖昧 resolve、`--note`、overview 冒頭の command 一覧を現行詳細仕様と CLI に整合させる。`docs/rules/01-concept.md`、`02-requirements.md`、`docs/specs/overview.md`、`cmd/mdhop/query.go`、`main.go` を照合対象とし、候補一覧機能・flag は追加しない。出典: GROK:N1。完了: 記載された resolve/flag/command 一覧が現行 CLI と詳細仕様に一致する。
 
-- [ ] `go.mod` の `golang.org/x/text` を direct dependency として整合させる。version は変更せず、既存の norm 依存を正しく宣言する。出典: GROK:N2。完了: `go mod tidy -diff` が差分なしとなる。
+- [x] `go.mod` の `golang.org/x/text` を direct dependency として整合させる。version は変更せず、既存の norm 依存を正しく宣言する。出典: GROK:N2。完了: `go mod tidy -diff` が差分なしとなる。
 
 - [x] 単一 link の escape/ambiguity 検証と既存 sentinel による原因判定を共有し、Build の inline 条件と文言 prefix 判定の重複を除く。`internal/core/build_prepare.go`、`build.go`、`link_ambiguity.go` を対象に、Build の複数 error 上限・順序・candidates/hint と mutation の最初の error・既存出力を保つ。単一 link validator の共有に限定し、mode 付き汎用 validator/new error 体系は作らず、既存 build/mutation/format test を再利用する。出典: GROK:N3、GROK:N4。完了: 同じ入力で共有検証を使いつつ各入口の既存出力契約を満たす。
 
