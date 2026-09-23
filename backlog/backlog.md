@@ -48,7 +48,7 @@
 
 #### テストの観測強化
 
-- [ ] `query --where --no-exclude` の既存 CLI test で JSON の選択 backlinks を断言する。`cmd/mdhop/cli_test.go` を対象に、通常 where の既存 E2E と重複させず弱い case を置換または統合し、production は変更しない。出典: GROK:N6。完了: `--no-exclude` 分岐の JSON backlinks が直接観測される。
+- [x] `query --where --no-exclude` の既存 CLI test で JSON の選択 backlinks を断言する。`cmd/mdhop/cli_test.go` を対象に、通常 where の既存 E2E と重複させず弱い case を置換または統合し、production は変更しない。出典: GROK:N6。完了: `--no-exclude` 分岐の JSON backlinks が直接観測される。
 
 - [x] `MoveDir_PhantomPromotion` fixture を実際に promotion が起きるものへ修正し node/edge 結果を確認する。`internal/core/move_dir_test.go` の HiddenFiles では hidden `.DS_Store` が移動先に存在せず移動元に残る現行除外契約を確認し、既に検証済み NonMD を重複追加しない。既存 case の修正だけとし production は変更しない。出典: GROK:N7。完了: promotion と hidden file 除外が fixture と assertion で直接確認される。
 

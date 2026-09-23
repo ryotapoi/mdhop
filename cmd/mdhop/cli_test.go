@@ -1437,13 +1437,28 @@ func TestRunQuery_WhereWithNoExclude(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_query_where")
 
 	// --where + --no-exclude should work (config loaded for meta, exclude disabled)
-	err := runQuery([]string{
-		"--vault", vault, "--file", "A.md",
-		"--fields", "backlinks", "--format", "json",
-		"--where", "status=active", "--no-exclude",
+	out := captureStdout(t, func() error {
+		return runQuery([]string{
+			"--vault", vault, "--file", "A.md",
+			"--fields", "backlinks", "--format", "json",
+			"--where", "status=active", "--no-exclude",
+		})
 	})
-	if err != nil {
-		t.Fatalf("query with --where --no-exclude: %v", err)
+
+	var result struct {
+		Backlinks []struct {
+			Name string `json:"name"`
+		} `json:"backlinks"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("decode query JSON: %v\noutput: %s", err, out)
+	}
+	names := make(map[string]int)
+	for _, backlink := range result.Backlinks {
+		names[backlink.Name]++
+	}
+	if want := (map[string]int{"B": 1, "E": 1}); !reflect.DeepEqual(names, want) {
+		t.Errorf("backlink names = %v, want %v; output: %s", names, want, out)
 	}
 }
 
