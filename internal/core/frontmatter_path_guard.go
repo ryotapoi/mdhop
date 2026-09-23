@@ -23,8 +23,8 @@ func validateFrontmatterPathEdges(db dbExecer, rm *resolveMaps, movedFromTo map[
 	rows, err := db.Query(`SELECT e.raw_link, sn.path, tn.type, COALESCE(tn.path,'')
 		FROM edges e
 		JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-		JOIN nodes tn ON tn.id = e.target_id AND (tn.exists_flag = 1 OR tn.type = 'phantom')
-		WHERE e.link_type = 'frontmatter_path'`)
+		JOIN nodes tn ON tn.id = e.target_id AND (tn.exists_flag = 1 OR tn.type = ?)
+		WHERE e.link_type = ?`, NodeTypePhantom, LinkTypeFrontmatterPath)
 	if err != nil {
 		return err
 	}

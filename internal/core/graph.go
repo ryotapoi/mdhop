@@ -59,15 +59,15 @@ func Graph(vaultPath string, opts GraphOptions) (*GraphResult, error) {
 	}
 	defer db.Close()
 
-	// Node set. type IN ('note','asset') AND exists_flag=1 guarantees a
+	// Node set. Existing notes and assets have a
 	// non-NULL path, so the GLOB filters never hit NULL three-valued logic.
 	inclSQL, inclArgs := pathIncludeSQL("path", opts.Path)
 	ef := &ExcludeFilter{PathGlobs: opts.Exclude}
 	exclSQL, exclArgs := ef.PathExcludeSQL("path")
 	rows, err := db.Query(
 		`SELECT id, type, name, path FROM nodes
-		 WHERE type IN ('note','asset') AND exists_flag=1`+inclSQL+exclSQL,
-		append(inclArgs, exclArgs...)...)
+		 WHERE type IN (?,?) AND exists_flag=1`+inclSQL+exclSQL,
+		append([]any{NodeTypeNote, NodeTypeAsset}, append(inclArgs, exclArgs...)...)...)
 	if err != nil {
 		return nil, err
 	}

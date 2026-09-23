@@ -23,13 +23,10 @@ const (
 	dbFileName  = "index.sqlite"
 )
 
-// NodeType is the value set of the `nodes.type` column, used for
-// comparisons and assignments in Go code. Single-quoted SQL literals
-// such as `'phantom'` share the same string values but are kept as
-// part of the SQL syntax rather than referencing these constants.
-// These literals are spread across the package, so adding, removing,
-// or renaming a node type means grepping for the literal and
-// updating the SQL side as well.
+// NodeType is the value set of the `nodes.type` column. Go code uses these
+// constants for comparisons and assignments, and some SQL predicates bind
+// them as arguments. Other SQL statements still use string literals, so
+// changing a type value also requires checking those statements.
 type NodeType string
 
 const (
@@ -39,9 +36,8 @@ const (
 	NodeTypeTag     NodeType = "tag"
 )
 
-// LinkType is the value set of the `edges.link_type` column. Same
-// convention as NodeType: Go code uses these constants, while SQL
-// literals such as `'wikilink'` keep the same string values.
+// LinkType is the value set of the `edges.link_type` column. SQL predicates
+// may bind these constants as arguments; other statements still use literals.
 type LinkType string
 
 const (
@@ -435,7 +431,7 @@ func removeOrPhantomize(tx dbExecer, nodeID int64, name string) (phantomized boo
 // cleanupOrphanedNodes removes tag, phantom, and asset nodes not referenced by any edge.
 // url nodes are not affected.
 func cleanupOrphanedNodes(tx dbExecer) error {
-	_, err := tx.Exec("DELETE FROM nodes WHERE type IN ('tag','phantom','asset') AND id NOT IN (SELECT DISTINCT target_id FROM edges)")
+	_, err := tx.Exec("DELETE FROM nodes WHERE type IN (?,?,?) AND id NOT IN (SELECT DISTINCT target_id FROM edges)", NodeTypeTag, NodeTypePhantom, NodeTypeAsset)
 	return err
 }
 

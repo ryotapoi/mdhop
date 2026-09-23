@@ -37,13 +37,13 @@ func Stats(vaultPath string, opts StatsOptions) (*StatsResult, error) {
 	result := &StatsResult{}
 
 	if isFieldActive(FieldStatsNotesTotal, opts.Fields) {
-		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='note'`).Scan(&result.NotesTotal); err != nil {
+		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type=?`, NodeTypeNote).Scan(&result.NotesTotal); err != nil {
 			return nil, err
 		}
 	}
 
 	if isFieldActive(FieldStatsNotesExists, opts.Fields) {
-		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='note' AND exists_flag=1`).Scan(&result.NotesExists); err != nil {
+		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type=? AND exists_flag=1`, NodeTypeNote).Scan(&result.NotesExists); err != nil {
 			return nil, err
 		}
 	}
@@ -55,19 +55,19 @@ func Stats(vaultPath string, opts StatsOptions) (*StatsResult, error) {
 	}
 
 	if isFieldActive(FieldStatsTagsTotal, opts.Fields) {
-		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='tag'`).Scan(&result.TagsTotal); err != nil {
+		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type=?`, NodeTypeTag).Scan(&result.TagsTotal); err != nil {
 			return nil, err
 		}
 	}
 
 	if isFieldActive(FieldStatsPhantomsTotal, opts.Fields) {
-		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='phantom'`).Scan(&result.PhantomsTotal); err != nil {
+		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type=?`, NodeTypePhantom).Scan(&result.PhantomsTotal); err != nil {
 			return nil, err
 		}
 	}
 
 	if isFieldActive(FieldStatsAssetsTotal, opts.Fields) {
-		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type='asset'`).Scan(&result.AssetsTotal); err != nil {
+		if err := db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE type=?`, NodeTypeAsset).Scan(&result.AssetsTotal); err != nil {
 			return nil, err
 		}
 	}

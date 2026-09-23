@@ -60,8 +60,8 @@ func Reachable(vaultPath string, opts ReachableOptions) (*ReachableResult, error
 	from := NormalizePath(opts.From)
 	var fromID int64
 	err = db.QueryRow(
-		`SELECT id FROM nodes WHERE node_key = ? AND type='note' AND exists_flag=1`,
-		noteKey(from)).Scan(&fromID)
+		`SELECT id FROM nodes WHERE node_key = ? AND type=? AND exists_flag=1`,
+		noteKey(from), NodeTypeNote).Scan(&fromID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("%w: %s (reachable requires an existing note as --from)", ErrFileNotRegistered, from)
 	}
@@ -69,14 +69,14 @@ func Reachable(vaultPath string, opts ReachableOptions) (*ReachableResult, error
 		return nil, err
 	}
 
-	// Target note set. type='note' AND exists_flag=1 guarantees a non-NULL
+	// Target note set. Existing notes have a non-NULL
 	// path, so the GLOB filters never hit NULL three-valued logic.
 	inclSQL, inclArgs := pathIncludeSQL("path", opts.Path)
 	ef := &ExcludeFilter{PathGlobs: opts.Exclude}
 	exclSQL, exclArgs := ef.PathExcludeSQL("path")
 	targets, err := queryIDPathMap(db,
-		`SELECT id, path FROM nodes WHERE type='note' AND exists_flag=1`+inclSQL+exclSQL,
-		append(inclArgs, exclArgs...)...)
+		`SELECT id, path FROM nodes WHERE type=? AND exists_flag=1`+inclSQL+exclSQL,
+		append([]any{NodeTypeNote}, append(inclArgs, exclArgs...)...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +88,8 @@ func Reachable(vaultPath string, opts ReachableOptions) (*ReachableResult, error
 	traversalLinkTypeSQL, traversalLinkTypeArgs := linkTypeSQLIn("e.link_type", traversalLinkTypes)
 	rows, err := db.Query(fmt.Sprintf(
 		`SELECT e.source_id, e.target_id FROM edges e
-		 JOIN nodes sn ON sn.id = e.source_id AND sn.type='note' AND sn.exists_flag=1
-		 WHERE %s`, traversalLinkTypeSQL), traversalLinkTypeArgs...)
+		 JOIN nodes sn ON sn.id = e.source_id AND sn.type=? AND sn.exists_flag=1
+		 WHERE %s`, traversalLinkTypeSQL), append([]any{NodeTypeNote}, traversalLinkTypeArgs...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func Reachable(vaultPath string, opts ReachableOptions) (*ReachableResult, error
 		notePaths := targets
 		if len(opts.Path) > 0 || len(opts.Exclude) > 0 {
 			notePaths, err = queryIDPathMap(db,
-				`SELECT id, path FROM nodes WHERE type='note' AND exists_flag=1`)
+				`SELECT id, path FROM nodes WHERE type=? AND exists_flag=1`, NodeTypeNote)
 			if err != nil {
 				return nil, err
 			}
@@ -151,7 +151,7 @@ func Reachable(vaultPath string, opts ReachableOptions) (*ReachableResult, error
 				continue
 			}
 			// The parent chain holds only existing notes: adj sources are
-			// restricted to type='note' AND exists_flag=1, so every hop is
+			// restricted to existing notes, so every hop is
 			// covered by notePaths. Keep that JOIN in sync with this lookup.
 			var route []string
 			for cur := id; ; cur = parent[cur] {

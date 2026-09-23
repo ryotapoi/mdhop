@@ -34,7 +34,7 @@
 
 - [x] Simplify の除外設定について、先行 callback が外側変数へ書く依存を除き、scan で確定した設定を Prepare に明示して note と asset が同じ設定を参照するようにする。`internal/core/scan_rewrite.go`、`simplify.go` と callers を対象に、scan 系4 command の既存 exclude/dry-run 契約を維持する。新たな汎用 framework は作らない。出典: CODEX:A3-2。完了: callback 実行順序に依存せず既存設定で note/asset の除外結果が一致する。
 
-- [ ] node/link type の実行時 SQL predicate を既存 Go 定数の引数と `linkTypeSQLIn` へ置換し、手動同期を減らす。`internal/core/stats.go`、`reachable.go`、`graph.go`、`frontmatter_path_guard.go` などの原指摘箇所と `db.go` を対象に、feature 別集合・意味を保ち既存 query test を再利用する。schema、新分類表、新 helper の一律導入はしない。出典: CODEX:A2-1、GROK:B9。完了: 各 predicate が既存定数由来の値を使い、既存 query の意味が不変である。再評価: 手動同期を減らす効果は引き続きあるが、feature 別 SQL 集合の置換は今回の構造簡約とは独立しているため、既存 task で継続する。
+- [x] node/link type の実行時 SQL predicate を既存 Go 定数の引数と `linkTypeSQLIn` へ置換し、手動同期を減らす。`internal/core/stats.go`、`reachable.go`、`graph.go`、`frontmatter_path_guard.go` などの原指摘箇所と `db.go` を対象に、feature 別集合・意味を保ち既存 query test を再利用する。schema、新分類表、新 helper の一律導入はしない。出典: CODEX:A2-1、GROK:B9。完了: 原指摘の各 predicate が既存定数由来の値を使い、feature 別集合と既存 query の意味を維持した。
 
 - [x] 曖昧 resolve、`--note`、overview 冒頭の command 一覧を現行詳細仕様と CLI に整合させる。`docs/rules/01-concept.md`、`02-requirements.md`、`docs/specs/overview.md`、`cmd/mdhop/query.go`、`main.go` を照合対象とし、候補一覧機能・flag は追加しない。出典: GROK:N1。完了: 記載された resolve/flag/command 一覧が現行 CLI と詳細仕様に一致する。
 
