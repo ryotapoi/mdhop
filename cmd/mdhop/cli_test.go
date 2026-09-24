@@ -613,6 +613,10 @@ func TestRunAdd_MissingFile(t *testing.T) {
 
 func TestRunAdd_Integration(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_add")
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"),
+		[]byte("meta:\n  types:\n    date: date\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
 
 	before, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
 	if err != nil {
@@ -620,12 +624,38 @@ func TestRunAdd_Integration(t *testing.T) {
 	}
 
 	newFile := filepath.Join(vault, "C.md")
-	if err := os.WriteFile(newFile, []byte("[[A]]\n"), 0o644); err != nil {
+	if err := os.WriteFile(newFile, []byte("---\ndate: not-a-date\n---\n[[A]]\n"), 0o644); err != nil {
 		t.Fatalf("write C.md: %v", err)
 	}
 
-	if err := runAdd([]string{"--vault", vault, "--file", "C.md"}); err != nil {
-		t.Fatalf("add: %v", err)
+	var addErr error
+	var stderr string
+	stdout := captureStdout(t, func() error {
+		stderr = captureStderr(t, func() error {
+			addErr = runAdd([]string{"--vault", vault, "--file", "C.md", "--format", "json"})
+			return nil
+		})
+		return nil
+	})
+	if addErr != nil {
+		t.Fatalf("add: %v", addErr)
+	}
+
+	var output addJSONOutput
+	if err := json.Unmarshal([]byte(stdout), &output); err != nil {
+		t.Fatalf("stdout is not JSON: %v\nstdout: %s", err, stdout)
+	}
+	if !reflect.DeepEqual(output.Added, []string{"C.md"}) {
+		t.Errorf("added = %v, want [C.md]", output.Added)
+	}
+	if strings.Contains(stdout, "warning:") {
+		t.Errorf("stdout contains warning: %s", stdout)
+	}
+	if !strings.Contains(stderr, "warning:") || !strings.Contains(stderr, "C.md") || !strings.Contains(stderr, "not-a-date") {
+		t.Errorf("stderr missing C.md invalid date warning: %s", stderr)
+	}
+	if strings.Contains(stderr, `"added"`) {
+		t.Errorf("stderr contains JSON result: %s", stderr)
 	}
 
 	after, err := core.Stats(vault, core.StatsOptions{Fields: []string{"notes_total"}})
