@@ -72,7 +72,6 @@
 - 出力順/ノイズ対策:
   - priority（backlink > tags > two-hop(link) > two-hop(tag deep) > two-hop(tag shallow)）
   - 上限 (`max_backlinks`, `max_twohop`, `max_via_per_target`) で切る
-  - ハブ via を避けるオプション（via_max_degree）
 - `--link-key <key>` は direct な backlinks / outgoing を指定 frontmatter key 由来のリンクに限定する
 
 - メタデータフィルタ（`--where`）:
