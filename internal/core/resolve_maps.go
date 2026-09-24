@@ -21,6 +21,37 @@ type resolveMaps struct {
 	assetBasenameCounts     map[string]int
 }
 
+func (rm *resolveMaps) lookupPath(resolved string) (string, NodeType, bool) {
+	lower := strings.ToLower(NormalizePath(resolved))
+	if path, ok := rm.pathSet[lower]; ok {
+		return path, NodeTypeNote, true
+	}
+	if path, ok := rm.pathSet[lower+".md"]; ok {
+		return path, NodeTypeNote, true
+	}
+	if path, ok := rm.assetPathSet[lower]; ok {
+		return path, NodeTypeAsset, true
+	}
+	return "", "", false
+}
+
+func (rm *resolveMaps) lookupBasename(target string) (string, NodeType, bool) {
+	lower := strings.ToLower(normalizeTextNFC(target))
+	if path, ok := rm.basenameToPath[lower]; ok {
+		return path, NodeTypeNote, true
+	}
+	if path, ok := rm.rootBasenameToPath[lower]; ok {
+		return path, NodeTypeNote, true
+	}
+	if path, ok := rm.assetBasenameToPath[lower]; ok {
+		return path, NodeTypeAsset, true
+	}
+	if path, ok := rm.assetRootBasenameToPath[lower]; ok {
+		return path, NodeTypeAsset, true
+	}
+	return "", "", false
+}
+
 // addNote adds path to pathSet (2 entries: lowercase, lowercase without ext),
 // increments basenameCounts, and updates rootBasenameToPath if root file.
 // pathToID is registered separately by registerNote after DB insert.

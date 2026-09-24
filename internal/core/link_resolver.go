@@ -28,31 +28,14 @@ func (r dryLinkResolver) resolveTag(link linkOccur) (string, string, error) {
 }
 
 func (r dryLinkResolver) resolvePath(resolved string, link linkOccur) (string, string, error) {
-	lower := strings.ToLower(NormalizePath(resolved))
-	if path, ok := r.rm.pathSet[lower]; ok {
-		return path, link.subpath, nil
-	}
-	if path, ok := r.rm.pathSet[lower+".md"]; ok {
-		return path, link.subpath, nil
-	}
-	if path, ok := r.rm.assetPathSet[lower]; ok {
+	if path, _, ok := r.rm.lookupPath(resolved); ok {
 		return path, link.subpath, nil
 	}
 	return "", link.subpath, nil
 }
 
 func (r dryLinkResolver) resolveBasename(target string, link linkOccur) (string, string, error) {
-	lower := strings.ToLower(normalizeTextNFC(target))
-	if path, ok := r.rm.basenameToPath[lower]; ok {
-		return path, link.subpath, nil
-	}
-	if path, ok := r.rm.rootBasenameToPath[lower]; ok {
-		return path, link.subpath, nil
-	}
-	if path, ok := r.rm.assetBasenameToPath[lower]; ok {
-		return path, link.subpath, nil
-	}
-	if path, ok := r.rm.assetRootBasenameToPath[lower]; ok {
+	if path, _, ok := r.rm.lookupBasename(target); ok {
 		return path, link.subpath, nil
 	}
 	return "", link.subpath, nil

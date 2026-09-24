@@ -38,8 +38,7 @@ type whereValue struct {
 
 // WhereClause holds parsed where conditions.
 type WhereClause struct {
-	Conditions []WhereCond   // from single-condition --where flags (each flag = AND)
-	AndGroups  [][]WhereCond // from && --where flags (each group = all AND)
+	Conditions []WhereCond   // each condition is ANDed
 	OrGroups   [][]WhereCond // from || --where flags (each group = any OR)
 }
 
@@ -59,17 +58,16 @@ var operatorTable = []struct {
 
 // ParseWhere parses a list of where expressions into a WhereClause.
 // Empty input returns (nil, nil).
-// Expressions containing " && " are split into AND groups where all
-// conditions must be satisfied (even for the same key). Expressions containing
-// " || " are split into OR groups. Mixing both separators in one expression is
-// rejected because --where has no precedence or parentheses support.
+// Expressions containing " && " add each condition to the ANDed conditions.
+// Expressions containing " || " are split into OR groups. Mixing both
+// separators in one expression is rejected because --where has no precedence
+// or parentheses support.
 func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 	if len(exprs) == 0 {
 		return nil, nil
 	}
 
 	var conds []WhereCond
-	var andGroups [][]WhereCond
 	var orGroups [][]WhereCond
 	for _, expr := range exprs {
 		hasAnd := strings.Contains(expr, " && ")
@@ -80,9 +78,8 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 
 		switch {
 		case hasAnd:
-			// Multiple conditions joined by && — all AND.
+			// Multiple conditions joined by && are all ANDed with other flags.
 			parts := strings.Split(expr, " && ")
-			var group []WhereCond
 			for _, p := range parts {
 				p = strings.TrimSpace(p)
 				if p == "" {
@@ -92,9 +89,8 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 				if err != nil {
 					return nil, err
 				}
-				group = append(group, c)
+				conds = append(conds, c)
 			}
-			andGroups = append(andGroups, group)
 		case hasOr:
 			// Multiple conditions joined by || — any OR.
 			parts := strings.Split(expr, " || ")
@@ -120,10 +116,10 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 			conds = append(conds, c)
 		}
 	}
-	if len(conds) == 0 && len(andGroups) == 0 && len(orGroups) == 0 {
+	if len(conds) == 0 && len(orGroups) == 0 {
 		return nil, nil
 	}
-	return &WhereClause{Conditions: conds, AndGroups: andGroups, OrGroups: orGroups}, nil
+	return &WhereClause{Conditions: conds, OrGroups: orGroups}, nil
 }
 
 func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {

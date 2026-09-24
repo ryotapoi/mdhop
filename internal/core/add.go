@@ -95,24 +95,12 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 	for k, v := range rm.basenameCounts {
 		oldBasenameCounts[k] = v
 	}
+	// addNote changes basenameCounts but not basenameToPath; rebuilding below replaces the map.
+	oldBasenameToPath := rm.basenameToPath
 
 	// Adjust maps for post-add state.
 	for _, f := range files {
 		rm.addNote(f.path)
-	}
-
-	// Check if adding causes existing links to become ambiguous.
-	// Build oldBasenameToPath for pattern A detection.
-	oldBasenameToPath := make(map[string]string)
-	for bk, count := range oldBasenameCounts {
-		if count == 1 {
-			for p := range rm.pathToID {
-				if basenameKey(p) == bk {
-					oldBasenameToPath[bk] = p
-					break
-				}
-			}
-		}
 	}
 
 	var allRewrites []rewriteEntry

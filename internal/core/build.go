@@ -143,28 +143,13 @@ func (r mapLinkResolver) resolvePath(resolved string, link linkOccur) (int64, st
 }
 
 func (r mapLinkResolver) resolveBasename(target string, link linkOccur) (int64, string, error) {
-	lower := strings.ToLower(normalizeTextNFC(target))
-	// 1. note unique
-	if path, ok := r.rm.basenameToPath[lower]; ok {
-		id := r.rm.pathToID[path]
-		return id, link.subpath, nil
+	if path, nodeType, ok := r.rm.lookupBasename(target); ok {
+		if nodeType == NodeTypeNote {
+			return r.rm.pathToID[path], link.subpath, nil
+		}
+		return r.rm.assetPathToID[path], link.subpath, nil
 	}
-	// 2. note root-priority
-	if path, ok := r.rm.rootBasenameToPath[lower]; ok {
-		id := r.rm.pathToID[path]
-		return id, link.subpath, nil
-	}
-	// 3. asset unique
-	if path, ok := r.rm.assetBasenameToPath[lower]; ok {
-		id := r.rm.assetPathToID[path]
-		return id, link.subpath, nil
-	}
-	// 4. asset root-priority
-	if path, ok := r.rm.assetRootBasenameToPath[lower]; ok {
-		id := r.rm.assetPathToID[path]
-		return id, link.subpath, nil
-	}
-	// 5. phantom fallback
+	// Unresolved basename fallback.
 	id, err := upsertPhantom(r.db, target)
 	if err != nil {
 		return 0, "", err
@@ -175,23 +160,13 @@ func (r mapLinkResolver) resolveBasename(target string, link linkOccur) (int64, 
 // resolvePathTarget tries to find a file by path in pathSet, falling back to asset then phantom.
 func resolvePathTarget(db dbExecer, resolved string, link linkOccur, rm *resolveMaps) (int64, string, error) {
 	normalized := NormalizePath(resolved)
-	lower := strings.ToLower(normalized)
-	// 1. note exact path
-	if actualPath, ok := rm.pathSet[lower]; ok {
-		id := rm.pathToID[actualPath]
-		return id, link.subpath, nil
+	if actualPath, nodeType, ok := rm.lookupPath(normalized); ok {
+		if nodeType == NodeTypeNote {
+			return rm.pathToID[actualPath], link.subpath, nil
+		}
+		return rm.assetPathToID[actualPath], link.subpath, nil
 	}
-	// 2. note with .md extension
-	if actualPath, ok := rm.pathSet[lower+".md"]; ok {
-		id := rm.pathToID[actualPath]
-		return id, link.subpath, nil
-	}
-	// 3. asset exact path
-	if actualPath, ok := rm.assetPathSet[lower]; ok {
-		id := rm.assetPathToID[actualPath]
-		return id, link.subpath, nil
-	}
-	// 4. phantom fallback (D10: only strip .md extension)
+	// D10: only strip .md extension from unresolved path names.
 	name := filepath.Base(normalized)
 	if strings.HasSuffix(strings.ToLower(name), ".md") {
 		name = name[:len(name)-3]

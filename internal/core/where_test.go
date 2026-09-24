@@ -354,89 +354,6 @@ func TestParseWhere_UndeclaredKeyComparison(t *testing.T) {
 
 // --- ParseWhere && tests ---
 
-func TestParseWhere_And_TwoConds(t *testing.T) {
-	metaCfg := MetaConfig{
-		Types: map[string]MetaTypeInfo{
-			"created": {Name: MetaTypeDate},
-		},
-	}
-	wc, err := ParseWhere([]string{"created>=2025-02-01 && created<=2025-02-28"}, metaCfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(wc.Conditions) != 0 {
-		t.Errorf("Conditions = %d, want 0", len(wc.Conditions))
-	}
-	if len(wc.AndGroups) != 1 {
-		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
-	}
-	g := wc.AndGroups[0]
-	if len(g) != 2 {
-		t.Fatalf("group len = %d, want 2", len(g))
-	}
-	if g[0].Key != "created" || g[0].Op != WhereOpGte {
-		t.Errorf("g[0] = {%q, %d}, want {created, Gte}", g[0].Key, g[0].Op)
-	}
-	if g[1].Key != "created" || g[1].Op != WhereOpLte {
-		t.Errorf("g[1] = {%q, %d}, want {created, Lte}", g[1].Key, g[1].Op)
-	}
-}
-
-func TestParseWhere_And_ThreeConds(t *testing.T) {
-	metaCfg := MetaConfig{
-		Types: map[string]MetaTypeInfo{
-			"a": {Name: MetaTypeNumber},
-		},
-	}
-	wc, err := ParseWhere([]string{"a>1 && a<5 && b=x"}, metaCfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(wc.Conditions) != 0 {
-		t.Errorf("Conditions = %d, want 0", len(wc.Conditions))
-	}
-	if len(wc.AndGroups) != 1 {
-		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
-	}
-	g := wc.AndGroups[0]
-	if len(g) != 3 {
-		t.Fatalf("group len = %d, want 3", len(g))
-	}
-	if g[0].Key != "a" || g[0].Op != WhereOpGt {
-		t.Errorf("g[0] = {%q, %d}, want {a, Gt}", g[0].Key, g[0].Op)
-	}
-	if g[1].Key != "a" || g[1].Op != WhereOpLt {
-		t.Errorf("g[1] = {%q, %d}, want {a, Lt}", g[1].Key, g[1].Op)
-	}
-	if g[2].Key != "b" || g[2].Op != WhereOpEq || g[2].Value != "x" {
-		t.Errorf("g[2] = {%q, %d, %q}, want {b, Eq, x}", g[2].Key, g[2].Op, g[2].Value)
-	}
-}
-
-func TestParseWhere_And_Mixed(t *testing.T) {
-	metaCfg := MetaConfig{
-		Types: map[string]MetaTypeInfo{
-			"created": {Name: MetaTypeDate},
-		},
-	}
-	wc, err := ParseWhere([]string{"status=active", "created>=2025-02-01 && created<=2025-02-28"}, metaCfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(wc.Conditions) != 1 {
-		t.Errorf("Conditions = %d, want 1", len(wc.Conditions))
-	}
-	if wc.Conditions[0].Key != "status" || wc.Conditions[0].Op != WhereOpEq {
-		t.Errorf("Conditions[0] = {%q, %d}, want {status, Eq}", wc.Conditions[0].Key, wc.Conditions[0].Op)
-	}
-	if len(wc.AndGroups) != 1 {
-		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
-	}
-	if len(wc.AndGroups[0]) != 2 {
-		t.Fatalf("group len = %d, want 2", len(wc.AndGroups[0]))
-	}
-}
-
 func TestParseWhere_And_EmptyPart(t *testing.T) {
 	_, err := ParseWhere([]string{"status=active && "}, MetaConfig{})
 	if err == nil {
@@ -455,46 +372,6 @@ func TestParseWhere_And_OnlySeparator(t *testing.T) {
 	_, err := ParseWhere([]string{" && "}, MetaConfig{})
 	if err == nil {
 		t.Fatal("expected error for only-separator input")
-	}
-}
-
-func TestParseWhere_And_Exists(t *testing.T) {
-	wc, err := ParseWhere([]string{"priority && status"}, MetaConfig{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(wc.AndGroups) != 1 {
-		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
-	}
-	g := wc.AndGroups[0]
-	if len(g) != 2 {
-		t.Fatalf("group len = %d, want 2", len(g))
-	}
-	if g[0].Key != "priority" || g[0].Op != WhereOpExists {
-		t.Errorf("g[0] = {%q, %d}, want {priority, Exists}", g[0].Key, g[0].Op)
-	}
-	if g[1].Key != "status" || g[1].Op != WhereOpExists {
-		t.Errorf("g[1] = {%q, %d}, want {status, Exists}", g[1].Key, g[1].Op)
-	}
-}
-
-func TestParseWhere_And_ExistsAndValue(t *testing.T) {
-	wc, err := ParseWhere([]string{"priority && status=active"}, MetaConfig{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(wc.AndGroups) != 1 {
-		t.Fatalf("AndGroups = %d, want 1", len(wc.AndGroups))
-	}
-	g := wc.AndGroups[0]
-	if len(g) != 2 {
-		t.Fatalf("group len = %d, want 2", len(g))
-	}
-	if g[0].Op != WhereOpExists {
-		t.Errorf("g[0].Op = %d, want Exists", g[0].Op)
-	}
-	if g[1].Key != "status" || g[1].Op != WhereOpEq || g[1].Value != "active" {
-		t.Errorf("g[1] = {%q, %d, %q}, want {status, Eq, active}", g[1].Key, g[1].Op, g[1].Value)
 	}
 }
 
@@ -526,9 +403,6 @@ func TestParseWhere_Or_TwoConds(t *testing.T) {
 	}
 	if len(wc.Conditions) != 0 {
 		t.Errorf("Conditions = %d, want 0", len(wc.Conditions))
-	}
-	if len(wc.AndGroups) != 0 {
-		t.Errorf("AndGroups = %d, want 0", len(wc.AndGroups))
 	}
 	if len(wc.OrGroups) != 1 {
 		t.Fatalf("OrGroups = %d, want 1", len(wc.OrGroups))
@@ -612,6 +486,11 @@ func TestWhereClause_Nil(t *testing.T) {
 	if sql != "" || args != nil {
 		t.Errorf("nil: sql=%q args=%v, want empty", sql, args)
 	}
+
+	sql, args = (&WhereClause{}).MetaFilterSQL("n.id")
+	if sql != "" || args != nil {
+		t.Errorf("empty: sql=%q args=%v, want empty", sql, args)
+	}
 }
 
 func TestWhereClause_SingleEq(t *testing.T) {
@@ -630,37 +509,6 @@ func TestWhereClause_SingleEq(t *testing.T) {
 	}
 	if args[0] != "status" || args[1] != "active" {
 		t.Errorf("args = %v, want [status active]", args)
-	}
-}
-
-func TestWhereClause_MultipleFlagsSameKeyAND(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "priority", Op: WhereOpEq, Value: "2"},
-		{Key: "priority", Op: WhereOpEq, Value: "3"},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "INTERSECT") {
-		t.Errorf("same-key repeated flags should use INTERSECT: %q", sql)
-	}
-	if strings.Contains(sql, " OR ") {
-		t.Errorf("same-key repeated flags should not use implicit OR: %q", sql)
-	}
-	if len(args) != 4 { // key + value for each flag
-		t.Errorf("args = %v, want 4 elements", args)
-	}
-}
-
-func TestWhereClause_DiffKeyAND(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "status", Op: WhereOpEq, Value: "active"},
-		{Key: "priority", Op: WhereOpEq, Value: "1"},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "INTERSECT") {
-		t.Errorf("different keys should use INTERSECT: %q", sql)
-	}
-	if len(args) != 4 { // key1 + val1 + key2 + val2
-		t.Errorf("args = %v, want 4 elements", args)
 	}
 }
 
@@ -800,128 +648,6 @@ func TestWhereClause_CoalesceComparisonPerKeyTypes(t *testing.T) {
 		if args[i] != wantArgs[i] {
 			t.Fatalf("args = %v, want %v", args, wantArgs)
 		}
-	}
-}
-
-// --- AndGroup MetaFilterSQL tests ---
-
-func TestWhereClause_AndGroup_SameKey(t *testing.T) {
-	wc := &WhereClause{AndGroups: [][]WhereCond{
-		{
-			{Key: "created", Op: WhereOpGte, Value: "2025-02-01", valueType: "date"},
-			{Key: "created", Op: WhereOpLte, Value: "2025-02-28", valueType: "date"},
-		},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if sql == "" {
-		t.Fatal("expected non-empty SQL for AndGroup-only clause")
-	}
-	if !strings.Contains(sql, "INTERSECT") {
-		t.Errorf("same-key AND group should use INTERSECT: %q", sql)
-	}
-	if strings.Contains(sql, " OR ") {
-		t.Errorf("AND group should not use OR: %q", sql)
-	}
-	// 2 subqueries: each has key + value + type = 3 args, total 6.
-	if len(args) != 6 {
-		t.Errorf("args = %v, want 6 elements", args)
-	}
-}
-
-func TestWhereClause_AndGroup_DiffKeys(t *testing.T) {
-	wc := &WhereClause{AndGroups: [][]WhereCond{
-		{
-			{Key: "priority", Op: WhereOpGt, Value: "100000000000000000001.00000000", valueType: "number"},
-			{Key: "status", Op: WhereOpEq, Value: "active"},
-		},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "INTERSECT") {
-		t.Errorf("different keys in AND group should use INTERSECT: %q", sql)
-	}
-	// priority subquery: key + value + type = 3, status subquery: key + value = 2, total 5.
-	if len(args) != 5 {
-		t.Errorf("args = %v, want 5 elements", args)
-	}
-}
-
-func TestWhereClause_AndGroup_WithSingles(t *testing.T) {
-	wc := &WhereClause{
-		Conditions: []WhereCond{
-			{Key: "priority", Op: WhereOpEq, Value: "2"},
-			{Key: "priority", Op: WhereOpEq, Value: "3"},
-		},
-		AndGroups: [][]WhereCond{
-			{
-				{Key: "created", Op: WhereOpGte, Value: "2025-02-01", valueType: "date"},
-				{Key: "created", Op: WhereOpLte, Value: "2025-02-28", valueType: "date"},
-			},
-		},
-	}
-	sql, args := wc.MetaFilterSQL("n.id")
-	// Should have INTERSECT (each single flag plus created>= plus created<=).
-	if !strings.Contains(sql, "INTERSECT") {
-		t.Errorf("mixed should use INTERSECT: %q", sql)
-	}
-	// Conditions: (key+val)*2 = 4, AndGroup: (key+val+type)*2 = 6, total 10.
-	if len(args) != 10 {
-		t.Errorf("args len = %d, want 10", len(args))
-	}
-}
-
-func TestWhereClause_AndGroup_Only(t *testing.T) {
-	wc := &WhereClause{AndGroups: [][]WhereCond{
-		{
-			{Key: "status", Op: WhereOpEq, Value: "active"},
-		},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if sql == "" {
-		t.Fatal("expected non-empty SQL for AndGroups-only clause")
-	}
-	if strings.Contains(sql, "INTERSECT") {
-		t.Errorf("single condition should not use INTERSECT: %q", sql)
-	}
-	// key + value = 2.
-	if len(args) != 2 {
-		t.Errorf("args = %v, want 2 elements", args)
-	}
-}
-
-func TestWhereClause_AndGroup_Like(t *testing.T) {
-	wc := &WhereClause{AndGroups: [][]WhereCond{
-		{
-			{Key: "status", Op: WhereOpLike, Value: "act%"},
-			{Key: "priority", Op: WhereOpGt, Value: "100000000000000000001.00000000", valueType: "number"},
-		},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "LIKE") {
-		t.Errorf("should contain LIKE: %q", sql)
-	}
-	if !strings.Contains(sql, "INTERSECT") {
-		t.Errorf("should use INTERSECT: %q", sql)
-	}
-	// LIKE: key + pattern = 2, Gt: key + value + type = 3, total 5.
-	if len(args) != 5 {
-		t.Errorf("args len = %d, want 5", len(args))
-	}
-}
-
-func TestWhereClause_AndGroup_Neq(t *testing.T) {
-	wc := &WhereClause{AndGroups: [][]WhereCond{
-		{
-			{Key: "status", Op: WhereOpNeq, Value: "done"},
-			{Key: "status", Op: WhereOpNeq, Value: "active"},
-		},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "INTERSECT") {
-		t.Errorf("neq AND group should use INTERSECT: %q", sql)
-	}
-	// Each neq subquery: key + key + value = 3, total 6.
-	if len(args) != 6 {
-		t.Errorf("args len = %d, want 6", len(args))
 	}
 }
 
@@ -1436,9 +1162,9 @@ func TestQueryBacklinksWhere_OrExpressionCoalesce(t *testing.T) {
 	assertNames(t, "coalesce old OR status done", res.Backlinks, []string{"B", "C", "E"})
 }
 
-// --- AND group integration tests ---
+// --- AND integration tests ---
 
-func TestQueryBacklinksWhere_AndSameKey(t *testing.T) {
+func TestQueryBacklinksWhere_AndExpressionMatchesRepeatedFlags(t *testing.T) {
 	vault := setupWhereVault(t)
 	metaCfg := loadMetaCfg(t, vault)
 	wc, err := ParseWhere([]string{"priority>=2 && priority<=3"}, metaCfg)
@@ -1455,6 +1181,19 @@ func TestQueryBacklinksWhere_AndSameKey(t *testing.T) {
 	// B (priority=2, >=2 AND <=3), C (priority=3, >=2 AND <=3).
 	// E has priority=abc → type guard excludes. D has no priority.
 	assertNames(t, "priority>=2 && priority<=3", res.Backlinks, []string{"B", "C"})
+
+	repeatedFlags, err := ParseWhere([]string{"priority>=2", "priority<=3"}, metaCfg)
+	if err != nil {
+		t.Fatalf("parse repeated flags: %v", err)
+	}
+	flagResult, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
+		Fields: []string{"backlinks"},
+		Where:  repeatedFlags,
+	})
+	if err != nil {
+		t.Fatalf("query repeated flags: %v", err)
+	}
+	assertNames(t, "repeated flags", flagResult.Backlinks, []string{"B", "C"})
 }
 
 func TestSearchWhere_AndSameKey(t *testing.T) {
