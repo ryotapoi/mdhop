@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+## [v0.19.1] - 2026-09-24
+
+### 修正
+
+- `set`・rewrite・move で、書き込みに失敗した file 自体も rollback 時の復元対象に含めるよう修正。
+- `add` の曖昧性 error で、衝突する basename を特定できるよう修正。
+- content query で、file の不存在とその他の filesystem stat error を区別するよう修正。
+- `delete --rm` で、親 path が symlink を経由して Vault 外へ到達する場合の削除を防止。
+
+### 変更
+
+- 最低 Go version を 1.22 から 1.27.1 に引き上げ。
+
+### ドキュメント
+
+- requirements と command overview に、`move` における source-relative link 保持の例外を明記。
+
 ## [v0.19.0] - 2026-09-23
 
 ### 追加

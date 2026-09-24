@@ -4,6 +4,23 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.19.1] - 2026-09-24
+
+### Fixed
+
+- Rollback now attempts to restore the file whose write failed in `set`, rewrite, and move operations.
+- `add` ambiguity errors now identify the conflicting basename.
+- Content queries now distinguish missing files from other filesystem stat errors.
+- `delete --rm` now prevents removal outside the vault when a parent path traverses a symlink.
+
+### Changed
+
+- Raised the minimum Go version from 1.22 to 1.27.1.
+
+### Documentation
+
+- Clarified the source-relative link preservation exception for `move` in the requirements and command overview.
+
 ## [v0.19.0] - 2026-09-23
 
 ### Added
