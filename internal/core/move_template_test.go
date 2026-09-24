@@ -172,6 +172,42 @@ func TestPlanMoveTemplate_Errors(t *testing.T) {
 	}
 }
 
+func TestPlanMoveTemplate_RejectsInvalidOptions(t *testing.T) {
+	vault := newMoveVault(t, map[string]string{
+		"Project.md": "# Project\n",
+	})
+	tests := []struct {
+		name    string
+		options MoveTemplateOptions
+		wantErr string
+	}{
+		{
+			name:    "empty template",
+			options: MoveTemplateOptions{From: "Project.md"},
+			wantErr: "--to-template is required",
+		},
+		{
+			name:    "absolute source",
+			options: MoveTemplateOptions{From: filepath.Join(vault, "Project.md"), Template: "archive/{basename}"},
+			wantErr: "source path must be vault-relative",
+		},
+		{
+			name:    "source escapes vault",
+			options: MoveTemplateOptions{From: "../outside.md", Template: "archive/{basename}"},
+			wantErr: "source path escapes vault",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := PlanMoveTemplate(vault, tt.options)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestMoveTemplate_DirectoryModeRejectsDuplicateDestination(t *testing.T) {
 	vault := newMoveVault(t, map[string]string{
 		"src/A.md": "---\nclient: Acme\n---\n# A\n",

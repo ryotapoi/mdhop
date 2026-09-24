@@ -60,7 +60,7 @@
 
 - [x] Update batch の既存 test で Deleted/Phantomed のどちらでもよい断言を正しい完全削除へ固定し、参照先 path を確認する。`internal/core/update_test.go` の既存 case 修正のみとし production は変更しない。出典: GROK:B26。完了: 対象 node が完全削除され、参照先 path が期待どおりである。
 
-- [ ] 公開 `PlanMoveTemplate` に空 Template、絶対 From、`../` による vault 外 From を渡す代表 table test で拒否を固定する。`internal/core/move_template_test.go` で既存 `newMoveVault` と `filepath` を再利用し、error 全文一致でなく失敗理由を識別して確認する。新 fixture 基盤/hook/DI/private 関数直 test/MoveTemplate との重複検証は不要。出典: GROK:N9。完了: 3種類の誤入力が公開入口で適切に拒否される。
+- [x] 公開 `PlanMoveTemplate` に空 Template、絶対 From、`../` による vault 外 From を渡す代表 table test で拒否を固定する。`internal/core/move_template_test.go` で既存 `newMoveVault` と `filepath` を再利用し、error 全文一致でなく失敗理由を識別して確認する。新 fixture 基盤/hook/DI/private 関数直 test/MoveTemplate との重複検証は不要。出典: GROK:N9。完了: 3種類の誤入力が公開入口で適切に拒否される。
 
 - [ ] 警告付き成功の `runAdd`（または `runUpdate`）を `--format json` で実行し、stdout 単独の JSON parse、stderr のみの warning、操作成功を代表1 case で確認する。`cmd/mdhop/cli_test.go`、`format.go`、`internal/core/add_test.go` で既存 capture と `date: not-a-date` fixture を再利用し、subprocess/E2E 基盤・production 変更・全 command への複製はしない。出典: GROK:B28。完了: warning 付き JSON 成功時の stream 分離と成功結果を確認する。
 
