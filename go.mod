@@ -1,6 +1,6 @@
 module github.com/ryotapoi/mdhop
 
-go 1.22
+go 1.27.1
 
 require (
 	golang.org/x/text v0.14.0
