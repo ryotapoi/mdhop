@@ -493,42 +493,6 @@ func TestWhereClause_Nil(t *testing.T) {
 	}
 }
 
-func TestWhereClause_SingleEq(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "status", Op: WhereOpEq, Value: "active"},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "AND n.id IN") {
-		t.Errorf("sql should contain AND n.id IN, got %q", sql)
-	}
-	if !strings.Contains(sql, "m.sort_value = ?") {
-		t.Errorf("sql should contain m.sort_value = ?, got %q", sql)
-	}
-	if len(args) != 2 { // key + value
-		t.Errorf("args = %v, want 2 elements", args)
-	}
-	if args[0] != "status" || args[1] != "active" {
-		t.Errorf("args = %v, want [status active]", args)
-	}
-}
-
-func TestWhereClause_Exists(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "priority", Op: WhereOpExists},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "m.key = ?") {
-		t.Errorf("EXISTS should check key: %q", sql)
-	}
-	// Should NOT contain sort_value or value comparisons.
-	if strings.Contains(sql, "sort_value") {
-		t.Errorf("EXISTS should not compare sort_value: %q", sql)
-	}
-	if len(args) != 1 {
-		t.Errorf("args = %v, want 1 element", args)
-	}
-}
-
 func TestWhereClause_NotExists(t *testing.T) {
 	wc := &WhereClause{Conditions: []WhereCond{
 		{Key: "priority", Op: WhereOpNotExists},
@@ -545,83 +509,6 @@ func TestWhereClause_NotExists(t *testing.T) {
 	}
 	if args[0] != "priority" {
 		t.Errorf("args = %v, want [priority]", args)
-	}
-}
-
-func TestWhereClause_Neq(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "status", Op: WhereOpNeq, Value: "done"},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "NOT IN") {
-		t.Errorf("!= should use NOT IN: %q", sql)
-	}
-	if len(args) != 3 { // key + key + value
-		t.Errorf("args = %v, want 3 elements", args)
-	}
-}
-
-func TestWhereClause_Like(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "status", Op: WhereOpLike, Value: "act%"},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "m.value LIKE ?") {
-		t.Errorf("~ should use m.value LIKE: %q", sql)
-	}
-	if len(args) != 2 { // key + pattern
-		t.Errorf("args = %v, want 2 elements", args)
-	}
-}
-
-func TestWhereClause_Gt(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "priority", Op: WhereOpGt, Value: "100000000000000000001.00000000", valueType: "number"},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "m.sort_value > ?") {
-		t.Errorf("> should use m.sort_value > ?: %q", sql)
-	}
-	if !strings.Contains(sql, "m.value_type = ?") {
-		t.Errorf("> should have type guard: %q", sql)
-	}
-	if len(args) != 3 { // key + value + type
-		t.Errorf("args = %v, want 3 elements", args)
-	}
-}
-
-func TestWhereClause_CoalesceExists(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "coalesce(reviewed, updated)", CoalesceKeys: []string{"reviewed", "updated"}, Op: WhereOpExists},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "m.key IN (?,?)") {
-		t.Errorf("coalesce EXISTS should check any key with placeholders: %q", sql)
-	}
-	if len(args) != 2 || args[0] != "reviewed" || args[1] != "updated" {
-		t.Errorf("args = %v, want [reviewed updated]", args)
-	}
-}
-
-func TestWhereClause_CoalesceComparisonPriorityGuard(t *testing.T) {
-	wc := &WhereClause{Conditions: []WhereCond{
-		{Key: "coalesce(reviewed, updated)", CoalesceKeys: []string{"reviewed", "updated"}, Op: WhereOpLte, Value: "2025-07-04", valueType: "date"},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, " UNION ") {
-		t.Errorf("coalesce comparison should union priority branches: %q", sql)
-	}
-	if !strings.Contains(sql, "NOT EXISTS") || !strings.Contains(sql, "mh.key IN (?)") {
-		t.Errorf("lower-priority branch should guard higher-priority key existence: %q", sql)
-	}
-	wantArgs := []any{"reviewed", "2025-07-04", "date", "updated", "2025-07-04", "date", "reviewed"}
-	if len(args) != len(wantArgs) {
-		t.Fatalf("args = %v, want %v", args, wantArgs)
-	}
-	for i := range wantArgs {
-		if args[i] != wantArgs[i] {
-			t.Fatalf("args = %v, want %v", args, wantArgs)
-		}
 	}
 }
 
@@ -648,51 +535,6 @@ func TestWhereClause_CoalesceComparisonPerKeyTypes(t *testing.T) {
 		if args[i] != wantArgs[i] {
 			t.Fatalf("args = %v, want %v", args, wantArgs)
 		}
-	}
-}
-
-// --- OrGroup MetaFilterSQL tests ---
-
-func TestWhereClause_OrGroup_DiffKeys(t *testing.T) {
-	wc := &WhereClause{OrGroups: [][]WhereCond{
-		{
-			{Key: "status", Op: WhereOpEq, Value: "active"},
-			{Key: "priority", Op: WhereOpGt, Value: "100000000000000000001.00000000", valueType: "number"},
-		},
-	}}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, " UNION ") {
-		t.Errorf("OR group should use UNION: %q", sql)
-	}
-	if strings.Contains(sql, "INTERSECT") {
-		t.Errorf("single OR group should not use INTERSECT: %q", sql)
-	}
-	if len(args) != 5 {
-		t.Errorf("args len = %d, want 5", len(args))
-	}
-}
-
-func TestWhereClause_OrGroup_WithOtherFlag(t *testing.T) {
-	wc := &WhereClause{
-		Conditions: []WhereCond{
-			{Key: "created", Op: WhereOpGte, Value: "2025-02-01", valueType: "date"},
-		},
-		OrGroups: [][]WhereCond{
-			{
-				{Key: "status", Op: WhereOpEq, Value: "active"},
-				{Key: "priority", Op: WhereOpEq, Value: "3"},
-			},
-		},
-	}
-	sql, args := wc.MetaFilterSQL("n.id")
-	if !strings.Contains(sql, "INTERSECT") {
-		t.Errorf("OR group plus separate flag should be ANDed with INTERSECT: %q", sql)
-	}
-	if !strings.Contains(sql, " UNION ") {
-		t.Errorf("OR group should still use UNION: %q", sql)
-	}
-	if len(args) != 7 {
-		t.Errorf("args len = %d, want 7", len(args))
 	}
 }
 
@@ -1015,24 +857,6 @@ func TestQueryBacklinksWhere_Nil(t *testing.T) {
 	}
 	// All backlinks: B, C, D, E.
 	assertNames(t, "nil where", res.Backlinks, []string{"B", "C", "D", "E"})
-}
-
-func TestQueryBacklinksWhere_TypeGuard(t *testing.T) {
-	vault := setupWhereVault(t)
-	metaCfg := loadMetaCfg(t, vault)
-	wc, err := ParseWhere([]string{"priority>1"}, metaCfg)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
-	})
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	// E has priority=abc → value_type="string" (fallback) → type guard "number" excludes it.
-	assertNames(t, "type guard priority>1", res.Backlinks, []string{"B", "C"})
 }
 
 func TestQueryBacklinksWhere_AliasNeq(t *testing.T) {

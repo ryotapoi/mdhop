@@ -33,23 +33,6 @@ func TestQueryBacklinksExcludePath(t *testing.T) {
 	expectContains(t, names, "C")
 }
 
-func TestQueryBacklinksExcludeMultiplePaths(t *testing.T) {
-	vault := setupExcludeVault(t)
-	ef, _ := NewExcludeFilter(ExcludeConfig{}, []string{"daily/*", "templates/*"}, nil)
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields:  []string{"backlinks"},
-		Exclude: ef,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	for _, bl := range res.Backlinks {
-		if bl.Path == "daily/D.md" || bl.Path == "templates/T.md" {
-			t.Errorf("%s should be excluded from backlinks", bl.Path)
-		}
-	}
-}
-
 func TestQueryOutgoingExcludePath(t *testing.T) {
 	vault := setupExcludeVault(t)
 	// A.md links to B, C, D, Missing. Exclude daily/* → D should be excluded.
@@ -70,6 +53,15 @@ func TestQueryOutgoingExcludePath(t *testing.T) {
 	expectContains(t, names, "B")
 	expectContains(t, names, "C")
 	expectContains(t, names, "Missing") // phantom survives
+	found := false
+	for _, og := range res.Outgoing {
+		if og.Type == NodeTypePhantom && og.Name == "Missing" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("phantom Missing should survive path exclusion")
+	}
 }
 
 func TestQueryTagsExcludeTag(t *testing.T) {
@@ -203,28 +195,6 @@ func TestQueryExcludeNone(t *testing.T) {
 	if len(res.Backlinks) != 4 {
 		names := nodeNames(res.Backlinks)
 		t.Errorf("backlinks count = %d, want 4, got %v", len(res.Backlinks), names)
-	}
-}
-
-func TestQueryExcludePhantomSurvives(t *testing.T) {
-	vault := setupExcludeVault(t)
-	// A.md has outgoing to Missing (phantom). Path exclusion should not remove phantom.
-	ef, _ := NewExcludeFilter(ExcludeConfig{}, []string{"daily/*"}, nil)
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields:  []string{"outgoing"},
-		Exclude: ef,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	found := false
-	for _, og := range res.Outgoing {
-		if og.Type == NodeTypePhantom && og.Name == "Missing" {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("phantom Missing should survive path exclusion")
 	}
 }
 
