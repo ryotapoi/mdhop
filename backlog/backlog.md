@@ -14,7 +14,7 @@
 ### v0.19.2 テストの見直し
 
 - [x] `principle-test-verification-policy` に沿って既存テストの保持価値を見直し、重複や実装詳細への依存で価値が低いケースを簡略化・統合・削除する。完了: 重要な振る舞い・既報の回帰・プロジェクト固有の検証条件を保ち、変更したテストの判断理由と残る検証方法を説明できる。
-- [ ] CLI テストの stdout/stderr capture で pipe を書込みと並行して読み、出力量による停止を防ぐ。`cmd/mdhop/cli_test.go`。完了: pipe 容量を超える出力を capture してもテストが完了し、標準出力・標準エラーが元に戻る。出典: maintenance-audit A5-3（verify-finding 確認済み）。
+- [x] CLI テストの stdout/stderr capture で pipe を書込みと並行して読み、出力量による停止を防ぐ。`cmd/mdhop/cli_test.go`。完了: pipe 容量を超える出力を capture してもテストが完了し、標準出力・標準エラーが元に戻る。出典: maintenance-audit A5-3（verify-finding 確認済み）。
 
 ### v0.19.3 ファイル操作と索引の整合性
 

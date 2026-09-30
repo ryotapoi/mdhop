@@ -1366,35 +1366,17 @@ func TestRunDelete_DirExpansion(t *testing.T) {
 func TestRunDelete_DirEmpty(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_delete_dir")
 
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("create stdout pipe: %v", err)
-	}
-	t.Cleanup(func() {
-		os.Stdout = oldStdout
-		_ = w.Close()
-		_ = r.Close()
+	var err error
+	stdout := captureStdout(t, func() error {
+		err = runDelete([]string{"--vault", vault, "--file", "nonexist/"})
+		return nil
 	})
-	os.Stdout = w
-	err = runDelete([]string{"--vault", vault, "--file", "nonexist/"})
-	if closeErr := w.Close(); closeErr != nil {
-		t.Fatalf("close stdout pipe: %v", closeErr)
-	}
-	os.Stdout = oldStdout
-	var stdout bytes.Buffer
-	if _, readErr := stdout.ReadFrom(r); readErr != nil {
-		t.Fatalf("read stdout: %v", readErr)
-	}
-	if closeErr := r.Close(); closeErr != nil {
-		t.Fatalf("close stdout reader: %v", closeErr)
-	}
 
 	if err == nil || !strings.Contains(err.Error(), "no files registered under directory") {
 		t.Errorf("expected 'no files registered' error, got: %v", err)
 	}
-	if stdout.Len() != 0 {
-		t.Errorf("stdout = %q, want no success output", stdout.String())
+	if stdout != "" {
+		t.Errorf("stdout = %q, want no success output", stdout)
 	}
 }
 
@@ -1495,30 +1477,18 @@ func TestRunQuery_WhereWithNoExclude(t *testing.T) {
 func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_query_where")
 
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := runQuery([]string{
-		"--vault", vault, "--file", "A.md",
-		"--fields", "backlinks,meta",
-		"--format", "json",
-		"--where", "status=active",
+	output := captureStdout(t, func() error {
+		return runQuery([]string{
+			"--vault", vault, "--file", "A.md",
+			"--fields", "backlinks,meta",
+			"--format", "json",
+			"--where", "status=active",
+		})
 	})
 
-	w.Close()
-	os.Stdout = oldStdout
-
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-
-	var output bytes.Buffer
-	output.ReadFrom(r)
-
 	var m map[string]any
-	if err := json.Unmarshal(output.Bytes(), &m); err != nil {
-		t.Fatalf("json unmarshal: %v\noutput: %s", err, output.String())
+	if err := json.Unmarshal([]byte(output), &m); err != nil {
+		t.Fatalf("json unmarshal: %v\noutput: %s", err, output)
 	}
 
 	// Backlinks should be filtered to status=active notes: B and E
@@ -1694,87 +1664,115 @@ func TestRunSearch_IsolationFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			err := runSearch([]string{
-				"--vault", vault,
-				"--format", "json",
-				tt.flag,
+			output := captureStdout(t, func() error {
+				return runSearch([]string{
+					"--vault", vault,
+					"--format", "json",
+					tt.flag,
+				})
 			})
 
-			w.Close()
-			os.Stdout = oldStdout
-
-			if err != nil {
-				t.Fatalf("search: %v", err)
-			}
-
-			var output bytes.Buffer
-			output.ReadFrom(r)
-
 			var m map[string]any
-			if err := json.Unmarshal(output.Bytes(), &m); err != nil {
-				t.Fatalf("json unmarshal: %v\noutput: %s", err, output.String())
+			if err := json.Unmarshal([]byte(output), &m); err != nil {
+				t.Fatalf("json unmarshal: %v\noutput: %s", err, output)
 			}
 			items, ok := m["items"].([]any)
 			if !ok {
 				t.Fatalf("expected items array, got: %v", m["items"])
 			}
 			if len(items) != len(tt.paths) {
-				t.Fatalf("items len = %d, want %d; output: %s", len(items), len(tt.paths), output.String())
+				t.Fatalf("items len = %d, want %d; output: %s", len(items), len(tt.paths), output)
 			}
 			for i, item := range items {
 				itemMap := item.(map[string]any)
 				if got := itemMap["path"].(string); got != tt.paths[i] {
-					t.Fatalf("paths mismatch at %d: got %q, want %q; output: %s", i, got, tt.paths[i], output.String())
+					t.Fatalf("paths mismatch at %d: got %q, want %q; output: %s", i, got, tt.paths[i], output)
 				}
 			}
 		})
 	}
 }
 
+func TestCaptureOutput_LargeNestedStreams(t *testing.T) {
+	oldStdout, oldStderr := os.Stdout, os.Stderr
+	wantStdout := strings.Repeat("stdout\n", 1<<18)
+	wantStderr := strings.Repeat("stderr\n", 1<<18)
+	var stderr string
+	stdout := captureStdout(t, func() error {
+		stderr = captureStderr(t, func() error {
+			if _, err := os.Stdout.WriteString(wantStdout); err != nil {
+				return err
+			}
+			_, err := os.Stderr.WriteString(wantStderr)
+			return err
+		})
+		if os.Stderr != oldStderr {
+			t.Error("stderr was not restored after inner capture")
+		}
+		return nil
+	})
+	if stdout != wantStdout {
+		t.Errorf("captured stdout differs from expected output (got %d bytes, want %d)", len(stdout), len(wantStdout))
+	}
+	if stderr != wantStderr {
+		t.Errorf("captured stderr differs from expected output (got %d bytes, want %d)", len(stderr), len(wantStderr))
+	}
+	if os.Stdout != oldStdout || os.Stderr != oldStderr {
+		t.Error("stdout or stderr was not restored after capture")
+	}
+}
+
 // captureStdout runs fn while capturing everything written to os.Stdout.
 func captureStdout(t *testing.T, fn func() error) string {
 	t.Helper()
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := fn()
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	var output bytes.Buffer
-	output.ReadFrom(r)
-
-	if err != nil {
-		t.Fatalf("command failed: %v\noutput: %s", err, output.String())
-	}
-	return output.String()
+	return captureOutput(t, &os.Stdout, fn)
 }
 
 // captureStderr runs fn while capturing everything written to os.Stderr.
 func captureStderr(t *testing.T, fn func() error) string {
 	t.Helper()
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
+	return captureOutput(t, &os.Stderr, fn)
+}
 
-	err := fn()
-
-	w.Close()
-	os.Stderr = oldStderr
+func captureOutput(t *testing.T, stream **os.File, fn func() error) (captured string) {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create capture pipe: %v", err)
+	}
+	oldStream := *stream
+	*stream = w
 
 	var output bytes.Buffer
-	output.ReadFrom(r)
+	readDone := make(chan error, 1)
+	go func() {
+		_, err := output.ReadFrom(r)
+		readDone <- err
+	}()
 
-	if err != nil {
-		t.Fatalf("command failed: %v\noutput: %s", err, output.String())
-	}
-	return output.String()
+	var commandErr error
+	// Restore and drain even when fn panics or calls t.Fatal.
+	defer func() {
+		*stream = oldStream
+		writeCloseErr := w.Close()
+		readErr := <-readDone
+		readCloseErr := r.Close()
+		captured = output.String()
+		if writeCloseErr != nil {
+			t.Fatalf("close capture writer: %v", writeCloseErr)
+		}
+		if readErr != nil {
+			t.Fatalf("read capture pipe: %v", readErr)
+		}
+		if readCloseErr != nil {
+			t.Fatalf("close capture reader: %v", readCloseErr)
+		}
+		if commandErr != nil {
+			t.Fatalf("command failed: %v\noutput: %s", commandErr, captured)
+		}
+	}()
+	commandErr = fn()
+	return
 }
 
 func readCLIFile(t *testing.T, path string) string {
