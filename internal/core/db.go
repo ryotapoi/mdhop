@@ -210,12 +210,22 @@ func phantomKey(name string) string {
 }
 
 func upsertPhantom(db dbExecer, name string) (int64, error) {
-	key := phantomKey(name)
+	return upsertNamedNode(db, phantomKey(name), NodeTypePhantom, name)
+}
+
+// upsertTag inserts a tag node. The name column keeps its original case; only
+// node_key is lowercased (via tagKey). Callers comparing n.name must use
+// LOWER(n.name) or strings.ToLower because the stored name retains case.
+func upsertTag(db dbExecer, name string) (int64, error) {
+	return upsertNamedNode(db, tagKey(name), NodeTypeTag, name)
+}
+
+func upsertNamedNode(db dbExecer, key string, nodeType NodeType, name string) (int64, error) {
 	res, err := db.Exec(
 		`INSERT INTO nodes (node_key, type, name, path, exists_flag)
-		 VALUES (?, 'phantom', ?, NULL, 0)
+		 VALUES (?, ?, ?, NULL, 0)
 		 ON CONFLICT(node_key) DO NOTHING`,
-		key, name,
+		key, nodeType, name,
 	)
 	if err != nil {
 		return 0, err
@@ -224,42 +234,6 @@ func upsertPhantom(db dbExecer, name string) (int64, error) {
 	// LastInsertId() on ON CONFLICT DO NOTHING, so it cannot tell whether the
 	// row was actually inserted. Check RowsAffected() first; only trust
 	// LastInsertId() when exactly one row was inserted.
-	n, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	if n == 1 {
-		id, err := res.LastInsertId()
-		if err != nil {
-			return 0, err
-		}
-		return id, nil
-	}
-	// ON CONFLICT: row already exists — fetch its ID.
-	var id int64
-	row := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", key)
-	if err := row.Scan(&id); err != nil {
-		return 0, err
-	}
-	return id, nil
-}
-
-// upsertTag inserts a tag node. The name column keeps its original case; only
-// node_key is lowercased (via tagKey). Callers comparing n.name must use
-// LOWER(n.name) or strings.ToLower because the stored name retains case.
-func upsertTag(db dbExecer, name string) (int64, error) {
-	key := tagKey(name)
-	res, err := db.Exec(
-		`INSERT INTO nodes (node_key, type, name, path, exists_flag)
-		 VALUES (?, 'tag', ?, NULL, 0)
-		 ON CONFLICT(node_key) DO NOTHING`,
-		key, name,
-	)
-	if err != nil {
-		return 0, err
-	}
-	// See upsertPhantom: modernc.org/sqlite returns the previous rowid (not 0)
-	// from LastInsertId() on ON CONFLICT DO NOTHING. Check RowsAffected() first.
 	n, err := res.RowsAffected()
 	if err != nil {
 		return 0, err

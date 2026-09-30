@@ -60,6 +60,32 @@ type rewriteEntry struct {
 	newRawLink string
 }
 
+func checkRewriteSourcesFresh(db dbExecer, diskPaths *vaultDiskPathResolver, rewrites []rewriteEntry) error {
+	checked := make(map[int64]bool)
+	for _, re := range rewrites {
+		if checked[re.sourceID] {
+			continue
+		}
+		checked[re.sourceID] = true
+		var dbMtime int64
+		if err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", re.sourceID).Scan(&dbMtime); err != nil {
+			return err
+		}
+		fullPath, err := diskPaths.existingPath(re.sourcePath)
+		if err != nil {
+			return err
+		}
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			return err
+		}
+		if info.ModTime().Unix() != dbMtime {
+			return fmt.Errorf("%w: %s", ErrSourceStale, re.sourcePath)
+		}
+	}
+	return nil
+}
+
 type preparedFileRewrite struct {
 	path      string
 	fullPath  string

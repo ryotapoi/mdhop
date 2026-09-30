@@ -195,30 +195,8 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 	}
 
 	// Stale check for source files that need rewriting.
-	if len(allRewrites) > 0 {
-		sourceStaleChecked := make(map[int64]bool)
-		for _, re := range allRewrites {
-			if sourceStaleChecked[re.sourceID] {
-				continue
-			}
-			sourceStaleChecked[re.sourceID] = true
-			var dbMtime int64
-			err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", re.sourceID).Scan(&dbMtime)
-			if err != nil {
-				return nil, err
-			}
-			fullPath, err := diskPaths.existingPath(re.sourcePath)
-			if err != nil {
-				return nil, err
-			}
-			info, err := os.Stat(fullPath)
-			if err != nil {
-				return nil, err
-			}
-			if info.ModTime().Unix() != dbMtime {
-				return nil, fmt.Errorf("%w: %s", ErrSourceStale, re.sourcePath)
-			}
-		}
+	if err := checkRewriteSourcesFresh(db, diskPaths, allRewrites); err != nil {
+		return nil, err
 	}
 
 	// Rebuild basenameToPath (includes both existing and new files).

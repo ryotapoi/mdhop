@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -166,29 +165,9 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 	}
 
 	// Stale check on source files.
-	sourceStaleChecked := make(map[int64]bool)
 	diskPaths := newVaultDiskPathResolver(vaultPath)
-	for _, re := range rewrites {
-		if sourceStaleChecked[re.sourceID] {
-			continue
-		}
-		sourceStaleChecked[re.sourceID] = true
-		var dbMtime int64
-		err := db.QueryRow("SELECT mtime FROM nodes WHERE id = ?", re.sourceID).Scan(&dbMtime)
-		if err != nil {
-			return nil, err
-		}
-		fullPath, err := diskPaths.existingPath(re.sourcePath)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		if info.ModTime().Unix() != dbMtime {
-			return nil, fmt.Errorf("%w: %s", ErrSourceStale, re.sourcePath)
-		}
+	if err := checkRewriteSourcesFresh(db, diskPaths, rewrites); err != nil {
+		return nil, err
 	}
 
 	// Apply disk rewrites.
