@@ -217,6 +217,11 @@ func mergeIntoExistingYAML(existingData []byte, metaNode *yaml.Node) ([]byte, er
 		if typesIdx >= 0 {
 			// Merge into existing types: add new keys only
 			existingTypes := metaVal.Content[typesIdx+1]
+			if existingTypes.Kind == yaml.ScalarNode && existingTypes.Tag == "!!null" {
+				existingTypes.Kind = yaml.MappingNode
+				existingTypes.Tag = "!!map"
+				existingTypes.Value = ""
+			}
 			existingKeySet := make(map[string]bool)
 			for i := 0; i < len(existingTypes.Content)-1; i += 2 {
 				existingKeySet[existingTypes.Content[i].Value] = true

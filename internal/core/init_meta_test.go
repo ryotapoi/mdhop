@@ -552,6 +552,40 @@ func marshalYAMLNode(node *yaml.Node) ([]byte, error) {
 }
 
 func TestInitMeta(t *testing.T) {
+	t.Run("round trip existing null types", func(t *testing.T) {
+		dir := t.TempDir()
+		configPath := filepath.Join(dir, "mdhop.yaml")
+		existing := "build:\n  exclude_paths:\n    - templates/*\nmeta:\n  types: null\n"
+		if err := os.WriteFile(configPath, []byte(existing), 0644); err != nil {
+			t.Fatal(err)
+		}
+		result, err := InitMeta(dir, InitMetaOptions{Preset: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Added) != 15 {
+			t.Fatalf("expected 15 added, got %d", len(result.Added))
+		}
+		if err := os.WriteFile(configPath, []byte(result.YAML), 0644); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := LoadConfig(dir)
+		if err != nil {
+			t.Fatalf("LoadConfig round-trip: %v", err)
+		}
+		if len(cfg.Meta.Types) != len(result.Added) {
+			t.Fatalf("persisted %d types, reported %d added", len(cfg.Meta.Types), len(result.Added))
+		}
+		for _, preset := range presetMetaTypes() {
+			if got := cfg.Meta.Types[preset.Key].Name; got != preset.Info.Name {
+				t.Errorf("%s: got %q, want %q", preset.Key, got, preset.Info.Name)
+			}
+		}
+		if len(cfg.Build.ExcludePaths) != 1 || cfg.Build.ExcludePaths[0] != "templates/*" {
+			t.Errorf("build exclude paths lost: %v", cfg.Build.ExcludePaths)
+		}
+	})
+
 	t.Run("preset only", func(t *testing.T) {
 		dir := t.TempDir()
 		result, err := InitMeta(dir, InitMetaOptions{Preset: true})

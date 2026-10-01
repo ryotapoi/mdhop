@@ -70,7 +70,7 @@
 
 #### 設定・CLI・仕様
 
-- [ ] `meta.types: null` を持つ既存設定へ `init-meta --preset --write` した際、報告した型定義を YAML に保存する。`internal/core/init_meta_yaml.go`。完了: added 件数と再読込した `meta.types` の内容が一致する。出典: E6。
+- [x] `meta.types: null` を持つ既存設定へ `init-meta --preset --write` した際、報告した型定義を YAML に保存する。`internal/core/init_meta_yaml.go`。完了: added 件数と再読込した `meta.types` の内容が一致する。出典: E6。
 - [ ] コマンドの余剰位置引数を拒否し、後続の `--dry-run` や範囲指定が黙って無効にならないようにする。`cmd/mdhop` の flag 解析。完了: 位置引数を混ぜた convert/repair/simplify 等がファイルを書き換えずに引数 error を返す。出典: F1。
 - [ ] `init-meta` の stdout YAML 出力失敗を終了コードへ反映する。`cmd/mdhop/init_meta.go`。完了: stdout への書き込みが失敗した場合、成功扱いにならない。出典: F2。
 - [ ] `simplify` の仕様を現行の frontmatter 書換え範囲に合わせる。`docs/specs/overview.md`。完了: quoted frontmatter wikilink は対象、raw `frontmatter_path` と tag は対象外と読め、実装・テスト・ADR 0022 と矛盾しない。出典: maintenance-audit A6-1（verify-finding 確認済み）。
