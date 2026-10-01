@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"os"
@@ -560,6 +561,78 @@ func TestAddPartialErrorNoChanges(t *testing.T) {
 	}
 	if beforeEdges != afterEdges {
 		t.Errorf("edges changed: %d → %d", beforeEdges, afterEdges)
+	}
+}
+
+func TestAddRejectsOutsideFile(t *testing.T) {
+	for _, input := range []string{"../Outside.md", "sub/../../Outside.md", ".."} {
+		t.Run(input, func(t *testing.T) {
+			vault := copyVault(t, "vault_add_disambiguate")
+			outside := filepath.Join(filepath.Dir(vault), "Outside.md")
+			outsideContent := []byte("---\ntitle: External marker\n---\n[[ExternalTarget]]\n")
+			if err := os.WriteFile(outside, outsideContent, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatalf("build: %v", err)
+			}
+			// This valid input would rewrite existing basename links if applied.
+			if err := os.MkdirAll(filepath.Join(vault, "sub2"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(vault, "sub2/B.md"), []byte("---\ntitle: Inside marker\n---\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			paths := []string{dbPath(vault), outside, filepath.Join(vault, "A.md"), filepath.Join(vault, "sub2/B.md")}
+			before := make([][]byte, len(paths))
+			for i, path := range paths {
+				var err error
+				before[i], err = os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, files := range [][]string{{input}, {"sub2/B.md", input}} {
+				result, err := Add(vault, AddOptions{Files: files, AutoDisambiguate: true})
+				if err == nil || !strings.Contains(err.Error(), "path escapes vault: "+input) {
+					t.Fatalf("Add(%v) = %v, want path escape error", files, err)
+				}
+				if result != nil {
+					t.Fatalf("Add(%v) returned result on rejection: %+v", files, result)
+				}
+				// Byte equality of the DB covers nodes, meta, and edges together.
+				for i, path := range paths {
+					after, err := os.ReadFile(path)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !bytes.Equal(before[i], after) {
+						t.Errorf("Add(%v) changed %s", files, path)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestAddAcceptsParentReferenceWithinVault(t *testing.T) {
+	vault := copyVault(t, "vault_add")
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Inside.md"), []byte("---\ntitle: Inside\n---\n[[A]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Add(vault, AddOptions{Files: []string{"sub/../Inside.md", "Inside.md"}})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	if len(result.Added) != 1 || result.Added[0] != "Inside.md" {
+		t.Fatalf("added = %v, want [Inside.md]", result.Added)
+	}
+	meta := queryMetaForPath(t, dbPath(vault), "Inside.md")
+	if len(meta) != 1 || meta[0].Value != "Inside" {
+		t.Fatalf("meta = %+v, want title=Inside", meta)
 	}
 }
 

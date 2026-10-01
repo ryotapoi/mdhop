@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // AddOptions controls which files to add to the index.
@@ -51,6 +52,9 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 	var files []addFile
 	for _, f := range opts.Files {
 		np := NormalizePath(f)
+		if np == ".." || strings.HasPrefix(np, "../") {
+			return nil, fmt.Errorf("path escapes vault: %s", f)
+		}
 		if seen[np] {
 			continue
 		}
