@@ -34,6 +34,24 @@ func TestRewriteMovedOutgoingLink(t *testing.T) {
 			from: "A.md", to: "sub/A.md", want: "[label](../B.md#heading)", wantOK: true,
 		},
 		{
+			name: "relative markdown preserves destination whitespace",
+			link: parseMarkdownLinks("[link]( ./B.md )", 1)[0],
+			from: "A.md", to: "sub/A.md", want: "[link]( ../B.md )", wantOK: true,
+		},
+		{
+			name: "relative markdown preserves whitespace and fragment for moved target",
+			link: parseMarkdownLinks("[label](\t./B.md#heading \t)", 1)[0],
+			from: "old/A.md", to: "new/A.md",
+			maps: movedLinkMaps{movedFromTo: map[string]string{"old/B.md": "else/B.md"}},
+			want: "[label](\t../else/B.md#heading \t)", wantOK: true,
+		},
+		{
+			name: "relative markdown unchanged destination preserves whitespace",
+			link: parseMarkdownLinks("[link]( ./B.md )", 1)[0],
+			from: "old/A.md", to: "new/A.md",
+			maps: movedLinkMaps{movedFromTo: map[string]string{"old/B.md": "new/B.md"}},
+		},
+		{
 			name: "relative target moved with source",
 			link: linkOccur{rawLink: "[[./B]]", isRelative: true, linkType: LinkTypeWikilink},
 			from: "old/A.md", to: "new/A.md",

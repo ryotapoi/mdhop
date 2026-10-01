@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 // movedLinkMaps is the post-move resolution information needed to decide an
@@ -103,12 +104,16 @@ func parseRelativeLink(rawLink string, linkType LinkType) (relativeLinkParts, bo
 		}
 		prefix := rawLink[:start+2]
 		urlPart := strings.TrimSuffix(rawLink[start+2:], ")")
+		trimmedLeft := strings.TrimLeftFunc(urlPart, unicode.IsSpace)
+		prefix += urlPart[:len(urlPart)-len(trimmedLeft)]
+		urlPart = strings.TrimRightFunc(trimmedLeft, unicode.IsSpace)
+		trailingSpace := trimmedLeft[len(urlPart):]
 		var fragment string
 		if idx := strings.Index(urlPart, "#"); idx >= 0 {
 			fragment = urlPart[idx:]
 			urlPart = urlPart[:idx]
 		}
-		return relativeLinkParts{prefix: prefix, target: urlPart, suffix: fragment + ")", preserveMD: strings.HasSuffix(strings.ToLower(urlPart), ".md")}, true
+		return relativeLinkParts{prefix: prefix, target: urlPart, suffix: fragment + trailingSpace + ")", preserveMD: strings.HasSuffix(strings.ToLower(urlPart), ".md")}, true
 	default:
 		return relativeLinkParts{}, false
 	}

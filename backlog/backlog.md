@@ -47,7 +47,7 @@
 
 #### move・rewrite
 
-- [ ] 前後空白を含む相対 Markdown link の参照先を move 後も保つ。`internal/core/move_link.go`。完了: `[link]( ./B.md )` を持つ note を移動しても B.md への参照が維持される。出典: D2。
+- [x] 前後空白を含む相対 Markdown link の参照先を move 後も保つ。`internal/core/move_link.go`。完了: `[link]( ./B.md )` を持つ note を移動しても B.md への参照が維持される。出典: D2。
 - [ ] 大小文字の異なる相対 path link が同じ移動セットの note を指す場合、移動後の実 path へ書き換える。`internal/core/move_link.go`。完了: `[[./b]]` が `B.md` を指す directory move 後も、full build で同じ B.md に解決する。出典: D5。
 - [ ] 大小文字だけが異なる basename 衝突でも、move の collateral rewrite が既存参照を取りこぼさないようにする。`internal/core/move_rewrite.go`。完了: `readme.md` と新しい `README.md` の衝突後も旧リンクの意味が保持され、full build が曖昧リンクで失敗しない。出典: D6。
 - [ ] `disambiguate --scan` で同 stem の asset link を note link に書き換えない。`internal/core/disambiguate.go`。完了: `image.md` があっても `[[image.png]]` と実在 asset path link が保持される。出典: E2。
