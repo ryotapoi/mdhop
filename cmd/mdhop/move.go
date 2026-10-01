@@ -149,12 +149,14 @@ func runMove(args []string) error {
 }
 
 func printMoveTemplatePlan(format string, isDir bool, plan *core.MoveTemplatePlanResult, result *core.MoveDirResult) error {
+	moved := plan.Moved
 	rewritten := []core.RewrittenLink(nil)
 	if result != nil {
+		moved = result.Moved
 		rewritten = result.Rewritten
 	}
 	if isDir {
-		dirResult := &core.MoveDirResult{Moved: plan.Moved, Rewritten: rewritten}
+		dirResult := &core.MoveDirResult{Moved: moved, Rewritten: rewritten}
 		switch format {
 		case "json":
 			return printMoveDirJSON(os.Stdout, dirResult)
@@ -162,14 +164,14 @@ func printMoveTemplatePlan(format string, isDir bool, plan *core.MoveTemplatePla
 			return printMoveDirText(os.Stdout, dirResult)
 		}
 	}
-	if len(plan.Moved) != 1 {
-		return fmt.Errorf("expected one --to-template move, got %d", len(plan.Moved))
+	if len(moved) != 1 {
+		return fmt.Errorf("expected one --to-template move, got %d", len(moved))
 	}
 	moveResult := &core.MoveResult{Rewritten: rewritten}
 	switch format {
 	case "json":
-		return printMoveJSON(os.Stdout, plan.Moved[0].From, plan.Moved[0].To, moveResult)
+		return printMoveJSON(os.Stdout, moved[0].From, moved[0].To, moveResult)
 	default:
-		return printMoveText(os.Stdout, plan.Moved[0].From, plan.Moved[0].To, moveResult)
+		return printMoveText(os.Stdout, moved[0].From, moved[0].To, moveResult)
 	}
 }
