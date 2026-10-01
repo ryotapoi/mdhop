@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"os"
@@ -53,12 +54,20 @@ func runInitMeta(args []string) error {
 
 	if *write {
 		configPath := filepath.Join(*vault, "mdhop.yaml")
-		tmpPath := configPath + ".tmp"
-		if err := os.WriteFile(tmpPath, []byte(result.YAML), 0644); err != nil {
+		tmpPath := configPath + ".tmp-" + rand.Text()
+		tmp, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		if err != nil {
+			return fmt.Errorf("create temp file: %w", err)
+		}
+		defer os.Remove(tmpPath)
+		if _, err := tmp.WriteString(result.YAML); err != nil {
+			tmp.Close()
 			return fmt.Errorf("write temp file: %w", err)
 		}
+		if err := tmp.Close(); err != nil {
+			return fmt.Errorf("close temp file: %w", err)
+		}
 		if err := os.Rename(tmpPath, configPath); err != nil {
-			os.Remove(tmpPath)
 			return fmt.Errorf("rename: %w", err)
 		}
 		if len(result.Added) > 0 {
