@@ -301,7 +301,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 			}
 
 			var preMoveTargetPath string
-			if link.isBasename || (!link.isRelative && link.target != "") {
+			if link.isBasename || link.target != "" {
 				var err error
 				preMoveTargetPath, err = lookupEdgeTargetPath(db, m.nodeID, link.rawLink)
 				if err != nil {

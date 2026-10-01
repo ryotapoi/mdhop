@@ -59,6 +59,16 @@ func TestRewriteMovedOutgoingLink(t *testing.T) {
 			want: "[[../else/B]]", wantOK: true,
 		},
 		{
+			name:      "relative case mismatch uses resolved moved target",
+			link:      linkOccur{rawLink: "[[./b]]", isRelative: true, linkType: LinkTypeWikilink},
+			from:      "old/A.md",
+			to:        "new/A.md",
+			preTarget: "old/B.md",
+			maps:      movedLinkMaps{movedFromTo: map[string]string{"old/B.md": "new/B.md"}},
+			want:      "[[./B]]",
+			wantOK:    true,
+		},
+		{
 			name:      "basename root priority changes target",
 			link:      linkOccur{rawLink: "[[A]]", target: "A", isBasename: true, linkType: LinkTypeWikilink},
 			preTarget: "sub/A.md",

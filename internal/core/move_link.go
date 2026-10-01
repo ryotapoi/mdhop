@@ -53,7 +53,7 @@ func rewriteMovedOutgoingLink(link linkOccur, from, to, preMoveTargetPath string
 	// Move preserves existing source-relative outgoing links as an intentional
 	// exception to vault-relative rewrites.
 	if link.isRelative {
-		newRawLink, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, from, to, maps.movedFromTo)
+		newRawLink, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, from, to, maps.movedFromTo, preMoveTargetPath)
 		if err != nil {
 			return outgoingRewrite{}, false, err
 		}
@@ -141,13 +141,17 @@ func resolveMovedRelativeTarget(target string, movedFromTo map[string]string, st
 // rewriteOutgoingRelativeLink rewrites a relative link in the moved file
 // from the old path perspective to the new path perspective.
 // If movedFromTo is non-nil, it also checks whether the target was moved.
-func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to string, movedFromTo map[string]string) (string, error) {
+func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to string, movedFromTo map[string]string, preMoveTargetPath string) (string, error) {
 	parts, ok := parseRelativeLink(rawLink, linkType)
 	if !ok {
 		return rawLink, nil
 	}
 	resolvedTarget := NormalizePath(filepath.Join(filepath.Dir(from), parts.target))
-	resolvedTarget = resolveMovedRelativeTarget(resolvedTarget, movedFromTo, parts.stripMovedMD)
+	if movedTarget, ok := movedFromTo[preMoveTargetPath]; preMoveTargetPath != "" && ok {
+		resolvedTarget = movedTarget
+	} else {
+		resolvedTarget = resolveMovedRelativeTarget(resolvedTarget, movedFromTo, parts.stripMovedMD)
+	}
 
 	rel, err := filepath.Rel(filepath.Dir(to), resolvedTarget)
 	if err != nil {
