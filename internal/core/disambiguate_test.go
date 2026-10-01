@@ -504,6 +504,57 @@ func TestDisambiguateScanBasic(t *testing.T) {
 	}
 }
 
+func TestDisambiguateScanPreservesAssetLinks(t *testing.T) {
+	vault := t.TempDir()
+	for _, dir := range []string{"sub", "assets", "notes"} {
+		if err := os.MkdirAll(filepath.Join(vault, dir), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assets := "[[image.png]]\n[[assets/image.png]]\n[asset](assets/image.png)\n[[../assets/image.png]]\n[relative asset](../assets/image.png)\n[[assets/image]]\n[extensionless asset](../assets/image)\n"
+	source := assets + "[[image]]\n[[missing/image]]\n[note](missing/image.md)\n"
+	for path, content := range map[string]string{
+		"sub/image.md":     "# Image\n",
+		"assets/image.png": "asset bytes\n",
+		"assets/image":     "extensionless asset bytes\n",
+		"notes/source.md":  source,
+	} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "image"})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(result.Rewritten) != 3 {
+		t.Errorf("Rewritten = %+v, want only 3 note links", result.Rewritten)
+	}
+	for _, rewrite := range result.Rewritten {
+		if strings.Contains(rewrite.OldLink, ".png") || strings.Contains(rewrite.OldLink, "assets/") {
+			t.Errorf("asset link rewritten: %+v", rewrite)
+		}
+	}
+	want := assets + "[[sub/image]]\n[[sub/image]]\n[note](sub/image.md)\n"
+	for path, expected := range map[string]string{
+		"notes/source.md":  want,
+		"assets/image.png": "asset bytes\n",
+		"assets/image":     "extensionless asset bytes\n",
+	} {
+		content, err := os.ReadFile(filepath.Join(vault, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(content) != expected {
+			t.Errorf("%s = %q, want %q", path, content, expected)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(vault, ".mdhop")); !os.IsNotExist(err) {
+		t.Errorf("scan created .mdhop or stat failed: %v", err)
+	}
+}
+
 func TestDisambiguateScanMultipleCandidatesNoTarget(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
 

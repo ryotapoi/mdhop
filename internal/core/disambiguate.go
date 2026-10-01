@@ -250,6 +250,7 @@ func resolveDisambiguateTarget(name string, candidates []string, target string) 
 // DisambiguateScan rewrites basename links to full paths without using the DB.
 // It scans all .md files in the vault directly.
 func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		ExcludePaths: func() ([]string, error) {
 			cfg, err := LoadConfig(vaultPath)
@@ -302,12 +303,11 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 					if !isPathLinkType(lo.linkType) {
 						continue
 					}
-					// basenameKey strips any extension, not just .md. This is intentional:
-					// wikilink targets have no extension (e.g. "Note Name"), while path
-					// links like [text](sub/note.md) reduce to the stem ("note"), matching
-					// nameKey (built from opts.Name with .md stripped). Asset filenames
-					// (e.g. "image.png") never reach here because DisambiguateScan only
-					// processes .md sources and nameKey always comes from a note name.
+					// Markdown sources can link to assets. Keep their extension-bearing
+					// targets out of the note namespace before basenameKey strips it.
+					if ext := filepath.Ext(lo.target); ext != "" && !strings.EqualFold(ext, ".md") {
+						continue
+					}
 					if lo.isBasename {
 						// Basename link: check if it matches the target name.
 						if basenameKey(lo.target) != nameKey {
@@ -321,6 +321,13 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 						}
 						if !isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
 							continue
+						}
+						// An extensionless path can point to an existing asset even
+						// when it is absent from the Markdown-only path set.
+						if !isLinkEscaping(sourcePath, lo) {
+							if _, err := diskPaths.existingPath(resolveToVaultRelative(sourcePath, lo)); err == nil {
+								continue
+							}
 						}
 					}
 
