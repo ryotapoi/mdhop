@@ -391,3 +391,21 @@ func mustReadFile(t *testing.T, path string) []byte {
 	}
 	return content
 }
+
+func TestReplaceOutsideInlineCodeDelimiterRuns(t *testing.T) {
+	for _, code := range []string{
+		"`LINK`", "``LINK``", "```LINK ` LINK `` LINK```",
+		"``LINK ` LINK ``` LINK``", "``LINK ` LINK",
+	} {
+		t.Run(code, func(t *testing.T) {
+			line, want := "LINK "+code, "NEW "+code
+			if code[len(code)-1] == '`' {
+				line += " LINK"
+				want += " NEW"
+			}
+			if got := replaceOutsideInlineCode(line, "LINK", "NEW"); got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
+	}
+}

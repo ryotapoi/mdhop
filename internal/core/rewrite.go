@@ -152,17 +152,9 @@ func replaceOutsideInlineCode(line, old, new string) string {
 	i := 0
 	for i < len(line) {
 		if line[i] == '`' {
-			// Find the closing backtick.
-			end := strings.IndexByte(line[i+1:], '`')
-			if end < 0 {
-				// No closing backtick — rest of line is code.
-				result.WriteString(line[i:])
-				return result.String()
-			}
-			// Copy the inline code span verbatim.
-			span := line[i : i+1+end+1]
-			result.WriteString(span)
-			i += len(span)
+			end := inlineCodeEnd(line, i)
+			result.WriteString(line[i:end])
+			i = end
 			continue
 		}
 		// Check for old string match.

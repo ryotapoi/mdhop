@@ -120,18 +120,40 @@ func parseLinksWithLinkKeys(content string, linkKeys []string) parseResult {
 	return pr
 }
 
-func stripInlineCode(line string) string {
-	var out strings.Builder
-	inCode := false
-	for i := 0; i < len(line); i++ {
-		ch := line[i]
-		if ch == '`' {
-			inCode = !inCode
+// inlineCodeEnd returns the end of a code span opened at start. Only a
+// backtick run of the same length closes it; an unclosed span consumes the line.
+func inlineCodeEnd(line string, start int) int {
+	openingEnd := start
+	for openingEnd < len(line) && line[openingEnd] == '`' {
+		openingEnd++
+	}
+	length := openingEnd - start
+	for i := openingEnd; i < len(line); {
+		if line[i] != '`' {
+			i++
 			continue
 		}
-		if !inCode {
-			out.WriteByte(ch)
+		end := i
+		for end < len(line) && line[end] == '`' {
+			end++
 		}
+		if end-i == length {
+			return end
+		}
+		i = end
+	}
+	return len(line)
+}
+
+func stripInlineCode(line string) string {
+	var out strings.Builder
+	for i := 0; i < len(line); {
+		if line[i] == '`' {
+			i = inlineCodeEnd(line, i)
+			continue
+		}
+		out.WriteByte(line[i])
+		i++
 	}
 	return out.String()
 }

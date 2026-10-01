@@ -656,3 +656,28 @@ func writeFile(t *testing.T, dir, rel, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestSimplifyMultipleBacktickSameLink(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmp, "sub"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "sub/B.md"), []byte("# B\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	content := "[[sub/B]] ``[[sub/B]] [B](sub/B.md) #hidden`` [B](sub/B.md)\n"
+	if err := os.WriteFile(filepath.Join(tmp, "A.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.Simplify(tmp, core.SimplifyOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(tmp, "A.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[[B]] ``[[sub/B]] [B](sub/B.md) #hidden`` [B](B.md)\n"
+	if string(got) != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

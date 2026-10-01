@@ -1073,3 +1073,31 @@ func filterByType(links []linkOccur, linkType LinkType) []linkOccur {
 	}
 	return out
 }
+
+func TestParseInlineCodeDelimiterRuns(t *testing.T) {
+	for _, code := range []string{
+		"`[[Hidden]] [hidden](Hidden.md) #hidden`",
+		"``[[Hidden]] [hidden](Hidden.md) #hidden``",
+		"```[[Hidden]] ` #hidden `` [hidden](Hidden.md)```",
+		"``[[Hidden]] ` #hidden ``` [hidden](Hidden.md)``",
+		"``[[Hidden]] ` #hidden [hidden](Hidden.md)",
+	} {
+		t.Run(code, func(t *testing.T) {
+			content := "text #before [[Before]] " + code
+			want := []string{"[[Before]]", "#before"}
+			if code[len(code)-1] == '`' {
+				content += " [after](After.md) #after"
+				want = []string{"[[Before]]", "[after](After.md)", "#before", "#after"}
+			}
+			links := parseLinks(content).Links
+			if len(links) != len(want) {
+				t.Fatalf("links = %+v, want raw links %v", links, want)
+			}
+			for i, link := range links {
+				if link.rawLink != want[i] {
+					t.Errorf("link[%d] = %q, want %q", i, link.rawLink, want[i])
+				}
+			}
+		})
+	}
+}
