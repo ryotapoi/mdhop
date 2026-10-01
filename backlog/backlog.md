@@ -23,7 +23,7 @@
 - [x] 同じ vault で build が重なっても一時 DB を相互に削除・公開しない。`internal/core/build.go`。完了: 並行 build の失敗・成功のいずれでも、公開された index は完成済みの一貫した DB である。出典: A3。
 - [x] `add --file` が `../` を通じて vault 外の note を読み込み・登録しないようにする。`internal/core/add.go`。完了: vault 外の相対 path を拒否し、外部内容が nodes/meta に入らない。出典: C8。
 - [x] `set`、add の自動 rewrite、convert 等の書き換え系コマンドが symlink 経由で vault 外の Markdown を変更しないようにする。disk path 解決と `internal/core/rewrite.go` の書き込み境界。完了: vault 内 symlink を対象にしても外部ファイルの内容が変わらない。出典: C9/E9。
-- [ ] directory move で未登録 asset の移動先が既存なら上書き前に拒否する。`internal/core/move_dir.go`、`move_load.go`。完了: 衝突時に移動先の元内容と移動元の両方が保たれる。出典: D1。
+- [x] directory move で未登録 asset の移動先が既存なら上書き前に拒否する。`internal/core/move_dir.go`、`move_load.go`。完了: 衝突時に移動先の元内容と移動元の両方が保たれる。出典: D1。
 - [ ] move の destination 祖先 symlink から vault 外へファイルを移動しないようにする。`internal/core/move_dir.go` と path 検証。完了: vault 外を指す destination symlink を通る移動は外部ファイルを作らずに拒否される。出典: D7。
 - [ ] `init-meta --write` の一時設定ファイルを実行ごとに安全に所有し、既存 `.tmp` や symlink の上書きと並行実行の衝突を防ぐ。`cmd/mdhop/init_meta.go`。完了: 既存の `mdhop.yaml.tmp` とその参照先を変更せず、重複実行後も公開設定が一つの完成した結果になる。出典: E10/F3。
 

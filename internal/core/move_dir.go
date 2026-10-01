@@ -60,6 +60,11 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if needDiskMove {
+		if err := checkDiskOnlyDestinationsFree(vaultPath, diskOnlyFiles); err != nil {
+			return nil, err
+		}
+	}
 	if err := checkMovedFilesNotStale(vaultPath, moves, needDiskMove); err != nil {
 		return nil, err
 	}

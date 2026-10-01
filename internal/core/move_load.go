@@ -183,6 +183,20 @@ func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo) ([
 	return diskOnlyFiles, nil
 }
 
+// checkDiskOnlyDestinationsFree rejects existing entries before any move side effects.
+func checkDiskOnlyDestinationsFree(vaultPath string, files []diskOnlyMove) error {
+	for _, file := range files {
+		_, err := os.Lstat(filepath.Join(vaultPath, file.to))
+		if err == nil {
+			return fmt.Errorf("%w: %s", ErrAlreadyExistsOnDisk, file.to)
+		}
+		if !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
+}
+
 // classifyDiskState determines whether the registered files still need to be moved on disk.
 // Returns needDiskMove=true when all files are at their from paths, false when they are
 // already at the to paths. Mixed or missing states return an error.

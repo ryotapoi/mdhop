@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -588,13 +589,34 @@ func TestMoveDir_AlreadyMoved(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Residual disk-only files are not moved in already-moved mode, even
+	// when their corresponding destination already exists.
+	for path, content := range map[string]string{
+		"sub/image.png":    "residual source",
+		"newdir/image.png": "existing destination",
+	} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
 	if err != nil {
 		t.Fatalf("MoveDir (already moved): %v", err)
 	}
 
-	if len(result.Moved) != 3 {
-		t.Errorf("expected 3 moved files, got %d", len(result.Moved))
+	if len(result.Moved) != 4 {
+		t.Errorf("expected 4 reported files, got %d", len(result.Moved))
+	}
+
+	for path, want := range map[string]string{
+		"sub/image.png":    "residual source",
+		"newdir/image.png": "existing destination",
+	} {
+		content, err := os.ReadFile(filepath.Join(vault, path))
+		if err != nil || string(content) != want {
+			t.Errorf("residual asset %s = %q, %v; want %q", path, content, err, want)
+		}
 	}
 
 	notes := queryNodes(t, dbPath(vault), "note")
@@ -756,11 +778,12 @@ func TestMoveDir_PhantomPromotion(t *testing.T) {
 
 func TestMoveDir_NonMDFileMovedAlong(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
-	if err := os.WriteFile(filepath.Join(vault, "sub", "image.png"), []byte("png data"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(vault, "sub", "image.png"), []byte("png data"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 
 	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
@@ -774,6 +797,99 @@ func TestMoveDir_NonMDFileMovedAlong(t *testing.T) {
 
 	if len(result.Moved) == 0 {
 		t.Error("expected files to be moved")
+	}
+}
+
+func TestMoveDir_DiskOnlyDestinationCollision(t *testing.T) {
+	for _, destination := range []string{"file", "dangling symlink"} {
+		t.Run(destination, func(t *testing.T) {
+			vault := t.TempDir()
+			for _, dir := range []string{"src", "dst"} {
+				if err := os.MkdirAll(filepath.Join(vault, dir), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			files := map[string]string{
+				"src/Note.md": "[outside](../Outside.md)\n",
+				"Outside.md":  "[[src/Note]]\n",
+			}
+			for path, content := range files {
+				if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			// Add the asset after indexing so it is disk-only.
+			if err := os.WriteFile(filepath.Join(vault, "src/image.png"), []byte("source image"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			target := filepath.Join(vault, "dst/image.png")
+			if destination == "file" {
+				if err := os.WriteFile(target, []byte("destination image"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.Symlink("missing.png", target); err != nil {
+				t.Fatal(err)
+			}
+
+			// Snapshot the whole vault, including the DB and directory entries,
+			// to detect rewrites, partial moves, or temporary files on rejection.
+			snapshot := func() map[string]string {
+				t.Helper()
+				entries := make(map[string]string)
+				err := filepath.WalkDir(vault, func(path string, d os.DirEntry, err error) error {
+					if err != nil {
+						return err
+					}
+					rel, err := filepath.Rel(vault, path)
+					if err != nil {
+						return err
+					}
+					switch {
+					case d.IsDir():
+						entries[rel] = "directory"
+					case d.Type()&os.ModeSymlink != 0:
+						target, err := os.Readlink(path)
+						if err != nil {
+							return err
+						}
+						entries[rel] = "symlink:" + target
+					default:
+						content, err := os.ReadFile(path)
+						if err != nil {
+							return err
+						}
+						entries[rel] = "file:" + string(content)
+					}
+					return nil
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				return entries
+			}
+			before := snapshot()
+			_, err := MoveDir(vault, MoveDirOptions{FromDir: "src", ToDir: "dst"})
+			if !errors.Is(err, ErrAlreadyExistsOnDisk) {
+				t.Errorf("MoveDir error = %v, want ErrAlreadyExistsOnDisk", err)
+			} else if !strings.Contains(err.Error(), "dst/image.png") {
+				t.Errorf("error should identify destination: %v", err)
+			}
+			if after := snapshot(); !reflect.DeepEqual(after, before) {
+				for path, content := range before {
+					if after[path] != content {
+						t.Errorf("vault entry changed: %s", path)
+					}
+				}
+				for path := range after {
+					if _, ok := before[path]; !ok {
+						t.Errorf("unexpected vault entry: %s", path)
+					}
+				}
+			}
+		})
 	}
 }
 
