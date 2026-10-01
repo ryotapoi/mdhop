@@ -62,7 +62,7 @@
 
 - [x] タグ・未作成先起点の 2-hop targets にタグ除外を適用する。`internal/core/query_fetch.go`、`exclude_filter.go`。完了: `exclude.tags` と `--exclude-tag` の指定タグが双方の起点で targets から消え、via のタグ・パス除外とノート起点の既存挙動を維持する。タグ以外の同名ノードは除外しない。出典: v0.19.1 の不具合報告（861c5f17）。28391d8 でもコード・CLI 再現確認済み。
 - [x] `--where` の右辺に `=` や `!=` が含まれても、左から最初の演算子を条件として解釈する。`internal/core/where_parse.go`。完了: URL を含む LIKE と演算子文字を含む文字列等値検索が意図したキー・値で動く。出典: B1。
-- [ ] `--where` の LIKE 右辺にある末尾空白を保持する。`internal/core/where_parse.go`。完了: `title~% ` が末尾空白を持つ値だけに一致する。出典: B2。
+- [x] `--where` の LIKE 右辺にある末尾空白を保持する。`internal/core/where_parse.go`。完了: `title~% ` が末尾空白を持つ値だけに一致する。出典: B2。
 - [ ] `meta-validate` が同一キーの異なる不正 list 値を各 value・line 付きで返す。`internal/core/meta_validate.go`。完了: 2 個の不正値を含む list で両方の違反が報告される。出典: B3。
 - [ ] 同一秒内に短縮された source の古い行番号で snippet を取得しても panic しない。`internal/core/query_content.go`。完了: 保存行番号が現在の行数を超える場合に制御された結果または error を返し、CLI が runtime panic で終了しない。出典: B5。
 - [ ] 8 桁を超える小数部を持つ number 値の sort・比較・等値を数値として整合させる。`internal/core/meta.go` と検索条件。完了: `-1.000000001 < -1` と `1.000000000 = 1` が正しく扱われる。出典: C2。

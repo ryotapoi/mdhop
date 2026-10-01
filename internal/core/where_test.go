@@ -149,13 +149,66 @@ func TestParseWhere_Like(t *testing.T) {
 
 func TestParseWhere_Like_PreservesWhitespace(t *testing.T) {
 	// Spec: docs/specs/overview.md — `~` right-hand side whitespace handling.
-	wc, err := ParseWhere([]string{"status~ act%"}, MetaConfig{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	for _, tt := range []struct {
+		name  string
+		expr  string
+		value string
+	}{
+		{"leading", "title~ act%", " act%"},
+		{"trailing", "title~% ", "% "},
+		{"both", " title ~ % ", " % "},
+		{"whitespace only", "title~ ", " "},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			wc, err := ParseWhere([]string{tt.expr}, MetaConfig{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			c := wc.Conditions[0]
+			if c.Key != "title" || c.Op != WhereOpLike || c.Value != tt.value {
+				t.Errorf("got {%q, %d, %q}, want {title, Like, %q}", c.Key, c.Op, c.Value, tt.value)
+			}
+		})
 	}
-	c := wc.Conditions[0]
-	if c.Value != " act%" {
-		t.Errorf("value = %q, want %q (leading space preserved)", c.Value, " act%")
+}
+
+func TestParseWhere_Like_JoinedPreservesWhitespace(t *testing.T) {
+	for _, separator := range []string{" && ", " || "} {
+		t.Run(separator, func(t *testing.T) {
+			wc, err := ParseWhere([]string{"title~ % " + separator + "title~% "}, MetaConfig{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			conds := wc.Conditions
+			if separator == " || " {
+				conds = wc.OrGroups[0]
+			}
+			for i, want := range []string{" % ", "% "} {
+				if conds[i].Value != want {
+					t.Errorf("condition %d value = %q, want %q", i, conds[i].Value, want)
+				}
+			}
+		})
+	}
+}
+
+func TestParseWhere_NonLikeTrimsWhitespace(t *testing.T) {
+	for _, tt := range []struct {
+		expr  string
+		op    WhereOp
+		value string
+	}{
+		{" title = active ", WhereOpEq, "active"},
+		{" title ", WhereOpExists, ""},
+	} {
+		wc, err := ParseWhere([]string{tt.expr}, MetaConfig{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		c := wc.Conditions[0]
+		if c.Key != "title" || c.Op != tt.op || c.Value != tt.value {
+			t.Errorf("%q: got {%q, %d, %q}, want {title, %d, %q}", tt.expr, c.Key, c.Op, c.Value, tt.op, tt.value)
+		}
 	}
 }
 

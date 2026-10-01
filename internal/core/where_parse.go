@@ -81,8 +81,7 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 			// Multiple conditions joined by && are all ANDed with other flags.
 			parts := strings.Split(expr, " && ")
 			for _, p := range parts {
-				p = strings.TrimSpace(p)
-				if p == "" {
+				if strings.TrimSpace(p) == "" {
 					return nil, fmt.Errorf("where: empty condition in && expression %q", expr)
 				}
 				c, err := parseOneWhere(p, metaCfg)
@@ -96,8 +95,7 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 			parts := strings.Split(expr, " || ")
 			var group []WhereCond
 			for _, p := range parts {
-				p = strings.TrimSpace(p)
-				if p == "" {
+				if strings.TrimSpace(p) == "" {
 					return nil, fmt.Errorf("where: empty condition in || expression %q", expr)
 				}
 				c, err := parseOneWhere(p, metaCfg)
@@ -123,10 +121,10 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 }
 
 func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
-	expr = strings.TrimSpace(expr)
+	trimmedExpr := strings.TrimSpace(expr)
 
-	if key, ok := parseNotExistsWhere(expr); ok {
-		key, coalesceKeys, err := parseWhereKey(key, expr)
+	if key, ok := parseNotExistsWhere(trimmedExpr); ok {
+		key, coalesceKeys, err := parseWhereKey(key, trimmedExpr)
 		if err != nil {
 			return WhereCond{}, err
 		}
@@ -146,12 +144,12 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 		key := strings.TrimSpace(expr[:idx])
 		rawValue := expr[idx+len(ot.str):]
 
-		key, coalesceKeys, err := parseWhereKey(key, expr)
+		key, coalesceKeys, err := parseWhereKey(key, trimmedExpr)
 		if err != nil {
 			return WhereCond{}, err
 		}
 		if rawValue == "" {
-			return WhereCond{}, fmt.Errorf("where: empty value in %q", expr)
+			return WhereCond{}, fmt.Errorf("where: empty value in %q", trimmedExpr)
 		}
 
 		if ot.op == WhereOpLike {
@@ -163,7 +161,7 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 
 		value := strings.TrimSpace(rawValue)
 		if value == "" {
-			return WhereCond{}, fmt.Errorf("where: empty value in %q", expr)
+			return WhereCond{}, fmt.Errorf("where: empty value in %q", trimmedExpr)
 		}
 
 		sortValue, valueType, keyValues, err := normalizeWhereValue(key, coalesceKeys, value, metaCfg)
@@ -174,7 +172,7 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 	}
 
 	// No operator found → EXISTS.
-	key, coalesceKeys, err := parseWhereKey(expr, expr)
+	key, coalesceKeys, err := parseWhereKey(trimmedExpr, trimmedExpr)
 	if err != nil {
 		return WhereCond{}, err
 	}
