@@ -1505,3 +1505,49 @@ func TestMovePreflightsExternalAndMovedFrontmatterCandidates(t *testing.T) {
 		t.Fatalf("DB nodes changed before rejection: %+v", nodes)
 	}
 }
+
+func TestMove_CaseCollisionPreservesCollateralTarget(t *testing.T) {
+	for _, tt := range []struct {
+		name, target, from, to, link, want string
+	}{
+		{"note_non_root", "old/readme.md", "source.md", "new/README.md", "[[readme]]\n", "[[old/readme]]\n"},
+		{"note_new_root", "old/readme.md", "source.md", "README.md", "[[readme]]\n", "[[old/readme]]\n"},
+		{"note_unicode", "old/é.md", "source.md", "new/É.md", "[[é]]\n", "[[old/é]]\n"},
+		{"asset", "old/icon.png", "source.png", "new/ICON.PNG", "![[icon.png]]\n", "![[old/icon.png]]\n"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := newMoveVault(t, map[string]string{
+				tt.target: "old content\n",
+				tt.from:   "moved content\n",
+				"ref.md":  tt.link,
+			})
+			assertTarget := func() {
+				t.Helper()
+				db := openTestDB(t, dbPath(vault))
+				defer db.Close()
+				var target string
+				if err := db.QueryRow(`SELECT tn.path FROM edges e
+					JOIN nodes sn ON sn.id = e.source_id
+					JOIN nodes tn ON tn.id = e.target_id
+					WHERE sn.path = 'ref.md'`).Scan(&target); err != nil {
+					t.Fatalf("query target: %v", err)
+				}
+				if target != tt.target {
+					t.Fatalf("target = %q, want %q", target, tt.target)
+				}
+			}
+			assertTarget()
+			if _, err := Move(vault, MoveOptions{From: tt.from, To: tt.to}); err != nil {
+				t.Fatalf("move: %v", err)
+			}
+			if got := readVaultFile(t, vault, "ref.md"); got != tt.want {
+				t.Errorf("ref.md = %q, want %q", got, tt.want)
+			}
+			assertTarget()
+			if _, err := Build(vault); err != nil {
+				t.Fatalf("rebuild: %v", err)
+			}
+			assertTarget()
+		})
+	}
+}

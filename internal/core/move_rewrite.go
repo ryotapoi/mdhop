@@ -212,14 +212,7 @@ func collectCollateralRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveM
 		if preRoot && postRoot {
 			continue
 		}
-		var bn string
-		for _, m := range moves {
-			if !m.isAsset && basenameKey(m.to) == bk {
-				bn = basename(m.to)
-				break
-			}
-		}
-		crs, err := queryCollateralRewrites(db, NodeTypeNote, bn, dm.movedNodeIDs)
+		crs, err := queryCollateralRewrites(db, NodeTypeNote, bk, dm.movedNodeIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -242,14 +235,7 @@ func collectCollateralRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveM
 		if preRoot && postRoot {
 			continue
 		}
-		var bn string
-		for _, m := range moves {
-			if m.isAsset && assetBasenameKey(m.to) == abk {
-				bn = filepath.Base(m.to)
-				break
-			}
-		}
-		crs, err := queryCollateralRewrites(db, NodeTypeAsset, bn, dm.movedNodeIDs)
+		crs, err := queryCollateralRewrites(db, NodeTypeAsset, abk, dm.movedNodeIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -341,18 +327,19 @@ func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string) (string, 
 }
 
 // queryCollateralRewrites finds basename links to non-moved nodes of the given type
-// that need rewriting due to root-priority changes.
+// matching the normalized basename key that need rewriting after a collision or
+// root-priority change.
 // The JOIN condition tn.exists_flag = 1 excludes phantom nodes (path=NULL), which
 // have no disk content to rewrite.
-func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
+func queryCollateralRewrites(db dbExecer, nodeType NodeType, key string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
 	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	rows, err := db.Query(fmt.Sprintf(
 		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
 		 FROM edges e
 		 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 		 JOIN nodes tn ON tn.id = e.target_id AND tn.type = ? AND tn.exists_flag = 1
-		 WHERE tn.name = ? AND %s`, rewriteLinkTypeSQL),
-		append([]any{nodeType, name}, rewriteLinkTypeArgs...)...)
+		 WHERE %s`, rewriteLinkTypeSQL),
+		append([]any{nodeType}, rewriteLinkTypeArgs...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -365,6 +352,15 @@ func queryCollateralRewrites(db dbExecer, nodeType NodeType, name string, movedN
 		var targetNodeID int64
 		if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetPath, &targetNodeID); err != nil {
 			return nil, err
+		}
+		// Match with the same Unicode/NFC key used to detect the collision.
+		// SQLite's built-in case-insensitive comparison only covers ASCII.
+		targetKey := basenameKey(targetPath)
+		if nodeType == NodeTypeAsset {
+			targetKey = assetBasenameKey(targetPath)
+		}
+		if targetKey != key {
+			continue
 		}
 		if movedNodeIDs[re.sourceID] {
 			continue
