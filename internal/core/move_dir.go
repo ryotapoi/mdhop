@@ -310,7 +310,7 @@ func prepareMoveRewrites(vaultPath string, db dbExecer, moves []moveInfo, needDi
 	if err != nil {
 		return nil, err
 	}
-	if err := prepareMovedFileRewrites(movedFileRewrites); err != nil {
+	if err := prepareMovedFileRewrites(vaultPath, movedFileRewrites, needDiskMove); err != nil {
 		return nil, err
 	}
 	return &preparedMoveRewrites{

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +48,57 @@ func (r *vaultDiskPathResolver) existingPath(rel string) (string, error) {
 		return found, nil
 	}
 	return "", &os.PathError{Op: "stat", Path: exact, Err: os.ErrNotExist}
+}
+
+// writablePath preserves disk spelling while rejecting symlink escapes.
+func (r *vaultDiskPathResolver) writablePath(rel string) (string, error) {
+	path, err := r.existingPath(rel)
+	if err != nil {
+		return "", err
+	}
+	if err := validateVaultWritePath(r.vaultPath, path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// validateVaultWritePath also permits restoring a missing ordinary file when
+// its existing parent resolves inside the vault. Dangling symlinks are rejected.
+func validateVaultWritePath(vaultPath, path string) error {
+	root, err := filepath.EvalSymlinks(vaultPath)
+	if err != nil {
+		return err
+	}
+	root, err = filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	target, err := filepath.EvalSymlinks(path)
+	if os.IsNotExist(err) {
+		if _, statErr := os.Lstat(path); os.IsNotExist(statErr) {
+			parent, parentErr := filepath.EvalSymlinks(filepath.Dir(path))
+			if parentErr != nil {
+				return parentErr
+			}
+			target = filepath.Join(parent, filepath.Base(path))
+			err = nil
+		}
+	}
+	if err != nil {
+		return err
+	}
+	target, err = filepath.Abs(target)
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil {
+		return err
+	}
+	if pathEscapesVault(filepath.ToSlash(rel)) {
+		return fmt.Errorf("write path resolves outside vault: %s", path)
+	}
+	return nil
 }
 
 func collectNormalizedDiskPaths(vaultPath string) (map[string]string, error) {

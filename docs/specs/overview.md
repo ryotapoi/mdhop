@@ -88,6 +88,11 @@ meta:
 - `mdhop stats` : ノート数・リンク数などの統計情報を返す
 - `mdhop init-meta --preset` : frontmatter 型定義の scaffold を生成する
 
+### 書き換え対象の境界
+
+- `set` とリンク書き換え系（add の自動 rewrite、move、disambiguate、simplify、repair、convert）は、書き込み候補の実体が symlink 経由で vault 外を指す場合、書き込み前にエラーにする。末尾ファイルと祖先ディレクトリの symlink が対象。候補が複数ある場合も外部候補を含む操作では部分更新しない。
+- vault 内を指す symlink と、symlink として指定された vault root は利用できる。復元でも vault 外への書き込みを拒否し、復元できない場合は rollback failure を報告する。意図的な並行 symlink 差替えと hardlink はこの保証の対象外。
+
 ### モード
 
 - 既定は **厳密モード**（曖昧時はエラー）

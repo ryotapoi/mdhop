@@ -87,6 +87,7 @@ func checkRewriteSourcesFresh(db dbExecer, diskPaths *vaultDiskPathResolver, rew
 }
 
 type preparedFileRewrite struct {
+	vaultPath string
 	path      string
 	fullPath  string
 	original  []byte
@@ -191,10 +192,17 @@ func restoreBackupFiles(vaultPath string, backups []rewriteBackup) []rollbackFai
 	var failures []rollbackFailure
 	for _, fb := range backups {
 		fullPath, err := diskPaths.existingPath(fb.path)
-		if err != nil {
+		if os.IsNotExist(err) {
 			fullPath = filepath.Join(vaultPath, fb.path)
+			err = nil
 		}
-		if err := rollbackWriteFile(fullPath, fb.content, fb.perm); err != nil {
+		if err == nil {
+			err = validateVaultWritePath(vaultPath, fullPath)
+		}
+		if err == nil {
+			err = rollbackWriteFile(fullPath, fb.content, fb.perm)
+		}
+		if err != nil {
 			failures = append(failures, rollbackFailure{
 				action: "restore",
 				path:   fb.path,
@@ -249,7 +257,7 @@ func prepareFileRewrites(vaultPath string, rewrites []rewriteEntry) ([]preparedF
 
 	prepared := make([]preparedFileRewrite, 0, len(sourcePaths))
 	for _, sourcePath := range sourcePaths {
-		fullPath, err := diskPaths.existingPath(sourcePath)
+		fullPath, err := diskPaths.writablePath(sourcePath)
 		if err != nil {
 			return nil, err
 		}
@@ -265,7 +273,7 @@ func prepareFileRewrites(vaultPath string, rewrites []rewriteEntry) ([]preparedF
 		if err != nil {
 			return nil, err
 		}
-		prepared = append(prepared, preparedFileRewrite{path: sourcePath, fullPath: fullPath, original: content, candidate: candidate, perm: info.Mode().Perm(), entries: groups[sourcePath]})
+		prepared = append(prepared, preparedFileRewrite{vaultPath: vaultPath, path: sourcePath, fullPath: fullPath, original: content, candidate: candidate, perm: info.Mode().Perm(), entries: groups[sourcePath]})
 	}
 	return prepared, nil
 }
@@ -295,9 +303,12 @@ func rewriteContentCandidate(content []byte, rewrites []rewriteEntry) ([]byte, e
 
 func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {
 	newMtimes := make(map[int64]int64)
-	fullPaths := make(map[string]string, len(prepared))
+	files := make(map[string]preparedFileRewrite, len(prepared))
 	for _, file := range prepared {
-		fullPaths[file.path] = file.fullPath
+		if err := validateVaultWritePath(file.vaultPath, file.fullPath); err != nil {
+			return nil, nil, nil, err
+		}
+		files[file.path] = file
 	}
 
 	var written []rewriteBackup
@@ -305,7 +316,12 @@ func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64,
 	restore := func() []rollbackFailure {
 		var failures []rollbackFailure
 		for _, fb := range written {
-			if err := rollbackWriteFile(fullPaths[fb.path], fb.content, fb.perm); err != nil {
+			file := files[fb.path]
+			err := validateVaultWritePath(file.vaultPath, file.fullPath)
+			if err == nil {
+				err = rollbackWriteFile(file.fullPath, fb.content, fb.perm)
+			}
+			if err != nil {
 				failures = append(failures, rollbackFailure{
 					action: "restore",
 					path:   fb.path,

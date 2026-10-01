@@ -4,16 +4,23 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
 // prepareMovedFileRewrites validates every moved-note candidate before disk
 // writes begin. The candidate remains attached for both writing and DB reparse.
-func prepareMovedFileRewrites(movedFileRewrites []movedFileRewrite) error {
+func prepareMovedFileRewrites(vaultPath string, movedFileRewrites []movedFileRewrite, needDiskMove bool) error {
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 	for i, mfr := range movedFileRewrites {
 		if len(mfr.outRewrites) == 0 {
 			continue
+		}
+		path := mfr.move.to
+		if needDiskMove {
+			path = mfr.move.from
+		}
+		if _, err := diskPaths.writablePath(path); err != nil {
+			return err
 		}
 		rewrites := make([]rewriteEntry, 0, len(mfr.outRewrites))
 		for _, ow := range mfr.outRewrites {
@@ -32,6 +39,22 @@ func prepareMovedFileRewrites(movedFileRewrites []movedFileRewrite) error {
 // backups for later rollback. On write failure, already-written moved files are
 // restored best-effort.
 func applyMovedFileRewrites(vaultPath string, movedFileRewrites []movedFileRewrite, needDiskMove bool) ([]rewriteBackup, []rollbackFailure, error) {
+	diskPaths := newVaultDiskPathResolver(vaultPath)
+	fullPaths := make(map[string]string)
+	for _, mfr := range movedFileRewrites {
+		if len(mfr.outRewrites) == 0 {
+			continue
+		}
+		path := mfr.move.to
+		if needDiskMove {
+			path = mfr.move.from
+		}
+		fullPath, err := diskPaths.writablePath(path)
+		if err != nil {
+			return nil, nil, err
+		}
+		fullPaths[path] = fullPath
+	}
 	var backups []rewriteBackup
 	for _, mfr := range movedFileRewrites {
 		if len(mfr.outRewrites) == 0 {
@@ -43,7 +66,7 @@ func applyMovedFileRewrites(vaultPath string, movedFileRewrites []movedFileRewri
 			diskPath = m.from
 		}
 
-		fullPath := filepath.Join(vaultPath, diskPath)
+		fullPath := fullPaths[diskPath]
 		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.original, perm: mfr.perm})
 		if err := writeFilePreservePerm(fullPath, mfr.content, mfr.perm); err != nil {
 			restoreFailures := restoreBackupFiles(vaultPath, backups)

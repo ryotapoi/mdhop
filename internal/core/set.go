@@ -61,7 +61,7 @@ func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 	}
 
 	diskPaths := newVaultDiskPathResolver(vaultPath)
-	fullPath, err := diskPaths.existingPath(file)
+	fullPath, err := diskPaths.writablePath(file)
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("%w: %s", ErrFileNotFound, file)
 	}
@@ -91,12 +91,12 @@ func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 		modTime: info.ModTime(),
 	}
 	if err := writeFilePreservePerm(fullPath, newContent, backup.perm); err != nil {
-		return nil, wrapRollbackFailures(err, restoreSetBackup(fullPath, file, backup))
+		return nil, wrapRollbackFailures(err, restoreSetBackup(vaultPath, fullPath, file, backup))
 	}
 
 	updateResult, err := setUpdate(vaultPath, UpdateOptions{Files: []string{file}})
 	if err != nil {
-		return nil, wrapRollbackFailures(err, restoreSetBackup(fullPath, file, backup))
+		return nil, wrapRollbackFailures(err, restoreSetBackup(vaultPath, fullPath, file, backup))
 	}
 
 	return &SetResult{
@@ -115,7 +115,10 @@ type setBackup struct {
 	modTime time.Time
 }
 
-func restoreSetBackup(fullPath, path string, backup setBackup) []rollbackFailure {
+func restoreSetBackup(vaultPath, fullPath, path string, backup setBackup) []rollbackFailure {
+	if err := validateVaultWritePath(vaultPath, fullPath); err != nil {
+		return []rollbackFailure{{action: "restore", path: path, err: err}}
+	}
 	var failures []rollbackFailure
 	if err := rollbackWriteFile(fullPath, backup.content, backup.perm); err != nil {
 		failures = append(failures, rollbackFailure{action: "restore", path: path, err: err})
