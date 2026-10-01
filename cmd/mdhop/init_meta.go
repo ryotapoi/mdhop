@@ -77,7 +77,8 @@ func runInitMeta(args []string) error {
 			fmt.Fprintf(os.Stderr, "skipped %d existing type(s)\n", len(result.Skipped))
 		}
 	} else {
-		fmt.Print(result.YAML)
+		_, err := fmt.Print(result.YAML)
+		return err
 	}
 
 	return nil
