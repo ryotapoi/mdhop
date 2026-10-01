@@ -3,9 +3,7 @@ package core
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"os"
-	"strings"
 )
 
 // prepareMovedFileRewrites validates every moved-note candidate before disk
@@ -122,18 +120,12 @@ func updateExternalEdgesAndMtimes(tx dbExecer, vaultPath string, metaCfg MetaCon
 	return result, nil
 }
 
-// promotePhantom replaces a phantom node with a real node by reassigning edges.
-// If no phantom exists for the given name, this is a no-op (returns false).
-//
-// Frontmatter_path raw values re-resolve by path, not basename, on a full
-// build (ADR 0014): edges whose raw value does not resolve to realPath stay
-// on the phantom, which is then kept alive instead of deleted. The returned
-// bool reports whether the real node took over at least one edge — a partial
-// promotion (phantom surviving for unresolvable raws) still counts.
+// promotePhantom reassigns only edges that resolve to the real node in the
+// post-operation maps. Unresolved edges retain the shared phantom. The bool
+// reports whether at least one edge was promoted, including partial promotion.
 func promotePhantom(tx dbExecer, phantomName string, realNodeID int64, realPath string, rm *resolveMaps) (bool, error) {
-	pk := phantomKey(phantomName)
 	var phantomID int64
-	err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", pk).Scan(&phantomID)
+	err := tx.QueryRow("SELECT id FROM nodes WHERE node_key = ?", phantomKey(phantomName)).Scan(&phantomID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -141,68 +133,63 @@ func promotePhantom(tx dbExecer, phantomName string, realNodeID int64, realPath 
 		return false, err
 	}
 
-	rows, err := tx.Query(`SELECT e.id, e.raw_link, sn.path
+	rows, err := tx.Query(`SELECT e.id, e.raw_link, e.link_type, sn.path
 		FROM edges e JOIN nodes sn ON sn.id = e.source_id
-		WHERE e.target_id = ? AND e.link_type = ?`, phantomID, LinkTypeFrontmatterPath)
+		WHERE e.target_id = ?`, phantomID)
 	if err != nil {
 		return false, err
 	}
-	type fmEdge struct {
+	type phantomEdge struct {
 		id         int64
 		rawLink    string
+		linkType   LinkType
 		sourcePath string
 	}
-	var fmEdges []fmEdge
+	var edges []phantomEdge
 	for rows.Next() {
-		var e fmEdge
-		if err := rows.Scan(&e.id, &e.rawLink, &e.sourcePath); err != nil {
+		var e phantomEdge
+		if err := rows.Scan(&e.id, &e.rawLink, &e.linkType, &e.sourcePath); err != nil {
 			rows.Close()
 			return false, err
 		}
-		fmEdges = append(fmEdges, e)
+		edges = append(edges, e)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
 		return false, err
 	}
 
-	var keep []int64
-	for _, e := range fmEdges {
-		occ, ok := frontmatterPathOccur(e.rawLink, 0)
-		if !ok {
+	promoted := 0
+	for _, e := range edges {
+		var links []linkOccur
+		switch e.linkType {
+		case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
+			links = parseWikiLinks(e.rawLink, 0)
+		case LinkTypeMarkdown:
+			links = parseMarkdownLinks(e.rawLink, 0)
+		case LinkTypeFrontmatterPath:
+			if occ, ok := frontmatterPathOccur(e.rawLink, 0); ok {
+				links = []linkOccur{occ}
+			}
+		}
+		if len(links) != 1 {
 			continue
 		}
-		resolved, err := resolveFrontmatterPathDry(e.sourcePath, occ, rm)
+		link := links[0]
+		link.linkType = e.linkType
+		resolved, _, err := resolveLinkWithBackend(e.sourcePath, link, dryLinkResolver{rm: rm})
 		if err != nil || resolved != realPath {
-			keep = append(keep, e.id)
+			continue
 		}
-	}
-
-	if len(keep) == 0 {
-		if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE target_id = ?", realNodeID, phantomID); err != nil {
+		if _, err := tx.Exec("UPDATE edges SET target_id = ? WHERE id = ?", realNodeID, e.id); err != nil {
 			return false, err
 		}
+		promoted++
+	}
+	if promoted == len(edges) {
 		if _, err := tx.Exec("DELETE FROM nodes WHERE id = ?", phantomID); err != nil {
 			return false, err
 		}
-		return true, nil
 	}
-
-	placeholders := make([]string, len(keep))
-	args := []any{realNodeID, phantomID}
-	for i, id := range keep {
-		placeholders[i] = "?"
-		args = append(args, id)
-	}
-	res, err := tx.Exec(fmt.Sprintf(
-		"UPDATE edges SET target_id = ? WHERE target_id = ? AND id NOT IN (%s)",
-		strings.Join(placeholders, ",")), args...)
-	if err != nil {
-		return false, err
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return n > 0, nil
+	return promoted > 0, nil
 }

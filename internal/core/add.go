@@ -283,28 +283,9 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 		result.Added = append(result.Added, pf.file.path)
 	}
 
-	// Phantom → note promotion (root-priority aware). Must run after the note
-	// inserts above: promotePhantom reads rm.pathToID[path] for the realNodeID,
-	// so reordering would pass 0 and break edge reassignment.
-	// When multiple files share a basename, prefer root file for phantom promotion.
-	rootForBasename := make(map[string]string) // bk → root file path
+	// Resolve phantom edges after all notes are registered, so basename root
+	// priority and explicit paths can select different same-name candidates.
 	for _, pf := range parsed {
-		bk := basenameKey(pf.file.path)
-		if isRootFile(pf.file.path) {
-			rootForBasename[bk] = pf.file.path
-		}
-	}
-	promotedBasenames := make(map[string]bool)
-	for _, pf := range parsed {
-		bk := basenameKey(pf.file.path)
-		if promotedBasenames[bk] {
-			continue
-		}
-		// If a root file exists for this basename but this isn't it, skip (root will promote).
-		if rp, ok := rootForBasename[bk]; ok && rp != pf.file.path {
-			continue
-		}
-
 		promoted, err := promotePhantom(tx, basename(pf.file.path), rm.pathToID[pf.file.path], pf.file.path, rm)
 		if err != nil {
 			return nil, err
@@ -312,7 +293,6 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 		if !promoted {
 			continue
 		}
-		promotedBasenames[bk] = true
 		result.Promoted = append(result.Promoted, pf.file.path)
 	}
 
