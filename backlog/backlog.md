@@ -73,6 +73,23 @@
 - [ ] `init-meta` の stdout YAML 出力失敗を終了コードへ反映する。`cmd/mdhop/init_meta.go`。完了: stdout への書き込みが失敗した場合、成功扱いにならない。出典: F2。
 - [ ] `simplify` の仕様を現行の frontmatter 書換え範囲に合わせる。`docs/specs/overview.md`。完了: quoted frontmatter wikilink は対象、raw `frontmatter_path` と tag は対象外と読め、実装・テスト・ADR 0022 と矛盾しない。出典: maintenance-audit A6-1（verify-finding 確認済み）。
 
+### 新機能：Markdown 参照リンク対応
+
+- [ ] Markdown 参照リンクを索引化・解決し、通常の Markdown リンクと同じように関連検索へ反映する。着手時に仕様・受入条件・実装範囲を確定する。完了: 確定した仕様に沿ってリンク先の取得、outgoing/backlinks、2-hop、未作成リンク先の扱いを実装・検証する。
+
+目的: 元文書の参照定義からリンク先を解決し、参照リンクによるノート間の関係を検索できるようにする。
+
+受入条件の候補（着手時に確定）:
+
+- `A.md` に `[説明を読む][guide]` と参照定義 `[guide]: B.md` がある場合、通常リンク `[説明を読む](B.md)` と同じ A → B の関係として扱う。省略形の `[guide][]` と `[guide]` も対象にする。
+- 元文書と参照定義を踏まえてリンク先を解決し、リンク先を JSON で取得できる。
+- A の outgoing links に B、B の backlinks に A が現れ、2-hop にも参照リンクによる関係が反映される。
+- B が存在しない場合は、参照定義のリンク先である未作成の B を対象にする。参照ラベル `guide` をノート名として扱わず、参照定義がなければ関係を作らない。
+- リンク原文と解決に必要な元文書・参照定義の情報からリンク先を取得できる。
+- 索引の生成・更新と読み取りを分離し、既存索引から参照リンクによる関係を検索できる。
+
+CLI の引数、JSON の具体的な形式、索引化・解決の実装方法は着手時に検討する。対象バージョンは未定。
+
 ### 新機能：関連検索のハブ除外
 
 - [ ] 多くの note とつながる経由 note を除外して関連検索のノイズを抑える機能について、利用場面、除外対象・接続数の数え方、設定/既定値、既存 `max_via_per_target` との関係、受入例を検討する。`docs/rules/02-requirements.md`、`internal/core/query.go`、`query_fetch.go`、`cmd/mdhop/query.go` を対象に、`via_max_degree` の flag 名や具体アルゴリズムは先に固定せず、仕様確定前に実装へ進まない。出典: GROK:D6。完了: 仕様と実装 scope を確定する。
