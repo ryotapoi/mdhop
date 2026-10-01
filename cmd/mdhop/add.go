@@ -46,7 +46,7 @@ func runAdd(args []string) error {
 	fs.Var(&files, "file", "file to add (can be specified multiple times)")
 	noAutoDisambiguate := fs.Bool("no-auto-disambiguate", false,
 		"disable automatic link rewriting when basename collision occurs")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {

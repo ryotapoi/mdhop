@@ -41,7 +41,7 @@ func runResolve(args []string) error {
 	link := fs.String("link", "", "link text to resolve")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 

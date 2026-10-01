@@ -28,7 +28,7 @@ func runStatus(args []string) error {
 	fs.Usage = commandUsage(fs, statusHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	format := fs.String("format", "text", "output format (json or text)")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {

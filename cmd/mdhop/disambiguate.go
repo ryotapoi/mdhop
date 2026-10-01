@@ -40,7 +40,7 @@ func runDisambiguate(args []string) error {
 	scan := fs.Bool("scan", false, "scan all files without DB")
 	var files multiString
 	fs.Var(&files, "file", "limit rewriting to these source files")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {

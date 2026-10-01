@@ -67,7 +67,7 @@ func runSearch(args []string) error {
 	fs.Var(&pathPatterns, "path", "include paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude paths matching glob (repeatable)")
 	noExclude := fs.Bool("no-exclude", false, "disable config file exclusions")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 

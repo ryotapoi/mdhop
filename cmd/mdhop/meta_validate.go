@@ -50,7 +50,7 @@ func runMetaValidate(args []string) error {
 	fs.Var(&require, "require", "frontmatter key that must hold a non-empty value; overrides mdhop.yaml meta.profiles for this run only, not persisted (repeatable)")
 	fs.Var(&pathPatterns, "path", "restrict source notes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude source notes matching glob (repeatable)")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 

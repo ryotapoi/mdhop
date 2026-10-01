@@ -63,7 +63,7 @@ func runMove(args []string) error {
 	to := fs.String("to", "", "destination file path (vault-relative)")
 	toTemplate := fs.String("to-template", "", "destination template expanded from source frontmatter")
 	dryRun := fs.Bool("dry-run", false, "show the --to-template move plan without making changes")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {

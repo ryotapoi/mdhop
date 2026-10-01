@@ -37,7 +37,7 @@ func runDelete(args []string) error {
 	rm := fs.Bool("rm", false, "remove files from disk before updating index")
 	var files multiString
 	fs.Var(&files, "file", "file to delete (can be specified multiple times)")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {

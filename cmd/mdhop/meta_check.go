@@ -50,7 +50,7 @@ func runMetaCheck(args []string) error {
 	fs.Var(&keys, "key", "frontmatter key to check (repeatable, required)")
 	fs.Var(&pathPatterns, "path", "restrict source notes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude source notes matching glob (repeatable)")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 

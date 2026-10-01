@@ -37,7 +37,7 @@ func runSimplify(args []string) error {
 	dryRun := fs.Bool("dry-run", false, "show what would be simplified without making changes")
 	var files multiString
 	fs.Var(&files, "file", "limit simplification to these source files")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {

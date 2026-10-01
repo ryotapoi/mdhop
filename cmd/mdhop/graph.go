@@ -39,7 +39,7 @@ func runGraph(args []string) error {
 	var excludePaths multiString
 	fs.Var(&pathPatterns, "path", "restrict nodes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude nodes matching glob (repeatable)")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 

@@ -39,7 +39,7 @@ func runInitMeta(args []string) error {
 	scan := fs.Bool("scan", false, "scan vault and infer types from frontmatter")
 	write := fs.Bool("write", false, "write to mdhop.yaml (default: stdout)")
 	noComment := fs.Bool("no-comment", false, "omit comments from output")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 

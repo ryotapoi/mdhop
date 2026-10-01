@@ -27,7 +27,7 @@ func runBuild(args []string) error {
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, buildHelp)
 	vault := fs.String("vault", ".", "vault root directory")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	result, err := core.Build(*vault)

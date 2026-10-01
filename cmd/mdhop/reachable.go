@@ -44,7 +44,7 @@ func runReachable(args []string) error {
 	var excludePaths multiString
 	fs.Var(&pathPatterns, "path", "restrict target notes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude target notes matching glob (repeatable)")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 

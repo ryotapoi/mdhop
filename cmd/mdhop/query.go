@@ -75,7 +75,7 @@ func runQuery(args []string) error {
 	fs.Var(&excludeTags, "exclude-tag", "exclude tag (repeatable)")
 	fs.Var(&whereExprs, "where", "frontmatter filter (repeatable)")
 	noExclude := fs.Bool("no-exclude", false, "disable config file exclusions")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 

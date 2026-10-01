@@ -56,7 +56,7 @@ func runSet(args []string) error {
 	value := fs.String("value", "", "frontmatter value to write")
 	date := fs.String("date", "", "relative date expression to write as YYYY-MM-DD")
 	list := fs.String("list", "", "JSON string array to write as a YAML sequence")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {

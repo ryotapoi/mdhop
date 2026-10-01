@@ -35,7 +35,7 @@ func runUpdate(args []string) error {
 	format := fs.String("format", "text", "output format (json or text)")
 	var files multiString
 	fs.Var(&files, "file", "file to update (can be specified multiple times)")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {

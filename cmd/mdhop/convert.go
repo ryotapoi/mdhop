@@ -38,7 +38,7 @@ func runConvert(args []string) error {
 	dryRun := fs.Bool("dry-run", false, "show what would be converted without making changes")
 	var files multiString
 	fs.Var(&files, "file", "file to convert (can be specified multiple times)")
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {
