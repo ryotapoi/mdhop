@@ -42,7 +42,7 @@
 #### 解析・リンク解決
 
 - [x] 複数 backtick の inline code 内にあるリンク・タグを索引せず、rewrite 系コマンドでもその内容を変更しない。`internal/core/parse.go`、`rewrite.go`。完了: 二重 backtick のコード例が build の edge/tag に入らず、simplify 後も内容が同じである。出典: 全コードレビュー A1/E7。
-- [ ] Unicode 大文字を含む path link の build と resolve で解決規則を揃える。`internal/core/resolve.go`、`resolve_maps.go`。完了: `sub/École.md` へのリンクが build 後の resolve でも同じ実在ノードに解決する。出典: A2。
+- [x] Unicode 大文字を含む path link の build と resolve で解決規則を揃える。`internal/core/resolve.go`、`resolve_maps.go`。完了: `sub/École.md` へのリンクが build 後の resolve でも同じ実在ノードに解決する。出典: A2。
 - [ ] add と move の phantom 昇格時に、basename が同じだけの別 path link を実在ノードへ付け替えない。`internal/core/move_apply.go` と各 caller。完了: `[[missing/X]]` は `other/X.md` の add・move 後も phantom のままで、full build と同じ graph になる。出典: C4/D4。
 
 #### move・rewrite

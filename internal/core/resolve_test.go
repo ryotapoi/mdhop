@@ -67,6 +67,47 @@ func TestResolveWikilinkBasename(t *testing.T) {
 	}
 }
 
+func TestResolveUnicodeUppercasePathLinks(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatalf("create subdirectory: %v", err)
+	}
+	files := map[string]string{
+		"Reference.md":  "[[sub/École.md]]\n[[sub/école.md]]\n[[sub/École]]\n[diagram](sub/École.png)\n",
+		"sub/École.md":  "# École\n",
+		"sub/École.png": "png",
+	}
+	for path, contents := range files {
+		if err := os.WriteFile(filepath.Join(vault, filepath.FromSlash(path)), []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	buildVault(t, vault)
+
+	tests := []struct {
+		name     string
+		link     string
+		typeName NodeType
+		path     string
+	}{
+		{name: "note with extension", link: "[[sub/École.md]]", typeName: NodeTypeNote, path: "sub/École.md"},
+		{name: "lowercase note reference", link: "[[sub/école.md]]", typeName: NodeTypeNote, path: "sub/École.md"},
+		{name: "note without extension", link: "[[sub/École]]", typeName: NodeTypeNote, path: "sub/École.md"},
+		{name: "asset path", link: "[diagram](sub/École.png)", typeName: NodeTypeAsset, path: "sub/École.png"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := Resolve(vault, "Reference.md", tt.link)
+			if err != nil {
+				t.Fatalf("resolve: %v", err)
+			}
+			if res.Type != tt.typeName || res.Path != tt.path || !res.Exists {
+				t.Fatalf("resolved = (%q, %q, exists=%t), want (%q, %q, exists=true)", res.Type, res.Path, res.Exists, tt.typeName, tt.path)
+			}
+		})
+	}
+}
+
 func TestResolveNFCLinkAgainstNFDIndexName(t *testing.T) {
 	vault := t.TempDir()
 	nfdPath := "Cafe\u0301.md"

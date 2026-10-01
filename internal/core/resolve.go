@@ -128,31 +128,24 @@ func (r dbLinkResolver) resolveBasename(target string, link linkOccur) (int64, s
 // Resolution order: note exact → note+.md → asset exact → phantom.
 func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, string, error) {
 	normalized := NormalizePath(resolved)
-	lower := strings.ToLower(normalized)
 
-	// Try note: exact path or path+.md (case-insensitive).
-	var id int64
-	err := db.QueryRow(
-		`SELECT id FROM nodes WHERE type='note' AND (LOWER(path) = ? OR LOWER(path) = ?)`,
-		lower, lower+".md",
-	).Scan(&id)
-	if err == nil {
-		return id, link.subpath, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	// Try note: exact path or path+.md (case-insensitive). Compare in Go so
+	// Unicode case conversion matches the build-time resolve maps.
+	id, found, err := findPathNodeID(db, NodeTypeNote, normalized, true)
+	if err != nil {
 		return 0, "", err
+	}
+	if found {
+		return id, link.subpath, nil
 	}
 
 	// Try asset: exact path (case-insensitive).
-	err = db.QueryRow(
-		`SELECT id FROM nodes WHERE type='asset' AND LOWER(path) = ?`,
-		lower,
-	).Scan(&id)
-	if err == nil {
-		return id, link.subpath, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	id, found, err = findPathNodeID(db, NodeTypeAsset, normalized, false)
+	if err != nil {
 		return 0, "", err
+	}
+	if found {
+		return id, link.subpath, nil
 	}
 
 	// Not found → look for phantom.
@@ -171,6 +164,32 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 	}
 
 	return 0, "", fmt.Errorf("%w: %s", ErrLinkNotFound, resolved)
+}
+
+func findPathNodeID(db dbExecer, nodeType NodeType, path string, includeMarkdownExtension bool) (int64, bool, error) {
+	lowerPath := strings.ToLower(NormalizePath(path))
+	lowerMarkdownPath := lowerPath + ".md"
+	rows, err := db.Query(`SELECT id, path FROM nodes WHERE type = ? ORDER BY id`, nodeType)
+	if err != nil {
+		return 0, false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int64
+		var storedPath string
+		if err := rows.Scan(&id, &storedPath); err != nil {
+			return 0, false, err
+		}
+		lowerStoredPath := strings.ToLower(NormalizePath(storedPath))
+		if lowerStoredPath == lowerPath || includeMarkdownExtension && lowerStoredPath == lowerMarkdownPath {
+			return id, true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, false, err
+	}
+	return 0, false, nil
 }
 
 // resolveBasenameFromDB finds a note/asset node by basename (case-insensitive).
