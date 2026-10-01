@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestQueryContentSourceSelection(t *testing.T) {
@@ -121,5 +122,51 @@ func TestQueryContentReaders(t *testing.T) {
 	}
 	if errors.Is(err, ErrFileNotFound) {
 		t.Errorf("permission error = %v, must not be ErrFileNotFound", err)
+	}
+}
+
+func TestReadSnippetsSameSecondTruncation(t *testing.T) {
+	for _, tt := range []struct {
+		name                             string
+		content                          string
+		lineStart, lineEnd, contextLines int
+	}{
+		{"start_beyond_shortened_file", "short\n", 8, 8, 1},
+		{"end_beyond_shortened_file", "short\n", 1, 8, 1},
+		{"large_context", "short\n", 8, 8, 10},
+		{"empty_file", "", 8, 8, 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := t.TempDir()
+			path := filepath.Join(vault, "Source.md")
+			if err := os.WriteFile(path, []byte("1\n2\n3\n4\n5\n6\n7\n[[Target]]\n"), 0o644); err != nil {
+				t.Fatalf("write source: %v", err)
+			}
+			mtime := time.Unix(1700000000, 123000000)
+			if err := os.Chtimes(path, mtime, mtime); err != nil {
+				t.Fatalf("set source time: %v", err)
+			}
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("stat source: %v", err)
+			}
+			source := snippetSource{contentSource: contentSource{path: "Source.md", mtime: info.ModTime().Unix()}, lineStart: tt.lineStart, lineEnd: tt.lineEnd}
+			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
+				t.Fatalf("truncate source: %v", err)
+			}
+			if err := os.Chtimes(path, mtime, mtime); err != nil {
+				t.Fatalf("restore source time: %v", err)
+			}
+			if err := checkStale(path, source.mtime); err != nil {
+				t.Fatalf("same-second mtime must pass stale check: %v", err)
+			}
+			snippets, err := readSnippets(vault, []snippetSource{source}, tt.contextLines)
+			if !errors.Is(err, ErrSourceStale) {
+				t.Errorf("error = %v, want ErrSourceStale", err)
+			}
+			if snippets != nil {
+				t.Errorf("snippets = %#v, want nil", snippets)
+			}
+		})
 	}
 }

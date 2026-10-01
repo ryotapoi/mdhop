@@ -71,6 +71,9 @@ func readSnippets(vaultPath string, sources []snippetSource, contextLines int) (
 		}
 
 		lines := fileCache[source.path]
+		if source.lineStart > len(lines) || source.lineEnd > len(lines) {
+			return nil, fmt.Errorf("%w: %s has been modified since last build", ErrSourceStale, source.path)
+		}
 		// line_start and line_end are 1-based.
 		start := source.lineStart - contextLines - 1 // 0-based
 		if start < 0 {
