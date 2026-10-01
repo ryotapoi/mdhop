@@ -30,12 +30,16 @@ func Build(vaultPath string) (*BuildResult, error) {
 
 func buildPrepared(vaultPath string, prepared *preparedBuild) (*BuildResult, error) {
 
-	// Create temp DB.
-	tmpPath := dbPath(vaultPath) + ".tmp"
-	if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+	// Reserve a private DB path without releasing its file to another build.
+	tmpFile, err := os.CreateTemp(filepath.Dir(dbPath(vaultPath)), dbFileName+".tmp-*")
+	if err != nil {
 		return nil, err
 	}
+	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
+	if err := tmpFile.Close(); err != nil {
+		return nil, err
+	}
 
 	db, err := openDBAt(tmpPath)
 	if err != nil {
