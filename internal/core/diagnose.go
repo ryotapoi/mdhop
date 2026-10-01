@@ -2,7 +2,6 @@ package core
 
 import (
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -250,7 +249,11 @@ func brokenAnchors(db dbExecer, vaultPath string, opts DiagnoseOptions) ([]Broke
 // readNoteHeadingSet reads a note from disk and returns the set of its
 // normalized heading anchors.
 func readNoteHeadingSet(vaultPath, notePath string) (map[string]bool, error) {
-	content, err := os.ReadFile(filepath.Join(vaultPath, notePath))
+	diskPath, err := newVaultDiskPathResolver(vaultPath).existingPath(notePath)
+	if err != nil {
+		return nil, err
+	}
+	content, err := os.ReadFile(diskPath)
 	if err != nil {
 		return nil, err
 	}

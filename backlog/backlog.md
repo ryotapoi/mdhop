@@ -29,13 +29,13 @@
 
 #### メタデータ・索引の整合性
 
-- [ ] NFC の index path に対応する NFD 実ファイルを head・snippet・anchor 診断・directory meta-check でも読めるようにする。`internal/core/query_content.go`、`diagnose.go`、`meta_check.go`。完了: 正規化形式を区別する filesystem 上で build 済みの実ファイルを参照でき、誤った missing/broken 診断を出さない。出典: B4。
-- [ ] flow mapping の `set` で指定外の同一行キーを消さない。`internal/core/set.go`。完了: `{status: draft, title: A}` の status 更新後も title が保持される。出典: C1。
-- [ ] NFD 名の実ファイルに対する `delete` の存在確認と `--rm` を実 disk path で行う。`internal/core/delete.go`。完了: 正規化形式を区別する filesystem でも、削除成功時に対象ファイルと index の状態が一致する。出典: C3。
-- [ ] frontmatter wikilink を add・move・disambiguate で書き換えたとき、edge・mtime とともに meta 値も現在のファイル内容へ更新する。`internal/core/add.go`、`move_dir.go`、`disambiguate.go` と共有更新処理。完了: 各コマンド直後の meta 出力・検索・検査が disk と一致し、full build で結果が変わらない。出典: C5/D3/E8。
-- [ ] `set` で引用が必要な既存 YAML key を編集しても有効な frontmatter を保つ。`internal/core/set.go`。完了: `"a: b": old` の更新後も同じ key と他の metadata が解析・索引される。出典: C6。
-- [ ] `set` の単一行 scalar 判定で後続キーまでの空行・独立コメントを値の行数に含めない。`internal/core/set.go`。完了: scalar と次キーの間に空行やコメントがあっても対象値だけを更新できる。出典: C7。
-- [ ] DB 利用の disambiguate で phantom link を実在 path に書き換えたとき、edge の target_id も更新する。`internal/core/disambiguate.go`。完了: 実行直後の outgoing/backlinks/resolve が書き換え後の実在 note を指し、full build と一致する。出典: E1。
+- [x] NFC の index path に対応する NFD 実ファイルを head・snippet・anchor 診断・directory meta-check でも読めるようにする。`internal/core/query_content.go`、`diagnose.go`、`meta_check.go`。完了: 正規化形式を区別する filesystem 上で build 済みの実ファイルを参照でき、誤った missing/broken 診断を出さない。出典: B4。
+- [x] flow mapping の `set` で指定外の同一行キーを消さない。`internal/core/set.go`。完了: `{status: draft, title: A}` の status 更新後も title が保持される。出典: C1。
+- [x] NFD 名の実ファイルに対する `delete` の存在確認と `--rm` を実 disk path で行う。`internal/core/delete.go`。完了: 正規化形式を区別する filesystem でも、削除成功時に対象ファイルと index の状態が一致する。出典: C3。
+- [x] frontmatter wikilink を add・move・disambiguate で書き換えたとき、edge・mtime とともに meta 値も現在のファイル内容へ更新する。`internal/core/add.go`、`move_dir.go`、`disambiguate.go` と共有更新処理。完了: 各コマンド直後の meta 出力・検索・検査が disk と一致し、full build で結果が変わらない。出典: C5/D3/E8。
+- [x] `set` で引用が必要な既存 YAML key を編集しても有効な frontmatter を保つ。`internal/core/set.go`。完了: `"a: b": old` の更新後も同じ key と他の metadata が解析・索引される。出典: C6。
+- [x] `set` の単一行 scalar 判定で後続キーまでの空行・独立コメントを値の行数に含めない。`internal/core/set.go`。完了: scalar と次キーの間に空行やコメントがあっても対象値だけを更新できる。出典: C7。
+- [x] DB 利用の disambiguate で phantom link を実在 path に書き換えたとき、edge の target_id も更新する。`internal/core/disambiguate.go`。完了: 実行直後の outgoing/backlinks/resolve が書き換え後の実在 note を指し、full build と一致する。出典: E1。
 
 ### v0.19.4 リンク解析と書き換え
 

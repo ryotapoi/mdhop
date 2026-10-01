@@ -189,6 +189,9 @@ func rewriteFrontmatterValue(content []byte, key, value string, list []string) (
 					return nil, false, fmt.Errorf("frontmatter key %q line is out of range", key)
 				}
 			}
+			if mapping.Style&yaml.FlowStyle != 0 {
+				return rewriteSetFlowMapping(lines, end, &doc, matchIndex, newLines)
+			}
 			start := mapping.Content[matchIndex].Line
 			stop := end
 			if nextKeyIndex := matchIndex + 2; nextKeyIndex < len(mapping.Content) {
@@ -211,6 +214,9 @@ func rewriteFrontmatterValue(content []byte, key, value string, list []string) (
 		if frontmatterValueLineCount(mapping, matchIndex, end, lines) > 1 {
 			return nil, false, fmt.Errorf("frontmatter key %q has multi-line value; set supports single-line scalar values only", key)
 		}
+		if mapping.Style&yaml.FlowStyle != 0 {
+			return rewriteSetFlowMapping(lines, end, &doc, matchIndex, newLines)
+		}
 		// yaml.Node.Line is 1-based against the YAML body. The opening "---"
 		// is file line 1, so yaml line 1 = file line 2 and file line = Line + 1.
 		fileLine := valNode.Line + 1
@@ -221,11 +227,42 @@ func rewriteFrontmatterValue(content []byte, key, value string, list []string) (
 		return []byte(strings.Join(lines, "\n")), false, nil
 	}
 
+	if mapping.Style&yaml.FlowStyle != 0 {
+		return rewriteSetFlowMapping(lines, end, &doc, -1, newLines)
+	}
 	lines = append(lines[:end], append(newLines, lines[end:]...)...)
 	return []byte(strings.Join(lines, "\n")), true, nil
 }
 
+// Flow mappings may put several keys on one physical line, so replacing that
+// line would remove unrelated entries. Re-encode only this frontmatter form.
+func rewriteSetFlowMapping(lines []string, end int, doc *yaml.Node, matchIndex int, newLines []string) ([]byte, bool, error) {
+	var replacement yaml.Node
+	if err := yaml.Unmarshal([]byte(strings.Join(newLines, "\n")), &replacement); err != nil {
+		return nil, false, err
+	}
+	entry := replacement.Content[0].Content
+	mapping := doc.Content[0]
+	if matchIndex < 0 {
+		mapping.Content = append(mapping.Content, entry...)
+	} else {
+		oldValue := mapping.Content[matchIndex+1]
+		entry[1].HeadComment = oldValue.HeadComment
+		entry[1].LineComment = oldValue.LineComment
+		entry[1].FootComment = oldValue.FootComment
+		mapping.Content[matchIndex+1] = entry[1]
+	}
+	yamlContent, err := yaml.Marshal(doc)
+	if err != nil {
+		return nil, false, err
+	}
+	rewritten := append([]string{lines[0]}, strings.Split(strings.TrimSuffix(string(yamlContent), "\n"), "\n")...)
+	rewritten = append(rewritten, lines[end:]...)
+	return []byte(strings.Join(rewritten, "\n")), matchIndex < 0, nil
+}
+
 func formatSetYAMLLines(key, value string, list []string) []string {
+	key = formatSetYAMLValue(key)
 	if list == nil {
 		return []string{key + ": " + formatSetYAMLValue(value)}
 	}
@@ -266,9 +303,9 @@ func setScalarValueEnd(value *yaml.Node, lines []string) int {
 	case yaml.LiteralStyle, yaml.FoldedStyle:
 		return setBlockScalarEnd(value.Line, lines)
 	case yaml.DoubleQuotedStyle:
-		return setQuotedScalarEnd(value.Line, lines, '"')
+		return setQuotedScalarEnd(value.Line, value.Column, lines, '"')
 	case yaml.SingleQuotedStyle:
-		return setQuotedScalarEnd(value.Line, lines, '\'')
+		return setQuotedScalarEnd(value.Line, value.Column, lines, '\'')
 	default:
 		if isBlockSequenceItem(lines[value.Line]) {
 			return setPlainSequenceItemEnd(value.Line, lines)
@@ -360,10 +397,14 @@ func setBlockScalarEnd(start int, lines []string) int {
 	return end
 }
 
-func setQuotedScalarEnd(start int, lines []string, quote byte) int {
+func setQuotedScalarEnd(start, column int, lines []string, quote byte) int {
 	opened := false
 	for line := start; line < len(lines); line++ {
-		for column := 0; column < len(lines[line]); column++ {
+		startColumn := 0
+		if line == start && column > 1 {
+			startColumn = len(string([]rune(lines[line])[:column-1]))
+		}
+		for column := startColumn; column < len(lines[line]); column++ {
 			if lines[line][column] != quote {
 				continue
 			}
@@ -397,36 +438,34 @@ func leadingIndent(line string) int {
 
 func frontmatterValueLineCount(mapping *yaml.Node, keyIndex, frontmatterEndLine int, lines []string) int {
 	valNode := mapping.Content[keyIndex+1]
-	if nextKeyIndex := keyIndex + 2; nextKeyIndex < len(mapping.Content) {
-		return mapping.Content[nextKeyIndex].Line - valNode.Line
-	}
-	return lastFrontmatterValueLineCount(valNode.Line, frontmatterEndLine, lines)
-}
-
-func lastFrontmatterValueLineCount(valueYAMLLine, frontmatterEndLine int, lines []string) int {
-	if valueYAMLLine < 0 || valueYAMLLine >= len(lines) || !frontmatterLineParsesAsSingleMappingEntry(lines[valueYAMLLine]) {
+	if setScalarValueEnd(valNode, lines) > valNode.Line || mapping.Content[keyIndex].Line != valNode.Line {
 		return 2
 	}
+	stop := frontmatterEndLine
+	stopColumn := 0
+	if nextKeyIndex := keyIndex + 2; nextKeyIndex < len(mapping.Content) {
+		stop = mapping.Content[nextKeyIndex].Line
+		if mapping.Style&yaml.FlowStyle != 0 && stop > valNode.Line {
+			stopColumn = mapping.Content[nextKeyIndex].Column
+			stop++
+		}
+	}
 	count := 1
-	for lineIndex := valueYAMLLine + 1; lineIndex < frontmatterEndLine && lineIndex < len(lines); lineIndex++ {
-		if strings.TrimSpace(stripYAMLComment(lines[lineIndex])) == "" {
+	for lineIndex := valNode.Line + 1; lineIndex < stop && lineIndex < len(lines); lineIndex++ {
+		line := lines[lineIndex]
+		if stopColumn > 0 && lineIndex == stop-1 {
+			line = string([]rune(line)[:stopColumn-1])
+		}
+		line = strings.TrimSpace(stripYAMLComment(line))
+		if mapping.Style&yaml.FlowStyle != 0 {
+			line = strings.TrimSpace(strings.Trim(line, ",}"))
+		}
+		if line == "" {
 			continue
 		}
 		count++
 	}
 	return count
-}
-
-func frontmatterLineParsesAsSingleMappingEntry(line string) bool {
-	var doc yaml.Node
-	if err := yaml.Unmarshal([]byte(line+"\n"), &doc); err != nil {
-		return false
-	}
-	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
-		return false
-	}
-	mapping := doc.Content[0]
-	return mapping.Kind == yaml.MappingNode && len(mapping.Content) == 2
 }
 
 func formatSetYAMLValue(value string) string {
@@ -479,7 +518,7 @@ func yamlCommentSuffix(line string) string {
 		ch := line[i]
 		switch ch {
 		case '"':
-			if !inSingle {
+			if !inSingle && !yamlQuoteEscaped(line, i) {
 				inDouble = !inDouble
 			}
 		case '\'':

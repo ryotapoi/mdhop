@@ -9,7 +9,13 @@ import (
 )
 
 func readHead(vaultPath string, source contentSource, n int) ([]string, error) {
-	fullPath := filepath.Join(vaultPath, source.path)
+	fullPath, err := newVaultDiskPathResolver(vaultPath).existingPath(source.path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, source.path)
+		}
+		return nil, err
+	}
 	if err := checkStale(fullPath, source.mtime); err != nil {
 		return nil, err
 	}
@@ -43,11 +49,17 @@ func readSnippets(vaultPath string, sources []snippetSource, contextLines int) (
 	// Cache file lines per source path.
 	fileCache := make(map[string][]string)
 	var snippets []SnippetEntry
+	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	for _, source := range sources {
-		fullPath := filepath.Join(vaultPath, source.path)
-
 		if _, ok := fileCache[source.path]; !ok {
+			fullPath, err := diskPaths.existingPath(source.path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return nil, fmt.Errorf("%w: %s", ErrFileNotFound, source.path)
+				}
+				return nil, err
+			}
 			if err := checkStale(fullPath, source.mtime); err != nil {
 				return nil, err
 			}

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -77,8 +78,8 @@ func applyMovedFileRewrites(vaultPath string, movedFileRewrites []movedFileRewri
 }
 
 // updateExternalEdgesAndMtimes updates edge raw_links and source node mtimes
-// for externally rewritten files. Returns the list of rewritten links.
-func updateExternalEdgesAndMtimes(tx dbExecer, rewrites []rewriteEntry, mtimes map[int64]int64) ([]RewrittenLink, error) {
+// and reparses metadata for externally rewritten files. Returns rewritten links.
+func updateExternalEdgesAndMtimes(tx dbExecer, vaultPath string, metaCfg MetaConfig, rewrites []rewriteEntry, mtimes map[int64]int64) ([]RewrittenLink, error) {
 	var result []RewrittenLink
 	for _, re := range rewrites {
 		if _, err := rewriteTxExec(tx, "UPDATE edges SET raw_link = ? WHERE id = ?", re.newRawLink, re.edgeID); err != nil {
@@ -91,12 +92,27 @@ func updateExternalEdgesAndMtimes(tx dbExecer, rewrites []rewriteEntry, mtimes m
 		})
 	}
 	if mtimes != nil {
+		diskPaths := newVaultDiskPathResolver(vaultPath)
 		mtimeUpdated := make(map[int64]bool)
 		for _, re := range rewrites {
 			if mtimeUpdated[re.sourceID] {
 				continue
 			}
 			mtimeUpdated[re.sourceID] = true
+			fullPath, err := diskPaths.existingPath(re.sourcePath)
+			if err != nil {
+				return nil, err
+			}
+			content, err := os.ReadFile(fullPath)
+			if err != nil {
+				return nil, err
+			}
+			if err := deleteMetaByNode(tx, re.sourceID); err != nil {
+				return nil, err
+			}
+			if _, err := insertMetaEntries(tx, re.sourceID, re.sourcePath, parseLinksWithLinkKeys(string(content), metaCfg.LinkKeys).Meta, metaCfg); err != nil {
+				return nil, err
+			}
 			mt := mtimes[re.sourceID]
 			if _, err := rewriteTxExec(tx, "UPDATE nodes SET mtime = ? WHERE id = ? AND type = 'note'", mt, re.sourceID); err != nil {
 				return nil, err

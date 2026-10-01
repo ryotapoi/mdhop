@@ -70,6 +70,8 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	}
 
 	// Phase 2: disk operations.
+	diskPaths := newVaultDiskPathResolver(vaultPath)
+	var cleanupPaths []string
 	if opts.RemoveFiles {
 		// Check every target before removing any file.
 		vaultAbs, err := filepath.Abs(vaultPath)
@@ -82,7 +84,11 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 		}
 		var targets []string
 		for _, n := range nodes {
-			targetAbs, err := filepath.Abs(filepath.Join(vaultPath, n.path))
+			diskPath, err := deleteDiskPath(diskPaths, n.path)
+			if err != nil {
+				return nil, err
+			}
+			targetAbs, err := filepath.Abs(diskPath)
 			if err != nil {
 				return nil, err
 			}
@@ -110,6 +116,11 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 				}
 			}
 			targets = append(targets, targetAbs)
+			cleanupRel, err := filepath.Rel(vaultPath, diskPath)
+			if err != nil {
+				return nil, err
+			}
+			cleanupPaths = append(cleanupPaths, cleanupRel)
 		}
 		for _, target := range targets {
 			if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
@@ -119,7 +130,10 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 	} else {
 		// Check that files no longer exist on disk.
 		for _, n := range nodes {
-			diskPath := filepath.Join(vaultPath, n.path)
+			diskPath, err := deleteDiskPath(diskPaths, n.path)
+			if err != nil {
+				return nil, err
+			}
 			if _, err := os.Stat(diskPath); err == nil {
 				return nil, fmt.Errorf("file still exists on disk: %s (delete the file first, then run delete)", n.path)
 			} else if !os.IsNotExist(err) {
@@ -157,7 +171,7 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 		return nil, err
 	}
 	if opts.RemoveFiles && len(directories) > 0 {
-		if err := cleanupDeletedDirectories(vaultPath, directories, result); err != nil {
+		if err := cleanupDeletedDirectories(vaultPath, directories, cleanupPaths, diskPaths); err != nil {
 			return nil, fmt.Errorf("post-delete cleanup failed after registered files and database updates completed: %w", err)
 		}
 	}
@@ -195,13 +209,20 @@ func isDeleteDirectoryArg(vaultPath, path string) bool {
 	if strings.HasSuffix(path, "/") {
 		return true
 	}
-	info, err := os.Stat(filepath.Join(vaultPath, path))
+	diskPath, err := newVaultDiskPathResolver(vaultPath).existingPath(path)
+	if err != nil {
+		return false
+	}
+	info, err := os.Stat(diskPath)
 	return err == nil && info.IsDir()
 }
 
-func cleanupDeletedDirectories(vaultPath string, directories []string, result *DeleteResult) error {
+func cleanupDeletedDirectories(vaultPath string, directories, cleanupPaths []string, diskPaths *vaultDiskPathResolver) error {
 	for _, dir := range directories {
-		absDir := filepath.Join(vaultPath, dir)
+		absDir, err := deleteDiskPath(diskPaths, dir)
+		if err != nil {
+			return err
+		}
 		if err := deleteAssetWalk(absDir, func(path string, info os.FileInfo, walkErr error) error {
 			if walkErr != nil {
 				if os.IsNotExist(walkErr) {
@@ -227,6 +248,25 @@ func cleanupDeletedDirectories(vaultPath string, directories []string, result *D
 		}
 	}
 
-	allPaths := append(append([]string(nil), result.Deleted...), result.Phantomed...)
-	return deleteEmptyDirs(vaultPath, allPaths)
+	return deleteEmptyDirs(vaultPath, cleanupPaths)
+}
+
+// deleteDiskPath resolves the entry's spelling without following its final
+// symlink for deletion. A missing entry still uses its existing parent's spelling.
+func deleteDiskPath(diskPaths *vaultDiskPathResolver, path string) (string, error) {
+	diskPath, err := diskPaths.existingPath(path)
+	if err == nil {
+		return diskPath, nil
+	}
+	if !os.IsNotExist(err) {
+		return "", err
+	}
+	parent, err := diskPaths.existingPath(filepath.Dir(path))
+	if err == nil {
+		return filepath.Join(parent, filepath.Base(path)), nil
+	}
+	if !os.IsNotExist(err) {
+		return "", err
+	}
+	return filepath.Join(diskPaths.vaultPath, path), nil
 }

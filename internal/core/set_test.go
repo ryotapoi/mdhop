@@ -2,15 +2,105 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+func TestRewriteFrontmatterPreservesOtherFlowMappingEntries(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		yaml    string
+		key     string
+		value   string
+		list    []string
+		want    any
+		created bool
+	}{
+		{name: "scalar", yaml: "{status: draft, title: A, extra: {x: 1}} # marker", key: "status", value: "done", want: "done"},
+		{name: "scalar to list", yaml: "{status: draft, title: A, extra: {x: 1}} # marker", key: "status", list: []string{"one", "one", ""}, want: []any{"one", "one", ""}},
+		{name: "sequence to list", yaml: "{status: [old], title: A, extra: {x: 1}} # marker", key: "status", list: []string{}, want: []any{}},
+		{name: "missing scalar", yaml: "{title: A, extra: {x: 1}} # marker", key: "a: b", value: "new, value", want: "new, value", created: true},
+		{name: "missing list", yaml: "{title: A, extra: {x: 1}} # marker", key: "status", list: []string{"new"}, want: []any{"new"}, created: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			content := "---\n" + tc.yaml + "\n---\n# Body\nunchanged\n"
+			got, created, err := rewriteFrontmatterValue([]byte(content), tc.key, tc.value, tc.list)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if created != tc.created {
+				t.Fatalf("created = %v, want %v", created, tc.created)
+			}
+			lines := strings.Split(string(got), "\n")
+			var values map[string]any
+			if err := yaml.Unmarshal([]byte(strings.Join(lines[1:frontmatterEnd(lines)], "\n")), &values); err != nil {
+				t.Fatalf("invalid rewritten YAML: %v\n%s", err, got)
+			}
+			want := map[string]any{tc.key: tc.want, "title": "A", "extra": map[string]any{"x": 1}}
+			if !reflect.DeepEqual(values, want) {
+				t.Fatalf("values = %#v, want %#v", values, want)
+			}
+			if !strings.Contains(string(got), "# marker") || !strings.HasSuffix(string(got), "---\n# Body\nunchanged\n") {
+				t.Fatalf("comment or body changed: %s", got)
+			}
+		})
+	}
+}
+
+func TestRewriteFrontmatterQuotesKeysAndPreservesSpacing(t *testing.T) {
+	for _, list := range [][]string{nil, {"new"}} {
+		for _, key := range []string{"status", "a: b", "日本語\" # key"} {
+			t.Run(fmt.Sprintf("key=%s/list=%v", key, list != nil), func(t *testing.T) {
+				content := "---\n" + strconv.Quote(key) + ": \"draft\" # marker\n\n# independent comment\ntitle: A\n---\n# Body\n"
+				got, created, err := rewriteFrontmatterValue([]byte(content), key, "new", list)
+				if err != nil || created {
+					t.Fatalf("rewrite = created %v, err %v", created, err)
+				}
+				var values map[string]any
+				lines := strings.Split(string(got), "\n")
+				if err := yaml.Unmarshal([]byte(strings.Join(lines[1:frontmatterEnd(lines)], "\n")), &values); err != nil {
+					t.Fatalf("invalid rewritten YAML: %v", err)
+				}
+				var want any = "new"
+				if list != nil {
+					want = []any{"new"}
+				}
+				if !reflect.DeepEqual(values, map[string]any{key: want, "title": "A"}) {
+					t.Fatalf("values = %#v", values)
+				}
+				if !strings.Contains(string(got), "# marker") || !strings.HasSuffix(string(got), "\n\n# independent comment\ntitle: A\n---\n# Body\n") {
+					t.Fatalf("spacing, comment, other key, or body changed: %s", got)
+				}
+			})
+		}
+	}
+}
+
+func TestRewriteFrontmatterRejectsActualMultilineScalar(t *testing.T) {
+	for _, source := range []string{
+		"\"a: b\": long\n  continuation\n\n# comment\ntitle: A",
+		"\"a: b\": \"long\n  # continuation\"\ntitle: A",
+		"\"a: b\": 'long\n  continuation'\ntitle: A",
+		"{\"a: b\": \"long\n  continuation\", title: A}",
+		"{\"a: b\": long\n  continuation, title: A}",
+	} {
+		for _, list := range [][]string{nil, {"new"}} {
+			_, _, err := rewriteFrontmatterValue([]byte("---\n"+source+"\n---\n# Body\n"), "a: b", "new", list)
+			if err == nil || !strings.Contains(err.Error(), "multi-line") {
+				t.Fatalf("source %q, list %v: error = %v, want multi-line", source, list != nil, err)
+			}
+		}
+	}
+}
 
 func TestSetUpdatesExistingKey(t *testing.T) {
 	vault := t.TempDir()

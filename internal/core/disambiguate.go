@@ -28,6 +28,11 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 	}
 	defer db.Close()
 
+	cfg, err := LoadConfig(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+
 	// Find candidate notes matching the basename.
 	nameKey := strings.TrimSuffix(strings.ToLower(opts.Name), ".md")
 
@@ -190,11 +195,21 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 	}()
 
 	result = &DisambiguateResult{}
-	rewritten, err := updateExternalEdgesAndMtimes(tx, rewrites, newMtimes)
+	rewritten, err := updateExternalEdgesAndMtimes(tx, vaultPath, cfg.Meta, rewrites, newMtimes)
 	if err != nil {
 		return nil, err
 	}
 	result.Rewritten = append(result.Rewritten, rewritten...)
+	for _, re := range rewrites {
+		if _, err := rewriteTxExec(tx, "UPDATE edges SET target_id = ? WHERE id = ?", target.id, re.edgeID); err != nil {
+			return nil, err
+		}
+	}
+	if phantomID.Valid {
+		if _, err := tx.Exec("DELETE FROM nodes WHERE id = ? AND type = 'phantom' AND NOT EXISTS (SELECT 1 FROM edges WHERE target_id = ?)", phantomID.Int64, phantomID.Int64); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, err

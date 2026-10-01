@@ -214,6 +214,10 @@ func directoryMetaValueExists(vaultPath, srcPath, value string) (exists bool, es
 		}
 		resolved = NormalizePath(strings.TrimPrefix(target, "/"))
 	}
-	info, err := os.Stat(filepath.Join(vaultPath, resolved))
+	diskPath, err := newVaultDiskPathResolver(vaultPath).existingPath(resolved)
+	if err != nil {
+		return false, false
+	}
+	info, err := os.Stat(diskPath)
 	return err == nil && info.IsDir(), false
 }

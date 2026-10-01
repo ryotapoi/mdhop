@@ -202,7 +202,14 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 		if _, err := tx.Exec("DELETE FROM edges WHERE source_id = ?", m.nodeID); err != nil {
 			return nil, err
 		}
-		newLinks := parseLinksWithLinkKeys(string(mfr.content), cfg.Meta.LinkKeys).Links
+		parsed := parseLinksWithLinkKeys(string(mfr.content), cfg.Meta.LinkKeys)
+		if err := deleteMetaByNode(tx, m.nodeID); err != nil {
+			return nil, err
+		}
+		if _, err := insertMetaEntries(tx, m.nodeID, m.to, parsed.Meta, cfg.Meta); err != nil {
+			return nil, err
+		}
+		newLinks := parsed.Links
 		if err := validateParsedLinks(m.to, newLinks, dm.rm); err != nil {
 			return nil, err
 		}
@@ -221,7 +228,7 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 	}
 
 	// 5.3: update external edge raw_links and source mtimes.
-	externalRewritten, err := updateExternalEdgesAndMtimes(tx, allExternalRewrites, externalMtimes)
+	externalRewritten, err := updateExternalEdgesAndMtimes(tx, vaultPath, cfg.Meta, allExternalRewrites, externalMtimes)
 	if err != nil {
 		return nil, err
 	}

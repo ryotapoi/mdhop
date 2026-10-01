@@ -342,7 +342,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 
 	// Update DB for rewritten edges.
 	if len(allRewrites) > 0 {
-		rewritten, err := updateExternalEdgesAndMtimes(tx, allRewrites, newMtimes)
+		rewritten, err := updateExternalEdgesAndMtimes(tx, vaultPath, cfg.Meta, allRewrites, newMtimes)
 		if err != nil {
 			return nil, err
 		}

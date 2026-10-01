@@ -247,15 +247,15 @@ meta:
 - `set`
   - 必須: `--file`, `--key`, および `--value` / `--date` / `--list` のちょうど一つ
   - 任意: `--vault`, `--format`
-  - 補足: 1 コマンドで 1 ファイル 1 キーだけを書き換える
+  - 補足: 1 コマンドで 1 ファイル 1 キーだけを書き換える。flow mapping の同一行の他キーと、引用が必要な YAML key の意味を保持する
   - 補足: frontmatter がないファイルは、ファイル先頭に frontmatter block を新規作成して対象キーを書き込む
-  - 補足: 対象キーがない場合は、frontmatter の閉じ `---` の直前に新規キーを追加する
+  - 補足: 対象キーがない場合は、frontmatter の閉じ `---` の直前に新規キーを追加する（flow mapping では既存 mapping に追加する）
   - 補足: `--value` は相対日付展開せず、渡された値をそのまま YAML 値として書き込む
   - 補足: `--date` は `today` / `today-90d` / `today+1y` など search と同じ相対日付構文を `YYYY-MM-DD` に展開して書き込む
   - 補足: `--list` は JSON string array を受け取り、順序・重複・空文字列を保持して YAML sequence として書き込む。`[]` は空の YAML sequence を書き込む。JSON 出力の `value` は `--list` では string array（`[]` を含む）、`--value` / `--date` では string のまま。text 出力の list 値は compact JSON array 形式
   - 補足: `--value` / `--date` / `--list` の複数指定または全省略は **エラー**。`--value` と `--date` による scalar write は既存 sequence を拒否し、`--list` は既存 scalar・block sequence・flow sequence を置換する
   - 補足: scalar write は既存キーのリスト形式値を **エラー** とする
-  - 補足: scalar write は既存キーの値が複数行にまたがる場合（折り返しプレーンスカラー等）を **エラー** とする
+  - 補足: scalar write は既存キーの値が複数行にまたがる場合（折り返しプレーンスカラー、複数行 quoted scalar、block scalar）を **エラー** とする。値の後の空行・独立コメントは値の行数に含めず保持する
   - 補足: 対象キーが frontmatter 内に複数回出現する（重複キー）場合は **エラー**
 - `add`
   - 必須: `--file`（複数回指定可）
@@ -500,6 +500,8 @@ meta:
   - `/` を含むがプレフィックスなし（例: `sub/C.md`）: パスとして解決
   - `/` を含まない（例: `Design.md`）: basename 解決（`[[note]]` と同一扱い）
   - Vault 外へ出るパスは厳密モードではエラー
+- head / snippet / anchor 診断 / directory meta-check / delete は、NFC の index path に対応する実際の disk 表記を解決して読み取り・削除する
+- add / move / DB 利用 disambiguate の frontmatter wikilink 書き換え後は、meta 値・値開始行・型も現在の内容へ更新する。disambiguate で書き換えた phantom 参照は選択した実在 note へ付け替え、`--file` 範囲外の参照は保持する
 - path 比較は NFC 正規化後に行う（NFD の実ファイル名と NFC の参照値が混在しても同一ノードに解決される）
 
 ### resolve の一致モード
