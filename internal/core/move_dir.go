@@ -73,6 +73,9 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 }
 
 func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, diskOnlyFiles []diskOnlyMove, needDiskMove bool) (result *MoveDirResult, err error) {
+	if err := validateMoveDestinations(vaultPath, moves, diskOnlyFiles, needDiskMove); err != nil {
+		return nil, err
+	}
 	prepared, err := prepareMoveRewrites(vaultPath, db, moves, needDiskMove)
 	if err != nil {
 		return nil, err
@@ -324,4 +327,22 @@ func prepareMoveRewrites(vaultPath string, db dbExecer, moves []moveInfo, needDi
 		externalEntries: allExternalRewrites,
 		moved:           movedFileRewrites,
 	}, nil
+}
+
+// validateMoveDestinations checks the entire batch before rewrites or mkdir/rename.
+func validateMoveDestinations(vaultPath string, moves []moveInfo, diskOnlyFiles []diskOnlyMove, needDiskMove bool) error {
+	if !needDiskMove {
+		return nil
+	}
+	for _, m := range moves {
+		if err := validateVaultWritePath(vaultPath, filepath.Join(vaultPath, m.to)); err != nil {
+			return err
+		}
+	}
+	for _, m := range diskOnlyFiles {
+		if err := validateVaultWritePath(vaultPath, filepath.Join(vaultPath, m.to)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

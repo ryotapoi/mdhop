@@ -62,8 +62,8 @@ func (r *vaultDiskPathResolver) writablePath(rel string) (string, error) {
 	return path, nil
 }
 
-// validateVaultWritePath also permits restoring a missing ordinary file when
-// its existing parent resolves inside the vault. Dangling symlinks are rejected.
+// validateVaultWritePath permits missing ordinary path components when their
+// nearest existing ancestor resolves inside the vault. Dangling symlinks are rejected.
 func validateVaultWritePath(vaultPath, path string) error {
 	root, err := filepath.EvalSymlinks(vaultPath)
 	if err != nil {
@@ -73,19 +73,29 @@ func validateVaultWritePath(vaultPath, path string) error {
 	if err != nil {
 		return err
 	}
-	target, err := filepath.EvalSymlinks(path)
-	if os.IsNotExist(err) {
-		if _, statErr := os.Lstat(path); os.IsNotExist(statErr) {
-			parent, parentErr := filepath.EvalSymlinks(filepath.Dir(path))
-			if parentErr != nil {
-				return parentErr
-			}
-			target = filepath.Join(parent, filepath.Base(path))
-			err = nil
+	ancestor := path
+	var missing []string
+	for {
+		_, statErr := os.Lstat(ancestor)
+		if statErr == nil {
+			break
 		}
+		if !os.IsNotExist(statErr) {
+			return statErr
+		}
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return statErr
+		}
+		missing = append(missing, filepath.Base(ancestor))
+		ancestor = parent
 	}
+	target, err := filepath.EvalSymlinks(ancestor)
 	if err != nil {
 		return err
+	}
+	for i := len(missing) - 1; i >= 0; i-- {
+		target = filepath.Join(target, missing[i])
 	}
 	target, err = filepath.Abs(target)
 	if err != nil {
