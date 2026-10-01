@@ -42,7 +42,7 @@ func parseLinks(content string) parseResult {
 		out = append(out, parseWikiLinks(clean, lineNum)...)
 		out = append(out, parseMarkdownLinks(clean, lineNum)...)
 		// Parse tags on a line with wikilinks/markdown links removed.
-		tagLine := stripWikiLinks(stripMarkdownLinks(clean))
+		tagLine := stripMarkdownLinks(stripWikiLinks(clean))
 		out = append(out, parseTags(tagLine, lineNum)...)
 	})
 	result.Links = out

@@ -60,7 +60,7 @@
 
 #### 検索・診断
 
-- [ ] 同一行の wikilink と後続 Markdown link の間にある tag を索引から落とさない。`internal/core/parse.go` の `stripMarkdownLinks`。完了: `[[Before]] #before [after](After.md)` の build 後に `#before` と両リンクが索引され、tag query でも取得できる。出典: workflow 報告 WFR-022（verify-finding で現行 CLI 再現・対応価値確認済み）。
+- [x] 同一行の wikilink と後続 Markdown link の間にある tag を索引から落とさない。`internal/core/parse.go` の `stripMarkdownLinks`。完了: `[[Before]] #before [after](After.md)` の build 後に `#before` と両リンクが索引され、tag query でも取得できる。出典: workflow 報告 WFR-022（verify-finding で現行 CLI 再現・対応価値確認済み）。
 - [x] タグ・未作成先起点の 2-hop targets にタグ除外を適用する。`internal/core/query_fetch.go`、`exclude_filter.go`。完了: `exclude.tags` と `--exclude-tag` の指定タグが双方の起点で targets から消え、via のタグ・パス除外とノート起点の既存挙動を維持する。タグ以外の同名ノードは除外しない。出典: v0.19.1 の不具合報告（861c5f17）。28391d8 でもコード・CLI 再現確認済み。
 - [x] `--where` の右辺に `=` や `!=` が含まれても、左から最初の演算子を条件として解釈する。`internal/core/where_parse.go`。完了: URL を含む LIKE と演算子文字を含む文字列等値検索が意図したキー・値で動く。出典: B1。
 - [x] `--where` の LIKE 右辺にある末尾空白を保持する。`internal/core/where_parse.go`。完了: `title~% ` が末尾空白を持つ値だけに一致する。出典: B2。

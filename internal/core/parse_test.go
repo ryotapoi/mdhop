@@ -175,6 +175,40 @@ func TestParseTagBasic(t *testing.T) {
 	}
 }
 
+func TestParseTagBetweenWikiAndMarkdownLinks(t *testing.T) {
+	links := parseLinksSlice("[[Before]] #before [after](After.md)\n")
+	want := []struct {
+		target   string
+		linkType LinkType
+		rawLink  string
+	}{
+		{target: "Before", linkType: LinkTypeWikilink, rawLink: "[[Before]]"},
+		{target: "After", linkType: LinkTypeMarkdown, rawLink: "[after](After.md)"},
+		{target: "#before", linkType: LinkTypeTag, rawLink: "#before"},
+	}
+	if len(links) != len(want) {
+		t.Fatalf("expected %d links including the intervening tag, got %d: %+v", len(want), len(links), links)
+	}
+	for _, expected := range want {
+		var matches int
+		for _, link := range links {
+			if link.target != expected.target || link.linkType != expected.linkType {
+				continue
+			}
+			matches++
+			if link.rawLink != expected.rawLink {
+				t.Errorf("%s rawLink = %q, want %q", expected.target, link.rawLink, expected.rawLink)
+			}
+			if link.lineStart != 1 || link.lineEnd != 1 {
+				t.Errorf("%s line = %d-%d, want 1-1", expected.target, link.lineStart, link.lineEnd)
+			}
+		}
+		if matches != 1 {
+			t.Errorf("expected one %s link to %q, got %d: %+v", expected.linkType, expected.target, matches, links)
+		}
+	}
+}
+
 func TestParseTagAtLineStart(t *testing.T) {
 	links := parseLinksSlice("#tag at start\n")
 	tags := filterByType(links, "tag")
