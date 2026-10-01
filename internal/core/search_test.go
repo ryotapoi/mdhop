@@ -303,6 +303,49 @@ func TestSearch_SortAsc(t *testing.T) {
 	}
 }
 
+func TestSearch_NumberPrecision(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  types:\n    priority: number\n    fallback: number\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for name, value := range map[string]string{"A": "-1.000000001", "B": "-1", "C": "1", "D": "1.000000000"} {
+		if err := os.WriteFile(filepath.Join(vault, name+".md"), []byte("---\npriority: '"+value+"'\n---\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	buildForQuery(t, vault)
+	meta := searchVaultConfig(t, vault)
+	for _, tt := range []struct {
+		name, sort, where string
+		want              string
+	}{
+		{"ascending", "priority", "", "A.md,B.md,C.md,D.md"},
+		{"descending", "-priority", "", "C.md,D.md,B.md,A.md"},
+		{"negative boundary", "", "priority<-1", "A.md"},
+		{"equal decimal", "", "priority=1.000000000", "C.md,D.md"},
+		{"not equal integer", "", "priority!=1", "A.md,B.md"},
+		{"coalesce boundary", "", "coalesce(fallback, priority)<-1", "A.md"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := SearchOptions{Sort: tt.sort}
+			if tt.where != "" {
+				var err error
+				opts.Where, err = ParseWhere([]string{tt.where}, meta)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			result, err := Search(vault, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.Join(searchPaths(result.Items), ","); got != tt.want {
+				t.Errorf("paths = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSearch_SortDesc(t *testing.T) {
 	vault := setupSearchVault(t)
 

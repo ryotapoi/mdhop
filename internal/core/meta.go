@@ -120,12 +120,14 @@ func normalizeNumber(value string) (string, string) {
 		negative = false
 	}
 
-	// Pad
+	// Canonicalize equivalent decimals before padding, retaining all significant digits.
+	decPart = strings.TrimRight(decPart, "0")
 	paddedInt := padLeft(intPart, numIntPad)
 	paddedDec := padRight(decPart, numDecPad)
 
 	if negative {
-		return "0" + ninesComplement(paddedInt) + ninesComplement(paddedDec), ""
+		// A terminator above all digits reverses prefix ordering for negatives.
+		return "0" + ninesComplement(paddedInt) + ninesComplement(paddedDec) + ":", ""
 	}
 	return "1" + paddedInt + "." + paddedDec, ""
 }

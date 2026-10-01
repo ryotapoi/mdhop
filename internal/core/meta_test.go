@@ -65,7 +65,7 @@ func TestNormalizeSortValue_Number(t *testing.T) {
 		wantWarning bool
 	}{
 		{"integer", "42", "100000000000000000042.00000000", false},
-		{"negative", "-5", "09999999999999999999499999999", false},
+		{"negative", "-5", "09999999999999999999499999999:", false},
 		{"decimal", "3.14", "100000000000000000003.14000000", false},
 		{"zero", "0", "100000000000000000000.00000000", false},
 		{"positive sign", "+5", "100000000000000000005.00000000", false},
@@ -95,7 +95,7 @@ func TestNormalizeSortValue_Number(t *testing.T) {
 }
 
 func TestNormalizeSortValue_NumberOrder(t *testing.T) {
-	inputs := []string{"-10", "-5", "0", "3", "3.14", "42"}
+	inputs := []string{"-10", "-5", "-1.000000001", "-1.0000000001", "-1", "-0.000000001", "0", "0.000000001", "1", "1.0000000001", "1.000000001", "3", "3.14", "42"}
 	var prev string
 	for i, input := range inputs {
 		got, warn := NormalizeSortValue(input, MetaTypeInfo{Name: MetaTypeNumber})
@@ -106,6 +106,29 @@ func TestNormalizeSortValue_NumberOrder(t *testing.T) {
 			t.Errorf("order violation: normalized(%q)=%q should be > normalized(%q)=%q", input, got, inputs[i-1], prev)
 		}
 		prev = got
+	}
+}
+
+func TestNormalizeSortValue_NumberEquality(t *testing.T) {
+	for _, inputs := range [][]string{
+		{"1", "1.000000000", "+01.000000000000"},
+		{"-1", "-1.000000000", "-01.000000000000"},
+		{"0", "-0", "-0.000000000", "+0.000000000000"},
+		{"1.000000001", "1.000000001000"},
+		{"-1.000000001", "-1.000000001000"},
+	} {
+		t.Run(inputs[0], func(t *testing.T) {
+			want, warn := NormalizeSortValue(inputs[0], MetaTypeInfo{Name: MetaTypeNumber})
+			if warn != "" {
+				t.Fatal(warn)
+			}
+			for _, input := range inputs[1:] {
+				got, warn := NormalizeSortValue(input, MetaTypeInfo{Name: MetaTypeNumber})
+				if warn != "" || got != want {
+					t.Errorf("normalized(%q) = %q, warning %q; want normalized(%q) = %q", input, got, warn, inputs[0], want)
+				}
+			}
+		})
 	}
 }
 
