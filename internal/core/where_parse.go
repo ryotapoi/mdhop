@@ -133,12 +133,16 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 		return WhereCond{Key: key, CoalesceKeys: coalesceKeys, Op: WhereOpNotExists, Value: ""}, nil
 	}
 
-	// Try each operator (longest first).
-	for _, ot := range operatorTable {
-		idx := strings.Index(expr, ot.str)
-		if idx < 0 {
-			continue
+	// Select the leftmost operator; table order breaks ties (longest first).
+	operatorIndex, idx := -1, -1
+	for i, ot := range operatorTable {
+		pos := strings.Index(expr, ot.str)
+		if pos >= 0 && (idx < 0 || pos < idx) {
+			operatorIndex, idx = i, pos
 		}
+	}
+	if operatorIndex >= 0 {
+		ot := operatorTable[operatorIndex]
 		key := strings.TrimSpace(expr[:idx])
 		rawValue := expr[idx+len(ot.str):]
 

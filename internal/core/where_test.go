@@ -104,6 +104,38 @@ func TestParseWhere_Neq(t *testing.T) {
 	}
 }
 
+func TestParseWhere_LeftmostOperator(t *testing.T) {
+	tests := []struct {
+		expr  string
+		key   string
+		op    WhereOp
+		value string
+	}{
+		{"url~https://example.test/?q=x", "url", WhereOpLike, "https://example.test/?q=x"},
+		{"title=a!=b", "title", WhereOpEq, "a!=b"},
+		{"title>a=b", "title", WhereOpGt, "a=b"},
+		{"title<a=b", "title", WhereOpLt, "a=b"},
+		{"title>=a!=b", "title", WhereOpGte, "a!=b"},
+		{"title<=a!=b", "title", WhereOpLte, "a!=b"},
+		{"title!=a=b", "title", WhereOpNeq, "a=b"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			wc, err := ParseWhere([]string{tt.expr}, MetaConfig{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(wc.Conditions) != 1 {
+				t.Fatalf("conditions = %d, want 1", len(wc.Conditions))
+			}
+			c := wc.Conditions[0]
+			if c.Key != tt.key || c.Op != tt.op || c.Value != tt.value {
+				t.Errorf("got {%q, %d, %q}, want {%q, %d, %q}", c.Key, c.Op, c.Value, tt.key, tt.op, tt.value)
+			}
+		})
+	}
+}
+
 func TestParseWhere_Like(t *testing.T) {
 	wc, err := ParseWhere([]string{"status~act%"}, MetaConfig{})
 	if err != nil {
