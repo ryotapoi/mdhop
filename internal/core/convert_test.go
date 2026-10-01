@@ -84,7 +84,7 @@ func TestConvertWikilinkToMarkdown(t *testing.T) {
 		"note.v1": true,
 	}
 	isAsset := func(target string) bool {
-		return !isNoteTarget(target, noteNames)
+		return !isNoteTarget(target, "", noteNames, nil)
 	}
 
 	tests := []struct {
@@ -168,8 +168,12 @@ func TestParseMarkdownSelfLinks(t *testing.T) {
 
 func TestIsNoteTarget(t *testing.T) {
 	noteNames := map[string]bool{
-		"note.v1": true,
-		"name":    true,
+		"note.v1":   true,
+		"name":      true,
+		"photo.png": true,
+	}
+	notePaths := map[string]bool{
+		"notes/photo.png.md": true,
 	}
 
 	tests := []struct {
@@ -178,14 +182,21 @@ func TestIsNoteTarget(t *testing.T) {
 	}{
 		{"Name", true},       // no extension → note
 		{"Name.md", true},    // .md → note
-		{"photo.png", false}, // .png → asset
+		{"image.png", false}, // .png → asset
 		{"Note.v1", true},    // matches noteNameSet
 		{"unknown.v2", false},
+		{"photo.png", true},            // dotted basename remains a note
+		{"assets/photo.png", false},    // explicit asset path ignores other note basenames
+		{"notes/photo.png", true},      // vault-relative note path
+		{"/notes/PHOTO.PNG", true},     // root-prefixed, case-insensitive note path
+		{"./photo.png", true},          // source-relative note path
+		{"../assets/photo.png", false}, // source-relative asset path
+		{"./notes/photo.png", false},   // relative path is not vault-relative
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
-			got := isNoteTarget(tt.target, noteNames)
+			got := isNoteTarget(tt.target, "notes/Source.md", noteNames, notePaths)
 			if got != tt.want {
 				t.Errorf("isNoteTarget(%q) = %v, want %v", tt.target, got, tt.want)
 			}
@@ -617,7 +628,7 @@ func TestConvertAsset(t *testing.T) {
 		"note": true,
 	}
 	isAsset := func(target string) bool {
-		return !isNoteTarget(target, noteNames)
+		return !isNoteTarget(target, "", noteNames, nil)
 	}
 
 	got := convertWikilinkToMarkdown("[[photo.png]]", isAsset)
@@ -642,7 +653,7 @@ func TestConvertSelfLink(t *testing.T) {
 	// wikilink → markdown
 	noteNames := map[string]bool{}
 	isAsset := func(target string) bool {
-		return !isNoteTarget(target, noteNames)
+		return !isNoteTarget(target, "", noteNames, nil)
 	}
 
 	got := convertWikilinkToMarkdown("[[#Section]]", isAsset)
@@ -722,6 +733,41 @@ func TestConvertDottedBasename(t *testing.T) {
 	}
 }
 
+func TestConvertExplicitAssetPath(t *testing.T) {
+	vault := t.TempDir()
+	for path, content := range map[string]string{
+		"assets/photo.png":   "asset",
+		"notes/photo.png.md": "# Photo\n",
+		"notes/Source.md":    "[[assets/photo.png]]\n[[../assets/photo.png|image]]\n[[./photo.png]]\n[[/notes/photo.png]]\n",
+	} {
+		fullPath := filepath.Join(vault, path)
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result, err := Convert(vault, ConvertOptions{ToFormat: "markdown", DryRun: true, Files: []string{"notes/Source.md"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"[[assets/photo.png]]":          "[photo.png](assets/photo.png)",
+		"[[../assets/photo.png|image]]": "[image](../assets/photo.png)",
+		"[[./photo.png]]":               "[photo.png](./photo.png.md)",
+		"[[/notes/photo.png]]":          "[photo.png](/notes/photo.png.md)",
+	}
+	if len(result.Rewritten) != len(want) {
+		t.Fatalf("got %d rewrites, want %d", len(result.Rewritten), len(want))
+	}
+	for _, rewrite := range result.Rewritten {
+		if expected, ok := want[rewrite.OldLink]; !ok || rewrite.NewLink != expected {
+			t.Errorf("rewrite %q = %q, want %q", rewrite.OldLink, rewrite.NewLink, expected)
+		}
+	}
+}
+
 func TestConvertRelativePath(t *testing.T) {
 	// markdown → wikilink preserves relative prefix.
 	got := convertMarkdownToWikilink("[Name](./Name.md)")
@@ -732,7 +778,7 @@ func TestConvertRelativePath(t *testing.T) {
 	// wikilink → markdown preserves relative prefix.
 	noteNames := map[string]bool{"name": true}
 	isAsset := func(target string) bool {
-		return !isNoteTarget(target, noteNames)
+		return !isNoteTarget(target, "", noteNames, nil)
 	}
 	got2 := convertWikilinkToMarkdown("[[./Name]]", isAsset)
 	if got2 != "[Name](./Name.md)" {
@@ -746,7 +792,7 @@ func TestConvertRoundTrip(t *testing.T) {
 		"note.v1": true,
 	}
 	isAsset := func(target string) bool {
-		return !isNoteTarget(target, noteNames)
+		return !isNoteTarget(target, "", noteNames, nil)
 	}
 
 	tests := []struct {

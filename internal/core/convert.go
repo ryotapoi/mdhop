@@ -46,14 +46,15 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 				fileScope[np] = true
 			}
 
-			var isAssetTarget func(string) bool
+			var noteNameSet, notePathSet map[string]bool
 			if opts.ToFormat == "markdown" {
-				noteNameSet := make(map[string]bool, len(files))
+				noteNameSet = make(map[string]bool, len(files))
+				notePathSet = make(map[string]bool, len(files))
 				for _, f := range files {
 					name := strings.TrimSuffix(filepath.Base(f), ".md")
 					noteNameSet[strings.ToLower(name)] = true
+					notePathSet[strings.ToLower(NormalizePath(f))] = true
 				}
-				isAssetTarget = func(target string) bool { return !isNoteTarget(target, noteNameSet) }
 			}
 
 			scanFiles := files
@@ -66,6 +67,9 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 				}
 			}
 			return scanRewritePlan{Files: scanFiles, Rewrite: func(sourcePath string, content []byte) ([]rewriteEntry, error) {
+				isAssetTarget := func(target string) bool {
+					return !isNoteTarget(target, sourcePath, noteNameSet, notePathSet)
+				}
 				var links []linkOccur
 				if opts.ToFormat == "wikilink" {
 					links = parseLinksForConvert(string(content)).Links
@@ -227,9 +231,9 @@ func extractMarkdownParts(rawLink string) (text, url string) {
 // Rules:
 // 1. No extension → note
 // 2. .md extension → note
-// 3. Extension exists but matches a note basename → note
+// 3. Extension exists but matches a note basename (basename link) or path → note
 // 4. Otherwise → asset
-func isNoteTarget(target string, noteNameSet map[string]bool) bool {
+func isNoteTarget(target, sourcePath string, noteNameSet, notePathSet map[string]bool) bool {
 	ext := filepath.Ext(target)
 	if ext == "" {
 		return true // no extension → note
@@ -237,9 +241,12 @@ func isNoteTarget(target string, noteNameSet map[string]bool) bool {
 	if strings.EqualFold(ext, ".md") {
 		return true // .md → note
 	}
-	// Check if basename (without path) matches a known note name.
-	base := filepath.Base(target)
-	return noteNameSet[strings.ToLower(base)]
+	if isBasenameLink(target) {
+		return noteNameSet[strings.ToLower(target)]
+	}
+	// Explicit paths must match a note at that path, not a basename elsewhere.
+	notePath := resolveToVaultRelative(sourcePath, linkOccur{target: target, isRelative: isRelativePath(target)})
+	return notePathSet[strings.ToLower(notePath+".md")]
 }
 
 // parseLinksForConvert extends parseLinks with markdown self-link support.
