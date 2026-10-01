@@ -51,7 +51,7 @@
 - [x] 大小文字の異なる相対 path link が同じ移動セットの note を指す場合、移動後の実 path へ書き換える。`internal/core/move_link.go`。完了: `[[./b]]` が `B.md` を指す directory move 後も、full build で同じ B.md に解決する。出典: D5。
 - [x] 大小文字だけが異なる basename 衝突でも、move の collateral rewrite が既存参照を取りこぼさないようにする。`internal/core/move_rewrite.go`。完了: `readme.md` と新しい `README.md` の衝突後も旧リンクの意味が保持され、full build が曖昧リンクで失敗しない。出典: D6。
 - [x] `disambiguate --scan` で同 stem の asset link を note link に書き換えない。`internal/core/disambiguate.go`。完了: `image.md` があっても `[[image.png]]` と実在 asset path link が保持される。出典: E2。
-- [ ] `disambiguate --scan` で dotted note basename を正しく照合する。`internal/core/disambiguate.go`。完了: `Note.v1.md` を対象に `[[Note.v1]]` の必要な書き換えが実行される。出典: E3。
+- [x] `disambiguate --scan` で dotted note basename を正しく照合する。`internal/core/disambiguate.go`。完了: `Note.v1.md` を対象に `[[Note.v1]]` の必要な書き換えが実行される。出典: E3。
 - [ ] convert で path が明示された asset を別ディレクトリの同名 note から誤分類しない。`internal/core/convert.go`。完了: `assets/photo.png` と `notes/photo.png.md` の共存時も asset link の変換先は asset のままである。出典: E4。
 - [ ] 括弧を含む note link の convert 出力を、後続 build でも同じ参照先として解析できるようにする。`internal/core/convert.go`、`parse.go`。完了: `[[Meeting (weekly)]]` の convert 後の build が既存 note への edge を作る。出典: E5。
 - [ ] template move の実行後に、事前 plan ではなく実際の移動結果を text/JSON に返す。`cmd/mdhop/move.go`。完了: plan と実行の間に metadata が変わっても、成功時に報告する destination が実際の移動先と一致する。出典: F4。

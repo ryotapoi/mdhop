@@ -303,26 +303,17 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 					if !isPathLinkType(lo.linkType) {
 						continue
 					}
-					// Markdown sources can link to assets. Keep their extension-bearing
-					// targets out of the note namespace before basenameKey strips it.
-					if ext := filepath.Ext(lo.target); ext != "" && !strings.EqualFold(ext, ".md") {
+					// Only strip the Markdown suffix; other dots belong to the note name.
+					targetName := strings.TrimSuffix(strings.ToLower(filepath.Base(lo.target)), ".md")
+					if targetName != nameKey {
 						continue
 					}
-					if lo.isBasename {
-						// Basename link: check if it matches the target name.
-						if basenameKey(lo.target) != nameKey {
-							continue
-						}
-					} else {
-						// Path link: only include if the link is broken AND
-						// the basename matches the target name.
-						if basenameKey(lo.target) != nameKey {
-							continue
-						}
+					if !lo.isBasename {
+						// Path link: only include if the matching link is broken.
 						if !isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
 							continue
 						}
-						// An extensionless path can point to an existing asset even
+						// A path can point to an existing asset even
 						// when it is absent from the Markdown-only path set.
 						if !isLinkEscaping(sourcePath, lo) {
 							if _, err := diskPaths.existingPath(resolveToVaultRelative(sourcePath, lo)); err == nil {

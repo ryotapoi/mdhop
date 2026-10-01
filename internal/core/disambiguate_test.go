@@ -555,6 +555,54 @@ func TestDisambiguateScanPreservesAssetLinks(t *testing.T) {
 	}
 }
 
+func TestDisambiguateScanDottedBasename(t *testing.T) {
+	vault := t.TempDir()
+	for _, dir := range []string{"sub", "assets", "notes"} {
+		if err := os.MkdirAll(filepath.Join(vault, dir), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	unchanged := "[[sub/Note.v1]]\n[[assets/Note.v1]]\n[asset](../assets/Note.v1)\n[[Note.v1.png]]\n"
+	source := unchanged + "[[Note.v1]]\n[[NOTE.V1.MD]]\n[[missing/Note.v1]]\n[note](missing/Note.v1.md)\n"
+	files := map[string]string{
+		"sub/Note.v1.md":  "# Note\n",
+		"assets/Note.v1":  "dotted asset bytes\n",
+		"notes/source.md": source,
+		"unaffected.md":   "unchanged bytes\n",
+	}
+	for path, content := range files {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "Note.v1", Target: "sub/Note.v1.md"})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	wantLinks := []string{"[[Note.v1]]", "[[NOTE.V1.MD]]", "[[missing/Note.v1]]", "[note](missing/Note.v1.md)"}
+	if len(result.Rewritten) != len(wantLinks) {
+		t.Errorf("Rewritten = %+v, want %d note links", result.Rewritten, len(wantLinks))
+	}
+	for i, rewrite := range result.Rewritten {
+		if i >= len(wantLinks) || rewrite.OldLink != wantLinks[i] || rewrite.File != "notes/source.md" {
+			t.Errorf("unexpected rewrite: %+v", rewrite)
+		}
+	}
+	files["notes/source.md"] = unchanged + "[[sub/Note.v1]]\n[[sub/Note.v1]]\n[[sub/Note.v1]]\n[note](sub/Note.v1.md)\n"
+	for path, expected := range files {
+		content, err := os.ReadFile(filepath.Join(vault, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(content) != expected {
+			t.Errorf("%s = %q, want %q", path, content, expected)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(vault, ".mdhop")); !os.IsNotExist(err) {
+		t.Errorf("scan created .mdhop or stat failed: %v", err)
+	}
+}
+
 func TestDisambiguateScanMultipleCandidatesNoTarget(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
 
