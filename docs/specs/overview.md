@@ -348,7 +348,8 @@ meta:
   - 補足: `--dry-run` は実行時と同じ書き換え候補の対応検証を行い、ディスク変更せず結果のみ返す（将来の I/O 成功は保証しない）
   - 補足: simplify 後に `build` を実行してインデックスを更新する
   - 補足: `build.exclude_paths` に従う
-  - 補足: URL リンク、tag/frontmatter リンクは対象外
+  - 補足: quoted frontmatter wikilink（引用符付き YAML scalar / list item 値内の wikilink）も、上記の短縮条件を満たす場合に対象となる
+  - 補足: URL リンク、tag、frontmatter の raw path 値（`frontmatter_path`）は対象外
 - `convert`
   - 必須: `--to`（`wikilink` or `markdown`）
   - 任意: `--vault`, `--format`, `--dry-run`, `--file`（複数回指定可）
