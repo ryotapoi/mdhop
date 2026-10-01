@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -118,6 +119,169 @@ func TestQueryTwoHopExcludeTagVia(t *testing.T) {
 		if th.Via.Type == NodeTypeTag && th.Via.Name == "#daily" {
 			t.Error("#daily should be excluded as via in twohop")
 		}
+	}
+}
+
+func setupTwoHopTagTargetsVault(t *testing.T) string {
+	t.Helper()
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("[[Missing]]\n[[B]]\n\n#entry #drop #keep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("B\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	buildForQuery(t, vault)
+
+	db, err := openDBAt(dbPath(vault))
+	if err != nil {
+		t.Fatalf("open index: %v", err)
+	}
+	defer db.Close()
+
+	sourceID, err := getNodeID(db, noteKey("A.md"))
+	if err != nil {
+		t.Fatalf("find source note: %v", err)
+	}
+	otherNoteID, err := upsertNote(db, "Other.md", "#drop", 0, 0)
+	if err != nil {
+		t.Fatalf("insert same-name note: %v", err)
+	}
+	otherPhantomID, err := upsertPhantom(db, "#drop")
+	if err != nil {
+		t.Fatalf("insert same-name phantom: %v", err)
+	}
+	otherAssetID, err := upsertAsset(db, "assets/drop.png", "#drop", 0)
+	if err != nil {
+		t.Fatalf("insert same-name asset: %v", err)
+	}
+	for _, targetID := range []int64{otherNoteID, otherPhantomID, otherAssetID} {
+		if err := insertEdge(db, sourceID, targetID, LinkTypeWikilink, "[[same-name]]", "", "", 0, 0); err != nil {
+			t.Fatalf("insert same-name target edge: %v", err)
+		}
+	}
+	return vault
+}
+
+func assertTwoHopTagTargetsExcluded(t *testing.T, res *QueryResult, entryTagVisible bool) {
+	t.Helper()
+	if len(res.TwoHop) != 1 {
+		t.Fatalf("twohop entries = %d, want 1", len(res.TwoHop))
+	}
+	entry := res.TwoHop[0]
+	if entry.Via.Type != NodeTypeNote || entry.Via.Name != "A" {
+		t.Fatalf("via = %+v, want note A", entry.Via)
+	}
+	found := map[NodeType]map[string]bool{}
+	for _, target := range entry.Targets {
+		if target.Type == NodeTypeTag && strings.EqualFold(target.Name, "#drop") {
+			t.Error("excluded #drop tag should not appear as a target")
+		}
+		if found[target.Type] == nil {
+			found[target.Type] = map[string]bool{}
+		}
+		found[target.Type][target.Name] = true
+	}
+	for _, target := range []struct {
+		typ  NodeType
+		name string
+	}{
+		{NodeTypeTag, "#keep"},
+		{NodeTypeNote, "B"},
+		{NodeTypeNote, "#drop"},
+		{NodeTypePhantom, "#drop"},
+		{NodeTypeAsset, "#drop"},
+	} {
+		if !found[target.typ][target.name] {
+			t.Errorf("target (%s, %q) is missing", target.typ, target.name)
+		}
+	}
+	if entryTagVisible && !found[NodeTypeTag]["#entry"] {
+		t.Error("#entry tag should remain a target when the entry is a phantom")
+	}
+}
+
+func TestQueryTwoHopExcludeTagTargetsFromTagEntry(t *testing.T) {
+	vault := setupTwoHopTagTargetsVault(t)
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("exclude:\n  tags:\n    - DROP\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(vault)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	ef, err := NewExcludeFilter(cfg.Exclude, nil, nil)
+	if err != nil {
+		t.Fatalf("create exclude filter: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{Tag: "entry"}, QueryOptions{
+		Fields:  []string{"twohop"},
+		Exclude: ef,
+	})
+	if err != nil {
+		t.Fatalf("query tag entry: %v", err)
+	}
+	assertTwoHopTagTargetsExcluded(t, res, false)
+}
+
+func TestQueryTwoHopExcludeTagTargetsFromPhantomEntry(t *testing.T) {
+	vault := setupTwoHopTagTargetsVault(t)
+	ef, err := NewExcludeFilter(ExcludeConfig{}, nil, []string{"#DrOp"})
+	if err != nil {
+		t.Fatalf("create exclude filter: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{
+		Fields:  []string{"twohop"},
+		Exclude: ef,
+	})
+	if err != nil {
+		t.Fatalf("query phantom entry: %v", err)
+	}
+	assertTwoHopTagTargetsExcluded(t, res, true)
+}
+
+func TestQueryTwoHopExcludeTagTargetsBeforeLimit(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("#entry #drop #keep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	buildForQuery(t, vault)
+	ef, err := NewExcludeFilter(ExcludeConfig{}, nil, []string{"drop"})
+	if err != nil {
+		t.Fatalf("create exclude filter: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{Tag: "entry"}, QueryOptions{
+		Fields:          []string{"twohop"},
+		MaxViaPerTarget: 1,
+		Exclude:         ef,
+	})
+	if err != nil {
+		t.Fatalf("query tag entry: %v", err)
+	}
+	if len(res.TwoHop) != 1 || len(res.TwoHop[0].Targets) != 1 || res.TwoHop[0].Targets[0].Name != "#keep" {
+		t.Fatalf("twohop targets = %+v, want only #keep after exclusion and limit", res.TwoHop)
+	}
+}
+
+func TestQueryTwoHopExcludeTagTargetsDropsEmptyVia(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("#entry #drop\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	buildForQuery(t, vault)
+	ef, err := NewExcludeFilter(ExcludeConfig{}, nil, []string{"drop"})
+	if err != nil {
+		t.Fatalf("create exclude filter: %v", err)
+	}
+	res, err := Query(vault, EntrySpec{Tag: "entry"}, QueryOptions{
+		Fields:  []string{"twohop"},
+		Exclude: ef,
+	})
+	if err != nil {
+		t.Fatalf("query tag entry: %v", err)
+	}
+	if len(res.TwoHop) != 0 {
+		t.Fatalf("twohop entries = %+v, want no entries when every target is excluded", res.TwoHop)
 	}
 }
 

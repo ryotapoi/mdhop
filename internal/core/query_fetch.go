@@ -273,6 +273,13 @@ func queryTwoHop(db dbExecer, entryID int64, entryType NodeType, maxTwoHop, maxV
 		}
 
 		if ef != nil {
+			tagSQL, tagArgs := ef.TagExcludeSQL("n.name")
+			if tagSQL != "" {
+				// Tag exclusions apply only to tag targets; other node types may share the same name.
+				targetQuery += " AND (n.type != 'tag' OR " + strings.TrimPrefix(tagSQL, " AND ") + ")"
+				targetArgs = append(targetArgs, tagArgs...)
+			}
+
 			pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
 			targetQuery += pathSQL
 			targetArgs = append(targetArgs, pathArgs...)
