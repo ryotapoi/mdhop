@@ -187,11 +187,11 @@ func stripMarkdownLinks(line string) string {
 			break
 		}
 		mid = open + mid
-		close := strings.Index(line[mid+2:], ")")
+		close := markdownDestinationEnd(line, mid+2)
 		if close == -1 {
 			break
 		}
-		close = mid + 2 + close + 1
+		close++
 		line = line[:open] + line[close:]
 	}
 	return line
@@ -262,6 +262,24 @@ func wikiLinkSpans(line string) []wikiLinkSpan {
 	}
 }
 
+// markdownDestinationEnd finds the closing delimiter after a destination,
+// keeping balanced parentheses inside the destination.
+func markdownDestinationEnd(line string, start int) int {
+	depth := 0
+	for i := start; i < len(line); i++ {
+		switch line[i] {
+		case '(':
+			depth++
+		case ')':
+			if depth == 0 {
+				return i
+			}
+			depth--
+		}
+	}
+	return -1
+}
+
 func parseMarkdownLinks(line string, lineNum int) []linkOccur {
 	var out []linkOccur
 	remaining := line
@@ -280,11 +298,10 @@ func parseMarkdownLinks(line string, lineNum int) []linkOccur {
 			break
 		}
 		mid = open + mid
-		close := strings.Index(remaining[mid+2:], ")")
+		close := markdownDestinationEnd(remaining, mid+2)
 		if close == -1 {
 			break
 		}
-		close = mid + 2 + close
 		rawTarget := strings.TrimSpace(remaining[mid+2 : close])
 		rawLink := remaining[open : close+1]
 

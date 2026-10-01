@@ -1101,3 +1101,34 @@ func TestParseInlineCodeDelimiterRuns(t *testing.T) {
 		})
 	}
 }
+
+func TestParseMarkdownBalancedParentheses(t *testing.T) {
+	tests := []struct {
+		name, content               string
+		targets, rawLinks, subpaths []string
+	}{
+		{"balanced and following link", "[meeting](Meeting (weekly).md) [next](Next.md)", []string{"Meeting (weekly)", "Next"}, []string{"[meeting](Meeting (weekly).md)", "[next](Next.md)"}, []string{"", ""}},
+		{"nested and subpath", "[meeting](Meeting (weekly (team)).md#Heading (detail))", []string{"Meeting (weekly (team))"}, []string{"[meeting](Meeting (weekly (team)).md#Heading (detail))"}, []string{"#Heading (detail)"}},
+		{"missing outer close", "[meeting](Meeting (weekly).md", nil, nil, nil},
+		{"link tags excluded", "[meeting](Meeting (weekly).md#Heading #part) #outside [next](Next.md)", []string{"Meeting (weekly)", "Next", "#outside"}, []string{"[meeting](Meeting (weekly).md#Heading #part)", "[next](Next.md)", "#outside"}, []string{"#Heading #part", "", ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			links := parseLinksSlice(tt.content)
+			if len(links) != len(tt.targets) {
+				t.Fatalf("links = %+v, want targets %v", links, tt.targets)
+			}
+			for i, link := range links {
+				if link.target != tt.targets[i] || link.rawLink != tt.rawLinks[i] || link.subpath != tt.subpaths[i] {
+					t.Errorf("link[%d] = %+v, want target=%q rawLink=%q subpath=%q", i, link, tt.targets[i], tt.rawLinks[i], tt.subpaths[i])
+				}
+			}
+		})
+	}
+}
+
+func TestParseMarkdownSelfLinkExcluded(t *testing.T) {
+	if links := parseLinksSlice("[section](#Section)"); len(links) != 0 {
+		t.Fatalf("normal parse must exclude Markdown self-links, got %+v", links)
+	}
+}

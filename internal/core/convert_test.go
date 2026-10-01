@@ -859,3 +859,45 @@ func TestConvertEmbedPreserved(t *testing.T) {
 		t.Errorf("embed wikilink should become markdown embed, got:\n%s", s)
 	}
 }
+
+func TestConvertParenthesesThenBuild(t *testing.T) {
+	vault := t.TempDir()
+	original := "[[Meeting (weekly)]]\n"
+	for name, content := range map[string]string{"Source.md": original, "Meeting (weekly).md": "# Meeting\n"} {
+		if err := os.WriteFile(filepath.Join(vault, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Convert(vault, ConvertOptions{ToFormat: "markdown"}); err != nil {
+		t.Fatal(err)
+	}
+	wantRaw := "[Meeting (weekly)](Meeting (weekly).md)"
+	content, err := os.ReadFile(filepath.Join(vault, "Source.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != wantRaw+"\n" {
+		t.Fatalf("converted content = %q, want %q", content, wantRaw+"\n")
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatal(err)
+	}
+	edges := queryEdges(t, dbPath(vault), "Source.md")
+	if len(edges) != 1 {
+		t.Fatalf("edges = %+v, want one existing note edge", edges)
+	}
+	edge := edges[0]
+	if edge.targetKey != "note:path:Meeting (weekly).md" || edge.targetType != NodeTypeNote || edge.linkType != LinkTypeMarkdown || edge.rawLink != wantRaw {
+		t.Fatalf("edge = %+v, want Markdown edge to existing Meeting (weekly).md with raw link %q", edge, wantRaw)
+	}
+	if _, err := Convert(vault, ConvertOptions{ToFormat: "wikilink"}); err != nil {
+		t.Fatal(err)
+	}
+	content, err = os.ReadFile(filepath.Join(vault, "Source.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != original {
+		t.Fatalf("round-trip content = %q, want %q", content, original)
+	}
+}
