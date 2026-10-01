@@ -168,12 +168,14 @@ func deduplicateMetaViolations(result *MetaValidateResult) {
 	type violationKey struct {
 		sourcePath string
 		key        string
+		value      string
+		line       int
 		reason     MetaViolationReason
 	}
 	seen := make(map[violationKey]bool, len(result.Violations))
 	deduped := result.Violations[:0]
 	for _, v := range result.Violations {
-		key := violationKey{sourcePath: v.SourcePath, key: v.Key, reason: v.Reason}
+		key := violationKey{sourcePath: v.SourcePath, key: v.Key, value: v.Value, line: v.Line, reason: v.Reason}
 		if seen[key] {
 			continue
 		}

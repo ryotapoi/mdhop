@@ -148,6 +148,73 @@ func TestMetaValidate_TypeAndEnum(t *testing.T) {
 	}
 }
 
+func TestMetaValidate_InvalidListValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		note   string
+		want   []MetaViolation
+	}{
+		{
+			name:   "flow enum",
+			config: "meta:\n  types:\n    priority:\n      ordered: [low, high]\n",
+			note:   "---\npriority: [bad, worse]\n---\n",
+			want: []MetaViolation{
+				{SourcePath: "note.md", Key: "priority", Value: "bad", Line: 2, Reason: ReasonEnum},
+				{SourcePath: "note.md", Key: "priority", Value: "worse", Line: 2, Reason: ReasonEnum},
+			},
+		},
+		{
+			name:   "block type",
+			config: "meta:\n  types:\n    priority: number\n",
+			note:   "---\npriority:\n  - bad\n  - worse\n---\n",
+			want: []MetaViolation{
+				{SourcePath: "note.md", Key: "priority", Value: "bad", Line: 3, Reason: ReasonType},
+				{SourcePath: "note.md", Key: "priority", Value: "worse", Line: 4, Reason: ReasonType},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := t.TempDir()
+			for path, content := range map[string]string{"mdhop.yaml": tt.config, "note.md": tt.note} {
+				if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			buildForQuery(t, vault)
+			result, err := MetaValidate(vault, MetaValidateOptions{})
+			if err != nil {
+				t.Fatalf("meta-validate: %v", err)
+			}
+			if len(result.Violations) != len(tt.want) {
+				t.Fatalf("violations = %+v, want %+v", result.Violations, tt.want)
+			}
+			for i, want := range tt.want {
+				if got := result.Violations[i]; got != want {
+					t.Errorf("violation[%d] = %+v, want %+v", i, got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestMetaValidate_DuplicateRequiredKey(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.WriteFile(filepath.Join(vault, "note.md"), []byte("# No frontmatter\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	buildForQuery(t, vault)
+	result, err := MetaValidate(vault, MetaValidateOptions{Require: []string{"status", "status"}})
+	if err != nil {
+		t.Fatalf("meta-validate: %v", err)
+	}
+	want := MetaViolation{SourcePath: "note.md", Key: "status", Line: 1, Reason: ReasonMissing}
+	if len(result.Violations) != 1 || result.Violations[0] != want {
+		t.Fatalf("violations = %+v, want [%+v]", result.Violations, want)
+	}
+}
+
 func TestMetaValidate_NothingToCheck(t *testing.T) {
 	// A vault with no meta.types and no --require has nothing to validate.
 	vault := copyVaultForQuery(t, "vault_build_basic")
