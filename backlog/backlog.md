@@ -34,13 +34,13 @@
 
   `docs/rules/02-requirements.md`、`internal/core/query.go`、`query_fetch.go`、`cmd/mdhop/query.go` を対象に、`via_max_degree` の flag 名や具体アルゴリズムは先に固定せず、仕様確定前に実装へ進まない。出典: GROK:D6。完了: 仕様と実装 scope を確定する。
 
-### 性能改善
+#### 性能改善
 
 - [ ] 少数行の head 取得でノート全文を保持する負担を減らす
 
   `internal/core/query_content.go`、`search.go`。`search --include-head` の各結果が全文の backing array を保持するため、大きな note が複数含まれると要求行数を超えるメモリ保持が累積する。まず返却する行だけを独立した slice にコピーし、全文の backing array を結果に保持させない局所修正を対象にする。全文読み込み自体の削減は含めない。完了: 返却 head の保持量がノート全文サイズに比例せず、既存の出力と読み取りエラーの扱いが変わらないことを確認する。出典: B6（verify-finding 再検証済み）。
 
-### 不具合修正
+#### 不具合修正
 
 - [ ] move 失敗時のファイル復元で元の mtime も戻し、復元自体による stale 判定を防ぐ
 
