@@ -10,6 +10,7 @@ sources:
   - internal/core/resolve.go
   - internal/core/resolve_maps.go
   - internal/core/rewrite.go
+  - internal/core/rewrite_frontmatter.go
   - internal/core/build.go
   - internal/core/disambiguate.go
   - internal/core/move.go
@@ -33,7 +34,7 @@ sources:
 
 # リンク解決・リライトの編纂ガイド
 
-raw link が入力されてから解決・書き換えられるまでの作業入口。リンク解釈の正本は `docs/specs/overview.md:460-466`、共通 resolver の設計判断は ADR 0021 を読む。
+raw link が入力されてから解決・書き換えられるまでの作業入口。リンク解釈の正本は `docs/specs/overview.md:471`、共通 resolver の設計判断は ADR 0021 を読む。
 
 ## 1. parse（入力 → linkOccur）
 
@@ -42,18 +43,18 @@ raw link が入力されてから解決・書き換えられるまでの作業�
 | `parse.go:28` | `parseLinks(content)` | frontmatter と本文をパースする |
 | `parse.go:117` | `parseLinksWithLinkKeys(content, linkKeys)` | `parseLinks` の結果に `frontmatter_path` を追加する |
 | `parse_frontmatter.go:39` | `parseFrontmatter(lines)` | YAML node から metadata、tags、quoted-only wikilink を集める |
-| `parse_frontmatter.go:83` | `collectFrontmatterWikilinks(val, offset)` | scalar または sequence を再帰し、quoted scalar だけへ進む |
-| `parse_frontmatter.go:101` | `wikilinksFromQuotedScalar(val, offset)` | double / single-quoted scalar の値を `frontmatter_wikilink` にする |
+| `parse_frontmatter.go:83` | `collectFrontmatterWikilinks(key, val, offset)` | scalar または sequence を再帰し、quoted scalar だけへ進む |
+| `parse_frontmatter.go:101` | `wikilinksFromQuotedScalar(key, val, offset)` | double / single-quoted scalar の値を `frontmatter_wikilink` にする |
 | `parse_frontmatter.go:208` | `frontmatterPathLinks(meta, linkKeys)` | link_keys の raw 値を `frontmatter_path` に変換する |
 | `parse_frontmatter.go:229` | `frontmatterPathOccur(value, line)` | 単一 link-key 値を分類し、空・URL・wikilink 値を除外する |
 
-`tags` は quoted-only wikilink 抽出の対象外で、`parseFrontmatterTags` が扱う。bare scalar、bare list item、block scalar 内の `[[...]]` は `frontmatter_wikilink` を作らない。根拠と対象外の影響は ADR 0023 を読む。本文の `[[...]]` は `parseWikiLinks()`（`parse.go:178`）が別に扱う。
+`tags` は quoted-only wikilink 抽出の対象外で、`parseFrontmatterTags` が扱う。bare scalar、bare list item、block scalar 内の `[[...]]` は `frontmatter_wikilink` を作らない。根拠と対象外の影響は ADR 0023 を読む。本文の `[[...]]` は `parseWikiLinks()`（`parse.go:200`）が別に扱う。
 
-edge 生成サイトは `parseLinksWithLinkKeys` を使う（例: `build_prepare.go:73`）。`parseLinks` 単体は `frontmatter_path` を発生させない。
+edge 生成サイトは `parseLinksWithLinkKeys` を使う（例: `build_prepare.go:71`）。`parseLinks` 単体は `frontmatter_path` を発生させない。
 
 ## 2. resolve（linkOccur → target node ID）
 
-`resolveLinkWithBackend()`（`link_resolver.go:63`）が build、DB resolve、DB を変更しない path 検証の共通ディスパッチである。
+`resolveLinkWithBackend()`（`link_resolver.go:46`）が build、DB resolve、DB を変更しない path 検証の共通ディスパッチである。
 
 | 条件 | 処理 |
 |---|---|
@@ -64,21 +65,21 @@ edge 生成サイトは `parseLinksWithLinkKeys` を使う（例: `build_prepare
 | basename | backend の `resolveBasename` |
 | それ以外 | backend の `resolvePath` |
 
-build は `resolveLink()`（`build.go:120`）と `mapLinkResolver`、resolve command は `resolveLinkFromDB()`（`resolve.go:91`）と `dbLinkResolver` を使う。DB の path / basename 解決は `resolve.go:129` / `179`。ルート優先は `pickBasenameMatch()`（`resolve.go:260`）と ADR 0004 を参照する。
+build は `resolveLink()`（`build.go:124`）と `mapLinkResolver`、resolve command は `resolveLinkFromDB()`（`resolve.go:91`）と `dbLinkResolver` を使う。DB の path / basename 解決は `resolve.go:129` / `198`。ルート優先は `pickBasenameMatch()`（`resolve.go:279`）と ADR 0004 を参照する。
 
 `frontmatter_path` の dry validation は `resolveFrontmatterPathDry()`（`frontmatter_path_guard.go:88`）を使う。これは path を返すだけで phantom / tag を作らず、raw path が操作後に別の対象へ変わらないかの検証にも使う。
 
 ## 3. rewrite（rawLink → 書き換え済み rawLink → ファイル書き込み）
 
-`rewriteLinkTypes`（`rewrite.go:12-20`）は `wikilink`、`markdown`、`frontmatter_wikilink` だけを列挙する。`isPathLinkType()`（`rewrite.go:22-31`）は `frontmatter_path` も含め、escape と曖昧 basename の検証に使う。この二つを混同しない。
+`rewriteLinkTypes`（`rewrite.go:16`）は `wikilink`、`markdown`、`frontmatter_wikilink` だけを列挙する。`isPathLinkType()`（`rewrite.go:25`）は `frontmatter_path` も含め、escape と曖昧 basename の検証に使う。この二つを混同しない。
 
 | 関数 | ファイル:行 | 役割 |
 |---|---|---|
-| `rewriteRawLink(rawLink, linkType, targetPath)` | `rewrite.go:82` | link 構文の target 部分を新パスへ置換する |
-| `applyFileRewritesWithRollbackFailures(vaultPath, rewrites)` | `rewrite.go:199` | 全ファイルの候補を検証してから書き込み、失敗時は rollback する |
-| `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:314` | raw link が basename 形式かを判定する |
-| `rewriteMovedOutgoingLink(link, from, to, preMoveTargetPath, maps)` | `move_link.go:21` | moved file の outgoing link を移動後の解決情報で判定する |
-| `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo)` | `move_link.go:137` | moved file 内の相対 link を移動後の起点から再計算する |
+| `rewriteRawLink(rawLink, linkType, targetPath)` | `rewrite.go:109` | link 構文の target 部分を新パスへ置換する |
+| `applyFileRewritesWithRollbackFailures(vaultPath, rewrites)` | `rewrite.go:225` | 全ファイルの候補を検証してから書き込み、失敗時は rollback する |
+| `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:348` | raw link が basename 形式かを判定する |
+| `rewriteMovedOutgoingLink(link, from, to, preMoveTargetPath, maps)` | `move_link.go:22` | moved file の outgoing link を移動後の解決情報で判定する |
+| `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo, preMoveTargetPath)` | `move_link.go:144` | moved file 内の相対 link を移動後の起点から再計算する |
 
 quoted frontmatter wikilink は `rewriteLinkTypes` に含まれ、rewrite entry の `rawLink` は `rewriteRawLink` の wikilink 系分岐で変換される。実更新では `rewriteFrontmatterCandidate` を使い、全候補の source/decode 対応を確認してから書き込む。move は外部ファイルと移動ノートの候補を一括準備する。対応を証明できない候補は副作用前に操作全体を拒否する。`frontmatter_path` は raw 値なので書き換えない。操作前検証と手動更新が必要になる理由は ADR 0014 を参照する。
 
@@ -88,15 +89,15 @@ quoted frontmatter wikilink は `rewriteLinkTypes` に含まれ、rewrite entry 
 
 - quoted-only frontmatter 抽出: `parse_frontmatter.go:39`、`83`、`101` と ADR 0023
 - link_keys の raw path: `parse_frontmatter.go:208`、`229`、`frontmatter_path_guard.go:18` と ADR 0014
-- 共通 resolve dispatch: `link_resolver.go:63`、build は `build.go:120`、DB resolve は `resolve.go:91`
-- path / basename の DB 解決: `resolve.go:129`、`179`、ルート優先は `resolve.go:260` と ADR 0004
-- move の incoming rewrite: `move_rewrite.go:92`、moved file の outgoing 収集: `move_rewrite.go:262`、個別判定: `move_link.go:21` / `137`
-- rewrite の型集合と raw link 変換: `rewrite.go:12`、`73`、`293`
+- 共通 resolve dispatch: `link_resolver.go:46`、build は `build.go:124`、DB resolve は `resolve.go:91`
+- path / basename の DB 解決: `resolve.go:129`、`198`、ルート優先は `resolve.go:279` と ADR 0004
+- move の incoming rewrite: `move_rewrite.go:93`、moved file の outgoing 収集: `move_rewrite.go:249`、個別判定: `move_link.go:22` / `144`
+- rewrite の型集合と raw link 変換: `rewrite.go:16`、`109`、`348`
 - repair の本文限定: `repair.go:189`
 
 ## 5. 正本へのポインタ
 
-- リンク解釈と frontmatter の互換性: `docs/specs/overview.md:460-466`
+- リンク解釈と frontmatter の互換性: `docs/specs/overview.md:471`
 - ルート優先: `docs/decisions/0004-root-priority-for-ambiguous-basename.md`
 - frontmatter raw path (`link_keys`): `docs/decisions/0014-frontmatter-link-keys.md`
 - quoted-only frontmatter wikilink: `docs/decisions/0023-frontmatter-wikilink-quoted-only.md`

@@ -34,6 +34,6 @@ stdout は主結果、stderr は warning・hint・error・usage の経路。フ�
 
 query は要求しないフィールドを `omitempty` で省略する。status と meta diagnostics の JSON 形状を変更する場合は、このページの source と `cmd/mdhop/format_test.go` を読む。
 
-meta diagnostics の位置は index snapshot 由来であり、既存 index を line 対応へ更新するときの正本は `docs/specs/overview.md:394` / `404`。stdout に warning や hint を混在させない。
+meta diagnostics の位置は index snapshot 由来であり、既存 index を line 対応へ更新するときの正本は `docs/specs/overview.md:401` / `412`。stdout に warning や hint を混在させない。
 
-`set` の振る舞い仕様（`--list`、出力形状を含む）の正本は `docs/specs/overview.md:238` を参照する。
+`set` の振る舞い仕様（`--list`、出力形状を含む）の正本は `docs/specs/overview.md:251` を参照する。

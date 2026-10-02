@@ -12,7 +12,7 @@
 - 並行 build: 成功同士・成功と失敗の併走でも、完成済みの一実行の notes / edges / meta のみを公開する
 - 失敗系: 公開前の失敗では既存DBを残し、入力検証は DB 作成前に行う
 - 失敗系: vault外への相対パスリンクはエラー
-- 解析対象: `**/*.md` のみ、`.mdhop/` 配下は除外
+- 解析対象: `**/*.md` の本文・frontmatter と非 `.md` の asset。隠しパスと `.mdhop/` 配下は asset 登録の対象外
 - case-insensitive basename: `[[note]]` → `Note.md` に解決
 - case-insensitive basename衝突 + basenameリンク → ambiguousエラー
 - ルート優先: basename重複 + ルート直下にファイルあり → build成功、basename リンクはルートに解決
@@ -234,7 +234,7 @@
 - `--file` で対象ファイルを制限
 - `build.exclude_paths` に従い除外ファイルはスキャンされない
 - markdown link の .md 拡張子有無が保持される
-- tag/frontmatter リンクは対象外
+- tag と frontmatter の raw path 値は対象外。引用符付き frontmatter wikilink は短縮条件を満たせば対象
 - asset-note namespace 衝突: 同名 note 存在時に asset パスリンクは短縮しない
 - `--file` に存在しないファイルを指定 → エラー
 

@@ -104,7 +104,7 @@ Index Commands:
   update        Update specified files in the index
   set           Set a single frontmatter key and update the index
   delete        Remove files from the index
-  move          Move a file and update links
+  move          Move a file or directory and update links
   disambiguate  Rewrite basename links to full paths
   simplify      Shorten path links to basename when unambiguous
   repair        Fix broken path links by rewriting to basename
@@ -126,6 +126,7 @@ Setup Commands:
   init-meta  Generate meta type definitions from preset and/or vault scan
 
 Run 'mdhop <command> --help' for command-specific help.
+Commands do not accept positional arguments.
 Use 'mdhop --version' for version information.
 `)
 }

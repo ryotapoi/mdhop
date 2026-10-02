@@ -14,9 +14,13 @@ Remove registered files from the index. With --rm, remove them from disk as well
 
 Options:
   --file <path>       Required, repeatable. Vault-relative file or directory. A trailing / or disk directory enables directory mode.
-  --rm                Optional. Also delete files from disk.
+  --rm                Optional. Remove registered files from disk. In directory mode, also remove remaining non-Markdown files.
   --vault <path>      Optional. Vault root directory. Default: ".".
   --format json|text  Optional. Output format. Default: text.
+
+Behavior notes:
+  Without --rm, registered files must already be absent from disk.
+  A directory must contain at least one registered file. With --rm, unregistered Markdown files and files in hidden directories remain.
 
 Output fields:
   deleted    Nodes removed from the index.

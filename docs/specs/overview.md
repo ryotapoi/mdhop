@@ -191,6 +191,7 @@ meta:
 - `--no-exclude` : `mdhop.yaml` の除外設定を無視する
 - `--where <expr>` : frontmatter メタデータによるフィルタ（複数回指定可）
   - 演算子: `=`, `!=`, `~`（LIKE）, `>`, `<`, `>=`, `<=`, EXISTS（演算子なし）, NOT EXISTS
+    - 比較演算子が値の中にも現れる場合は、式の左端にある演算子でキーと値を分ける（例: `title=a!=b` はキー `title`、値 `a!=b` の等値比較）
     - `~` の右辺（LIKE パターン）は前後の空白を保持する。トリムされるのはキー名のみ
   - 例: `--where "status=active"`, `--where "priority>1"`, `--where "status"`, `--where "status!=done"`, `--where "priority NOT EXISTS"`
   - 左辺には `coalesce(key1, key2, ...)` を書ける。比較演算子では、左から順に最初に存在するキーの値を使って比較する
@@ -210,6 +211,7 @@ meta:
   - フィルタ対象: backlinks, outgoing, twohop の結果ノード（エントリノード自体はフィルタされない）
   - phantom/tag/asset は meta テーブルにエントリを持たないため、`--where` 指定時に常にフィルタアウトされる
   - `mdhop.yaml` の `meta.types` で型宣言されたキーは比較演算子で型安全な比較が可能
+    - number は長い小数も丸めずに比較し、末尾の 0 の有無は等値・並び順に影響しない。正規化形式と既存 index の再生成条件は `docs/rules/03-data-model.md` に従う
   - 相対日付: 比較演算子の右辺に `today` / `today-90d` / `today+1d` / `today-2w` / `today-3m` / `today-1y` を書ける（単位 `d`=日, `w`=週, `m`=月, `y`=年）。実行時のローカル日付を基準に絶対日付へ展開する
     - 例: `--where "updated<today-90d"` → 90 日以上更新されていない note
     - 相対日付は date として比較する。比較は保存済み `sort_value` に対し `value_type='date'` ガード付きで行うため、左辺キーは `meta.types` で `date` 宣言されている必要がある。未宣言キーは `value_type='string'`・文字列正規化された `sort_value` で保存されており、ガードに弾かれてマッチしない
@@ -414,6 +416,7 @@ meta:
   - 補足: `--require <key>` は対象 note に当該 key の非空値が無い場合 `missing` を報告する。空値・null の frontmatter 値は index 時に落ちるため、`key:`（値なし）も `missing` 扱い（key 欠落と同じ欠陥）
   - 補足: `mdhop.yaml` の `meta.profiles` で path パターン別の必須 key を宣言できる。`path` 省略時は全 note 対象、`path` 指定時は `--path` と同じ glob 表現で source note を絞る。複数条件がある場合は profile を複数書く。`--require` を明示した実行では、その実行時の必須 key は `--require` で指定した key に置換され、`meta.profiles` の必須 key は検証されない。mdhop.yaml には書き戻されない（`meta.profiles` を恒久的に変更したい場合はファイルを直接編集する）
   - 補足: `mdhop.yaml` の `meta.types` で `date` / `number` / `semver` 宣言された key の値が型として解釈できない場合 `type` を、`ordered` 宣言の key の値が一覧外の場合 `enum` を報告する。`string` / 未宣言の key は型・enum 制約を持たないため対象外
+  - 補足: list の値は要素ごとに検査し、不正な各値をそれぞれの `value` として報告する
   - 補足: 型／enum 検査は `--require` の有無に関わらず常に走る（`meta.types` 宣言が根拠）。`--require` は欠落検査を追加するだけ
   - 補足: `--path` / `--exclude` は source note を path glob で絞る（CLI 引数のみ。`mdhop.yaml` の `exclude` 設定は適用されない）
   - 出力: 各 violation は既存の `source_path` / `key` / `value` / `reason` に加えて、値開始位置の 1 始まり整数 `line` を JSON に返す。text は `location: <source_path>:<line>` も返す。`missing` は実在する値の位置ではないため、ノート先頭の編集開始位置として常に `line: 1` を返す。位置は index snapshot の vault 相対 path であり、既存 index は `mdhop build` で再生成する
@@ -449,7 +452,7 @@ meta:
     - `tags`, `aliases` キーは型推定対象から除外される（well-known な特殊キー）
   - 補足: `--preset --scan` 併用時は scan 結果を優先する（データドリブン > curated）
   - 補足: デフォルトは stdout に YAML を出力。`--write` で `mdhop.yaml` に直接書き込む
-  - 補足: `--write` 時、既存の `build`/`exclude` セクションは保持。既存の `meta.types` キーは上書きしない
+  - 補足: `--write` 時、既存の `build`/`exclude` セクションは保持。既存の `meta.types` キーは上書きせず、`meta.types: null` は空の型定義として扱い生成した型を追加する
   - 補足: `--no-comment` はコメント（推定根拠、ordered 候補、preset 表示）を省略する
 
 ## update の削除挙動
@@ -536,8 +539,8 @@ meta:
 - update: `updated`, `deleted`, `phantomed`
 - set: `file`, `key`, `value`, `created`
 - add: `added`, `promoted`, `rewritten`
-- move（単体）: `from`, `to`, `rewritten`（`--to-template` の場合、`to` は展開後 path）
-- move（ディレクトリ）: `moved[]`（`from`, `to` の配列）, `rewritten`
+- move（単体）: `from`, `to`, `rewritten`（`--to-template` の場合、実行結果の `to` は実際の移動先 path、dry-run は計画した移動先 path）
+- move（ディレクトリ）: `moved[]`（`from`, `to` の配列）, `rewritten`（`--to-template` の実行結果は実際の移動先、dry-run は計画した移動先）
 - disambiguate: `rewritten`
 - simplify: `rewritten`, `skipped`
 - repair: `rewritten`, `skipped`

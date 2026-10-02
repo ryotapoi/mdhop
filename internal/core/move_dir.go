@@ -26,8 +26,8 @@ type MovedFile struct {
 	To   string
 }
 
-// MoveDir moves all files under a directory to a new directory prefix,
-// updating the index and rewriting links in a single batch.
+// MoveDir moves registered files and visible disk-only non-Markdown files
+// under a directory, updating the index and rewriting links in a single batch.
 func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	db, err := openDBChecked(vaultPath)
 	if err != nil {

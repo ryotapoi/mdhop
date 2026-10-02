@@ -14,7 +14,7 @@ var deleteEmptyDirs = CleanupEmptyDirs
 // DeleteOptions controls which files to remove from the index.
 type DeleteOptions struct {
 	Files       []string // vault-relative file or directory paths
-	RemoveFiles bool     // if true, delete files from disk before updating DB
+	RemoveFiles bool     // remove registered files before the DB update and remaining non-Markdown directory files afterward
 }
 
 // DeleteResult reports which nodes were deleted or converted to phantom.

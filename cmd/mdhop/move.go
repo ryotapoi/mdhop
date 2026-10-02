@@ -26,8 +26,9 @@ Options:
 Behavior notes:
   The source file fails stale detection when its mtime does not match the DB record; external files rewritten as collateral are not stale-checked.
   If --from is missing on disk and --to already exists, the move is treated as already completed and only link rewrites plus DB updates are performed.
-  Existing --to paths on disk fail to prevent overwrites.
+  Existing --to paths on disk fail when --from still exists; an already completed disk move can be reconciled.
   Directory moves fail when --from and --to contain each other, such as --from sub --to sub/inner.
+  Directory moves also move unregistered non-Markdown files outside hidden paths. Unregistered Markdown files remain.
   --to-template is incompatible with --to. In directory mode it expands every registered source note under --from, prevalidates every destination, and moves notes as one batch.
   Template fields are read from indexed source-note frontmatter. Missing fields without fallback, fields with multiple values, invalid date extraction, placeholder values containing /, and empty or vault-escaping expanded destinations fail before Move changes files.
   When meta.link_keys is configured, frontmatter raw path values cannot be rewritten; move fails before changing anything if existing raw path values would resolve differently.

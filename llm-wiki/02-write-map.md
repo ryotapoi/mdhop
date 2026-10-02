@@ -9,6 +9,7 @@ sources:
   - internal/core/set.go
   - internal/core/move.go
   - internal/core/move_dir.go
+  - internal/core/move_template.go
   - internal/core/move_load.go
   - internal/core/move_rewrite.go
   - internal/core/move_apply.go
@@ -34,20 +35,20 @@ sources:
 
 | コマンド | 主な変更先 | 読む入口 |
 |---|---|---|
-| `build` | temp DB を rename で置換 | 入力収集・検証は `build_prepare.go:30`、DB 書き込みは `build.go:31` |
-| `add` / `update` / `set` | note、edge、meta | `add.go:32` / `update.go:24` / `set.go:37` |
-| `delete` | node 削除または phantom 化、`--rm` はディスク削除 | `delete.go:25`、理由は ADR 0005 |
-| `move` / `move-dir` | rename と incoming / collateral / outgoing rewrite | `move.go:22` → `move_dir.go:70` |
+| `build` | 専有 temp DB を rename で置換 | 入力収集・検証は `build_prepare.go:28`、DB 書き込みは `build.go:31` |
+| `add` / `update` / `set` | note、edge、meta | `add.go:33` / `update.go:24` / `set.go:37` |
+| `delete` | node 削除または phantom 化、`--rm` はディスク削除 | `delete.go:28`、理由は ADR 0005 |
+| `move` / `move-dir` / `move --to-template` | rename と incoming / collateral / outgoing rewrite | `move.go:22` / `move_template.go:26` → `move_dir.go:75` |
 | `disambiguate` / `simplify` / `repair` / `convert` | 対象ファイルのリンク表記 | 各 core ファイルの公開関数を入口にする |
 | `init-meta --write` | vault root の `mdhop.yaml` | `cmd/mdhop/init_meta.go` と `internal/core/init_meta.go` |
 
 ## build の境界
 
-`Build` は `prepareBuild` でファイル収集・解析・リンク検証を完了してから temp DB を作る。temp ファイルの除去に失敗した場合も既存 DB を置換しない。build の失敗処理を変えるときは `build.go:31` と `build_prepare.go:30` を対で読む。
+`Build` は `prepareBuild` でファイル収集・解析・リンク検証を完了してから、実行ごとに専有する temp DB を作る。完成した DB だけを rename で公開する。build の失敗処理や並行実行を変えるときは `build.go:31` と `build_prepare.go:28` を対で読む。
 
 ## move の責務分割
 
-単体 `Move` は移動情報を準備して `executeMoves` へ委譲し、directory mode も同じ executor を通る。incoming / collateral の収集は `move_rewrite.go:92` / `194`、移動 note の outgoing 収集は `move_rewrite.go:262`、個別の outgoing 判定と相対パス再計算は `move_link.go:21` / `137` が所有する。
+単体 `Move` は移動情報を準備して `executeMoves` へ委譲し、directory mode も同じ executor を通る。`--to-template` は `PlanMoveTemplate` / `MoveTemplate`（`move_template.go:26` / `48`）で展開・検証してから同じ executor を使う。incoming / collateral の収集は `move_rewrite.go:93` / `195`、移動 note の outgoing 収集は `move_rewrite.go:249`、個別の outgoing 判定と相対パス再計算は `move_link.go:22` / `144` が所有する。
 
 書き込み前の候補検証・適用・復元は `rewrite.go` と `move_apply.go` に分離されている。raw frontmatter path は書き換えず、移動後も解決先が変わらないことを `frontmatter_path_guard.go` で検証する。理由は ADR 0014 を参照する。
 

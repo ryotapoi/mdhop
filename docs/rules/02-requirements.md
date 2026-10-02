@@ -17,7 +17,7 @@
   - wikilink（alias / heading / block 含む）
   - markdown link（相対/絶対/URL任意）
   - tag（本文 + frontmatter tags）
-  - frontmatter 内リンク（設定で指定したキーのみ）
+  - frontmatter 内の引用符付き wikilink（`tags` 以外のキー）と、`meta.link_keys` で指定したキーの raw path 値
   - frontmatter メタデータ（scalar 値と scalar 配列要素を meta テーブルに格納。null・マッピングはスキップ。型宣言に基づき sort_value を正規化）
 - 型設定: `mdhop.yaml` の `meta.types` で frontmatter キーの型を宣言（5 型: string, number, date, semver, ordered）。形式は docs/specs/overview.md 参照
 - 誤検出対策（最低限）:
@@ -88,7 +88,7 @@
 - `--include-snippet`: リンク周辺 N 行を返す
   - DBには本文TEXTを保存しない（位置情報のみ）
   - query 時にファイルから切り出す
-  - stale（mtime不一致）なら、そのファイルのみ自動update するか、contextを省略する（実装方針で選択）
+  - stale（mtime不一致）または保存済みのリンク位置が現在のファイル行数を超える場合はエラーにする
 
 ### 2.6 diagnose（事故検出）
 
@@ -157,7 +157,7 @@
 ## 4. 非機能要件
 
 - 安全性:
-  - mutate系は誤爆防止（環境変数や `--yes` の要求など）
+  - mutate系は Vault 外への書き込み・削除や意図しない上書きを拒否する。コマンドごとの事前条件は `docs/specs/overview.md` に従う
   - 曖昧解決はデフォルト error（静かに誤解決しない）
 - 性能:
   - build は Vault 全体走査
