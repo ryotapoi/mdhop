@@ -75,6 +75,10 @@
 - [x] `init-meta` の stdout YAML 出力失敗を終了コードへ反映する。`cmd/mdhop/init_meta.go`。完了: stdout への書き込みが失敗した場合、成功扱いにならない。出典: F2。
 - [x] `simplify` の仕様を現行の frontmatter 書換え範囲に合わせる。`docs/specs/overview.md`。完了: quoted frontmatter wikilink は対象、raw `frontmatter_path` と tag は対象外と読め、実装・テスト・ADR 0022 と矛盾しない。出典: maintenance-audit A6-1（verify-finding 確認済み）。
 
+### v0.19.6 テスト見直し
+
+- [ ] `simplify-tests` を実行する。
+
 ### 新機能：Markdown 参照リンク対応
 
 - [ ] Markdown 参照リンクを索引化・解決し、通常の Markdown リンクと同じように関連検索へ反映する。着手時に仕様・受入条件・実装範囲を確定する。完了: 確定した仕様に沿ってリンク先の取得、outgoing/backlinks、2-hop、未作成リンク先の扱いを実装・検証する。
