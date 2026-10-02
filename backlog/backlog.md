@@ -11,31 +11,47 @@
 
 ## タスク
 
-### 新機能：Markdown 参照リンク対応
+### v0.20.0 次バージョン
 
-- [ ] Markdown 参照リンクを索引化・解決し、通常の Markdown リンクと同じように関連検索へ反映する。着手時に仕様・受入条件・実装範囲を確定する。完了: 確定した仕様に沿ってリンク先の取得、outgoing/backlinks、2-hop、未作成リンク先の扱いを実装・検証する。
+- [ ] Markdown 参照リンクを索引化・解決し、通常の Markdown リンクと同じように関連検索へ反映する
 
-目的: 元文書の参照定義からリンク先を解決し、参照リンクによるノート間の関係を検索できるようにする。
+  着手時に仕様・受入条件・実装範囲を確定する。完了: 確定した仕様に沿ってリンク先の取得、outgoing/backlinks、2-hop、未作成リンク先の扱いを実装・検証する。
 
-受入条件の候補（着手時に確定）:
+  目的: 元文書の参照定義からリンク先を解決し、参照リンクによるノート間の関係を検索できるようにする。
 
-- `A.md` に `[説明を読む][guide]` と参照定義 `[guide]: B.md` がある場合、通常リンク `[説明を読む](B.md)` と同じ A → B の関係として扱う。省略形の `[guide][]` と `[guide]` も対象にする。
-- 元文書と参照定義を踏まえてリンク先を解決し、リンク先を JSON で取得できる。
-- A の outgoing links に B、B の backlinks に A が現れ、2-hop にも参照リンクによる関係が反映される。
-- B が存在しない場合は、参照定義のリンク先である未作成の B を対象にする。参照ラベル `guide` をノート名として扱わず、参照定義がなければ関係を作らない。
-- リンク原文と解決に必要な元文書・参照定義の情報からリンク先を取得できる。
-- 索引の生成・更新と読み取りを分離し、既存索引から参照リンクによる関係を検索できる。
+  受入条件の候補（着手時に確定）:
 
-CLI の引数、JSON の具体的な形式、索引化・解決の実装方法は着手時に検討する。対象バージョンは未定。
+  - `A.md` に `[説明を読む][guide]` と参照定義 `[guide]: B.md` がある場合、通常リンク `[説明を読む](B.md)` と同じ A → B の関係として扱う。省略形の `[guide][]` と `[guide]` も対象にする。
+  - 元文書と参照定義を踏まえてリンク先を解決し、リンク先を JSON で取得できる。
+  - A の outgoing links に B、B の backlinks に A が現れ、2-hop にも参照リンクによる関係が反映される。
+  - B が存在しない場合は、参照定義のリンク先である未作成の B を対象にする。参照ラベル `guide` をノート名として扱わず、参照定義がなければ関係を作らない。
+  - リンク原文と解決に必要な元文書・参照定義の情報からリンク先を取得できる。
+  - 索引の生成・更新と読み取りを分離し、既存索引から参照リンクによる関係を検索できる。
 
-### 新機能：関連検索のハブ除外
+  CLI の引数、JSON の具体的な形式、索引化・解決の実装方法は着手時に検討する。
 
-- [ ] 多くの note とつながる経由 note を除外して関連検索のノイズを抑える機能について、利用場面、除外対象・接続数の数え方、設定/既定値、既存 `max_via_per_target` との関係、受入例を検討する。`docs/rules/02-requirements.md`、`internal/core/query.go`、`query_fetch.go`、`cmd/mdhop/query.go` を対象に、`via_max_degree` の flag 名や具体アルゴリズムは先に固定せず、仕様確定前に実装へ進まない。出典: GROK:D6。完了: 仕様と実装 scope を確定する。
+- [ ] 多くの note とつながる経由 note を除外して関連検索のノイズを抑える機能について、利用場面、除外対象・接続数の数え方、設定/既定値、既存 `max_via_per_target` との関係、受入例を検討する
+
+  `docs/rules/02-requirements.md`、`internal/core/query.go`、`query_fetch.go`、`cmd/mdhop/query.go` を対象に、`via_max_degree` の flag 名や具体アルゴリズムは先に固定せず、仕様確定前に実装へ進まない。出典: GROK:D6。完了: 仕様と実装 scope を確定する。
 
 ### 低優先度：対応要否を再評価する候補
 
-- [ ] basename の resolve と `query --name` の全 note 走査が、実用規模や反復 lookup で問題になるか測り、旧 NFD index との互換を含めて改善の採否を決める。`internal/core/resolve.go`、`query_entry.go`。完了: 負担と改善費用を比較し、対応要否を判断する。出典: A4。
-- [ ] 少数行の head 取得でノート全文を読み込む負担と、読み取り量を減らす場合の出力互換条件を確認する。`internal/core/query_content.go`。完了: 大きな note の利用実態と未閉鎖 frontmatter の扱いを踏まえ、局所改善の採否を決める。出典: B6。
-- [ ] move 失敗時のファイル復元で元の mtime も戻し、復元自体による stale 判定を防ぐ。`internal/core/rewrite.go`、`move_dir.go`。完了: 内容・permission・mtime の復元が成功した場合、原因を除いた再試行が rollback 自身を理由に stale 扱いされない。出典: D8。
-- [ ] E5 の括弧付きリンク修正時に、通常解析と convert の Markdown リンク字句走査を共有する必要があるか判断する。`internal/core/parse.go`、`convert.go`。完了: 必要な同一構文認識だけを共通化するか、現行の別実装を維持するか決め、自己リンクの扱いの違いを保つ。出典: maintenance-audit A2-1（verify-finding 確認済み）。
-- [ ] D6 の basename 衝突修正時に、unique/root 優先規則の重複を解決器へ集約する必要があるか判断する。`internal/core/resolve_maps.go`、`move_rewrite.go`、`link_ambiguity.go` など。完了: build・add・move・曖昧性判定の意味の違いを確認し、共通化する規則の範囲を決める。出典: maintenance-audit A3-1（verify-finding 確認済み）。
+- [ ] basename の resolve と `query --name` の全 note 走査が、実用規模や反復 lookup で問題になるか測り、旧 NFD index との互換を含めて改善の採否を決める
+
+  `internal/core/resolve.go`、`query_entry.go`。完了: 負担と改善費用を比較し、対応要否を判断する。出典: A4。
+
+- [ ] 少数行の head 取得でノート全文を読み込む負担と、読み取り量を減らす場合の出力互換条件を確認する
+
+  `internal/core/query_content.go`。完了: 大きな note の利用実態と未閉鎖 frontmatter の扱いを踏まえ、局所改善の採否を決める。出典: B6。
+
+- [ ] move 失敗時のファイル復元で元の mtime も戻し、復元自体による stale 判定を防ぐ
+
+  `internal/core/rewrite.go`、`move_dir.go`。完了: 内容・permission・mtime の復元が成功した場合、原因を除いた再試行が rollback 自身を理由に stale 扱いされない。出典: D8。
+
+- [ ] E5 の括弧付きリンク修正時に、通常解析と convert の Markdown リンク字句走査を共有する必要があるか判断する
+
+  `internal/core/parse.go`、`convert.go`。完了: 必要な同一構文認識だけを共通化するか、現行の別実装を維持するか決め、自己リンクの扱いの違いを保つ。出典: maintenance-audit A2-1（verify-finding 確認済み）。
+
+- [ ] D6 の basename 衝突修正時に、unique/root 優先規則の重複を解決器へ集約する必要があるか判断する
+
+  `internal/core/resolve_maps.go`、`move_rewrite.go`、`link_ambiguity.go` など。完了: build・add・move・曖昧性判定の意味の違いを確認し、共通化する規則の範囲を決める。出典: maintenance-audit A3-1（verify-finding 確認済み）。
