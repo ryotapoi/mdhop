@@ -103,12 +103,7 @@ func setupVaultForCLI(t *testing.T, name string) string {
 }
 
 func TestRunStats_TextOutput(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_build_full")
-
-	result, err := core.Stats(vault, core.StatsOptions{})
-	if err != nil {
-		t.Fatalf("stats: %v", err)
-	}
+	result := &core.StatsResult{NotesTotal: 3, NotesExists: 3, EdgesTotal: 20, TagsTotal: 6, PhantomsTotal: 2}
 
 	var buf bytes.Buffer
 	if err := printStatsText(&buf, result, nil); err != nil {
@@ -128,26 +123,20 @@ func TestRunStats_TextOutput(t *testing.T) {
 	if !strings.Contains(out, "phantoms_total: 2") {
 		t.Errorf("text output missing phantoms_total: 2, got:\n%s", out)
 	}
-	if !strings.Contains(out, "edges_total:") {
-		t.Errorf("text output missing edges_total, got:\n%s", out)
+	if !strings.Contains(out, "edges_total: 20") {
+		t.Errorf("text output missing edges_total: 20, got:\n%s", out)
+	}
+	if !strings.Contains(out, "assets_total: 0") {
+		t.Errorf("text output missing assets_total: 0, got:\n%s", out)
 	}
 }
 
 func TestRunStats_JSONOutput(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_build_full")
-
-	result, err := core.Stats(vault, core.StatsOptions{})
-	if err != nil {
-		t.Fatalf("stats: %v", err)
-	}
-
-	var buf bytes.Buffer
-	if err := printStatsJSON(&buf, result, nil); err != nil {
-		t.Fatalf("printStatsJSON: %v", err)
-	}
+	out := captureStdout(t, func() error { return runStats([]string{"--vault", vault, "--format", "json"}) })
 
 	var m map[string]int
-	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
 		t.Fatalf("json unmarshal: %v", err)
 	}
 
@@ -166,15 +155,13 @@ func TestRunStats_JSONOutput(t *testing.T) {
 	if _, ok := m["edges_total"]; !ok {
 		t.Error("JSON output missing edges_total field")
 	}
+	if _, ok := m["assets_total"]; !ok {
+		t.Error("JSON output missing assets_total field")
+	}
 }
 
 func TestPrintStatsText_FieldsFilter(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_build_full")
-
-	result, err := core.Stats(vault, core.StatsOptions{})
-	if err != nil {
-		t.Fatalf("stats: %v", err)
-	}
+	result := &core.StatsResult{NotesTotal: 3, NotesExists: 3, EdgesTotal: 20, TagsTotal: 6, PhantomsTotal: 2}
 
 	var buf bytes.Buffer
 	if err := printStatsText(&buf, result, []string{"notes_total", "tags_total"}); err != nil {
@@ -200,12 +187,7 @@ func TestPrintStatsText_FieldsFilter(t *testing.T) {
 }
 
 func TestPrintStatsJSON_FieldsFilter(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_build_full")
-
-	result, err := core.Stats(vault, core.StatsOptions{})
-	if err != nil {
-		t.Fatalf("stats: %v", err)
-	}
+	result := &core.StatsResult{NotesTotal: 3, NotesExists: 3, EdgesTotal: 20, TagsTotal: 6, PhantomsTotal: 2}
 
 	var buf bytes.Buffer
 	if err := printStatsJSON(&buf, result, []string{"notes_total"}); err != nil {
@@ -946,12 +928,7 @@ func TestRunDiagnose_InvalidField(t *testing.T) {
 }
 
 func TestRunDiagnose_TextOutput(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_query_ambiguous_name")
-
-	result, err := core.Diagnose(vault, core.DiagnoseOptions{})
-	if err != nil {
-		t.Fatalf("diagnose: %v", err)
-	}
+	result := &core.DiagnoseResult{BasenameConflicts: []core.BasenameConflict{{Name: "A", Paths: []string{"sub1/A.md", "sub2/A.md"}}}}
 
 	var buf bytes.Buffer
 	if err := printDiagnoseText(&buf, result, nil); err != nil {
@@ -983,12 +960,7 @@ func TestRunDiagnose_TextOutput(t *testing.T) {
 }
 
 func TestRunDiagnose_JSONOutput(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_query_ambiguous_name")
-
-	result, err := core.Diagnose(vault, core.DiagnoseOptions{})
-	if err != nil {
-		t.Fatalf("diagnose: %v", err)
-	}
+	result := &core.DiagnoseResult{BasenameConflicts: []core.BasenameConflict{{Name: "A", Paths: []string{"sub1/A.md", "sub2/A.md"}}}}
 
 	var buf bytes.Buffer
 	if err := printDiagnoseJSON(&buf, result, nil); err != nil {
@@ -1417,21 +1389,6 @@ func TestRunMove_FileToDirError(t *testing.T) {
 }
 
 // --- Query --where CLI tests ---
-
-func TestRunQuery_WhereFiltersBacklinks(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_query_where")
-
-	// A.md has backlinks from B(active), C(done), D(no meta), E(active).
-	// --where status=active should filter to B and E only.
-	err := runQuery([]string{
-		"--vault", vault, "--file", "A.md",
-		"--fields", "backlinks", "--format", "json",
-		"--where", "status=active",
-	})
-	if err != nil {
-		t.Fatalf("query with --where: %v", err)
-	}
-}
 
 func TestRunQuery_WhereInvalidExpr(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_query_where")

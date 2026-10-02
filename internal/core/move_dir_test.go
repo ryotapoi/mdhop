@@ -364,33 +364,6 @@ func TestMoveDir_OutgoingBasenameToMoved(t *testing.T) {
 	}
 }
 
-func TestMoveDir_OutgoingPathToMoved(t *testing.T) {
-	vault := copyVault(t, "vault_move_dir")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	// Other.md has [[sub/B]] — this is an external incoming rewrite.
-	// sub/A.md has no path link to sub/B.
-	// Let's check the fixture — sub/A.md has [link to B](./B.md) which is relative.
-	// That should be handled by the relative rewrite batch.
-
-	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
-	if err != nil {
-		t.Fatalf("MoveDir: %v", err)
-	}
-
-	var found bool
-	for _, rw := range result.Rewritten {
-		if rw.File == "Other.md" && rw.OldLink == "[[sub/B]]" {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("Other.md [[sub/B]] should be rewritten")
-	}
-}
-
 func TestMoveDir_RelativeBetweenMoved(t *testing.T) {
 	vault := copyVault(t, "vault_move_dir")
 	if _, err := Build(vault); err != nil {
@@ -645,32 +618,6 @@ func TestMoveDir_Stale(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "stale") {
 		t.Errorf("expected stale error, got: %v", err)
-	}
-}
-
-func TestMoveDir_Nested(t *testing.T) {
-	vault := copyVault(t, "vault_move_dir")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	result, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir"})
-	if err != nil {
-		t.Fatalf("MoveDir: %v", err)
-	}
-
-	var foundNested bool
-	for _, m := range result.Moved {
-		if m.From == "sub/inner/X.md" && m.To == "newdir/inner/X.md" {
-			foundNested = true
-		}
-	}
-	if !foundNested {
-		t.Error("sub/inner/X.md should be moved to newdir/inner/X.md")
-	}
-
-	if !fileExists(filepath.Join(vault, "newdir", "inner", "X.md")) {
-		t.Error("newdir/inner/X.md should exist on disk")
 	}
 }
 

@@ -1593,46 +1593,6 @@ func TestAddInvalidConfig(t *testing.T) {
 	}
 }
 
-func TestAddAutoDisambiguateSubdirTarget(t *testing.T) {
-	// Old unique target sub/B.md. Add B.md at root → Pattern A, old target NOT root.
-	// Auto-disambiguate rewrites [[B]] → [[sub/B]].
-	vault := copyVault(t, "vault_add_disambiguate")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# B root\n"), 0o644); err != nil {
-		t.Fatalf("write B.md: %v", err)
-	}
-
-	result, err := Add(vault, AddOptions{
-		Files:            []string{"B.md"},
-		AutoDisambiguate: true,
-	})
-	if err != nil {
-		t.Fatalf("add: %v", err)
-	}
-
-	// Rewrites should happen — old target is sub/B.md (not root).
-	if len(result.Rewritten) != 5 {
-		t.Fatalf("Rewritten = %d, want 5", len(result.Rewritten))
-	}
-
-	// Verify rewrite content.
-	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
-	if err != nil {
-		t.Fatalf("read A.md: %v", err)
-	}
-	lines := strings.Split(string(content), "\n")
-	if lines[0] != "[[sub/B]]" {
-		t.Errorf("line 1 = %q, want [[sub/B]]", lines[0])
-	}
-
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("rebuild after auto-disambiguate: %v", err)
-	}
-}
-
 // Add must apply the same vault-escape guard to frontmatter wikilinks as
 // build does. Adding a new file whose frontmatter wikilink escapes the vault
 // should fail add.

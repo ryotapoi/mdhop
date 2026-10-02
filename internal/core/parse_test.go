@@ -398,18 +398,6 @@ func TestParseFrontmatterScalarTags(t *testing.T) {
 	}
 }
 
-func TestParseFrontmatterScalarSingleTag(t *testing.T) {
-	content := "---\ntags: solo\n---\n"
-	links := parseLinksSlice(content)
-	fmTags := filterByType(links, "frontmatter")
-	if len(fmTags) != 1 {
-		t.Fatalf("expected 1 frontmatter tag, got %d: %+v", len(fmTags), fmTags)
-	}
-	if fmTags[0].target != "#solo" {
-		t.Errorf("tag[0] = %q, want #solo", fmTags[0].target)
-	}
-}
-
 func TestParseFrontmatterScalarNestedTags(t *testing.T) {
 	content := "---\ntags: a/b/c\n---\n"
 	links := parseLinksSlice(content)
@@ -623,23 +611,6 @@ func TestParseFrontmatterWikilinkIgnoresBareComment(t *testing.T) {
 	}
 	if fmw[0].target != "C" {
 		t.Errorf("target = %q, want C", fmw[0].target)
-	}
-}
-
-func TestParseFrontmatterWikilinkKeepsHashInsideQuoted(t *testing.T) {
-	// '#' inside a double-quoted scalar is part of the value, so subsequent
-	// "[[...]]" must still be detected (subpath is preserved).
-	content := "---\nref: \"[[B#Heading]]\"\n---\n"
-	links := parseLinksSlice(content)
-	fmw := filterByType(links, "frontmatter_wikilink")
-	if len(fmw) != 1 {
-		t.Fatalf("expected 1 frontmatter wikilink, got %d: %+v", len(fmw), fmw)
-	}
-	if fmw[0].target != "B" {
-		t.Errorf("target = %q, want B", fmw[0].target)
-	}
-	if fmw[0].subpath != "#Heading" {
-		t.Errorf("subpath = %q, want #Heading", fmw[0].subpath)
 	}
 }
 

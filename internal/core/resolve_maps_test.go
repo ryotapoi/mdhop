@@ -262,18 +262,6 @@ func TestRebuildBasenameToPath_ExtraPaths(t *testing.T) {
 	}
 }
 
-func TestRebuildBasenameToPath_NilExtraPaths(t *testing.T) {
-	rm := newEmptyResolveMaps()
-	rm.addNote("A.md")
-	rm.registerNote("A.md", 1)
-
-	rm.rebuildBasenameToPath(nil)
-
-	if got, ok := rm.basenameToPath["a"]; !ok || got != "A.md" {
-		t.Errorf("basenameToPath[a] = %q, ok=%v; want A.md", got, ok)
-	}
-}
-
 // --- rebuildAssetBasenameToPath ---
 
 func TestRebuildAssetBasenameToPath_UniqueOnly(t *testing.T) {

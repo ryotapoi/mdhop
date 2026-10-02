@@ -178,19 +178,6 @@ func TestGraphExclude(t *testing.T) {
 	}
 }
 
-func TestGraphPhantomNotIncludedWithoutFlag(t *testing.T) {
-	vault := buildGraphVault(t)
-	res, err := Graph(vault, GraphOptions{Path: []string{"docs/*"}})
-	if err != nil {
-		t.Fatalf("graph: %v", err)
-	}
-	for _, n := range res.Nodes {
-		if n.Type == NodeTypePhantom {
-			t.Errorf("phantom node %q exported without IncludePhantoms", n.Name)
-		}
-	}
-}
-
 func TestGraphInvalidGlob(t *testing.T) {
 	vault := buildGraphVault(t)
 	if _, err := Graph(vault, GraphOptions{Path: []string{"docs/[ab]*"}}); err == nil {

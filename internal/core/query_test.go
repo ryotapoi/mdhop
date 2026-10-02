@@ -118,20 +118,6 @@ func TestQueryEntryNameTag(t *testing.T) {
 	}
 }
 
-func TestQueryEntryNameNotFound(t *testing.T) {
-	vault := setupFullVault(t)
-	_, err := Query(vault, EntrySpec{Name: "NoSuch"}, QueryOptions{})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error = %q, want containing 'not found'", err.Error())
-	}
-	if !errors.Is(err, ErrEntryNotFound) {
-		t.Errorf("error = %q, want ErrEntryNotFound", err.Error())
-	}
-}
-
 func TestQueryEntryMissingErrorsAreEntryNotFound(t *testing.T) {
 	vault := setupFullVault(t)
 	tests := []struct {
@@ -351,19 +337,6 @@ func TestQueryOutgoing(t *testing.T) {
 	}
 }
 
-func TestQueryOutgoingExcludesTags(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"outgoing"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	for _, o := range res.Outgoing {
-		if o.Type == NodeTypeTag {
-			t.Errorf("outgoing contains tag: %s", o.Name)
-		}
-	}
-}
-
 func TestQueryOutgoingPhantomEntry(t *testing.T) {
 	vault := setupFullVault(t)
 	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Fields: []string{"outgoing"}})
@@ -390,19 +363,6 @@ func TestQueryTags(t *testing.T) {
 	expectContains(t, res.Tags, "#status/active")
 	if len(res.Tags) != 3 {
 		t.Errorf("tags count = %d, want 3, got %v", len(res.Tags), res.Tags)
-	}
-}
-
-func TestQueryTagsLeafFilter(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"tags"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	for _, tag := range res.Tags {
-		if tag == "#status" {
-			t.Error("tags should not contain ancestor #status")
-		}
 	}
 }
 

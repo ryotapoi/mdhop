@@ -706,25 +706,6 @@ func TestDisambiguateScanInlineCodeIgnored(t *testing.T) {
 	}
 }
 
-func TestDisambiguateScanNoDBRequired(t *testing.T) {
-	vault := copyVault(t, "vault_disambiguate")
-
-	// Ensure no .mdhop directory exists.
-	mdhopDir := filepath.Join(vault, ".mdhop")
-	if _, err := os.Stat(mdhopDir); err == nil {
-		t.Fatalf(".mdhop should not exist in fixture, but it does")
-	}
-
-	// Should work without DB.
-	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "A"})
-	if err != nil {
-		t.Fatalf("scan: %v", err)
-	}
-	if len(result.Rewritten) != 5 {
-		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
-	}
-}
-
 func TestDisambiguateScanCaseInsensitive(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
 

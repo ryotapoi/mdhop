@@ -103,34 +103,3 @@ func TestStats_FieldsFilter(t *testing.T) {
 		t.Errorf("phantoms_total = %d, want 0 (not requested)", result.PhantomsTotal)
 	}
 }
-
-func TestStats_Tags(t *testing.T) {
-	vault := setupVaultForStats(t, "vault_build_tags")
-
-	result, err := Stats(vault, StatsOptions{Fields: []string{"tags_total"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// vault_build_tags has:
-	// A.md: frontmatter [fm_tag, nested/deep/tag], inline #simple, #parent/child
-	// B.md: inline #simple
-	// Expanded tags: #fm_tag, #nested, #nested/deep, #nested/deep/tag, #simple, #parent, #parent/child = 7
-	if result.TagsTotal != 7 {
-		t.Errorf("tags_total = %d, want 7", result.TagsTotal)
-	}
-}
-
-func TestStats_Phantoms(t *testing.T) {
-	vault := setupVaultForStats(t, "vault_build_phantom")
-
-	result, err := Stats(vault, StatsOptions{Fields: []string{"phantoms_total"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// vault_build_phantom: NonExistent and Missing are phantoms.
-	if result.PhantomsTotal != 2 {
-		t.Errorf("phantoms_total = %d, want 2", result.PhantomsTotal)
-	}
-}

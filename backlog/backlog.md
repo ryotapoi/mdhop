@@ -77,7 +77,7 @@
 
 ### v0.19.6 テスト見直し
 
-- [ ] `simplify-tests` を実行する。
+- [x] `simplify-tests` を実行する。完了: 既存テスト全体を評価し、重複テストと fixture 構築を整理した。
 
 ### 新機能：Markdown 参照リンク対応
 

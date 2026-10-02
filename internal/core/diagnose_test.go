@@ -133,29 +133,6 @@ func TestDiagnose_Phantoms(t *testing.T) {
 	}
 }
 
-func TestDiagnose_Full(t *testing.T) {
-	vault := setupVaultForDiagnose(t, "vault_build_full")
-
-	result, err := Diagnose(vault, DiagnoseOptions{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// vault_build_full has 2 phantoms (Missing, NonExistent) and no basename conflicts
-	if len(result.BasenameConflicts) != 0 {
-		t.Errorf("basename_conflicts count = %d, want 0", len(result.BasenameConflicts))
-	}
-	if len(result.Phantoms) != 2 {
-		t.Fatalf("phantoms count = %d, want 2", len(result.Phantoms))
-	}
-	if result.Phantoms[0] != "Missing" {
-		t.Errorf("phantoms[0] = %q, want Missing", result.Phantoms[0])
-	}
-	if result.Phantoms[1] != "NonExistent" {
-		t.Errorf("phantoms[1] = %q, want NonExistent", result.Phantoms[1])
-	}
-}
-
 func TestDiagnose_Empty(t *testing.T) {
 	vault := setupVaultForDiagnose(t, "vault_build_empty")
 

@@ -191,44 +191,6 @@ func TestIsViaExcluded_Nil(t *testing.T) {
 	}
 }
 
-func TestGlobMatch(t *testing.T) {
-	tests := []struct {
-		pattern string
-		s       string
-		want    bool
-	}{
-		{"Daily/*", "Daily/2024.md", true},
-		{"Daily/*", "Daily/sub/x.md", true},
-		{"Daily/*", "Other/x.md", false},
-		{"Daily/*", "daily/2024.md", false}, // case-sensitive
-		{"*", "anything", true},
-		{"*", "", true},
-		{"?", "a", true},
-		{"?", "", false},
-		{"?", "ab", false},
-		{"a*b", "ab", true},
-		{"a*b", "axyzb", true},
-		{"a*b", "axyzc", false},
-		{"*.md", "test.md", true},
-		{"*.md", "dir/test.md", true},
-		{"exact", "exact", true},
-		{"exact", "exactx", false},
-		{"exact", "xexact", false},
-		{"[literal", "[literal", true}, // '[' treated as literal
-		{"a?c", "abc", true},
-		{"a?c", "ac", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.pattern+"_"+tt.s, func(t *testing.T) {
-			got := globMatch(tt.pattern, tt.s)
-			if got != tt.want {
-				t.Errorf("globMatch(%q, %q) = %v, want %v", tt.pattern, tt.s, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestLoadConfig_WithBuildSection(t *testing.T) {
 	dir := t.TempDir()
 	content := `build:
@@ -276,24 +238,6 @@ func TestValidateGlobPatterns(t *testing.T) {
 				t.Errorf("validateGlobPatterns(%v) error = %v, wantErr %v", tt.patterns, err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestLoadConfig_MetaTypesSimple(t *testing.T) {
-	dir := t.TempDir()
-	content := "meta:\n  types:\n    date: date\n    priority: number\n"
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := LoadConfig(dir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if cfg.Meta.Types["date"].Name != MetaTypeDate {
-		t.Errorf("date type = %q, want %q", cfg.Meta.Types["date"].Name, MetaTypeDate)
-	}
-	if cfg.Meta.Types["priority"].Name != MetaTypeNumber {
-		t.Errorf("priority type = %q, want %q", cfg.Meta.Types["priority"].Name, MetaTypeNumber)
 	}
 }
 

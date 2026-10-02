@@ -1488,14 +1488,6 @@ func TestBuildExclude_TagsNotIndexed(t *testing.T) {
 	}
 }
 
-func TestBuildExclude_NoConfig(t *testing.T) {
-	// vault_build_basic has no mdhop.yaml → Build should work normally.
-	vault := copyVault(t, "vault_build_basic")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build without config should succeed: %v", err)
-	}
-}
-
 func TestBuildExclude_EmptyPatterns(t *testing.T) {
 	vault := copyVault(t, "vault_build_exclude")
 	// Overwrite mdhop.yaml with empty patterns.
@@ -1580,30 +1572,6 @@ func TestBuildMeta_ConfiguredTypes(t *testing.T) {
 		if meta[i] != exp {
 			t.Errorf("meta[%d] = %+v, want %+v", i, meta[i], exp)
 		}
-	}
-}
-
-func TestBuildMeta_UnconfiguredKey(t *testing.T) {
-	vault := copyVault(t, "vault_build_meta")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	meta := queryMetaForPath(t, dbPath(vault), "A.md")
-	// title is not in mdhop.yaml → defaults to string type
-	var found bool
-	for _, m := range meta {
-		if m.Key == "title" {
-			found = true
-			if m.ValueType != "string" {
-				t.Errorf("unconfigured key title: value_type = %q, want string", m.ValueType)
-			}
-			if m.SortValue != "My Note" {
-				t.Errorf("unconfigured key title: sort_value = %q, want %q", m.SortValue, "My Note")
-			}
-		}
-	}
-	if !found {
-		t.Error("meta entry for title not found")
 	}
 }
 

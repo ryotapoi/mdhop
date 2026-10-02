@@ -232,6 +232,9 @@ func TestConvertToWikilink(t *testing.T) {
 		if !strings.HasPrefix(r.OldLink, "[") {
 			t.Errorf("expected markdown link as old, got %q", r.OldLink)
 		}
+		if strings.HasPrefix(r.OldLink, "[[") {
+			t.Errorf("existing wikilink %q should not be converted", r.OldLink)
+		}
 	}
 
 	// Check specific conversion pairs.
@@ -421,49 +424,6 @@ func TestConvertNoMatch(t *testing.T) {
 	}
 }
 
-func TestConvertMixed(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_convert", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	// Convert to wikilink: only markdown links should be converted.
-	result, err := Convert(tmp, ConvertOptions{
-		ToFormat: "wikilink",
-		DryRun:   true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, r := range result.Rewritten {
-		if strings.HasPrefix(r.OldLink, "[[") {
-			t.Errorf("wikilink %q should not be converted when --to wikilink", r.OldLink)
-		}
-	}
-}
-
-func TestConvertURLExcluded(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_convert", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := Convert(tmp, ConvertOptions{
-		ToFormat: "wikilink",
-		DryRun:   true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, r := range result.Rewritten {
-		if strings.Contains(r.OldLink, "https://") {
-			t.Errorf("URL link %q should not be converted", r.OldLink)
-		}
-	}
-}
-
 func TestConvertTagsUntouched(t *testing.T) {
 	tmp := t.TempDir()
 	if err := testutil.CopyDir("../../testdata/vault_convert", tmp); err != nil {
@@ -622,62 +582,6 @@ func TestConvertFileScopeBuildExcluded(t *testing.T) {
 	}
 }
 
-func TestConvertAsset(t *testing.T) {
-	// Test wikilink → markdown for asset.
-	noteNames := map[string]bool{
-		"note": true,
-	}
-	isAsset := func(target string) bool {
-		return !isNoteTarget(target, "", noteNames, nil)
-	}
-
-	got := convertWikilinkToMarkdown("[[photo.png]]", isAsset)
-	if got != "[photo.png](photo.png)" {
-		t.Errorf("asset wikilink → markdown: got %q, want %q", got, "[photo.png](photo.png)")
-	}
-
-	// Test markdown → wikilink for asset.
-	got2 := convertMarkdownToWikilink("[img](photo.png)")
-	if got2 != "[[photo.png|img]]" {
-		t.Errorf("asset markdown → wikilink: got %q, want %q", got2, "[[photo.png|img]]")
-	}
-
-	// Asset with matching text.
-	got3 := convertMarkdownToWikilink("[photo.png](photo.png)")
-	if got3 != "[[photo.png]]" {
-		t.Errorf("asset markdown → wikilink (text match): got %q, want %q", got3, "[[photo.png]]")
-	}
-}
-
-func TestConvertSelfLink(t *testing.T) {
-	// wikilink → markdown
-	noteNames := map[string]bool{}
-	isAsset := func(target string) bool {
-		return !isNoteTarget(target, "", noteNames, nil)
-	}
-
-	got := convertWikilinkToMarkdown("[[#Section]]", isAsset)
-	if got != "[#Section](#Section)" {
-		t.Errorf("self-link wikilink → markdown: got %q, want %q", got, "[#Section](#Section)")
-	}
-
-	got2 := convertWikilinkToMarkdown("[[#Section|alias]]", isAsset)
-	if got2 != "[alias](#Section)" {
-		t.Errorf("self-link with alias wikilink → markdown: got %q, want %q", got2, "[alias](#Section)")
-	}
-
-	// markdown → wikilink
-	got3 := convertMarkdownToWikilink("[#Section](#Section)")
-	if got3 != "[[#Section]]" {
-		t.Errorf("self-link markdown → wikilink: got %q, want %q", got3, "[[#Section]]")
-	}
-
-	got4 := convertMarkdownToWikilink("[custom](#Section)")
-	if got4 != "[[#Section|custom]]" {
-		t.Errorf("self-link with alias markdown → wikilink: got %q, want %q", got4, "[[#Section|custom]]")
-	}
-}
-
 func TestConvertBuildExclude(t *testing.T) {
 	tmp := t.TempDir()
 	if err := testutil.CopyDir("../../testdata/vault_convert", tmp); err != nil {
@@ -765,72 +669,6 @@ func TestConvertExplicitAssetPath(t *testing.T) {
 		if expected, ok := want[rewrite.OldLink]; !ok || rewrite.NewLink != expected {
 			t.Errorf("rewrite %q = %q, want %q", rewrite.OldLink, rewrite.NewLink, expected)
 		}
-	}
-}
-
-func TestConvertRelativePath(t *testing.T) {
-	// markdown → wikilink preserves relative prefix.
-	got := convertMarkdownToWikilink("[Name](./Name.md)")
-	if got != "[[./Name]]" {
-		t.Errorf("relative markdown → wikilink: got %q, want %q", got, "[[./Name]]")
-	}
-
-	// wikilink → markdown preserves relative prefix.
-	noteNames := map[string]bool{"name": true}
-	isAsset := func(target string) bool {
-		return !isNoteTarget(target, "", noteNames, nil)
-	}
-	got2 := convertWikilinkToMarkdown("[[./Name]]", isAsset)
-	if got2 != "[Name](./Name.md)" {
-		t.Errorf("relative wikilink → markdown: got %q, want %q", got2, "[Name](./Name.md)")
-	}
-}
-
-func TestConvertRoundTrip(t *testing.T) {
-	noteNames := map[string]bool{
-		"name":    true,
-		"note.v1": true,
-	}
-	isAsset := func(target string) bool {
-		return !isNoteTarget(target, "", noteNames, nil)
-	}
-
-	tests := []struct {
-		name     string
-		mdLink   string
-		wikiLink string
-	}{
-		{"basic", "[Name](Name.md)", "[[Name]]"},
-		{"alias", "[custom](Name.md)", "[[Name|custom]]"},
-		{"subpath", "[Name#H](Name.md#H)", "[[Name#H]]"},
-		{"path", "[Name](path/to/Name.md)", "[[path/to/Name]]"},
-		{"self-link", "[#Section](#Section)", "[[#Section]]"},
-		{"self-link alias", "[custom](#Section)", "[[#Section|custom]]"},
-		{"asset", "[photo.png](photo.png)", "[[photo.png]]"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name+" md→wiki→md", func(t *testing.T) {
-			wiki := convertMarkdownToWikilink(tt.mdLink)
-			if wiki != tt.wikiLink {
-				t.Errorf("md→wiki: got %q, want %q", wiki, tt.wikiLink)
-			}
-			md := convertWikilinkToMarkdown(wiki, isAsset)
-			if md != tt.mdLink {
-				t.Errorf("wiki→md roundtrip: got %q, want %q", md, tt.mdLink)
-			}
-		})
-
-		t.Run(tt.name+" wiki→md→wiki", func(t *testing.T) {
-			md := convertWikilinkToMarkdown(tt.wikiLink, isAsset)
-			if md != tt.mdLink {
-				t.Errorf("wiki→md: got %q, want %q", md, tt.mdLink)
-			}
-			wiki := convertMarkdownToWikilink(md)
-			if wiki != tt.wikiLink {
-				t.Errorf("md→wiki roundtrip: got %q, want %q", wiki, tt.wikiLink)
-			}
-		})
 	}
 }
 

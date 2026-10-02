@@ -388,22 +388,6 @@ func TestParseWhere_NormalizationFailure(t *testing.T) {
 	}
 }
 
-func TestParseWhere_OperatorPriority(t *testing.T) {
-	metaCfg := MetaConfig{
-		Types: map[string]MetaTypeInfo{
-			"key": {Name: MetaTypeNumber},
-		},
-	}
-	wc, err := ParseWhere([]string{"key>=5"}, metaCfg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	c := wc.Conditions[0]
-	if c.Op != WhereOpGte {
-		t.Errorf("op = %d, want %d (Gte)", c.Op, WhereOpGte)
-	}
-}
-
 func TestParseWhere_ValueContainsEquals(t *testing.T) {
 	wc, err := ParseWhere([]string{"title=A=B"}, MetaConfig{})
 	if err != nil {

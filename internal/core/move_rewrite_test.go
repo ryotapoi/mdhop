@@ -827,67 +827,6 @@ func TestMove_RootFileSurvives(t *testing.T) {
 	}
 }
 
-// --- Test 25: meaning change — new root file → collateral rewrite ---
-func TestMove_MeaningChangeNewRoot(t *testing.T) {
-	// sub/A.md is unique A. B.md has [[A]]. C.md exists.
-	// Move C.md → A.md → now root A.md exists, but pre-move root had no A.
-	// → B.md's [[A]] (pointing to sub/A.md) is collateral-rewritten to [[sub/A]].
-	vault := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(vault, "sub", "A.md"), []byte("content\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("[[A]]\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("content\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	result, err := Move(vault, MoveOptions{From: "C.md", To: "A.md"})
-	if err != nil {
-		t.Fatalf("expected success, got: %v", err)
-	}
-
-	// B.md's [[A]] should be collateral-rewritten to [[sub/A]].
-	var found bool
-	for _, rw := range result.Rewritten {
-		if rw.File == "B.md" && rw.OldLink == "[[A]]" {
-			found = true
-			if rw.NewLink != "[[sub/A]]" {
-				t.Errorf("expected [[sub/A]], got %s", rw.NewLink)
-			}
-		}
-	}
-	if !found {
-		t.Error("B.md [[A]] should be collateral-rewritten to [[sub/A]]")
-	}
-
-	bContent, err := os.ReadFile(filepath.Join(vault, "B.md"))
-	if err != nil {
-		t.Fatalf("read B.md: %v", err)
-	}
-	if !strings.Contains(string(bContent), "[[sub/A]]") {
-		t.Errorf("B.md disk should contain [[sub/A]], got: %s", string(bContent))
-	}
-
-	edges := queryEdges(t, dbPath(vault), "B.md")
-	var edgeFound bool
-	for _, e := range edges {
-		if e.rawLink == "[[sub/A]]" && e.targetName == "A" {
-			edgeFound = true
-		}
-	}
-	if !edgeFound {
-		t.Error("DB should have edge with raw_link [[sub/A]]")
-	}
-}
-
 // --- Test 26: Phase 2 — basename unchanged + ambiguous + root survives → no rewrite ---
 func TestMove_Phase2RootSkipsRewrite(t *testing.T) {
 	// A.md(root) + sub/A.md. B.md has path link to A.md.

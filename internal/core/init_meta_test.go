@@ -586,20 +586,6 @@ func TestInitMeta(t *testing.T) {
 		}
 	})
 
-	t.Run("preset only", func(t *testing.T) {
-		dir := t.TempDir()
-		result, err := InitMeta(dir, InitMetaOptions{Preset: true})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(result.YAML, "created: date") {
-			t.Errorf("missing preset key in:\n%s", result.YAML)
-		}
-		if len(result.Added) != 15 {
-			t.Errorf("expected 15 added, got %d", len(result.Added))
-		}
-	})
-
 	t.Run("scan only", func(t *testing.T) {
 		vault := copyVault(t, "vault_init_meta")
 		result, err := InitMeta(vault, InitMetaOptions{Scan: true})
