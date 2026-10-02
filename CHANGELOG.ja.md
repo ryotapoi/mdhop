@@ -1,8 +1,58 @@
 # 変更履歴
 
-この変更履歴は、プロジェクトの [GitHub Releases](https://github.com/ryotapoi/mdhop/releases) と Git tag を照合して再構成しています。GitHub Release が作成されていない tag 付きバージョンも、tag 間のコミット履歴から記載しています。
+この変更履歴は、プロジェクトの [GitHub Releases](https://github.com/ryotapoi/mdhop/releases)、Git tag、コミット履歴、backlog の完了済みバージョングループを照合して再構成しています。GitHub Release がないバージョンは、tag が作成されていなくても記載しています。
 
 ## [Unreleased]
+
+## [v0.19.6] - 2026-10-02
+
+### 変更
+
+- 重複したテストと CLI 出力 capture の構成を整理し、異なる振る舞いの検証を維持。CLI の挙動は変更なし。
+
+### 文書
+
+- 位置引数、snippet のエラー、frontmatter link、書き込み時の安全性など、v0.19 の修正に合わせてコマンドヘルプ・仕様・要件・内部コマンドマップを更新。
+
+## [v0.19.5] - 2026-10-02
+
+### 修正
+
+- 同じ行の wikilink と後続の Markdown link の間にある tag を保持し、tag・phantom 起点の 2-hop targets にも tag 除外を適用。
+- `--where` 式の最初の演算子を条件として解釈し、値に `=` や `!=` が含まれても検索できるよう修正。LIKE pattern の末尾空白も保持。
+- `meta-validate` で不正な frontmatter list 値を個別に報告し、現在のファイル行数を超える snippet 位置は error を返すよう修正。長い小数の数値 sort・比較も修正。number の保存用 sort 形式が変わったため、既存 Vault の index はアップグレード後に `mdhop build` で再生成する必要がある。
+- `meta.types: null` の既存 `mdhop.yaml` に preset 型を保存できるよう修正。余剰位置引数を拒否し、`init-meta` の stdout YAML 出力失敗を error として返すよう修正。
+
+### 文書
+
+- `simplify` は引用符付き frontmatter wikilink を書き換え、raw `frontmatter_path` 値と tag は変更しないことを明記。
+
+## [v0.19.4] - 2026-10-01
+
+### 修正
+
+- 複数 backtick で囲んだ inline code 内の link・tag を無視し、Unicode path link を build と後続の lookup で一貫して解決。
+- `add`・`move` で、basename が同じだけの別 path link を無関係な phantom から昇格させないよう修正。
+- note 移動時に前後空白を含む相対 Markdown link、大小文字が異なる相対参照先、大小文字だけの basename 衝突がある既存参照を保持。
+- `disambiguate --scan` と link 変換時の asset link を保持。scan で dotted note basename を認識し、括弧を含む note link の変換後も参照先を保持。
+- template move 完了時の text・JSON 出力に、実際の移動先を表示。
+
+## [v0.19.3] - 2026-10-01
+
+### 修正
+
+- 並行 build の一時 DB と `init-meta --write` の一時設定ファイルを実行ごとに分離し、実行間の干渉と既存 `.tmp` ファイルの変更を防止。
+- Vault 外を指す `add` path、外部 symlink 経由の Markdown 書き込み、Vault 外への move、未登録 asset を上書きする directory move を拒否。
+- 正規化済み Unicode path に対応する実ファイルを content query・診断で参照し、NFD 名のファイルの delete に実 disk path を使用。
+- `set` による flow style frontmatter の他キーの消失を防ぎ、引用符が必要な YAML key と隣接する comment・空行を保持。
+- link 書き換え後の frontmatter metadata・index を更新し、disambiguate 後の phantom edge を実在する参照先に接続。再 build なしで結果が一致するよう修正。
+
+## [v0.19.2] - 2026-10-01
+
+### 変更
+
+- 重複した SQL・formatter テストを整理し、内部の node upsert と stale check の共通処理を集約。CLI の挙動は変更なし。
+- CLI テストの stdout・stderr capture を並行して読み、大量の出力による停止を防止。CLI の挙動は変更なし。
 
 ## [v0.19.1] - 2026-09-24
 

@@ -20,6 +20,8 @@ Markdown リポジトリ内のリンク関係を SQLite にインデックス化
 go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 ```
 
+v0.19.5 より前のバージョンからアップグレードした場合は、既存の各 Vault で `mdhop build` を実行してください。number 型の frontmatter metadata に使う保存済み sort 形式が変更されています。
+
 ## クイックスタート
 
 ```bash

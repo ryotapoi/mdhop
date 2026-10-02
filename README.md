@@ -20,6 +20,8 @@ A CLI tool that indexes link relationships in Markdown repositories into SQLite.
 go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 ```
 
+After upgrading from a version before v0.19.5, run `mdhop build` in each existing vault. The stored sort format for number-typed frontmatter metadata changed.
+
 ## Quick Start
 
 ```bash

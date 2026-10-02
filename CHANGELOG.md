@@ -1,8 +1,58 @@
 # Changelog
 
-This changelog was reconstructed from the project's [GitHub Releases](https://github.com/ryotapoi/mdhop/releases) and Git tags. Versions that have a tag but no GitHub Release entry are included from the tag-to-tag commit history.
+This changelog was reconstructed from the project's [GitHub Releases](https://github.com/ryotapoi/mdhop/releases), Git tags, commit history, and completed version groups in the backlog. Versions without a GitHub Release are recorded here even when no tag was created.
 
 ## [Unreleased]
+
+## [v0.19.6] - 2026-10-02
+
+### Changed
+
+- Simplified redundant tests and CLI output-capture setup while retaining coverage of distinct behavior. CLI behavior is unchanged.
+
+### Documentation
+
+- Aligned command help, specifications, requirements, and internal command maps with the v0.19 fixes, including positional arguments, snippet errors, frontmatter links, and write safety.
+
+## [v0.19.5] - 2026-10-02
+
+### Fixed
+
+- Preserved tags between a wikilink and a later Markdown link on the same line, and applied tag exclusions to two-hop targets from tag and phantom starting points.
+- Parsed `--where` expressions using the first operator so values can contain `=` or `!=`; preserved trailing spaces in LIKE patterns.
+- Reported each invalid frontmatter list value in `meta-validate`, returned an error for snippet locations beyond the current source, and kept long-decimal numeric sorting and comparisons accurate. Run `mdhop build` after upgrading an existing vault index: the stored number sort format changed.
+- Saved preset types when an existing `mdhop.yaml` has `meta.types: null`; rejected unexpected positional arguments in commands; returned an error when `init-meta` could not write YAML to stdout.
+
+### Documentation
+
+- Clarified that `simplify` rewrites quoted frontmatter wikilinks, but leaves raw `frontmatter_path` values and tags unchanged.
+
+## [v0.19.4] - 2026-10-01
+
+### Fixed
+
+- Ignored links and tags inside inline code delimited by multiple backticks, and resolved Unicode path links consistently during build and later lookup.
+- Prevented `add` and `move` from promoting unrelated phantom path links with the same basename.
+- Preserved padded relative Markdown links, case-insensitive relative targets, and existing references through case-only basename collisions when moving notes.
+- Kept asset links intact during `disambiguate --scan` and link conversion; recognized dotted note basenames during scanning and preserved note links containing parentheses after conversion.
+- Reported the actual destination of a completed template move in text and JSON output.
+
+## [v0.19.3] - 2026-10-01
+
+### Fixed
+
+- Isolated temporary databases for concurrent builds and temporary configuration files for `init-meta --write`, preventing runs from interfering with one another or existing `.tmp` files.
+- Rejected vault-escaping `add` paths, Markdown writes through external symlinks, move destinations outside the vault, and directory moves that would overwrite unregistered assets.
+- Resolved normalized Unicode paths to on-disk files for content queries and diagnostics, and used the actual disk path when deleting NFD-named files.
+- Preserved other keys in flow-style frontmatter when using `set`, and kept quoted YAML keys valid and adjacent comments or blank lines intact.
+- Refreshed frontmatter metadata and index entries after link rewrites, and pointed disambiguated phantom edges at their real targets without requiring a rebuild.
+
+## [v0.19.2] - 2026-10-01
+
+### Changed
+
+- Simplified overlapping SQL and formatter tests and shared internal node-upsert and stale-check logic. CLI behavior is unchanged.
+- Made CLI test output capture drain stdout and stderr concurrently to avoid hanging on large output. CLI behavior is unchanged.
 
 ## [v0.19.1] - 2026-09-24
 
