@@ -34,24 +34,18 @@
 
   `docs/rules/02-requirements.md`、`internal/core/query.go`、`query_fetch.go`、`cmd/mdhop/query.go` を対象に、`via_max_degree` の flag 名や具体アルゴリズムは先に固定せず、仕様確定前に実装へ進まない。出典: GROK:D6。完了: 仕様と実装 scope を確定する。
 
-### 低優先度：対応要否を再評価する候補
+### 性能改善
 
-- [ ] basename の resolve と `query --name` の全 note 走査が、実用規模や反復 lookup で問題になるか測り、旧 NFD index との互換を含めて改善の採否を決める
+- [ ] 少数行の head 取得でノート全文を保持する負担を減らす
 
-  `internal/core/resolve.go`、`query_entry.go`。完了: 負担と改善費用を比較し、対応要否を判断する。出典: A4。
+  `internal/core/query_content.go`、`search.go`。`search --include-head` の各結果が全文の backing array を保持するため、大きな note が複数含まれると要求行数を超えるメモリ保持が累積する。まず返却する行だけを独立した slice にコピーし、全文の backing array を結果に保持させない局所修正を対象にする。全文読み込み自体の削減は含めない。完了: 返却 head の保持量がノート全文サイズに比例せず、既存の出力と読み取りエラーの扱いが変わらないことを確認する。出典: B6（verify-finding 再検証済み）。
 
-- [ ] 少数行の head 取得でノート全文を読み込む負担と、読み取り量を減らす場合の出力互換条件を確認する
-
-  `internal/core/query_content.go`。完了: 大きな note の利用実態と未閉鎖 frontmatter の扱いを踏まえ、局所改善の採否を決める。出典: B6。
+### 不具合修正
 
 - [ ] move 失敗時のファイル復元で元の mtime も戻し、復元自体による stale 判定を防ぐ
 
-  `internal/core/rewrite.go`、`move_dir.go`。完了: 内容・permission・mtime の復元が成功した場合、原因を除いた再試行が rollback 自身を理由に stale 扱いされない。出典: D8。
+  `internal/core/rewrite.go`、`move_dir.go`。完了: 内容・permission・mtime の復元が成功した場合、原因を除いた再試行が rollback 自身を理由に stale 扱いされない。出典: D8（verify-finding 再検証済み）。
 
-- [ ] E5 の括弧付きリンク修正時に、通常解析と convert の Markdown リンク字句走査を共有する必要があるか判断する
+- [ ] convert の括弧付き Markdown 自己リンクで fragment とファイル内容が壊れる問題を修正する
 
-  `internal/core/parse.go`、`convert.go`。完了: 必要な同一構文認識だけを共通化するか、現行の別実装を維持するか決め、自己リンクの扱いの違いを保つ。出典: maintenance-audit A2-1（verify-finding 確認済み）。
-
-- [ ] D6 の basename 衝突修正時に、unique/root 優先規則の重複を解決器へ集約する必要があるか判断する
-
-  `internal/core/resolve_maps.go`、`move_rewrite.go`、`link_ambiguity.go` など。完了: build・add・move・曖昧性判定の意味の違いを確認し、共通化する規則の範囲を決める。出典: maintenance-audit A3-1（verify-finding 確認済み）。
+  `internal/core/convert.go`、`parse.go`。`[section](#Heading (detail))` が `[[#Heading (detail|section]])` に変換され、fragment の閉じ括弧が欠落して末尾に余分な `)` が残る。通常解析の自己リンク除外と convert の自己リンク変換の違いを保つ。完了: 括弧を含む fragment の変換と roundtrip を検証し、fragment と後続本文を壊さない。字句走査の共有範囲は修正に必要な範囲で判断する。出典: maintenance-audit A2-1（verify-finding 再検証済み）。
