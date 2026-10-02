@@ -210,7 +210,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 	}
 	rm.rebuildBasenameToPath(extraPaths)
 
-	// Existing frontmatter_path raw values must keep resolving to the same
+	// Existing frontmatter_path values and reference definitions must keep resolving to the same
 	// target after the add (they cannot be rewritten).
 	if err := validateFrontmatterPathEdges(db, rm, nil); err != nil {
 		return nil, err
@@ -307,7 +307,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 			if targetID == 0 {
 				continue
 			}
-			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, subpath, link.lineStart, link.lineEnd); err != nil {
+			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd); err != nil {
 				return nil, err
 			}
 		}

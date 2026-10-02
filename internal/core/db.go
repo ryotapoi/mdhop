@@ -43,6 +43,7 @@ type LinkType string
 const (
 	LinkTypeWikilink            LinkType = "wikilink"
 	LinkTypeMarkdown            LinkType = "markdown"
+	LinkTypeMarkdownReference   LinkType = "markdown_reference"
 	LinkTypeTag                 LinkType = "tag"
 	LinkTypeFrontmatter         LinkType = "frontmatter"
 	LinkTypeFrontmatterWikilink LinkType = "frontmatter_wikilink"
@@ -99,7 +100,15 @@ func openDBChecked(vaultPath string) (*sql.DB, error) {
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
 		return nil, fmt.Errorf("%w: run 'mdhop build' first", ErrIndexNotFound)
 	}
-	return openDBAt(dbp)
+	db, err := openDBAt(dbp)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := db.Exec("SELECT reference_target FROM edges LIMIT 0"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("index schema requires rebuild: run 'mdhop build' first: %w", err)
+	}
+	return db, nil
 }
 
 func initSchema(db *sql.DB) error {
@@ -123,6 +132,7 @@ func initSchema(db *sql.DB) error {
 			link_type       TEXT NOT NULL,
 			raw_link        TEXT NOT NULL,
 			frontmatter_key TEXT,
+			reference_target TEXT,
 			subpath         TEXT,
 			line_start      INTEGER,
 			line_end        INTEGER,
@@ -319,15 +329,19 @@ func queryMetaByNode(db dbExecer, nodeID int64) ([]MetaRow, error) {
 	return result, rows.Err()
 }
 
-func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, frontmatterKey, subpath string, lineStart, lineEnd int) error {
+func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, frontmatterKey, referenceTarget, subpath string, lineStart, lineEnd int) error {
 	var key any
 	if frontmatterKey != "" {
 		key = frontmatterKey
 	}
+	var reference any
+	if referenceTarget != "" {
+		reference = referenceTarget
+	}
 	_, err := db.Exec(
-		`INSERT INTO edges (source_id, target_id, link_type, raw_link, frontmatter_key, subpath, line_start, line_end)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		sourceID, targetID, string(linkType), rawLink, key, subpath, lineStart, lineEnd,
+		`INSERT INTO edges (source_id, target_id, link_type, raw_link, frontmatter_key, reference_target, subpath, line_start, line_end)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		sourceID, targetID, string(linkType), rawLink, key, reference, subpath, lineStart, lineEnd,
 	)
 	return err
 }

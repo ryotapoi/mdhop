@@ -221,7 +221,7 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			if targetID == 0 {
 				continue
 			}
-			if err := insertEdge(tx, m.nodeID, targetID, link.linkType, link.rawLink, link.frontmatterKey, subpath, link.lineStart, link.lineEnd); err != nil {
+			if err := insertEdge(tx, m.nodeID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd); err != nil {
 				return nil, err
 			}
 		}
@@ -293,7 +293,7 @@ func prepareMoveRewrites(vaultPath string, db dbExecer, moves []moveInfo, needDi
 		return nil, err
 	}
 
-	// Frontmatter_path raw values must keep resolving to the same target
+	// Frontmatter_path values and reference definitions must keep resolving to the same target
 	// after the move (they cannot be rewritten).
 	if err := validateFrontmatterPathEdges(db, dm.rm, dm.movedFromTo); err != nil {
 		return nil, err

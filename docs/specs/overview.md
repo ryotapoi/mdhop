@@ -424,7 +424,7 @@ meta:
   - 必須: `--from`（vault 相対の note path。asset / 未登録 path はエラー）
   - 任意: `--vault`, `--format`, `--fields`, `--path`, `--exclude`, `--route`
   - 補足: `--from` の note から outgoing リンクを BFS で辿り、対象 note 集合（`type='note' AND exists_flag=1` に `--path` / `--exclude` glob を適用。`--path` 未指定は全 note）を reachable / unreachable に分けて返す
-  - 補足: 辿る link_type は `wikilink` / `markdown` / `frontmatter_wikilink` / `frontmatter_path`。tag 系（`tag` / `frontmatter`）は辿らない（tag を共有するだけでは到達扱いにしない）
+  - 補足: 辿る link_type は `wikilink` / `markdown` / `markdown_reference` / `frontmatter_wikilink` / `frontmatter_path`。tag 系（`tag` / `frontmatter`）は辿らない（tag を共有するだけでは到達扱いにしない）
   - 補足: `--from` 自身は対象集合内なら reachable に含まれる（0 hop）。対象集合外の note は走査の中継にはなるが、reachable / unreachable のどちらにも出ない
   - 補足: `--route` で reachable な各 note への最短経路を `routes` として追加出力する（中継 note は対象集合外でも経路に現れる）
   - 補足: `--path` / `--exclude` は CLI 引数のみで動作し、`mdhop.yaml` の `exclude` 設定は適用されない
@@ -473,6 +473,15 @@ meta:
 - wikilink: `[[Note]]`, `[[Note|alias]]`, `[[Note#Heading]]`, `[[Note#^block]]`
 - markdown link: `[text](note.md)`, `[text](./note.md#heading)`
   - `note.md` は `[[note]]` と同一扱い
+- Markdown 参照リンク: full `[説明][guide]`、collapsed `[guide][]`、shortcut `[guide]`。image reference `![alt][guide]` も内部リンク関係を作り、raw 原文は通常 image と同じく `!` を除く
+  - 同一文書の独立行 `[guide]: B.md` を先に収集し、使用箇所を定義の destination へ結び付ける。前方・後方定義とも有効。同じ行の複数出現は個別の edge になる
+  - 定義は行頭 0〜3 space、colon 後の space/tab、bare destination または `<destination>`、同一行の任意 title（`"title"` / `'title'` / `(title)`）に対応する。bare destination 内の括弧は釣り合っている必要がある。wrapper と title は destination に含めない
+  - label は前後の space/tab を除き、連続する内部 space/tab を 1 space に畳み、Unicode lowercase（Go の `strings.ToLower`）で照合する。空 label は不可。同じ正規化 label の有効定義は最初を使う
+  - 複数行 label/definition/title、block container 内の定義、入れ子 bracket、HTML entity decoding、backslash escape の完全対応は対象外。CommonMark 全文法準拠ではない
+  - frontmatter、fenced code、inline code 内の参照は除外する。定義行自体と使用された参照の表示文字列は tag を作らない。未使用定義と未定義参照は edge/phantom を作らない。未定義 full/collapsed を部分的な shortcut として解釈しない
+  - destination の解決は通常 Markdown link と同じ。未作成 target は label でなく destination 由来の phantom。URL と fragment のみの destination は graph に含めない
+  - edge type は `markdown_reference`。outgoing/backlinks/共通ターゲット方式の twohop、reachable、graph に含む。定義の自動 rewrite は行わず、move/disambiguate/repair/simplify/convert の書き換え対象外
+  - 保存定義 target の解決先を変える、または曖昧にする add/move（source/target/directory move を含む）は file/DB 更新前にエラー。意味が変わらない操作と未作成 target の一意な promotion は許可する。必要なら定義を手で更新する
 - tag: `#tag`, `#nested/tag`, `#日本語タグ`, `#my-tag`, frontmatter `tags`
   - ネストタグは祖先に展開される: `#a/b/c` → `#a`, `#a/b`, `#a/b/c` の各タグが resolve 可能
 - 外部 URI: `http://...` / `https://...`、`mailto:...`、`ftp:...`、および `scheme://...` 形式は内部リンクとして解析しない（scheme は大小文字を区別しない）。未知の opaque `foo:bar` は既存どおり内部名として扱う
@@ -492,6 +501,7 @@ meta:
 ## resolve のルール（要点）
 
 - resolve は `from_note` にそのリンクが実際に存在する場合のみ解決する
+- 参照リンクは `resolve --from A.md --link '[説明][guide]' --format json` で、source と使用原文が一致する保存済み edge から既存の `type,name,path,exists,subpath` を返す。新しい JSON field は追加しない。本文・定義を再走査せず index snapshot を読むため、disk の変更・削除は明示的 update まで反映しない。索引化されていない使用原文はエラーになり、label を path として fallback しない
 - 解決結果は必ず1つになる（曖昧な場合はエラー）
 - `[[Note]]`: basename を Vault 全体から探索（note → asset → phantom の順）
   - 候補1件なら解決

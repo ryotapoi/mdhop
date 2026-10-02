@@ -133,22 +133,23 @@ func promotePhantom(tx dbExecer, phantomName string, realNodeID int64, realPath 
 		return false, err
 	}
 
-	rows, err := tx.Query(`SELECT e.id, e.raw_link, e.link_type, sn.path
+	rows, err := tx.Query(`SELECT e.id, e.raw_link, e.link_type, sn.path, COALESCE(e.reference_target,'')
 		FROM edges e JOIN nodes sn ON sn.id = e.source_id
 		WHERE e.target_id = ?`, phantomID)
 	if err != nil {
 		return false, err
 	}
 	type phantomEdge struct {
-		id         int64
-		rawLink    string
-		linkType   LinkType
-		sourcePath string
+		id              int64
+		rawLink         string
+		linkType        LinkType
+		sourcePath      string
+		referenceTarget string
 	}
 	var edges []phantomEdge
 	for rows.Next() {
 		var e phantomEdge
-		if err := rows.Scan(&e.id, &e.rawLink, &e.linkType, &e.sourcePath); err != nil {
+		if err := rows.Scan(&e.id, &e.rawLink, &e.linkType, &e.sourcePath, &e.referenceTarget); err != nil {
 			rows.Close()
 			return false, err
 		}
@@ -167,6 +168,10 @@ func promotePhantom(tx dbExecer, phantomName string, realNodeID int64, realPath 
 			links = parseWikiLinks(e.rawLink, 0)
 		case LinkTypeMarkdown:
 			links = parseMarkdownLinks(e.rawLink, 0)
+		case LinkTypeMarkdownReference:
+			if occ, ok := markdownDestinationOccur(e.referenceTarget, e.rawLink, e.linkType, 0); ok {
+				links = []linkOccur{occ}
+			}
 		case LinkTypeFrontmatterPath:
 			if occ, ok := frontmatterPathOccur(e.rawLink, 0); ok {
 				links = []linkOccur{occ}

@@ -20,7 +20,7 @@ type movedLinkMaps struct {
 // note using only already-collected paths and post-move resolution information.
 // preMoveTargetPath is empty when the caller could not resolve an edge target.
 func rewriteMovedOutgoingLink(link linkOccur, from, to, preMoveTargetPath string, maps movedLinkMaps) (outgoingRewrite, bool, error) {
-	if !isPathLinkType(link.linkType) {
+	if !isPathLinkType(link.linkType) || link.linkType == LinkTypeMarkdownReference {
 		return outgoingRewrite{}, false, nil
 	}
 	if link.isBasename {

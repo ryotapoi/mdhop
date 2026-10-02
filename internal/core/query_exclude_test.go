@@ -156,7 +156,7 @@ func setupTwoHopTagTargetsVault(t *testing.T) string {
 		t.Fatalf("insert same-name asset: %v", err)
 	}
 	for _, targetID := range []int64{otherNoteID, otherPhantomID, otherAssetID} {
-		if err := insertEdge(db, sourceID, targetID, LinkTypeWikilink, "[[same-name]]", "", "", 0, 0); err != nil {
+		if err := insertEdge(db, sourceID, targetID, LinkTypeWikilink, "[[same-name]]", "", "", "", 0, 0); err != nil {
 			t.Fatalf("insert same-name target edge: %v", err)
 		}
 	}

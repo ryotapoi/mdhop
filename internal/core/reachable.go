@@ -34,6 +34,7 @@ type ReachableResult struct {
 var traversalLinkTypes = []LinkType{
 	LinkTypeWikilink,
 	LinkTypeMarkdown,
+	LinkTypeMarkdownReference,
 	LinkTypeFrontmatterWikilink,
 	LinkTypeFrontmatterPath,
 }

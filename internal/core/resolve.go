@@ -45,9 +45,24 @@ func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
 		return nil, err
 	}
 
+	// Reference definitions are an index snapshot, never read from disk here.
+	var referenceID int64
+	var referenceSubpath string
+	err = db.QueryRow(`SELECT target_id, COALESCE(subpath, '') FROM edges
+		WHERE source_id = ? AND link_type = ? AND raw_link = ? ORDER BY id LIMIT 1`, sourceID, LinkTypeMarkdownReference, link).Scan(&referenceID, &referenceSubpath)
+	if err == nil {
+		return fetchNodeResult(db, referenceID, referenceSubpath)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
 	// Parse the link string to get linkOccur.
 	links := parseLinks(link).Links
 	if len(links) == 0 {
+		if strings.HasPrefix(link, "[") && !strings.HasPrefix(link, "[[") {
+			return nil, fmt.Errorf("%w in source %s: %s", ErrLinkNotFound, fromPath, link)
+		}
 		return nil, fmt.Errorf("could not parse link: %s", link)
 	}
 

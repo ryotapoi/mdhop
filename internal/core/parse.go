@@ -13,10 +13,11 @@ type linkOccur struct {
 	rawLink    string
 	// frontmatterKey is set only for links parsed from YAML frontmatter.
 	// Body links keep it empty and are stored as NULL in edges.frontmatter_key.
-	frontmatterKey string
-	subpath        string
-	lineStart      int
-	lineEnd        int
+	frontmatterKey  string
+	referenceTarget string
+	subpath         string
+	lineStart       int
+	lineEnd         int
 }
 
 type parseResult struct {
@@ -38,11 +39,40 @@ func parseLinks(content string) parseResult {
 		result.Meta = fm.meta
 	}
 
-	walkBodyLines(lines, fmEnd, func(lineNum int, _, clean string) {
+	definitions := make(map[string]string)
+	walkBodyLines(lines, fmEnd, func(_ int, raw, _ string) {
+		label, destination, definition := referenceDefinition(raw)
+		if definition && label != "" && destination != "" {
+			if _, exists := definitions[label]; !exists {
+				definitions[label] = destination
+			}
+		}
+	})
+	pendingReference := 0
+	previousBodyLine := 0
+	walkBodyLines(lines, fmEnd, func(lineNum int, raw, clean string) {
+		// Blank paragraphs and skipped fenced blocks cannot continue a label.
+		if strings.TrimSpace(raw) == "" || lineNum != previousBodyLine+1 {
+			pendingReference = 0
+		}
+		previousBodyLine = lineNum
+		if _, _, definition := referenceDefinition(raw); definition {
+			pendingReference = 0
+			return
+		}
 		out = append(out, parseWikiLinks(clean, lineNum)...)
-		out = append(out, parseMarkdownLinks(clean, lineNum)...)
-		// Parse tags on a line with wikilinks/markdown links removed.
-		tagLine := stripMarkdownLinks(stripWikiLinks(clean))
+		clean = maskWikiLinks(clean)
+		clean = maskReferenceContinuation(clean, &pendingReference)
+		links, tagLine, pending := parseBodyMarkdown(clean, lineNum, definitions)
+		if pending > 0 {
+			pendingReference = pending
+		}
+		// Suppress only a construct that actually closes within this paragraph.
+		// A literal unmatched bracket must not hide later independent links.
+		if pendingReference > 0 && !referenceContinuationCloses(lines, lineNum, pendingReference) {
+			pendingReference = 0
+		}
+		out = append(out, links...)
 		out = append(out, parseTags(tagLine, lineNum)...)
 	})
 	result.Links = out
@@ -177,24 +207,8 @@ func stripWikiLinks(line string) string {
 
 // stripMarkdownLinks removes [text](url) from a line to avoid tag false positives.
 func stripMarkdownLinks(line string) string {
-	for {
-		open := strings.Index(line, "[")
-		if open == -1 {
-			break
-		}
-		mid := strings.Index(line[open:], "](")
-		if mid == -1 {
-			break
-		}
-		mid = open + mid
-		close := markdownDestinationEnd(line, mid+2)
-		if close == -1 {
-			break
-		}
-		close++
-		line = line[:open] + line[close:]
-	}
-	return line
+	_, masked, _ := parseBodyMarkdown(line, 0, nil)
+	return masked
 }
 
 func parseWikiLinks(line string, lineNum int) []linkOccur {
@@ -281,46 +295,18 @@ func markdownDestinationEnd(line string, start int) int {
 }
 
 func parseMarkdownLinks(line string, lineNum int) []linkOccur {
-	var out []linkOccur
-	remaining := line
-	for {
-		open := strings.Index(remaining, "[")
-		if open == -1 {
-			break
-		}
-		// Skip if this is actually a wikilink "[[".
-		if open+1 < len(remaining) && remaining[open+1] == '[' {
-			remaining = remaining[open+2:]
-			continue
-		}
-		mid := strings.Index(remaining[open:], "](")
-		if mid == -1 {
-			break
-		}
-		mid = open + mid
-		close := markdownDestinationEnd(remaining, mid+2)
-		if close == -1 {
-			break
-		}
-		rawTarget := strings.TrimSpace(remaining[mid+2 : close])
-		rawLink := remaining[open : close+1]
+	links, _, _ := parseBodyMarkdown(maskWikiLinks(line), lineNum, nil)
+	return links
+}
 
-		target, subpath := extractSubpath(rawTarget)
-		if target != "" && !isURL(rawTarget) {
-			out = append(out, linkOccur{
-				target:     normalizeBasename(target),
-				isBasename: isBasenameLink(target),
-				isRelative: isRelativePath(target),
-				linkType:   LinkTypeMarkdown,
-				rawLink:    rawLink,
-				subpath:    subpath,
-				lineStart:  lineNum,
-				lineEnd:    lineNum,
-			})
+func maskWikiLinks(line string) string {
+	masked := []byte(line)
+	for _, span := range wikiLinkSpans(line) {
+		for i := span.start; i < span.end; i++ {
+			masked[i] = ' '
 		}
-		remaining = remaining[close+1:]
 	}
-	return out
+	return string(masked)
 }
 
 // isTagRune reports whether r is allowed in a tag body (blacklist approach, Obsidian-compatible).

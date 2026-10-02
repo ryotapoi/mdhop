@@ -16,6 +16,7 @@
 - 解析対象:
   - wikilink（alias / heading / block 含む）
   - markdown link（相対/絶対/URL任意）
+  - Markdown 参照リンク（full/collapsed/shortcut、同一文書内の定義で解決）
   - tag（本文 + frontmatter tags）
   - frontmatter 内の引用符付き wikilink（`tags` 以外のキー）と、`meta.link_keys` で指定したキーの raw path 値
   - frontmatter メタデータ（scalar 値と scalar 配列要素を meta テーブルに格納。null・マッピングはスキップ。型宣言に基づき sort_value を正規化）
@@ -40,7 +41,7 @@
 
 入力:
 - `from_note`（Vault相対パス）
-- `link`（`[[...]]` / `[]()` / `#tag` / `https://...`）
+- `link`（`[[...]]` / `[]()` / Markdown 参照原文 / `#tag` / `https://...`）
 
 出力:
 - `type`: `note | phantom | tag | url | asset`
@@ -60,6 +61,8 @@
   - `./` / `../` 始まり: `from_note` 基準
   - `/` を含むがプレフィックスなし（例: `sub/C.md`）: パスとして解決
   - `/` を含まない（例: `Design.md`）: basename 解決（`[[note]]` と同一扱い）
+
+- Markdown 参照リンクは、使用原文に一致する source の保存 edge から解決する。JSON は通常 link と同じ shape。未定義・未索引の使用原文はエラーとなる。定義変更は update 後に反映し、query/resolve は本文を再走査しない。記法の詳細と非 rewrite 制限は `docs/specs/overview.md` を正本とする
 
 ### 2.4 ノート取得（query）
 

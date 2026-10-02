@@ -176,7 +176,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 			if targetID == 0 {
 				continue
 			}
-			if err := insertEdge(tx, pf.cf.id, targetID, link.linkType, link.rawLink, link.frontmatterKey, subpath, link.lineStart, link.lineEnd); err != nil {
+			if err := insertEdge(tx, pf.cf.id, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd); err != nil {
 				return nil, err
 			}
 		}

@@ -258,7 +258,10 @@ func parseLinksForConvert(content string) parseResult {
 	// Additional pass: collect markdown self-links.
 	lines := strings.Split(content, "\n")
 	fmEnd := frontmatterEnd(lines)
-	walkBodyLines(lines, fmEnd, func(lineNum int, _, clean string) {
+	walkBodyLines(lines, fmEnd, func(lineNum int, raw, clean string) {
+		if _, _, definition := referenceDefinition(raw); definition {
+			return
+		}
 		pr.Links = append(pr.Links, parseMarkdownSelfLinks(clean, lineNum)...)
 	})
 	return pr
@@ -278,11 +281,14 @@ func parseMarkdownSelfLinks(line string, lineNum int) []linkOccur {
 			remaining = remaining[open+2:]
 			continue
 		}
-		mid := strings.Index(remaining[open:], "](")
-		if mid == -1 {
+		mid, valid := referenceBracketEnd(remaining, open)
+		if mid < 0 {
 			break
 		}
-		mid = open + mid
+		if !valid || mid+1 >= len(remaining) || remaining[mid+1] != '(' {
+			remaining = remaining[mid+1:]
+			continue
+		}
 		close := strings.Index(remaining[mid+2:], ")")
 		if close == -1 {
 			break

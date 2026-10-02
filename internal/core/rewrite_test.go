@@ -22,6 +22,7 @@ func TestPathLinkTypeClassificationsCoverAllLinkTypes(t *testing.T) {
 	}{
 		LinkTypeWikilink:            {isPath: true, rewrite: true, traversal: true},
 		LinkTypeMarkdown:            {isPath: true, rewrite: true, traversal: true},
+		LinkTypeMarkdownReference:   {isPath: true, traversal: true},
 		LinkTypeTag:                 {},
 		LinkTypeFrontmatter:         {},
 		LinkTypeFrontmatterWikilink: {isPath: true, rewrite: true, traversal: true},

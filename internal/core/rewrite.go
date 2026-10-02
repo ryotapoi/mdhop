@@ -24,7 +24,7 @@ var rewriteLinkTypes = []LinkType{
 // includes frontmatter_path (validated but not rewritable).
 func isPathLinkType(linkType LinkType) bool {
 	switch linkType {
-	case LinkTypeWikilink, LinkTypeMarkdown, LinkTypeFrontmatterWikilink, LinkTypeFrontmatterPath:
+	case LinkTypeWikilink, LinkTypeMarkdown, LinkTypeMarkdownReference, LinkTypeFrontmatterWikilink, LinkTypeFrontmatterPath:
 		return true
 	}
 	return false

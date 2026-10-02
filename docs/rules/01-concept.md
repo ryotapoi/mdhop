@@ -40,6 +40,7 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 - Obsidian 互換のリンク/タグ解釈を壊さない
   - wikilink: `[[Note]]`, `[[Note|alias]]`, `[[Note#Heading]]`, `[[Note#^block]]`
   - markdown link: `[text](note.md)`, `[text](./note.md#heading)` など
+  - Markdown 参照リンク: `[text][guide]`、`[guide][]`、`[guide]` と同一文書の `[guide]: note.md`
   - tag: `#tag`, `#nested/tag`、frontmatter `tags`
 - コードフェンス/インラインコード等は誤検出しない（最低限の対策）
 

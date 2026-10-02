@@ -37,6 +37,7 @@ CREATE TABLE edges (
   link_type       TEXT NOT NULL,
   raw_link        TEXT NOT NULL,
   frontmatter_key TEXT, -- frontmatter の YAML key。本文 link は NULL
+  reference_target TEXT, -- markdown_reference の選択された定義 destination。他は NULL
   subpath         TEXT,
   line_start      INTEGER,
   line_end        INTEGER,
@@ -51,7 +52,9 @@ CREATE INDEX idx_edges_source_target ON edges(source_id, target_id);
 
 edge の集計値（`outgoing_count` / `incoming_count`）は nodes に列を持たず、edges からの実行時集計で算出する。counts は edges の派生であり常に edges と一致させるため、lines（edges から導出できないファイル内容の事実）とは異なり永続化しない。
 
-スキーマ変更時は既存インデックスを移行せず、`mdhop build` で再生成する。`frontmatter_key` は build/update/add/move の各エッジ再解析時に保存される。
+スキーマ変更時は既存インデックスを移行せず、`mdhop build` で再生成する。`frontmatter_key` と `reference_target` は build/update/add/move の各エッジ再解析時に保存される。旧 schema は読み取り・更新時に `build` が必要というエラーになる。
+
+`markdown_reference` の `raw_link` は使用箇所の原文、`reference_target` は wrapper/title を除き fragment を含む定義 destination。source/target/subpath/line は使用箇所の関係と位置を保持する。本文・未使用定義・title・定義専用 table は保存しない。resolve/query は保存 edge を読み、add/move の phantom promotion は保存 destination を再解決する。定義の lookup は index 更新時のみ行う。
 
 ### 1.2 meta テーブル（v0.6.0）
 
@@ -138,7 +141,7 @@ number の負数終端 `:` は全数字より辞書順で後に置かれ、小�
 ### 3.1 基本
 
 - 有向: `source(note) -> target(node)`
-- `link_type`: `wikilink | markdown | tag | frontmatter | frontmatter_wikilink | frontmatter_path`
+- `link_type`: `wikilink | markdown | markdown_reference | tag | frontmatter | frontmatter_wikilink | frontmatter_path`
   - `frontmatter_wikilink`: Obsidian property link と同様、**引用符で囲まれた YAML scalar / list item 値**に現れた `[[...]]`（`tags` キー以外。double quote / single quote）
     - bare `key: [[Note]]` と bare list item `- [[Note]]` は YAML 上の nested sequence であり edge 化しない
     - block scalar（`key: |` / `key: >`）内の `[[...]]` も対象外
