@@ -32,10 +32,6 @@
 
   確定仕様: full/collapsed/shortcut と image reference を単一行で扱う。既存 resolve の `--from` / `--link` と JSON shape を使用し、保存済み `markdown_reference` edge と定義 destination を読む。定義の自動 rewrite は対象外で、意味を変える add/move は事前拒否する。詳細は `docs/specs/overview.md`、保存形式は `docs/rules/03-data-model.md`。
 
-- [ ] 多くの note とつながる経由 note を除外して関連検索のノイズを抑える機能について、利用場面、除外対象・接続数の数え方、設定/既定値、既存 `max_via_per_target` との関係、受入例を検討する
-
-  `docs/rules/02-requirements.md`、`internal/core/query.go`、`query_fetch.go`、`cmd/mdhop/query.go` を対象に、`via_max_degree` の flag 名や具体アルゴリズムは先に固定せず、仕様確定前に実装へ進まない。出典: GROK:D6。完了: 仕様と実装 scope を確定する。
-
 #### 性能改善
 
 - [ ] 少数行の head 取得でノート全文を保持する負担を減らす
