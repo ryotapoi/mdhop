@@ -141,26 +141,29 @@ func TestExtractMarkdownParts(t *testing.T) {
 
 func TestParseMarkdownSelfLinks(t *testing.T) {
 	tests := []struct {
-		name    string
-		line    string
-		want    int
-		subpath string
+		name, line         string
+		subpaths, rawLinks []string
 	}{
-		{"basic self-link", "[text](#heading)", 1, "#heading"},
-		{"no self-link", "[text](Name.md)", 0, ""},
-		{"URL", "[Google](https://google.com)", 0, ""},
-		{"multiple self-links", "[a](#one) and [b](#two)", 2, ""},
-		{"wikilink ignored", "[[#heading]]", 0, ""},
+		{"basic self-link", "[text](#heading)", []string{"#heading"}, []string{"[text](#heading)"}},
+		{"no self-link", "[text](Name.md)", nil, nil},
+		{"URL", "[Google](https://google.com)", nil, nil},
+		{"multiple self-links", "[a](#one) and [b](#two)", []string{"#one", "#two"}, []string{"[a](#one)", "[b](#two)"}},
+		{"wikilink ignored", "[[#heading]]", nil, nil},
+		{"parentheses and following link", "before [section](#Heading (detail)) after [next](#Next)", []string{"#Heading (detail)", "#Next"}, []string{"[section](#Heading (detail))", "[next](#Next)"}},
+		{"nested parentheses", "[section](#Heading (detail (nested)))", []string{"#Heading (detail (nested))"}, []string{"[section](#Heading (detail (nested)))"}},
+		{"missing outer close", "[section](#Heading (detail)", nil, nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := parseMarkdownSelfLinks(tt.line, 1)
-			if len(got) != tt.want {
-				t.Errorf("parseMarkdownSelfLinks(%q) returned %d links, want %d", tt.line, len(got), tt.want)
+			if len(got) != len(tt.subpaths) {
+				t.Fatalf("parseMarkdownSelfLinks(%q) returned %d links, want %d", tt.line, len(got), len(tt.subpaths))
 			}
-			if tt.want == 1 && len(got) == 1 && got[0].subpath != tt.subpath {
-				t.Errorf("subpath = %q, want %q", got[0].subpath, tt.subpath)
+			for i, link := range got {
+				if link.subpath != tt.subpaths[i] || link.rawLink != tt.rawLinks[i] {
+					t.Errorf("link[%d] = %+v, want subpath=%q rawLink=%q", i, link, tt.subpaths[i], tt.rawLinks[i])
+				}
 			}
 		})
 	}
@@ -737,5 +740,28 @@ func TestConvertParenthesesThenBuild(t *testing.T) {
 	}
 	if string(content) != original {
 		t.Fatalf("round-trip content = %q, want %q", content, original)
+	}
+}
+
+func TestConvertMarkdownSelfLinkParenthesesRoundTrip(t *testing.T) {
+	vault := t.TempDir()
+	original := "Before [section](#Heading (detail)) after [nested](#Heading (detail (nested))) and [Next](Next.md).\nUnclosed [section](#Heading (detail)\n"
+	converted := "Before [[#Heading (detail)|section]] after [[#Heading (detail (nested))|nested]] and [[Next]].\nUnclosed [section](#Heading (detail)\n"
+	for name, content := range map[string]string{"Source.md": original, "Next.md": "Next\n"} {
+		if err := os.WriteFile(filepath.Join(vault, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, step := range []struct{ format, want string }{{"wikilink", converted}, {"markdown", original}} {
+		if _, err := Convert(vault, ConvertOptions{ToFormat: step.format}); err != nil {
+			t.Fatal(err)
+		}
+		content, err := os.ReadFile(filepath.Join(vault, "Source.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(content) != step.want {
+			t.Fatalf("%s content = %q, want %q", step.format, content, step.want)
+		}
 	}
 }

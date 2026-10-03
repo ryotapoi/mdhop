@@ -289,11 +289,10 @@ func parseMarkdownSelfLinks(line string, lineNum int) []linkOccur {
 			remaining = remaining[mid+1:]
 			continue
 		}
-		close := strings.Index(remaining[mid+2:], ")")
+		close := markdownDestinationEnd(remaining, mid+2)
 		if close == -1 {
 			break
 		}
-		close = mid + 2 + close
 		rawTarget := strings.TrimSpace(remaining[mid+2 : close])
 		rawLink := remaining[open : close+1]
 

@@ -44,6 +44,6 @@
 
   `internal/core/rewrite.go`、`move_dir.go`。完了: 内容・permission・mtime の復元が成功した場合、原因を除いた再試行が rollback 自身を理由に stale 扱いされない。出典: D8（verify-finding 再検証済み）。
 
-- [ ] convert の括弧付き Markdown 自己リンクで fragment とファイル内容が壊れる問題を修正する
+- [x] convert の括弧付き Markdown 自己リンクで fragment とファイル内容が壊れる問題を修正する
 
   `internal/core/convert.go`、`parse.go`。`[section](#Heading (detail))` が `[[#Heading (detail|section]])` に変換され、fragment の閉じ括弧が欠落して末尾に余分な `)` が残る。通常解析の自己リンク除外と convert の自己リンク変換の違いを保つ。完了: 括弧を含む fragment の変換と roundtrip を検証し、fragment と後続本文を壊さない。字句走査の共有範囲は修正に必要な範囲で判断する。出典: maintenance-audit A2-1（verify-finding 再検証済み）。

@@ -1133,7 +1133,9 @@ func TestParseMarkdownBalancedParentheses(t *testing.T) {
 }
 
 func TestParseMarkdownSelfLinkExcluded(t *testing.T) {
-	if links := parseLinksSlice("[section](#Section)"); len(links) != 0 {
-		t.Fatalf("normal parse must exclude Markdown self-links, got %+v", links)
+	for _, content := range []string{"[section](#Section)", "[section](#Heading (detail))", "[section](#Heading (detail (nested)))"} {
+		if links := parseLinksSlice(content); len(links) != 0 {
+			t.Fatalf("normal parse must exclude Markdown self-links in %q, got %+v", content, links)
+		}
 	}
 }
