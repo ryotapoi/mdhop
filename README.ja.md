@@ -11,6 +11,7 @@ Markdown リポジトリ内のリンク関係を SQLite にインデックス化
 - **事前解析・即応答** — Vault 全体を SQLite にインデックス化。クエリは数ミリ秒で返る
 - **Backlinks / Two-Hop Links / Tags** — 起点ノートから関連情報を一発取得
 - **wikilink / markdown link / tag / frontmatter 対応** — Obsidian 互換のリンク解釈
+- **Markdown 参照リンク対応** — 同一文書の定義を使って完全形・省略形の参照を解決し、関連検索に反映
 - **ローカル完結** — 外部サービス不要。pure Go + SQLite
 - **Coding Agent 向け最適化** — `--fields` や `--include-snippet` で必要最小限のコンテキストだけ返す
 
@@ -20,7 +21,7 @@ Markdown リポジトリ内のリンク関係を SQLite にインデックス化
 go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 ```
 
-v0.19.5 より前のバージョンからアップグレードした場合は、既存の各 Vault で `mdhop build` を実行してください。number 型の frontmatter metadata に使う保存済み sort 形式が変更されています。
+既存の Vault を v0.20.0 にアップグレードした場合は、`mdhop build` を実行してください。参照リンクの定義先を保存するため index schema が変わりました。v0.19.5 で変更された number 型 frontmatter metadata の sort 形式も再生成されます。
 
 ## クイックスタート
 

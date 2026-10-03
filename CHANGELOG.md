@@ -4,6 +4,26 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.20.0] - 2026-10-04
+
+### Added
+
+- Indexed Markdown reference links in full, collapsed, and shortcut forms, including image references. Defined links now appear in outgoing links, backlinks, two-hop results, reachable notes, and graph output; unresolved destinations become phantom nodes. `resolve --from ... --link ...` reads the indexed reference occurrence.
+
+### Fixed
+
+- Preserved balanced parentheses in Markdown self-link fragments during `convert`, including round trips.
+- Restored original modification times as well as contents and permissions when a failed `move` rolls back rewritten files, so rollback alone does not trigger a stale-index error on retry.
+
+### Changed
+
+- Detached returned head lines from the full note buffer, reducing retained memory when a search returns heads from large notes.
+- Protected reference definitions from changes in meaning during `add` and `move`: operations that would redirect or make an indexed reference ambiguous now fail before changing files or the index. Reference definitions are not rewritten automatically.
+
+### Upgrade
+
+- Run `mdhop build` for each existing vault after upgrading. The index schema now stores reference destinations; older indexes cannot be read or updated until rebuilt.
+
 ## [v0.19.6] - 2026-10-02
 
 ### Changed

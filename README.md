@@ -11,7 +11,7 @@ A CLI tool that indexes link relationships in Markdown repositories into SQLite.
 - **Pre-indexed, instant responses** — Indexes the entire vault into SQLite. Queries return in milliseconds
 - **Backlinks / Two-Hop Links / Tags** — Retrieve related information from any starting note in a single call
 - **Wikilink / Markdown link / Tag / Frontmatter support** — Obsidian-compatible link parsing
-- **Markdown 参照リンク** — full/collapsed/shortcut を同一文書の定義から解決し、保存済み index で関連検索する
+- **Markdown reference links** — Resolve full, collapsed, and shortcut references using definitions in the same note; include them in indexed link queries
 - **Fully local** — No external services required. Pure Go + SQLite
 - **Optimized for Coding Agents** — `--fields` and `--include-snippet` return only the minimal context needed
 
@@ -21,7 +21,7 @@ A CLI tool that indexes link relationships in Markdown repositories into SQLite.
 go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 ```
 
-After upgrading from a version before v0.19.5, run `mdhop build` in each existing vault. The stored sort format for number-typed frontmatter metadata changed.
+After upgrading an existing vault to v0.20.0, run `mdhop build`. The index schema now stores reference link destinations. Rebuilding also updates the number sort format changed in v0.19.5.
 
 ## Quick Start
 

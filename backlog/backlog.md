@@ -11,43 +11,6 @@
 
 ## タスク
 
-### v0.20.0 次バージョン
-
-#### 新機能
-
-- [x] Markdown 参照リンクを索引化・解決し、通常の Markdown リンクと同じように関連検索へ反映する
-
-  着手時に仕様・受入条件・実装範囲を確定する。完了: 確定した仕様に沿ってリンク先の取得、outgoing/backlinks、2-hop、未作成リンク先の扱いを実装・検証する。
-
-  目的: 元文書の参照定義からリンク先を解決し、参照リンクによるノート間の関係を検索できるようにする。
-
-  確定した受入条件:
-
-  - `A.md` に `[説明を読む][guide]` と参照定義 `[guide]: B.md` がある場合、通常リンク `[説明を読む](B.md)` と同じ A → B の関係として扱う。省略形の `[guide][]` と `[guide]` も対象にする。
-  - 元文書と参照定義を踏まえてリンク先を解決し、リンク先を JSON で取得できる。
-  - A の outgoing links に B、B の backlinks に A が現れ、2-hop にも参照リンクによる関係が反映される。
-  - B が存在しない場合は、参照定義のリンク先である未作成の B を対象にする。参照ラベル `guide` をノート名として扱わず、参照定義がなければ関係を作らない。
-  - リンク原文と解決に必要な元文書・参照定義の情報からリンク先を取得できる。
-  - 索引の生成・更新と読み取りを分離し、既存索引から参照リンクによる関係を検索できる。
-
-  確定仕様: full/collapsed/shortcut と image reference を単一行で扱う。既存 resolve の `--from` / `--link` と JSON shape を使用し、保存済み `markdown_reference` edge と定義 destination を読む。定義の自動 rewrite は対象外で、意味を変える add/move は事前拒否する。詳細は `docs/specs/overview.md`、保存形式は `docs/rules/03-data-model.md`。
-
-#### 性能改善
-
-- [x] 少数行の head 取得でノート全文を保持する負担を減らす
-
-  `internal/core/query_content.go`、`search.go`。`search --include-head` の各結果が全文の backing array を保持するため、大きな note が複数含まれると要求行数を超えるメモリ保持が累積する。まず返却する行だけを独立した slice にコピーし、全文の backing array を結果に保持させない局所修正を対象にする。全文読み込み自体の削減は含めない。完了: 返却 head の保持量がノート全文サイズに比例せず、既存の出力と読み取りエラーの扱いが変わらないことを確認する。出典: B6（verify-finding 再検証済み）。
-
-#### 不具合修正
-
-- [x] move 失敗時のファイル復元で元の mtime も戻し、復元自体による stale 判定を防ぐ
-
-  `internal/core/rewrite.go`、`move_dir.go`。完了: 内容・permission・mtime の復元が成功した場合、原因を除いた再試行が rollback 自身を理由に stale 扱いされない。出典: D8（verify-finding 再検証済み）。
-
-- [x] convert の括弧付き Markdown 自己リンクで fragment とファイル内容が壊れる問題を修正する
-
-  `internal/core/convert.go`、`parse.go`。`[section](#Heading (detail))` が `[[#Heading (detail|section]])` に変換され、fragment の閉じ括弧が欠落して末尾に余分な `)` が残る。通常解析の自己リンク除外と convert の自己リンク変換の違いを保つ。完了: 括弧を含む fragment の変換と roundtrip を検証し、fragment と後続本文を壊さない。字句走査の共有範囲は修正に必要な範囲で判断する。出典: maintenance-audit A2-1（verify-finding 再検証済み）。
-
 ### v0.21.0 リンク解釈の正確性
 
 #### 不具合修正
