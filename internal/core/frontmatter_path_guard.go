@@ -6,13 +6,12 @@ import (
 	"strings"
 )
 
-// validateFrontmatterPathEdges re-resolves frontmatter_path and reference edges against
-// the post-mutation resolve maps and returns an error if any raw value would
-// resolve to a different target. Raw path values are not link syntax and
-// cannot be rewritten (ADR 0014); reference definitions are also not rewritten.
-// Mutations that would change their
-// resolution must fail instead of leaving the index inconsistent with the
-// next build.
+// validateFrontmatterPathEdges re-resolves frontmatter_path and reference edges
+// against the post-mutation resolve maps and returns an error if either would
+// resolve to a different target. Raw path values are not link syntax and cannot
+// be rewritten (ADR 0014); reference definitions are also not rewritten.
+// Mutations that would change their resolution must fail instead of leaving
+// the index inconsistent with the next build.
 //
 // movedFromTo maps old paths to new paths for nodes moved by the mutation
 // (nil for add). It is applied to both source paths (relative resolution

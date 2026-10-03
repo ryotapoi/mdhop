@@ -11,7 +11,8 @@ import (
 const resolveHelp = `Usage: mdhop resolve --from <path> --link <link text> [--fields <list>] [--vault <path>] [--format json|text]
 
 Resolve one link as written from a source note.
-Reference links use the indexed source snapshot and require an indexed occurrence.
+Reference links use the indexed source snapshot and require an exact indexed
+occurrence of the link text. Rebuild or update the index after editing definitions.
 
 Options:
   --from <path>       Required. Vault-relative source note path.

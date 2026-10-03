@@ -24,6 +24,7 @@ Behavior notes:
   When basename collisions occur, existing basename links are automatically rewritten to full paths where their meaning can be preserved; --no-auto-disambiguate disables this.
   Existing basename links to phantom nodes fail even with auto-disambiguation when the added files contain multiple files with that basename, because there is no safe rewrite target.
   When meta.link_keys is configured, frontmatter raw path values cannot be rewritten; add fails before changing anything if existing raw path values would resolve differently.
+  Reference definitions cannot be rewritten; add fails before changing anything if an indexed reference would resolve differently or become ambiguous.
 
 Output fields:
   added      Files added as real nodes.

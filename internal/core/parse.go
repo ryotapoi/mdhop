@@ -25,7 +25,8 @@ type parseResult struct {
 	Meta  []FrontmatterEntry
 }
 
-// parseLinks parses all links (wikilinks, markdown links, tags, frontmatter tags) from content.
+// parseLinks parses wikilinks, inline and reference Markdown links, and body
+// and frontmatter tags from content.
 func parseLinks(content string) parseResult {
 	var out []linkOccur
 	lines := strings.Split(content, "\n")
@@ -205,7 +206,7 @@ func stripWikiLinks(line string) string {
 	return line
 }
 
-// stripMarkdownLinks removes [text](url) from a line to avoid tag false positives.
+// stripMarkdownLinks masks inline Markdown links to avoid tag false positives.
 func stripMarkdownLinks(line string) string {
 	_, masked, _ := parseBodyMarkdown(line, 0, nil)
 	return masked

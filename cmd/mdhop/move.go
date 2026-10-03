@@ -32,6 +32,7 @@ Behavior notes:
   --to-template is incompatible with --to. In directory mode it expands every registered source note under --from, prevalidates every destination, and moves notes as one batch.
   Template fields are read from indexed source-note frontmatter. Missing fields without fallback, fields with multiple values, invalid date extraction, placeholder values containing /, and empty or vault-escaping expanded destinations fail before Move changes files.
   When meta.link_keys is configured, frontmatter raw path values cannot be rewritten; move fails before changing anything if existing raw path values would resolve differently.
+  Reference definitions cannot be rewritten; move fails before changing anything if an indexed reference would resolve differently or become ambiguous.
 
 Output fields:
   from       Source path for single-file moves.

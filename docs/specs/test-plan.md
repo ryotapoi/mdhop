@@ -24,6 +24,7 @@
 - 上限到達時の打ち切りとサマリーメッセージ
 - mtime: 全noteにos.Statの値が設定される
 - edges: wikilink / markdown link → 対応するedgeが作成される
+- Markdown 参照リンク: full / collapsed / shortcut / image 使用箇所から `markdown_reference` edge を作り、定義 destination と raw 使用原文を保存する。未使用定義・未定義使用箇所は edge にしない
 - backlink: B→Aのedgeが正しく作成される
 - 相対パス解決: `./Target.md` → `dir/Target.md`, `../Root.md` → `Root.md`
 - `/` 始まりリンク: vault ルート相対で解決
@@ -62,6 +63,7 @@
 - `[text](./note.md)` / `[text](../note.md)` は相対パス解決
 - `[text](/note.md)` はVault相対
 - source に実在しないリンクはエラー
+- Markdown 参照リンクは source と raw 使用原文に一致する保存 edge から解決し、定義を編集しただけでは結果を変えない。未索引の使用原文はエラー
 - 曖昧候補はエラー
 - ルート優先: basename重複でもルートファイルに解決
 
@@ -76,6 +78,7 @@
 - `--fields` による出力制限（未知値はエラー）
 - `--format text/json` の出力差
 - `--include-head/--include-snippet` の出力
+- head は frontmatter と先頭空行を除き、指定行数だけ返す。空ファイルと本文なしの場合も確認する
 - stale（mtime不一致）検出でエラー
 - `max-*` の上限適用
 - `--link-key <key>` は任意の frontmatter key 由来の link occurrence に限定して direct backlinks / outgoing を返す。同一 node への複数出現は 1 件に重複排除される
@@ -166,6 +169,8 @@
 - ディレクトリ move: phantom promotion
 - ディレクトリ move: 登録済み note と asset を一緒に移動し、両方の DB path を更新する
 - ディレクトリ move: 未登録の非 Markdown ファイルも移動する。隠しファイル・隠しディレクトリは disk-only 移動の対象外
+- 参照リンクの定義 destination を書き換えられない移動・追加は、解決先が変わる前に拒否する。一意な phantom promotion と解決先が変わらない操作は許可する
+- 単体・ディレクトリ move の DB 更新失敗時は、移動ノートと外部書き換えファイルの本文・permission・元の mtime を復元し、build し直さずに再試行できる
 
 ## delete
 
@@ -253,6 +258,7 @@
 - 除外ファイルを `--file` に指定 → エラー
 - asset リンク（非 .md）の双方向変換
 - self-link（`[[#H]]` ↔ `[#H](#H)`）変換
+- 自己リンク fragment の釣り合った括弧は往復変換で保持し、閉じ括弧が不足するリンクは変更しない
 - `build.exclude_paths` に従う
 - ドット付き basename（`Note.v1`）が note として認識される
 - 相対パス（`./`, `../`）プレフィックス保持

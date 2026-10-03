@@ -357,6 +357,7 @@ meta:
   - 任意: `--vault`, `--format`, `--dry-run`, `--file`（複数回指定可）
   - 補足: DB 不要（ファイル走査ベース）。build 前に実行可能
   - 補足: wikilink ↔ markdown link を相互変換する。embed（`![[x]]` ↔ `![x](x)`）も対象
+  - 補足: Markdown の自己リンクは fragment 内の釣り合った括弧を保持して変換する（例: `[節](#Heading (detail))` → `[[#Heading (detail)|節]]`）。閉じ括弧が不足するリンクは変更しない
   - 補足: URL リンク、tag、frontmatter リンクは対象外
   - 補足: `build.exclude_paths` に従う（除外ファイルは走査しない）
   - 補足: `--file` 指定時は対象ファイルのみ変換する

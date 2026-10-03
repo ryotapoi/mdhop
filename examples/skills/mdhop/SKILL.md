@@ -69,6 +69,12 @@ fields, metadata filters, limits, and include options.
 
 Use `mdhop resolve` when you need to know exactly what one link text resolves to from one source note.
 
+For Markdown reference links such as `[Spec][guide]`, pass the exact indexed
+link text. `resolve` reads the saved edge and definition snapshot, so run
+`mdhop update --file <source>` after editing the source or `mdhop build` to
+refresh the whole index. After upgrading from an older index schema, run
+`mdhop build` to regenerate it.
+
 ```bash
 mdhop resolve --from Notes/Design.md --link '[[Spec]]' --format json
 ```
@@ -121,9 +127,14 @@ Use `--list` with a JSON string array to replace one key with a whole string lis
 
 Run the matching `mdhop <command> --help` before performing file-changing operations, especially `move` and `delete --rm`.
 
+Reference definitions are not rewritten automatically. `add` and `move` fail
+before changing files or the index if an indexed reference would change target
+or become ambiguous; edit its definition first and refresh the index.
+
 ### Repair or Rewrite Links
 
 Use `mdhop disambiguate` to rewrite ambiguous basename links, `repair` for broken path or vault-escape links, `simplify` to shorten safe path links, and `convert` to switch link syntax.
+These commands leave Markdown reference links and their definitions unchanged.
 
 ```bash
 mdhop repair --dry-run --format json

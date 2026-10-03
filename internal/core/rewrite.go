@@ -12,8 +12,8 @@ import (
 
 // rewriteLinkTypes lists every link type whose target can be rewritten by
 // rewrite/move/disambiguate operations.
-// frontmatter_path is intentionally absent: raw path values are not link
-// syntax and cannot be rewritten.
+// frontmatter_path and markdown_reference are intentionally absent: raw path
+// values are not link syntax, and reference definitions are not rewritten.
 var rewriteLinkTypes = []LinkType{
 	LinkTypeWikilink,
 	LinkTypeMarkdown,
@@ -22,7 +22,7 @@ var rewriteLinkTypes = []LinkType{
 
 // isPathLinkType reports whether linkType resolves to a vault path and is
 // subject to escape/ambiguity validation. Unlike rewriteLinkTypes, this
-// includes frontmatter_path (validated but not rewritable).
+// includes frontmatter_path and markdown_reference (validated but not rewritable).
 func isPathLinkType(linkType LinkType) bool {
 	switch linkType {
 	case LinkTypeWikilink, LinkTypeMarkdown, LinkTypeMarkdownReference, LinkTypeFrontmatterWikilink, LinkTypeFrontmatterPath:

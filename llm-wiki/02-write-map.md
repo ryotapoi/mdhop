@@ -48,10 +48,10 @@ sources:
 
 ## move の責務分割
 
-単体 `Move` は移動情報を準備して `executeMoves` へ委譲し、directory mode も同じ executor を通る。`--to-template` は `PlanMoveTemplate` / `MoveTemplate`（`move_template.go:26` / `48`）で展開・検証してから同じ executor を使う。incoming / collateral の収集は `move_rewrite.go:93` / `195`、移動 note の outgoing 収集は `move_rewrite.go:249`、個別の outgoing 判定と相対パス再計算は `move_link.go:22` / `144` が所有する。
+単体 `Move` は移動情報を準備して `executeMoves` へ委譲し、directory mode も同じ executor を通る。`--to-template` は `PlanMoveTemplate` / `MoveTemplate`（`move_template.go:26` / `48`）で展開・検証してから同じ executor を使う。incoming / collateral の収集は `move_rewrite.go:95` / `197`、移動 note の outgoing 収集は `move_rewrite.go:251`、個別の outgoing 判定と相対パス再計算は `move_link.go:22` / `144` が所有する。
 
-書き込み前の候補検証・適用・復元は `rewrite.go` と `move_apply.go` に分離されている。raw frontmatter path は書き換えず、移動後も解決先が変わらないことを `frontmatter_path_guard.go` で検証する。理由は ADR 0014 を参照する。
+書き込み前の候補検証・適用・復元は `rewrite.go` と `move_apply.go` に分離されている。raw frontmatter path と参照リンク定義は書き換えず、移動後も解決先が変わらないことを `frontmatter_path_guard.go:19` で検証する。参照リンクの追加・phantom promotion も `add.go` と `move_apply.go:126` を確認する。振る舞いは `docs/specs/overview.md`、frontmatter path の理由は ADR 0014 を参照する。
 
 ## 更新順序の注意
 
-通常の mutation はディスク操作を先に行い、その後 DB transaction を反映する。build は例外で、入力検証後に temp DB を完成させてから rename する。失敗時の復元範囲はコマンドごとに異なるため、実装変更時は該当関数の rollback 経路と ADR 0005 / 0012 を確認する。
+通常の mutation はディスク操作を先に行い、その後 DB transaction を反映する。build は例外で、入力検証後に temp DB を完成させてから rename する。move の失敗時は `rewrite.go:185` の backup 復元と `move_dir.go:75` の rollback 経路を確認する。移動ノートの backup に mtime を渡す箇所は `move_apply.go:40`。復元範囲の仕様は `docs/specs/overview.md` を参照する。

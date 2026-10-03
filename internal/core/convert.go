@@ -18,8 +18,8 @@ type ConvertResult struct {
 	Rewritten []RewrittenLink
 }
 
-// Convert converts links between wikilink and markdown link formats.
-// It works by scanning files directly (no DB required).
+// Convert converts wikilinks and inline Markdown links by scanning files
+// directly (no DB required). Reference links and definitions are unchanged.
 func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 	if opts.ToFormat != "wikilink" && opts.ToFormat != "markdown" {
 		return nil, fmt.Errorf("invalid ToFormat: %q (must be wikilink or markdown)", opts.ToFormat)
@@ -267,7 +267,8 @@ func parseLinksForConvert(content string) parseResult {
 	return pr
 }
 
-// parseMarkdownSelfLinks extracts markdown self-links [text](#fragment) from a line.
+// parseMarkdownSelfLinks extracts inline Markdown self-links [text](#fragment),
+// including balanced parentheses in the fragment.
 func parseMarkdownSelfLinks(line string, lineNum int) []linkOccur {
 	var out []linkOccur
 	remaining := line
