@@ -133,7 +133,7 @@ func promotePhantom(tx dbExecer, phantomName string, realNodeID int64, realPath 
 		return false, err
 	}
 
-	rows, err := tx.Query(`SELECT e.id, e.raw_link, e.link_type, sn.path, COALESCE(e.reference_target,'')
+	rows, err := tx.Query(`SELECT e.id, e.raw_link, e.link_type, sn.path, COALESCE(e.reference_target,''), e.in_table
 		FROM edges e JOIN nodes sn ON sn.id = e.source_id
 		WHERE e.target_id = ?`, phantomID)
 	if err != nil {
@@ -145,11 +145,12 @@ func promotePhantom(tx dbExecer, phantomName string, realNodeID int64, realPath 
 		linkType        LinkType
 		sourcePath      string
 		referenceTarget string
+		inTable         bool
 	}
 	var edges []phantomEdge
 	for rows.Next() {
 		var e phantomEdge
-		if err := rows.Scan(&e.id, &e.rawLink, &e.linkType, &e.sourcePath, &e.referenceTarget); err != nil {
+		if err := rows.Scan(&e.id, &e.rawLink, &e.linkType, &e.sourcePath, &e.referenceTarget, &e.inTable); err != nil {
 			rows.Close()
 			return false, err
 		}
@@ -165,7 +166,7 @@ func promotePhantom(tx dbExecer, phantomName string, realNodeID int64, realPath 
 		var links []linkOccur
 		switch e.linkType {
 		case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
-			links = parseWikiLinks(e.rawLink, 0)
+			links = parseWikiLinks(e.rawLink, 0, e.inTable)
 		case LinkTypeMarkdown:
 			links = parseMarkdownLinks(e.rawLink, 0)
 		case LinkTypeMarkdownReference:

@@ -112,7 +112,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	if phantomID.Valid {
 		edgeRows, err = db.Query(fmt.Sprintf(
-			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.type
+			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table, tn.type
 			 FROM edges e
 			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 JOIN nodes tn ON tn.id = e.target_id
@@ -120,7 +120,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 			append([]any{target.id, phantomID.Int64}, rewriteLinkTypeArgs...)...)
 	} else {
 		edgeRows, err = db.Query(fmt.Sprintf(
-			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.type
+			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table, tn.type
 			 FROM edges e
 			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 JOIN nodes tn ON tn.id = e.target_id
@@ -134,13 +134,13 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 	for edgeRows.Next() {
 		var re rewriteEntry
 		var targetType NodeType
-		if err := edgeRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetType); err != nil {
+		if err := edgeRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &re.inTable, &targetType); err != nil {
 			edgeRows.Close()
 			return nil, err
 		}
 		// Filter: basename links to the note target are always candidates.
 		// Path links are only candidates if they point to a phantom.
-		if !isBasenameRawLink(re.rawLink, re.linkType) && targetType != NodeTypePhantom {
+		if !isBasenameRawLink(re.rawLink, re.linkType, re.inTable) && targetType != NodeTypePhantom {
 			continue
 		}
 		// Filter: skip self-references.
@@ -152,7 +152,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *Disambigu
 			continue
 		}
 		// Compute new raw link.
-		newRawLink := rewriteRawLink(re.rawLink, re.linkType, target.path)
+		newRawLink := rewriteRawLink(re.rawLink, re.linkType, target.path, re.inTable)
 		if newRawLink == re.rawLink {
 			continue // no change needed
 		}
@@ -322,7 +322,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 						}
 					}
 
-					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, targetPath)
+					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, targetPath, lo.inTable)
 					if newRawLink == lo.rawLink {
 						continue
 					}

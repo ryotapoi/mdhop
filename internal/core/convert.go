@@ -85,12 +85,12 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 						if lo.linkType != LinkTypeMarkdown {
 							continue
 						}
-						newRawLink = convertMarkdownToWikilink(lo.rawLink)
+						newRawLink = convertMarkdownToWikilink(lo.rawLink, lo.inTable)
 					case "markdown":
 						if lo.linkType != LinkTypeWikilink {
 							continue
 						}
-						newRawLink = convertWikilinkToMarkdown(lo.rawLink, isAssetTarget)
+						newRawLink = convertWikilinkToMarkdown(lo.rawLink, isAssetTarget, lo.inTable)
 					}
 
 					if newRawLink == lo.rawLink || newRawLink == "" {
@@ -127,18 +127,25 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 
 // convertMarkdownToWikilink converts a markdown link rawLink to wikilink format.
 // Returns the original rawLink if conversion is not possible.
-func convertMarkdownToWikilink(rawLink string) string {
+func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 	text, url := extractMarkdownParts(rawLink)
 	if text == "" && url == "" {
 		return rawLink
 	}
 
 	// Skip URLs.
-	if isURL(url) {
+	target, subpath, external := markdownDestination(url)
+	if external {
 		return rawLink
 	}
 
-	target, subpath := extractSubpath(url)
+	if !wikilinkRepresentable(target, subpath) || strings.Contains(text, "]]") {
+		return rawLink
+	}
+	separator := "|"
+	if len(table) > 0 && table[0] {
+		separator = `\|`
+	}
 
 	// Self-link: [text](#heading)
 	if target == "" && subpath != "" {
@@ -146,7 +153,7 @@ func convertMarkdownToWikilink(rawLink string) string {
 		if text == subpath {
 			return "[[" + wikiTarget + "]]"
 		}
-		return "[[" + wikiTarget + "|" + text + "]]"
+		return "[[" + wikiTarget + separator + text + "]]"
 	}
 
 	// Build wikilink target: strip .md for notes.
@@ -164,7 +171,10 @@ func convertMarkdownToWikilink(rawLink string) string {
 		needAlias = false
 	}
 	if needAlias {
-		return "[[" + wikiTarget + subpath + "|" + text + "]]"
+		if len(table) > 0 && table[0] && !tableWikiAliasSafe(wikiTarget+subpath) {
+			return rawLink
+		}
+		return "[[" + wikiTarget + subpath + separator + text + "]]"
 	}
 	return "[[" + wikiTarget + subpath + "]]"
 }
@@ -172,14 +182,14 @@ func convertMarkdownToWikilink(rawLink string) string {
 // convertWikilinkToMarkdown converts a wikilink rawLink to markdown link format.
 // isAssetTarget determines if a target should be treated as an asset (no .md added).
 // Returns the original rawLink if conversion is not possible.
-func convertWikilinkToMarkdown(rawLink string, isAssetTarget func(string) bool) string {
-	parts := splitWikilinkParts(rawLink)
+func convertWikilinkToMarkdown(rawLink string, isAssetTarget func(string) bool, table ...bool) string {
+	parts := splitWikilinkParts(rawLink, table...)
 	if parts.target == "" && parts.subpath == "" && parts.alias == "" {
 		return rawLink
 	}
 
 	target, subpath := parts.target, parts.subpath
-	alias := strings.TrimPrefix(parts.alias, "|")
+	alias := strings.TrimPrefix(strings.TrimPrefix(parts.alias, `\`), "|")
 
 	// Self-link: [[#Heading]] or [[#Heading|alias]]
 	if target == "" && subpath != "" {
@@ -187,7 +197,7 @@ func convertWikilinkToMarkdown(rawLink string, isAssetTarget func(string) bool) 
 		if alias != "" {
 			text = alias
 		}
-		return "[" + text + "](" + subpath + ")"
+		return "[" + text + "](" + encodeMarkdownDestination("", subpath) + ")"
 	}
 
 	// Determine if we need to add .md extension.
@@ -209,7 +219,7 @@ func convertWikilinkToMarkdown(rawLink string, isAssetTarget func(string) bool) 
 		text = alias
 	}
 
-	return "[" + text + "](" + mdTarget + subpath + ")"
+	return "[" + text + "](" + encodeMarkdownDestination(mdTarget, subpath) + ")"
 }
 
 // extractMarkdownParts extracts text and url from a markdown link [text](url).
@@ -258,11 +268,16 @@ func parseLinksForConvert(content string) parseResult {
 	// Additional pass: collect markdown self-links.
 	lines := strings.Split(content, "\n")
 	fmEnd := frontmatterEnd(lines)
+	tableLines := bodyTableLines(lines, fmEnd)
 	walkBodyLines(lines, fmEnd, func(lineNum int, raw, clean string) {
 		if _, _, definition := referenceDefinition(raw); definition {
 			return
 		}
-		pr.Links = append(pr.Links, parseMarkdownSelfLinks(clean, lineNum)...)
+		links := parseMarkdownSelfLinks(clean, lineNum)
+		for i := range links {
+			links[i].inTable = tableLines[lineNum]
+		}
+		pr.Links = append(pr.Links, links...)
 	})
 	return pr
 }
@@ -298,14 +313,15 @@ func parseMarkdownSelfLinks(line string, lineNum int) []linkOccur {
 		rawLink := remaining[open : close+1]
 
 		// Only self-links: target starts with # and has no path component.
-		if strings.HasPrefix(rawTarget, "#") {
+		target, subpath, external := markdownDestination(rawTarget)
+		if target == "" && subpath != "" && !external {
 			out = append(out, linkOccur{
 				target:     "",
 				isBasename: false,
 				isRelative: false,
 				linkType:   LinkTypeMarkdown,
 				rawLink:    rawLink,
-				subpath:    rawTarget,
+				subpath:    subpath,
 				lineStart:  lineNum,
 				lineEnd:    lineNum,
 			})

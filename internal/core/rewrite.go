@@ -53,6 +53,7 @@ var rewriteTxExec = func(tx dbExecer, query string, args ...any) (sql.Result, er
 
 // rewriteEntry holds information needed to rewrite a single edge.
 type rewriteEntry struct {
+	inTable    bool
 	edgeID     int64
 	rawLink    string
 	linkType   LinkType
@@ -109,13 +110,16 @@ func buildRewritePath(targetPath string) string {
 }
 
 // rewriteRawLink replaces the target in a raw link with the rewritten path.
-func rewriteRawLink(rawLink string, linkType LinkType, targetPath string) string {
+func rewriteRawLink(rawLink string, linkType LinkType, targetPath string, table ...bool) string {
 	switch linkType {
 	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
 		// rawLink: [[Target]], [[Target|alias]], [[Target#Heading]], [[Target#Heading|alias]]
-		parts := splitWikilinkParts(rawLink)
+		parts := splitWikilinkParts(rawLink, table...)
 
 		newPath := buildRewritePath(targetPath)
+		if !wikilinkRepresentable(newPath, parts.subpath) || len(table) > 0 && table[0] && parts.alias != "" && !tableWikiAliasSafe(newPath+parts.subpath) {
+			return ""
+		}
 		return "[[" + newPath + parts.subpath + parts.alias + "]]"
 
 	case LinkTypeMarkdown:
@@ -128,22 +132,13 @@ func rewriteRawLink(rawLink string, linkType LinkType, targetPath string) string
 		urlPart := rawLink[start+2:]
 		urlPart = strings.TrimSuffix(urlPart, ")")
 
-		// Extract fragment.
-		var frag string
-		if idx := strings.Index(urlPart, "#"); idx >= 0 {
-			frag = urlPart[idx:] // includes #
-			urlPart = urlPart[:idx]
-		}
-
-		// Check if original URL had .md extension.
-		hasMdExt := strings.HasSuffix(strings.ToLower(urlPart), ".md")
-
+		target, frag, _ := markdownDestination(urlPart)
+		hasMdExt := strings.HasSuffix(strings.ToLower(target), ".md")
 		newPath := buildRewritePath(targetPath)
 		if hasMdExt {
 			newPath += ".md"
 		}
-
-		return textPart + newPath + frag + ")"
+		return textPart + encodeMarkdownDestination(newPath, frag) + ")"
 	}
 	return rawLink
 }
@@ -244,6 +239,9 @@ func applyFileRewritesWithRollbackFailures(vaultPath string, rewrites []rewriteE
 func prepareFileRewrites(vaultPath string, rewrites []rewriteEntry) ([]preparedFileRewrite, error) {
 	groups := make(map[string][]rewriteEntry)
 	for _, re := range rewrites {
+		if re.newRawLink == "" {
+			return nil, fmt.Errorf("cannot preserve wikilink destination while rewriting %q", re.rawLink)
+		}
 		groups[re.sourcePath] = append(groups[re.sourcePath], re)
 	}
 	diskPaths := newVaultDiskPathResolver(vaultPath)
@@ -277,6 +275,11 @@ func prepareFileRewrites(vaultPath string, rewrites []rewriteEntry) ([]preparedF
 }
 
 func rewriteContentCandidate(content []byte, rewrites []rewriteEntry) ([]byte, error) {
+	for _, re := range rewrites {
+		if re.newRawLink == "" {
+			return nil, fmt.Errorf("cannot preserve wikilink destination while rewriting %q", re.rawLink)
+		}
+	}
 	candidate, err := rewriteFrontmatterCandidate(content, rewrites)
 	if err != nil {
 		return nil, err
@@ -354,11 +357,11 @@ func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64,
 }
 
 // isBasenameRawLink checks if a raw_link represents a basename link (no path separators).
-func isBasenameRawLink(rawLink string, linkType LinkType) bool {
+func isBasenameRawLink(rawLink string, linkType LinkType, table ...bool) bool {
 	switch linkType {
 	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
 		// raw_link is like "[[Target]]" or "[[Target|alias]]" or "[[Target#heading]]"
-		inner := splitWikilinkParts(rawLink).target
+		inner := splitWikilinkParts(rawLink, table...).target
 		// Empty target means self-link like [[#Heading]], not a basename link.
 		if inner == "" {
 			return false
@@ -372,15 +375,8 @@ func isBasenameRawLink(rawLink string, linkType LinkType) bool {
 		}
 		url := rawLink[start+2:]
 		url = strings.TrimSuffix(url, ")")
-		// Remove fragment.
-		if idx := strings.Index(url, "#"); idx >= 0 {
-			url = url[:idx]
-		}
-		// Empty url means self-link like [text](#heading), not a basename link.
-		if url == "" {
-			return false
-		}
-		return !strings.Contains(url, "/")
+		target, _, external := markdownDestination(url)
+		return target != "" && !external && isBasenameLink(target)
 	case LinkTypeFrontmatterPath:
 		// raw_link is the raw frontmatter value; reuse the parser's
 		// classification so both stay in sync. Only diagnose reaches this

@@ -118,7 +118,7 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 
 					// vault-escape: always basename-ify regardless of candidate count
 					// broken path link: 0-1 candidates → basename-ify
-					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, bn+".md")
+					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, bn+".md", lo.inTable)
 					if newRawLink == lo.rawLink {
 						continue
 					}

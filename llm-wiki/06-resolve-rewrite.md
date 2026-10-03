@@ -3,6 +3,8 @@ regen: compiled
 sources:
   - internal/core/parse.go
   - internal/core/parse_reference.go
+  - internal/core/markdown_destination.go
+  - internal/core/parse_table.go
   - internal/core/parse_frontmatter.go
   - internal/core/link_resolver.go
   - internal/core/frontmatter_path_guard.go
@@ -42,6 +44,8 @@ raw link が入力されてから解決・書き換えられるまでの作業�
 
 | ファイル | 関数 | 役割 |
 |---|---|---|
+| `markdown_destination.go` | `markdownDestination()` / `encodeMarkdownDestination()` | 原文の lexical 復号、fragment 分離、単発 percent decode と意味を保つ再出力 |
+| `parse_table.go` | `bodyTableLines()` | raw の位置を保ち、本文 scanner の対象行で表文脈を認識する |
 | `parse.go:30` | `parseLinks(content)` | frontmatter と本文をパースする |
 | `parse_reference.go:11` / `122` | `referenceDefinition()` / `parseBodyMarkdown()` | 同一文書の定義を先に集め、使用箇所を destination へ対応させる |
 | `parse.go:148` | `parseLinksWithLinkKeys(content, linkKeys)` | `parseLinks` の結果に `frontmatter_path` を追加する |
@@ -55,7 +59,7 @@ raw link が入力されてから解決・書き換えられるまでの作業�
 
 edge 生成サイトは `parseLinksWithLinkKeys` を使う（例: `build_prepare.go:71`）。`parseLinks` 単体は `frontmatter_path` を発生させない。
 
-参照リンクの使用原文は `edges.raw_link`、定義 destination は `edges.reference_target` に残す。定義だけの行は edge にしない。構文と対象外は `docs/specs/overview.md` の「リンク構文・タグ構文」を参照する。
+参照リンクの使用原文は `edges.raw_link`、未復号の定義 destination は `edges.reference_target`、表文脈は `edges.in_table` に残す。decoded target/subpath と raw を混ぜない。定義だけの行は edge にしない。構文と対象外は `docs/specs/overview.md` の「リンク構文・タグ構文」を参照する。
 
 ## 2. resolve（linkOccur → target node ID）
 
@@ -72,7 +76,7 @@ edge 生成サイトは `parseLinksWithLinkKeys` を使う（例: `build_prepare
 
 build は `resolveLink()`（`build.go:124`）と `mapLinkResolver`、resolve command は `resolveLinkFromDB()`（`resolve.go:106`）と `dbLinkResolver` を使う。DB の path / basename 解決は `resolve.go:144` / `213`。ルート優先は `pickBasenameMatch()`（`resolve.go:294`）と ADR 0004 を参照する。
 
-`markdown_reference` の resolve command は例外で、`resolve.go:49` から source と raw 使用原文が一致する保存 edge を直接読む。定義は再走査しない。保存 destination の通常解決と phantom promotion は `parse_reference.go:108`、`move_apply.go:126` を辿る。
+resolve command は `resolve.go` から source と exact raw が一致する保存 edge を優先する。同義重複は解決し、異義重複は曖昧エラーにする。表文脈と定義は再走査しない。exact raw がない場合だけ従来の正規化解決へ進む（reference は exact raw のみ）。保存 destination の通常解決と phantom promotion は `parse_reference.go:108`、`move_apply.go:126` を辿る。
 
 `frontmatter_path` の dry validation は `resolveFrontmatterPathDry()`（`frontmatter_path_guard.go:99`）を使う。これは path を返すだけで phantom / tag を作らず、raw path が操作後に別の対象へ変わらないかの検証にも使う。
 
@@ -84,9 +88,9 @@ build は `resolveLink()`（`build.go:124`）と `mapLinkResolver`、resolve com
 
 | 関数 | ファイル:行 | 役割 |
 |---|---|---|
-| `rewriteRawLink(rawLink, linkType, targetPath)` | `rewrite.go:112` | link 構文の target 部分を新パスへ置換する |
+| `rewriteRawLink(rawLink, linkType, targetPath, table...)` | `rewrite.go:112` | Markdown の decoded fragment を保ち、path/fragment を encode して置換する。表内 wiki alias は context 付きで保持する |
 | `applyFileRewritesWithRollbackFailures(vaultPath, rewrites)` | `rewrite.go:231` | 全ファイルの候補を検証してから書き込み、失敗時は rollback する |
-| `isBasenameRawLink(rawLink, linkType)` | `rewrite.go:357` | raw link が basename 形式かを判定する |
+| `isBasenameRawLink(rawLink, linkType, table...)` | `rewrite.go:357` | Markdown の decoded target / context 付き wiki target の basename 判定 |
 | `rewriteMovedOutgoingLink(link, from, to, preMoveTargetPath, maps)` | `move_link.go:22` | moved file の outgoing link を移動後の解決情報で判定する |
 | `rewriteOutgoingRelativeLink(rawLink, linkType, from, to, movedFromTo, preMoveTargetPath)` | `move_link.go:144` | moved file 内の相対 link を移動後の起点から再計算する |
 

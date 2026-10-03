@@ -141,7 +141,7 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 						continue
 					}
 
-					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, basenameTarget)
+					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, basenameTarget, lo.inTable)
 					if newRawLink == lo.rawLink {
 						continue
 					}

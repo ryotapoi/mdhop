@@ -45,16 +45,37 @@ func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
 		return nil, err
 	}
 
-	// Reference definitions are an index snapshot, never read from disk here.
-	var referenceID int64
-	var referenceSubpath string
-	err = db.QueryRow(`SELECT target_id, COALESCE(subpath, '') FROM edges
-		WHERE source_id = ? AND link_type = ? AND raw_link = ? ORDER BY id LIMIT 1`, sourceID, LinkTypeMarkdownReference, link).Scan(&referenceID, &referenceSubpath)
-	if err == nil {
-		return fetchNodeResult(db, referenceID, referenceSubpath)
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	// Exact raw occurrences carry their index-time context, including table
+	// aliases and reference definitions. Never choose an arbitrary occurrence.
+	rows, err := db.Query(`SELECT DISTINCT target_id, COALESCE(subpath, '') FROM edges
+  WHERE source_id = ? AND raw_link = ?`, sourceID, link)
+	if err != nil {
 		return nil, err
+	}
+	var exact []struct {
+		id      int64
+		subpath string
+	}
+	for rows.Next() {
+		var match struct {
+			id      int64
+			subpath string
+		}
+		if err := rows.Scan(&match.id, &match.subpath); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		exact = append(exact, match)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(exact) > 1 {
+		return nil, fmt.Errorf("%w: raw link has different indexed meanings in %s: %s", ErrAmbiguousLink, fromPath, link)
+	}
+	if len(exact) == 1 {
+		return fetchNodeResult(db, exact[0].id, exact[0].subpath)
 	}
 
 	// Parse the link string to get linkOccur.

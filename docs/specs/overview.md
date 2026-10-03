@@ -472,13 +472,20 @@ meta:
 ## リンク解釈（互換性）
 
 - wikilink: `[[Note]]`, `[[Note|alias]]`, `[[Note#Heading]]`, `[[Note#^block]]`
-- markdown link: `[text](note.md)`, `[text](./note.md#heading)`
-  - `note.md` は `[[note]]` と同一扱い
+- markdown link / image: `[text](note.md)`, `[text](./note.md#heading)`, `![alt](image.png)`
+  - `note.md` は `[[note]]` と同一扱い。destination の構文 delimiter を原文で認識し、backslash で escape された括弧は開閉として数えない。inline title / angle destination の新規対応は含まない
+  - destination は原文を1回走査し、ASCII punctuation の backslash escape と semicolon 付きの有効な HTML5 named / decimal（1–7桁）/ hexadecimal（1–6桁）文字参照を復号する。基準は [CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/#entity-and-numeric-character-references)。非 punctuation の backslash と無効な参照は保持する。`\&amp;` は literal `&amp;`、`&amp;amp;` は `&amp;` で止まり、生成された文字列を再走査しない
+  - lexical 復号後に外部 URI を判定し、内部 destination の最初の `#` で path / fragment を分離する。その後、各成分の valid `%HH` を1回復号する（mdhop 固有の local file 対応規約）。`+` と不正な percent triplet は保持する。`A%20B.md` は `A B.md`、`A%2520B.md` は literal `%20` を含む `A%20B.md`、`A%23B.md#H%23I` は path `A#B.md` と fragment `#H#I` になる。percent 復号で生まれた scheme / `#` を再分類・再分離しない
+  - decoded path に NFC、basename / relative / path 分類、Vault 外参照検証を適用する。encoded `..` / separator も strict validation の対象。resolver は decoded 値を再復号しない
+  - fragment-only destination は graph を作らず、convert の自己リンク処理だけで同じ解釈を使う。wikilink、frontmatter wikilink、frontmatter raw path にこの復号を適用しない
+- [GFM 形式の表](https://github.github.com/gfm/#tables-extension-)の wikilink: header と delimiter row の cell 数が一致する表の header / body で、`[[X\|表示]]` を target `X`、alias「表示」とする
+  - 先頭末尾 pipe の省略、alignment colon、空行や別 block、fence/frontmatter/code span を扱う。本文走査が対応する文脈に限定し、CommonMark 全体の block parser ではない。pipe のある行だけで表とは判定しない
+  - 表外と frontmatter は従来の first `|` 分離を保ち、同原文の target は `X\`。表内外の異なる意味を同一へ丸めない。raw link と行位置を保持し、表文脈を index に保存する
 - Markdown 参照リンク: full `[説明][guide]`、collapsed `[guide][]`、shortcut `[guide]`。image reference `![alt][guide]` も内部リンク関係を作り、raw 原文は通常 image と同じく `!` を除く
   - 同一文書の独立行 `[guide]: B.md` を先に収集し、使用箇所を定義の destination へ結び付ける。前方・後方定義とも有効。同じ行の複数出現は個別の edge になる
-  - 定義は行頭 0〜3 space、colon 後の space/tab、bare destination または `<destination>`、同一行の任意 title（`"title"` / `'title'` / `(title)`）に対応する。bare destination 内の括弧は釣り合っている必要がある。wrapper と title は destination に含めない
+  - 定義は行頭 0〜3 space、colon 後の space/tab、bare destination または `<destination>`、同一行の任意 title（`"title"` / `'title'` / `(title)`）に対応する。bare destination 内の escape されていない括弧は釣り合っている必要がある。wrapper と title は destination に含めない
   - label は前後の space/tab を除き、連続する内部 space/tab を 1 space に畳み、Unicode lowercase（Go の `strings.ToLower`）で照合する。空 label は不可。同じ正規化 label の有効定義は最初を使う
-  - 複数行 label/definition/title、block container 内の定義、入れ子 bracket、HTML entity decoding、backslash escape の完全対応は対象外。CommonMark 全文法準拠ではない
+  - 複数行 label/definition/title、block container 内の定義、入れ子 bracket、label/title の HTML entity / backslash escape の全面対応は対象外。CommonMark 全文法準拠ではない
   - frontmatter、fenced code、inline code 内の参照は除外する。定義行自体と使用された参照の表示文字列は tag を作らない。未使用定義と未定義参照は edge/phantom を作らない。未定義 full/collapsed を部分的な shortcut として解釈しない
   - destination の解決は通常 Markdown link と同じ。未作成 target は label でなく destination 由来の phantom。URL と fragment のみの destination は graph に含めない
   - edge type は `markdown_reference`。outgoing/backlinks/共通ターゲット方式の twohop、reachable、graph に含む。定義の自動 rewrite は行わず、move/disambiguate/repair/simplify/convert の書き換え対象外
@@ -499,9 +506,16 @@ meta:
   - 制約: raw path 値はリンク構文ではないため、`move` / `disambiguate` / `simplify` / `repair` / `convert` の書き換え対象外。raw path 値の解決先が変わってしまう `add` / `move` は操作前にエラーになる（frontmatter 値を手で直してから再実行する）
 - frontmatter の `aliases` は初期バージョンでは解析しない
 
+### 再出力と既存 index
+
+- Markdown rewrite は decoded path / fragment の literal `%`、`#`、`&`、backslash、括弧、backtick などを percent encode して再解析時の意味を保つ。拡張子、relative move、表示文字列、subpath、embed の方針は従来どおり。表内 wikilink の alias separator は `\|` を保持する
+- convert は decoded Markdown target を wikilink にする。literal `#` / `|` / `]]` や target/subpath の backtick などで現行本文 scanner が同じ意味を表現できない場合は原文を保持する。必須 rewrite の参照先を wikilink として表現できない場合は file/DB 更新前にエラーにする。参照定義と frontmatter raw path の自動 rewrite は追加しない
+- index の解釈 version が異なる既存 DB は、読み取り・update・DB 利用 mutation の入口で `mdhop build` を案内するエラーになる。in-place migration / partial update で旧新の解釈を混在させず、build が成功した一時 DB で置換する。CLI flags と stdout JSON field は変更しない
+
 ## resolve のルール（要点）
 
 - resolve は `from_note` にそのリンクが実際に存在する場合のみ解決する
+- 全 link は source と exact raw が一致する保存 edge を優先する。複数出現が同一 target/subpath なら解決し、異なる意味なら曖昧エラーにする。表文脈と定義は disk を再走査せず index snapshot から取得する
 - 参照リンクは `resolve --from A.md --link '[説明][guide]' --format json` で、source と使用原文が一致する保存済み edge から既存の `type,name,path,exists,subpath` を返す。新しい JSON field は追加しない。本文・定義を再走査せず index snapshot を読むため、disk の変更・削除は明示的 update まで反映しない。索引化されていない使用原文はエラーになり、label を path として fallback しない
 - 解決結果は必ず1つになる（曖昧な場合はエラー）
 - `[[Note]]`: basename を Vault 全体から探索（note → asset → phantom の順）
@@ -523,7 +537,7 @@ meta:
 
 ### resolve の一致モード
 
-- 既定は正規化一致
+- exact raw がない場合は従来の正規化一致（参照リンクは exact raw のみ）
   - alias を除去した一致
   - wikilink と markdown link の同一ターゲット一致
   - basename 一致（ただし曖昧ならエラー）

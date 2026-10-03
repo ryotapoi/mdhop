@@ -34,14 +34,31 @@ func referenceDefinition(line string) (label, destination string, definition boo
 	}
 	var tail string
 	if rest[0] == '<' {
-		close := strings.IndexByte(rest, '>')
-		if close < 0 || strings.ContainsAny(rest[1:close], "<>\n\r") {
+		close := -1
+		for j := 1; j < len(rest); j++ {
+			if rest[j] == '\\' && j+1 < len(rest) && asciiPunctuation(rest[j+1]) {
+				j++
+				continue
+			}
+			if rest[j] == '<' || rest[j] == '\r' || rest[j] == '\n' {
+				return label, "", true
+			}
+			if rest[j] == '>' {
+				close = j
+				break
+			}
+		}
+		if close < 0 {
 			return label, "", true
 		}
 		destination, tail = rest[1:close], rest[close+1:]
 	} else {
 		depth, j := 0, 0
 		for ; j < len(rest) && rest[j] != ' ' && rest[j] != '\t'; j++ {
+			if rest[j] == '\\' && j+1 < len(rest) && asciiPunctuation(rest[j+1]) {
+				j++
+				continue
+			}
 			switch rest[j] {
 			case '(':
 				depth++
@@ -59,7 +76,7 @@ func referenceDefinition(line string) (label, destination string, definition boo
 		}
 		destination, tail = rest[:j], rest[j:]
 	}
-	if strings.ContainsAny(destination, "\\\r\n") {
+	if strings.ContainsAny(destination, "\r\n") {
 		return label, "", true
 	}
 	if tail != "" {
@@ -106,8 +123,8 @@ func referenceBracketEnd(line string, start int) (int, bool) {
 }
 
 func markdownDestinationOccur(destination, raw string, typ LinkType, line int) (linkOccur, bool) {
-	target, subpath := extractSubpath(destination)
-	if target == "" || isURL(destination) {
+	target, subpath, external := markdownDestination(destination)
+	if target == "" || external {
 		return linkOccur{}, false
 	}
 	occ := linkOccur{target: normalizeBasename(target), isBasename: isBasenameLink(target), isRelative: isRelativePath(target), linkType: typ, rawLink: raw, subpath: subpath, lineStart: line, lineEnd: line}

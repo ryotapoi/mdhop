@@ -712,7 +712,7 @@ func TestConvertParenthesesThenBuild(t *testing.T) {
 	if _, err := Convert(vault, ConvertOptions{ToFormat: "markdown"}); err != nil {
 		t.Fatal(err)
 	}
-	wantRaw := "[Meeting (weekly)](Meeting (weekly).md)"
+	wantRaw := "[Meeting (weekly)](Meeting%20%28weekly%29.md)"
 	content, err := os.ReadFile(filepath.Join(vault, "Source.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -752,7 +752,7 @@ func TestConvertMarkdownSelfLinkParenthesesRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, step := range []struct{ format, want string }{{"wikilink", converted}, {"markdown", original}} {
+	for _, step := range []struct{ format, want string }{{"wikilink", converted}, {"markdown", "Before [section](#Heading%20%28detail%29) after [nested](#Heading%20%28detail%20%28nested%29%29) and [Next](Next.md).\nUnclosed [section](#Heading (detail)\n"}} {
 		if _, err := Convert(vault, ConvertOptions{ToFormat: step.format}); err != nil {
 			t.Fatal(err)
 		}

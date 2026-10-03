@@ -15,6 +15,7 @@ type linkOccur struct {
 	// Body links keep it empty and are stored as NULL in edges.frontmatter_key.
 	frontmatterKey  string
 	referenceTarget string
+	inTable         bool
 	subpath         string
 	lineStart       int
 	lineEnd         int
@@ -49,6 +50,7 @@ func parseLinks(content string) parseResult {
 			}
 		}
 	})
+	tableLines := bodyTableLines(lines, fmEnd)
 	pendingReference := 0
 	previousBodyLine := 0
 	walkBodyLines(lines, fmEnd, func(lineNum int, raw, clean string) {
@@ -61,7 +63,7 @@ func parseLinks(content string) parseResult {
 			pendingReference = 0
 			return
 		}
-		out = append(out, parseWikiLinks(clean, lineNum)...)
+		out = append(out, parseWikiLinks(clean, lineNum, tableLines[lineNum])...)
 		clean = maskWikiLinks(clean)
 		clean = maskReferenceContinuation(clean, &pendingReference)
 		links, tagLine, pending := parseBodyMarkdown(clean, lineNum, definitions)
@@ -72,6 +74,9 @@ func parseLinks(content string) parseResult {
 		// A literal unmatched bracket must not hide later independent links.
 		if pendingReference > 0 && !referenceContinuationCloses(lines, lineNum, pendingReference) {
 			pendingReference = 0
+		}
+		for i := range links {
+			links[i].inTable = tableLines[lineNum]
 		}
 		out = append(out, links...)
 		out = append(out, parseTags(tagLine, lineNum)...)
@@ -180,7 +185,9 @@ func stripInlineCode(line string) string {
 	var out strings.Builder
 	for i := 0; i < len(line); {
 		if line[i] == '`' {
-			i = inlineCodeEnd(line, i)
+			end := inlineCodeEnd(line, i)
+			out.WriteString(strings.Repeat(" ", end-i))
+			i = end
 			continue
 		}
 		out.WriteByte(line[i])
@@ -212,14 +219,13 @@ func stripMarkdownLinks(line string) string {
 	return masked
 }
 
-func parseWikiLinks(line string, lineNum int) []linkOccur {
+func parseWikiLinks(line string, lineNum int, table ...bool) []linkOccur {
 	var out []linkOccur
 	for _, span := range wikiLinkSpans(line) {
 		rawLink := span.raw
-		inner := rawLink[2 : len(rawLink)-2]
 
-		name := splitAlias(inner)
-		target, subpath := extractSubpath(name)
+		parts := splitWikilinkParts(rawLink, table...)
+		target, subpath := parts.target, parts.subpath
 
 		if target == "" && subpath != "" {
 			// [[#Heading]] — self-link
@@ -229,6 +235,7 @@ func parseWikiLinks(line string, lineNum int) []linkOccur {
 				isRelative: false,
 				linkType:   LinkTypeWikilink,
 				rawLink:    rawLink,
+				inTable:    len(table) > 0 && table[0],
 				subpath:    subpath,
 				lineStart:  lineNum,
 				lineEnd:    lineNum,
@@ -240,6 +247,7 @@ func parseWikiLinks(line string, lineNum int) []linkOccur {
 				isRelative: isRelativePath(target),
 				linkType:   LinkTypeWikilink,
 				rawLink:    rawLink,
+				inTable:    len(table) > 0 && table[0],
 				subpath:    subpath,
 				lineStart:  lineNum,
 				lineEnd:    lineNum,
@@ -282,6 +290,10 @@ func wikiLinkSpans(line string) []wikiLinkSpan {
 func markdownDestinationEnd(line string, start int) int {
 	depth := 0
 	for i := start; i < len(line); i++ {
+		if line[i] == '\\' && i+1 < len(line) && asciiPunctuation(line[i+1]) {
+			i++
+			continue
+		}
 		switch line[i] {
 		case '(':
 			depth++
@@ -417,14 +429,19 @@ type wikilinkParts struct {
 
 // splitWikilinkParts strips wikilink wrappers and splits its target, subpath,
 // and alias. It intentionally does not apply any path or extension policy.
-func splitWikilinkParts(rawLink string) wikilinkParts {
+func splitWikilinkParts(rawLink string, table ...bool) wikilinkParts {
 	inner := strings.TrimSuffix(strings.TrimPrefix(rawLink, "[["), "]]")
 	withoutAlias := splitAlias(inner)
+	alias := inner[len(withoutAlias):]
+	if len(table) > 0 && table[0] && alias != "" && strings.HasSuffix(withoutAlias, `\`) {
+		withoutAlias = strings.TrimSuffix(withoutAlias, `\`)
+		alias = `\` + alias
+	}
 	target, subpath := extractSubpath(withoutAlias)
 	return wikilinkParts{
 		target:  target,
 		subpath: subpath,
-		alias:   inner[len(withoutAlias):],
+		alias:   alias,
 	}
 }
 

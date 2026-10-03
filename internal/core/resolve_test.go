@@ -472,7 +472,7 @@ func TestResolveBasenameAmbiguousNoRoot(t *testing.T) {
 	}
 	db.Close()
 
-	_, err = Resolve(vault, "Index.md", "[[Design]]")
+	_, err = Resolve(vault, "Index.md", "[[Design|not-indexed-alias]]")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

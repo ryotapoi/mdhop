@@ -15,28 +15,11 @@
 
 #### 不具合修正
 
-- [ ] Markdown リンクのエスケープ・文字参照・URL エンコードと、表内 wikilink の alias を正しく解釈する
+- [x] Markdown リンクのエスケープ・文字参照・URL エンコードと、表内 wikilink の alias を正しく解釈する
 
-  目的: Markhop などの利用側がリンク原文を mdhop に渡すだけで、対応する Markdown 記法の意味に沿った移動先を取得できるようにする。索引生成時の関係取得と resolve の両方で同じ解釈を使い、利用側に独自 resolver や復号による補完を要求しない。
+  完了: 通常 Markdown link/image と参照定義 destination を共通の単一走査で復号し、表内 alias の context を保存・resolve・rewrite・promotion に接続した。既存 index は `mdhop build` による再生成を要求する。仕様は `docs/specs/overview.md` の「リンク解釈（互換性）」、保存値は `docs/rules/03-data-model.md` を正本とする。
 
-  現状: Markhop 同梱の v0.19.1 で報告された以下のケースは、HEAD `4313943`（`v0.19.6-9-g4313943`）でも再現した。索引と resolve が別々の結果を返すのではなく、両方が同じ誤った解釈をしている。特に `A B.md` と `A%20B.md` が共存すると、`[表示](A%20B.md)` が後者へ誤接続する。
-
-  受入条件の起点となる例:
-
-  - `[表示](a\(b\).md)` は `a(b).md` を参照する。
-  - `[表示](A&amp;B.md)` は `A&B.md` を参照する。
-  - `[表示](A%20B.md)` は `A B.md`、`[表示](A%2520B.md)` は文字列として `%20` を含む `A%20B.md` を参照し、両方が共存しても混同しない。
-  - GFM 形式の表内にある `[[X\|表示]]` は参照先 `X`、表示名「表示」として解釈する。
-
-  着手時に確定する仕様・範囲:
-
-  - 対応する構文と基準を整理する。通常の Markdown リンク、image、参照リンクの定義 destination への適用範囲を決める。参照リンクの現行仕様にある escape / entity 非対応の制限との整合も取る（`docs/specs/overview.md`）。wikilink や frontmatter の raw path に Markdown destination の復号を一律適用しない。
-  - backslash escape、文字参照、percent decode の順序・各段階の回数と、fragment 分離・外部 URI 判定・パス正規化・Vault 外参照検証との関係を定める。復号後の値を再び原文として復号せず、encoded delimiter と構文上の delimiter を区別する。
-  - 表内の `\|` を扱う文脈と、表外の wikilink の規則を決める。resolve がリンク原文と source / 保存 edge から表の文脈をどう取得するか、同じ原文が異なる文脈に現れる場合にどう扱うかも確定する。
-  - リンク原文・位置情報を保持し、解決用の値と区別する。変更した解釈を直接使う書き換え経路で、alias / subpath / embed と参照先の意味を保つ再出力規則を定める。参照定義の自動 rewrite など、既存の非対応機能をこのタスクだけで拡張しない。
-  - 既存索引に保存された旧解釈との互換性と、再 build の要否・要求方法を決める。CLI / JSON は既存インターフェースを起点とし、変更が必要なら理由と範囲を明示する。
-
-  完了: 上記の仕様・受入条件・実装範囲を確定して正本へ反映し、例の実在 target と未作成 target の双方で build / update、resolve、outgoing / backlinks が同じ参照先を扱うことを検証する。通常リンクと同じ関係として 2-hop に反映されること、変更した解釈に直接関わる書き換え後の再解析でも参照先と構文上の意味が保たれることを確認する。
+  検証: reported examples の実在/phantom、build/update、resolve/outgoing/backlinks/twohop、exact raw の異義判定、mutation/convert 後の再解析、非rewrite guard と旧 index gate を恒久回帰試験で確認。
 
   出典: Markhop からのリンク解釈相談と現行 HEAD での再現確認。未リンク言及の探索は別途検討する。
 

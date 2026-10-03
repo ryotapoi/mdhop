@@ -19,8 +19,9 @@ type dbExecer interface {
 }
 
 const (
-	dataDirName = ".mdhop"
-	dbFileName  = "index.sqlite"
+	dataDirName                = ".mdhop"
+	dbFileName                 = "index.sqlite"
+	indexInterpretationVersion = 1
 )
 
 // NodeType is the value set of the `nodes.type` column. Go code uses these
@@ -104,7 +105,12 @@ func openDBChecked(vaultPath string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := db.Exec("SELECT reference_target FROM edges LIMIT 0"); err != nil {
+	var version int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != indexInterpretationVersion {
+		db.Close()
+		return nil, fmt.Errorf("index interpretation requires rebuild: run 'mdhop build' first")
+	}
+	if _, err := db.Exec("SELECT reference_target, in_table FROM edges LIMIT 0"); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("index schema requires rebuild: run 'mdhop build' first: %w", err)
 	}
@@ -113,6 +119,7 @@ func openDBChecked(vaultPath string) (*sql.DB, error) {
 
 func initSchema(db *sql.DB) error {
 	stmts := []string{
+		fmt.Sprintf("PRAGMA user_version = %d", indexInterpretationVersion),
 		`CREATE TABLE IF NOT EXISTS nodes (
 			id          INTEGER PRIMARY KEY,
 			node_key    TEXT NOT NULL UNIQUE,
@@ -133,6 +140,7 @@ func initSchema(db *sql.DB) error {
 			raw_link        TEXT NOT NULL,
 			frontmatter_key TEXT,
 			reference_target TEXT,
+			in_table INTEGER NOT NULL DEFAULT 0,
 			subpath         TEXT,
 			line_start      INTEGER,
 			line_end        INTEGER,
@@ -329,7 +337,7 @@ func queryMetaByNode(db dbExecer, nodeID int64) ([]MetaRow, error) {
 	return result, rows.Err()
 }
 
-func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, frontmatterKey, referenceTarget, subpath string, lineStart, lineEnd int) error {
+func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, frontmatterKey, referenceTarget, subpath string, lineStart, lineEnd int, table ...bool) error {
 	var key any
 	if frontmatterKey != "" {
 		key = frontmatterKey
@@ -339,9 +347,9 @@ func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLin
 		reference = referenceTarget
 	}
 	_, err := db.Exec(
-		`INSERT INTO edges (source_id, target_id, link_type, raw_link, frontmatter_key, reference_target, subpath, line_start, line_end)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		sourceID, targetID, string(linkType), rawLink, key, reference, subpath, lineStart, lineEnd,
+		`INSERT INTO edges (source_id, target_id, link_type, raw_link, frontmatter_key, reference_target, subpath, line_start, line_end, in_table)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		sourceID, targetID, string(linkType), rawLink, key, reference, subpath, lineStart, lineEnd, len(table) > 0 && table[0],
 	)
 	return err
 }

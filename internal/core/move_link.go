@@ -47,13 +47,13 @@ func rewriteMovedOutgoingLink(link linkOccur, from, to, preMoveTargetPath string
 		if !needRewrite {
 			return outgoingRewrite{}, false, nil
 		}
-		return newOutgoingRewrite(link, rewriteRawLink(link.rawLink, link.linkType, postMoveTargetPath)), true, nil
+		return newOutgoingRewrite(link, rewriteRawLink(link.rawLink, link.linkType, postMoveTargetPath, link.inTable)), true, nil
 	}
 
 	// Move preserves existing source-relative outgoing links as an intentional
 	// exception to vault-relative rewrites.
 	if link.isRelative {
-		newRawLink, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, from, to, maps.movedFromTo, preMoveTargetPath)
+		newRawLink, err := rewriteOutgoingRelativeLink(link.rawLink, link.linkType, from, to, maps.movedFromTo, preMoveTargetPath, link.inTable)
 		if err != nil {
 			return outgoingRewrite{}, false, err
 		}
@@ -67,7 +67,7 @@ func rewriteMovedOutgoingLink(link linkOccur, from, to, preMoveTargetPath string
 		return outgoingRewrite{}, false, nil
 	}
 	if newPath, ok := maps.movedFromTo[preMoveTargetPath]; ok {
-		return newOutgoingRewrite(link, rewriteRawLink(link.rawLink, link.linkType, newPath)), true, nil
+		return newOutgoingRewrite(link, rewriteRawLink(link.rawLink, link.linkType, newPath, link.inTable)), true, nil
 	}
 	return outgoingRewrite{}, false, nil
 }
@@ -92,10 +92,10 @@ type relativeLinkParts struct {
 	stripMovedMD bool
 }
 
-func parseRelativeLink(rawLink string, linkType LinkType) (relativeLinkParts, bool) {
+func parseRelativeLink(rawLink string, linkType LinkType, table ...bool) (relativeLinkParts, bool) {
 	switch linkType {
 	case LinkTypeWikilink, LinkTypeFrontmatterWikilink:
-		parts := splitWikilinkParts(rawLink)
+		parts := splitWikilinkParts(rawLink, table...)
 		return relativeLinkParts{prefix: "[[", target: parts.target, suffix: parts.subpath + parts.alias + "]]", stripMovedMD: true}, true
 	case LinkTypeMarkdown:
 		start := strings.Index(rawLink, "](")
@@ -106,14 +106,10 @@ func parseRelativeLink(rawLink string, linkType LinkType) (relativeLinkParts, bo
 		urlPart := strings.TrimSuffix(rawLink[start+2:], ")")
 		trimmedLeft := strings.TrimLeftFunc(urlPart, unicode.IsSpace)
 		prefix += urlPart[:len(urlPart)-len(trimmedLeft)]
-		urlPart = strings.TrimRightFunc(trimmedLeft, unicode.IsSpace)
-		trailingSpace := trimmedLeft[len(urlPart):]
-		var fragment string
-		if idx := strings.Index(urlPart, "#"); idx >= 0 {
-			fragment = urlPart[idx:]
-			urlPart = urlPart[:idx]
-		}
-		return relativeLinkParts{prefix: prefix, target: urlPart, suffix: fragment + trailingSpace + ")", preserveMD: strings.HasSuffix(strings.ToLower(urlPart), ".md")}, true
+		trimmed := strings.TrimRightFunc(trimmedLeft, unicode.IsSpace)
+		trailing := trimmedLeft[len(trimmed):]
+		target, fragment, _ := markdownDestination(trimmed)
+		return relativeLinkParts{prefix: prefix, target: target, suffix: encodeMarkdownDestination("", fragment) + trailing + ")", preserveMD: strings.HasSuffix(strings.ToLower(target), ".md")}, true
 	default:
 		return relativeLinkParts{}, false
 	}
@@ -141,8 +137,8 @@ func resolveMovedRelativeTarget(target string, movedFromTo map[string]string, st
 // rewriteOutgoingRelativeLink rewrites a relative link in the moved file
 // from the old path perspective to the new path perspective.
 // If movedFromTo is non-nil, it also checks whether the target was moved.
-func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to string, movedFromTo map[string]string, preMoveTargetPath string) (string, error) {
-	parts, ok := parseRelativeLink(rawLink, linkType)
+func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to string, movedFromTo map[string]string, preMoveTargetPath string, table ...bool) (string, error) {
+	parts, ok := parseRelativeLink(rawLink, linkType, table...)
 	if !ok {
 		return rawLink, nil
 	}
@@ -170,6 +166,11 @@ func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to str
 		}
 	} else {
 		rel = strings.TrimSuffix(rel, ".md")
+	}
+	if linkType == LinkTypeMarkdown {
+		rel = encodeMarkdownComponent(rel)
+	} else if !wikilinkRepresentable(rel, "") || len(table) > 0 && table[0] && strings.Contains(parts.suffix, `\|`) && !tableWikiAliasSafe(rel+strings.Split(parts.suffix, `\|`)[0]) {
+		return "", fmt.Errorf("cannot preserve wikilink destination while rewriting %q", rawLink)
 	}
 	return parts.prefix + rel + parts.suffix, nil
 }

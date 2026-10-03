@@ -221,7 +221,7 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			if targetID == 0 {
 				continue
 			}
-			if err := insertEdge(tx, m.nodeID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd); err != nil {
+			if err := insertEdge(tx, m.nodeID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd, link.inTable); err != nil {
 				return nil, err
 			}
 		}

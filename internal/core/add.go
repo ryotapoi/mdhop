@@ -155,7 +155,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 		// Query edges with source info for potential rewriting.
 		rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 		rows, err := db.Query(fmt.Sprintf(
-			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id
+			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table
 			 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 WHERE e.target_id = ?
 			 AND %s`, rewriteLinkTypeSQL), append([]any{targetID}, rewriteLinkTypeArgs...)...)
@@ -165,11 +165,11 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 		var basenameEdges []rewriteEntry
 		for rows.Next() {
 			var re rewriteEntry
-			if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID); err != nil {
+			if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &re.inTable); err != nil {
 				rows.Close()
 				return nil, err
 			}
-			if isBasenameRawLink(re.rawLink, re.linkType) {
+			if isBasenameRawLink(re.rawLink, re.linkType, re.inTable) {
 				basenameEdges = append(basenameEdges, re)
 			}
 		}
@@ -186,7 +186,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 			// Compute new raw links for each edge.
 			oldTarget := oldBasenameToPath[bk]
 			for i := range basenameEdges {
-				basenameEdges[i].newRawLink = rewriteRawLink(basenameEdges[i].rawLink, basenameEdges[i].linkType, oldTarget)
+				basenameEdges[i].newRawLink = rewriteRawLink(basenameEdges[i].rawLink, basenameEdges[i].linkType, oldTarget, basenameEdges[i].inTable)
 			}
 			allRewrites = append(allRewrites, basenameEdges...)
 		} else {
@@ -307,7 +307,7 @@ func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error)
 			if targetID == 0 {
 				continue
 			}
-			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd); err != nil {
+			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd, link.inTable); err != nil {
 				return nil, err
 			}
 		}

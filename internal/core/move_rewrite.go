@@ -122,7 +122,7 @@ func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMap
 		}
 		rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 		query := fmt.Sprintf(
-			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.target_id
+			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table, e.target_id
 			 FROM edges e JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 			 WHERE e.target_id IN (%s) AND %s`,
 			strings.Join(placeholders, ","),
@@ -135,7 +135,7 @@ func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMap
 		for rows.Next() {
 			var re rewriteEntry
 			var targetID int64
-			if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetID); err != nil {
+			if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &re.inTable, &targetID); err != nil {
 				rows.Close()
 				return nil, err
 			}
@@ -147,7 +147,7 @@ func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMap
 				continue
 			}
 
-			if isBasenameRawLink(re.rawLink, re.linkType) {
+			if isBasenameRawLink(re.rawLink, re.linkType, re.inTable) {
 				fromPath := nodeIDFromPath[targetID]
 				var fromBK, toBK string
 				var counts map[string]int
@@ -166,18 +166,18 @@ func collectIncomingRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveMap
 					postPS = rm.pathSet
 				}
 				if fromBK != toBK {
-					re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath)
+					re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath, re.inTable)
 					incomingRewrites = append(incomingRewrites, re)
 				} else if counts[toBK] > 1 {
 					preRoot := hasRootInPathSet(toBK, prePS)
 					postRoot := hasRootInPathSet(toBK, postPS)
 					if !(preRoot && postRoot) {
-						re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath)
+						re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath, re.inTable)
 						incomingRewrites = append(incomingRewrites, re)
 					}
 				}
 			} else {
-				re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath)
+				re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, toPath, re.inTable)
 				incomingRewrites = append(incomingRewrites, re)
 			}
 		}
@@ -292,7 +292,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 			var preMoveTargetPath string
 			if link.isBasename || link.target != "" {
 				var err error
-				preMoveTargetPath, err = lookupEdgeTargetPath(db, m.nodeID, link.rawLink)
+				preMoveTargetPath, err = lookupEdgeTargetPath(db, m.nodeID, link.rawLink, link.lineStart, link.inTable)
 				if err != nil {
 					return nil, err
 				}
@@ -315,14 +315,14 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 // Returns ("", nil) when no matching edge exists or when the target is a
 // phantom node (whose path is stored as NULL); callers treat both cases as
 // "skip".
-func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string) (string, error) {
+func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string, line int, inTable bool) (string, error) {
 	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	var path string
 	err := db.QueryRow(fmt.Sprintf(
 		`SELECT COALESCE(tn.path, '') FROM edges e
 		 JOIN nodes tn ON tn.id = e.target_id
-		 WHERE e.source_id = ? AND e.raw_link = ? AND %s
-		 LIMIT 1`, rewriteLinkTypeSQL), append([]any{sourceID, rawLink}, rewriteLinkTypeArgs...)...).Scan(&path)
+		 WHERE e.source_id = ? AND e.raw_link = ? AND e.line_start = ? AND e.in_table = ? AND %s
+		 LIMIT 1`, rewriteLinkTypeSQL), append([]any{sourceID, rawLink, line, inTable}, rewriteLinkTypeArgs...)...).Scan(&path)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", err
 	}
@@ -337,7 +337,7 @@ func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string) (string, 
 func queryCollateralRewrites(db dbExecer, nodeType NodeType, key string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
 	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	rows, err := db.Query(fmt.Sprintf(
-		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, tn.path, tn.id
+		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table, tn.path, tn.id
 		 FROM edges e
 		 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
 		 JOIN nodes tn ON tn.id = e.target_id AND tn.type = ? AND tn.exists_flag = 1
@@ -353,7 +353,7 @@ func queryCollateralRewrites(db dbExecer, nodeType NodeType, key string, movedNo
 		var re rewriteEntry
 		var targetPath string
 		var targetNodeID int64
-		if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &targetPath, &targetNodeID); err != nil {
+		if err := rows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &re.inTable, &targetPath, &targetNodeID); err != nil {
 			return nil, err
 		}
 		// Match with the same Unicode/NFC key used to detect the collision.
@@ -368,13 +368,13 @@ func queryCollateralRewrites(db dbExecer, nodeType NodeType, key string, movedNo
 		if movedNodeIDs[re.sourceID] {
 			continue
 		}
-		if !isBasenameRawLink(re.rawLink, re.linkType) {
+		if !isBasenameRawLink(re.rawLink, re.linkType, re.inTable) {
 			continue
 		}
 		if movedNodeIDs[targetNodeID] {
 			continue // incoming to moved file, handled in Phase 2
 		}
-		re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, targetPath)
+		re.newRawLink = rewriteRawLink(re.rawLink, re.linkType, targetPath, re.inTable)
 		result = append(result, re)
 	}
 	return result, rows.Err()
