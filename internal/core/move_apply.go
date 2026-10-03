@@ -66,7 +66,7 @@ func applyMovedFileRewrites(vaultPath string, movedFileRewrites []movedFileRewri
 		}
 
 		fullPath := fullPaths[diskPath]
-		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.original, perm: mfr.perm})
+		backups = append(backups, rewriteBackup{path: diskPath, content: mfr.original, perm: mfr.perm, mtime: mfr.mtime})
 		if err := writeFilePreservePerm(fullPath, mfr.content, mfr.perm); err != nil {
 			restoreFailures := restoreBackupFiles(vaultPath, backups)
 			return backups, restoreFailures, err

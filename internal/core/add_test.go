@@ -1259,7 +1259,7 @@ func TestAddAutoDisambiguateRestoreBackups(t *testing.T) {
 	}
 
 	backups := []rewriteBackup{
-		{path: filePath, content: original, perm: 0o644},
+		{path: filePath, content: original, perm: 0o644, mtime: setRollbackTestMtime(t, filepath.Join(dir, filePath))},
 	}
 	if failures := restoreBackupFiles(dir, backups); len(failures) != 0 {
 		t.Fatalf("restoreBackupFiles failures: %#v", failures)

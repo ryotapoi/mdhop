@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // outgoingRewrite records a single outgoing link rewrite in the moved file.
@@ -22,6 +23,7 @@ type movedFileRewrite struct {
 	move        moveInfo
 	original    []byte
 	content     []byte
+	mtime       time.Time
 	perm        os.FileMode
 	outRewrites []outgoingRewrite
 }
@@ -278,6 +280,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 			original: content,
 			content:  content,
 			perm:     info.Mode().Perm(),
+			mtime:    info.ModTime(),
 		}
 
 		links := parseLinks(string(content)).Links

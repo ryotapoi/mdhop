@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 // rewriteLinkTypes lists every link type whose target can be rewritten by
@@ -30,11 +31,12 @@ func isPathLinkType(linkType LinkType) bool {
 	return false
 }
 
-// rewriteBackup holds original file content for rollback on failure.
+// rewriteBackup holds original file content and metadata for rollback on failure.
 type rewriteBackup struct {
 	path    string
 	content []byte
 	perm    os.FileMode
+	mtime   time.Time
 }
 
 type rollbackFailure struct {
@@ -93,6 +95,7 @@ type preparedFileRewrite struct {
 	original  []byte
 	candidate []byte
 	perm      os.FileMode
+	mtime     time.Time
 	entries   []rewriteEntry
 }
 
@@ -194,6 +197,9 @@ func restoreBackupFiles(vaultPath string, backups []rewriteBackup) []rollbackFai
 		if err == nil {
 			err = rollbackWriteFile(fullPath, fb.content, fb.perm)
 		}
+		if err == nil {
+			err = os.Chtimes(fullPath, time.Time{}, fb.mtime)
+		}
 		if err != nil {
 			failures = append(failures, rollbackFailure{
 				action: "restore",
@@ -265,7 +271,7 @@ func prepareFileRewrites(vaultPath string, rewrites []rewriteEntry) ([]preparedF
 		if err != nil {
 			return nil, err
 		}
-		prepared = append(prepared, preparedFileRewrite{vaultPath: vaultPath, path: sourcePath, fullPath: fullPath, original: content, candidate: candidate, perm: info.Mode().Perm(), entries: groups[sourcePath]})
+		prepared = append(prepared, preparedFileRewrite{vaultPath: vaultPath, path: sourcePath, fullPath: fullPath, original: content, candidate: candidate, perm: info.Mode().Perm(), mtime: info.ModTime(), entries: groups[sourcePath]})
 	}
 	return prepared, nil
 }
@@ -313,6 +319,9 @@ func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64,
 			if err == nil {
 				err = rollbackWriteFile(file.fullPath, fb.content, fb.perm)
 			}
+			if err == nil {
+				err = os.Chtimes(file.fullPath, time.Time{}, fb.mtime)
+			}
 			if err != nil {
 				failures = append(failures, rollbackFailure{
 					action: "restore",
@@ -325,7 +334,7 @@ func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64,
 	}
 
 	for _, file := range prepared {
-		written = append(written, rewriteBackup{path: file.path, content: file.original, perm: file.perm})
+		written = append(written, rewriteBackup{path: file.path, content: file.original, perm: file.perm, mtime: file.mtime})
 		if err := rewriteWriteFile(file.fullPath, file.candidate, file.perm); err != nil {
 			restoreFailures := restore()
 			return nil, nil, restoreFailures, err

@@ -168,7 +168,7 @@ func TestRewriteApplyAndRestoreRecheckSymlinkBoundary(t *testing.T) {
 	if _, _, _, err := applyPreparedFileRewrites(prepared); err == nil {
 		t.Fatal("apply accepted replaced symlink")
 	}
-	backup := rewriteBackup{path: "Note.md", content: []byte("backup\n"), perm: 0o644}
+	backup := rewriteBackup{path: "Note.md", content: []byte("backup\n"), perm: 0o644, mtime: time.Unix(1234567890, 0)}
 	if failures := restoreBackupFiles(vault, []rewriteBackup{backup}); len(failures) != 1 {
 		t.Fatalf("restore failures = %v", failures)
 	}
@@ -205,7 +205,7 @@ func TestRestoreRejectsSymlinkEscapeWithMissingTarget(t *testing.T) {
 			} else if err := os.Symlink(missing, filepath.Join(vault, relative)); err != nil {
 				t.Fatal(err)
 			}
-			failures := restoreBackupFiles(vault, []rewriteBackup{{path: relative, content: []byte("backup\n"), perm: 0o644}})
+			failures := restoreBackupFiles(vault, []rewriteBackup{{path: relative, content: []byte("backup\n"), perm: 0o644, mtime: time.Unix(1234567890, 0)}})
 			if len(failures) != 1 {
 				t.Fatalf("restore failures = %v", failures)
 			}

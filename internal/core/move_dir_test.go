@@ -1,6 +1,7 @@
 package core
 
 import (
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -1244,9 +1245,25 @@ func TestMoveDir_Rollback_MovedFileRestore(t *testing.T) {
 			t.Fatalf("write %s: %v", rel, err)
 		}
 	}
-	mustWrite("external.md", "external\n")
+	mustWrite("external.md", "[[sub/A]]\n")
 	mustWrite("sub/A.md", "[link](../external.md)\n")
 	mustWrite("sub/B.md", "[link](../external.md)\n")
+
+	originals := make(map[string][]byte)
+	infos := make(map[string]os.FileInfo)
+	for _, rel := range []string{"sub/A.md", "sub/B.md", "external.md"} {
+		full := filepath.Join(vault, rel)
+		if err := os.Chmod(full, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		setRollbackTestMtime(t, full)
+		originals[rel] = mustReadFile(t, full)
+		info, err := os.Stat(full)
+		if err != nil {
+			t.Fatal(err)
+		}
+		infos[rel] = info
+	}
 
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
@@ -1328,6 +1345,23 @@ func TestMoveDir_Rollback_MovedFileRestore(t *testing.T) {
 			t.Errorf("DB should not contain newdir/ paths after rollback, got: %s", n.path)
 		}
 	}
+	for rel, original := range originals {
+		full := filepath.Join(vault, rel)
+		if got := mustReadFile(t, full); string(got) != string(original) {
+			t.Errorf("%s content not restored", rel)
+		}
+		info, err := os.Stat(full)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != infos[rel].Mode().Perm() || !info.ModTime().Equal(infos[rel].ModTime()) {
+			t.Errorf("%s attributes not restored: %v", rel, info)
+		}
+	}
+	moveRename = oldRename
+	if _, err := MoveDir(vault, MoveDirOptions{FromDir: "sub", ToDir: "newdir/inner"}); err != nil {
+		t.Fatalf("retry without rebuild: %v", err)
+	}
 }
 
 func TestMoveDir_RollbackRenameFailureIsReturned(t *testing.T) {
@@ -1377,5 +1411,75 @@ func TestMoveDir_RollbackRenameFailureIsReturned(t *testing.T) {
 		if !strings.Contains(msg, want) {
 			t.Fatalf("error missing %q:\n%s", want, msg)
 		}
+	}
+}
+
+func TestMoveRollbackRestoresSingleFileDiskPaths(t *testing.T) {
+	for _, alreadyMoved := range []bool{false, true} {
+		name := "normal"
+		if alreadyMoved {
+			name = "already-moved"
+		}
+		t.Run(name, func(t *testing.T) {
+			vault := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			originals := map[string]string{"sub/A.md": "[link](../external.md)\n", "external.md": "[[sub/A]]\n"}
+			mtimes := make(map[string]time.Time)
+			for rel, body := range originals {
+				full := filepath.Join(vault, rel)
+				if err := os.WriteFile(full, []byte(body), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				mtimes[rel] = setRollbackTestMtime(t, full)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			const destination = "deep/sub/A.md"
+			if alreadyMoved {
+				if err := os.MkdirAll(filepath.Join(vault, "deep/sub"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Rename(filepath.Join(vault, "sub/A.md"), filepath.Join(vault, destination)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			primary := errors.New("external edge update blocked")
+			oldExec := rewriteTxExec
+			rewriteTxExec = func(dbExecer, string, ...any) (sql.Result, error) { return nil, primary }
+			t.Cleanup(func() { rewriteTxExec = oldExec })
+			opts := MoveOptions{From: "sub/A.md", To: destination}
+			if _, err := Move(vault, opts); !errors.Is(err, primary) {
+				t.Fatalf("move error: %v", err)
+			}
+			for rel, body := range originals {
+				diskRel := rel
+				if alreadyMoved && rel == "sub/A.md" {
+					diskRel = destination
+				}
+				full := filepath.Join(vault, diskRel)
+				if got := mustReadFile(t, full); string(got) != body {
+					t.Fatalf("%s content = %q, want %q", diskRel, got, body)
+				}
+				info, err := os.Stat(full)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if info.Mode().Perm() != 0o600 || !info.ModTime().Equal(mtimes[rel]) {
+					t.Fatalf("%s attributes not restored: %v", diskRel, info)
+				}
+			}
+			for _, node := range queryNodes(t, dbPath(vault), "note") {
+				if node.path == destination {
+					t.Fatal("DB move survived rollback")
+				}
+			}
+			rewriteTxExec = oldExec
+			if _, err := Move(vault, opts); err != nil {
+				t.Fatalf("retry without rebuild: %v", err)
+			}
+		})
 	}
 }

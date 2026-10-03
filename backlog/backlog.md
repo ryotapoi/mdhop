@@ -40,7 +40,7 @@
 
 #### 不具合修正
 
-- [ ] move 失敗時のファイル復元で元の mtime も戻し、復元自体による stale 判定を防ぐ
+- [x] move 失敗時のファイル復元で元の mtime も戻し、復元自体による stale 判定を防ぐ
 
   `internal/core/rewrite.go`、`move_dir.go`。完了: 内容・permission・mtime の復元が成功した場合、原因を除いた再試行が rollback 自身を理由に stale 扱いされない。出典: D8（verify-finding 再検証済み）。
 

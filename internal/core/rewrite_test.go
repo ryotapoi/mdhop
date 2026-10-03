@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPathLinkTypeClassificationsCoverAllLinkTypes(t *testing.T) {
@@ -158,7 +159,7 @@ func TestRestoreBackupsPreservesPermission(t *testing.T) {
 	}
 
 	backups := []rewriteBackup{
-		{path: filePath, content: []byte("original\n"), perm: 0o600},
+		{path: filePath, content: []byte("original\n"), perm: 0o600, mtime: setRollbackTestMtime(t, fullPath)},
 	}
 
 	if failures := restoreBackupFiles(dir, backups); len(failures) != 0 {
@@ -314,6 +315,8 @@ func TestApplyFileRewritesRestoresCurrentFileAfterPartialWriteError(t *testing.T
 		t.Fatal(err)
 	}
 
+	originalMtime := setRollbackTestMtime(t, fullPath)
+
 	primaryErr := errors.New("partial rewrite blocked")
 	oldRewriteWriteFile := rewriteWriteFile
 	rewriteWriteFile = func(path string, data []byte, perm os.FileMode) error {
@@ -343,6 +346,9 @@ func TestApplyFileRewritesRestoresCurrentFileAfterPartialWriteError(t *testing.T
 	}
 	if got := info.Mode().Perm(); got != 0o600 {
 		t.Fatalf("permission after rollback = %o, want %o", got, 0o600)
+	}
+	if !info.ModTime().Equal(originalMtime) {
+		t.Fatalf("mtime after rollback = %v, want %v", info.ModTime(), originalMtime)
 	}
 }
 
@@ -407,6 +413,62 @@ func TestReplaceOutsideInlineCodeDelimiterRuns(t *testing.T) {
 			if got := replaceOutsideInlineCode(line, "LINK", "NEW"); got != want {
 				t.Errorf("got %q, want %q", got, want)
 			}
+		})
+	}
+}
+
+// setRollbackTestMtime uses an old timestamp so a fresh rollback write cannot
+// accidentally satisfy the stale check's second precision.
+func setRollbackTestMtime(t *testing.T, path string) time.Time {
+	t.Helper()
+	old := time.Unix(1234567890, 123456789)
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return info.ModTime()
+}
+
+func TestRollbackReportsMtimeRestoreFailure(t *testing.T) {
+	for _, local := range []bool{false, true} {
+		t.Run(fmt.Sprintf("local=%t", local), func(t *testing.T) {
+			vault := t.TempDir()
+			full := filepath.Join(vault, "Source.md")
+			if err := os.WriteFile(full, []byte("[[Old]]\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			mtime := setRollbackTestMtime(t, full)
+			primary := errors.New("primary rewrite blocked")
+			oldRestore := rollbackWriteFile
+			rollbackWriteFile = func(path string, data []byte, perm os.FileMode) error {
+				if err := oldRestore(path, data, perm); err != nil {
+					return err
+				}
+				// The write succeeds, but the subsequent timestamp restore cannot.
+				return os.Remove(path)
+			}
+			t.Cleanup(func() { rollbackWriteFile = oldRestore })
+			var failures []rollbackFailure
+			err := primary
+			if local {
+				oldWrite := rewriteWriteFile
+				rewriteWriteFile = func(string, []byte, os.FileMode) error { return primary }
+				t.Cleanup(func() { rewriteWriteFile = oldWrite })
+				_, _, failures, err = applyFileRewritesWithRollbackFailures(vault, []rewriteEntry{{sourcePath: "Source.md", rawLink: "[[Old]]", newRawLink: "[[New]]", linkType: LinkTypeWikilink, lineStart: 1}})
+			} else {
+				failures = restoreBackupFiles(vault, []rewriteBackup{{path: "Source.md", content: []byte("[[Old]]\n"), perm: 0o600, mtime: mtime}})
+			}
+			if len(failures) != 1 || !os.IsNotExist(failures[0].err) {
+				t.Fatalf("mtime failures = %#v", failures)
+			}
+			wrapped := wrapRollbackFailures(err, failures)
+			if !errors.Is(wrapped, primary) {
+				t.Fatalf("lost primary error: %v", wrapped)
+			}
+			assertRollbackFailureReported(t, wrapped, primary.Error(), "Source.md")
 		})
 	}
 }
