@@ -62,6 +62,8 @@
   - `/` を含むがプレフィックスなし（例: `sub/C.md`）: パスとして解決
   - `/` を含まない（例: `Design.md`）: basename 解決（`[[note]]` と同一扱い）
 
+- 通常 Markdown link / image と参照定義 destination は、backslash escape・文字参照・percent encoding を一度だけ復号する。表内 wikilink の `\|` は alias separator として解釈する。復号順序・対象外・再出力規則は `docs/specs/overview.md` の「リンク解釈（互換性）」を正本とする
+- 全 link は source と使用原文が完全一致する保存 edge を優先し、複数出現の target / subpath が異なる場合は曖昧エラーにする。完全一致がなければ従来の正規化一致で解決する（参照リンクは完全一致のみ）。表文脈・定義は index snapshot から取得する
 - Markdown 参照リンクは、使用原文に一致する source の保存 edge から解決する。JSON は通常 link と同じ shape。未定義・未索引の使用原文はエラーとなる。定義変更は update 後に反映し、query/resolve は本文を再走査しない。記法の詳細と非 rewrite 制限は `docs/specs/overview.md` を正本とする
 
 ### 2.4 ノート取得（query）

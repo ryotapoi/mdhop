@@ -25,6 +25,9 @@
 - mtime: 全noteにos.Statの値が設定される
 - edges: wikilink / markdown link → 対応するedgeが作成される
 - Markdown 参照リンク: full / collapsed / shortcut / image 使用箇所から `markdown_reference` edge を作り、定義 destination と raw 使用原文を保存する。未使用定義・未定義使用箇所は edge にしない
+- Markdown destination: escape・文字参照・percent encoding を一度だけ復号し、`A%20B.md` と `A%2520B.md` の参照先を混同しない。通常 link / image / 参照定義、実在 / phantom、update 後も同じ解釈を使う
+- 表内 wikilink: GFM 表の `[[X\|表示]]` を X へ解決し、raw / 位置 / 表文脈を保存する。表外・frontmatter の解釈と区別する
+- 復号された Vault 外参照を拒否し、旧解釈 version の index は読み取り・update・DB 利用 mutation で build を要求する
 - backlink: B→Aのedgeが正しく作成される
 - 相対パス解決: `./Target.md` → `dir/Target.md`, `../Root.md` → `Root.md`
 - `/` 始まりリンク: vault ルート相対で解決
@@ -64,6 +67,7 @@
 - `[text](/note.md)` はVault相対
 - source に実在しないリンクはエラー
 - Markdown 参照リンクは source と raw 使用原文に一致する保存 edge から解決し、定義を編集しただけでは結果を変えない。未索引の使用原文はエラー
+- 全 link の exact raw は index snapshot を優先し、同義重複は解決、target / subpath が異なる重複は曖昧エラー。表内外に同原文がある場合も区別する
 - 曖昧候補はエラー
 - ルート優先: basename重複でもルートファイルに解決
 
@@ -262,7 +266,8 @@
 - `build.exclude_paths` に従う
 - ドット付き basename（`Note.v1`）が note として認識される
 - 相対パス（`./`, `../`）プレフィックス保持
-- ラウンドトリップ: 双方向変換で元に戻る
+- Markdown destination の復号・再出力後も参照先と fragment の意味を保つ。表内 alias は escaped pipe を保持し、wikilink で意味を表現できない destination は原文を保持する
+- ラウンドトリップ: 双方向変換で参照先と表示の意味を保つ
 - embed プレフィックス（`!`）が正しく保持される
 
 ## disambiguate

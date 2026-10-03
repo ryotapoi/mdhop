@@ -419,8 +419,8 @@ func splitAlias(input string) string {
 }
 
 // wikilinkParts contains the structural pieces of a raw wikilink.
-// alias retains the leading "|" so callers can preserve an explicitly empty
-// alias (for example, [[Target|]]) when reconstructing their own syntax.
+// alias retains its separator ("|", or "\|" in a table) so callers can preserve
+// an explicitly empty alias when reconstructing their own syntax.
 type wikilinkParts struct {
 	target  string
 	subpath string

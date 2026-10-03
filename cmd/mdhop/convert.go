@@ -12,7 +12,9 @@ const convertHelp = `Usage: mdhop convert --to <wikilink|markdown> [--dry-run] [
 
 Convert between wikilink and Markdown link syntax.
 Reference links and their definitions are left unchanged. Markdown self-links
-with balanced parentheses in their fragments can be converted.
+with balanced parentheses in their fragments can be converted. Destinations are
+decoded before conversion; links that cannot preserve their meaning as wikilinks
+are left unchanged. Table wikilink aliases keep their escaped pipe separator.
 
 Options:
   --to <wikilink|markdown>  Required. Target link syntax.

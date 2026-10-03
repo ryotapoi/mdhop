@@ -11,18 +11,6 @@
 
 ## タスク
 
-### v0.21.0 リンク解釈の正確性
-
-#### 不具合修正
-
-- [x] Markdown リンクのエスケープ・文字参照・URL エンコードと、表内 wikilink の alias を正しく解釈する
-
-  完了: 通常 Markdown link/image と参照定義 destination を共通の単一走査で復号し、表内 alias の context を保存・resolve・rewrite・promotion に接続した。既存 index は `mdhop build` による再生成を要求する。仕様は `docs/specs/overview.md` の「リンク解釈（互換性）」、保存値は `docs/rules/03-data-model.md` を正本とする。
-
-  検証: reported examples の実在/phantom、build/update、resolve/outgoing/backlinks/twohop、exact raw の異義判定、mutation/convert 後の再解析、非rewrite guard と旧 index gate を恒久回帰試験で確認。
-
-  出典: Markhop からのリンク解釈相談と現行 HEAD での再現確認。未リンク言及の探索は別途検討する。
-
 ### 関連表示と 2-hop のフィルタ整理
 
 - [ ] query の表示非表示と 2-hop の手がかり選択を分離し、指定した共通ターゲットから関連ノートを取得できるようにする
