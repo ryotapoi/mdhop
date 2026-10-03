@@ -42,7 +42,12 @@ func readHead(vaultPath string, source contentSource, n int) ([]string, error) {
 		end = len(lines)
 	}
 
-	return lines[start:end], nil
+	if lines == nil {
+		return nil, nil
+	}
+	head := make([]string, end-start)
+	copy(head, lines[start:end])
+	return head, nil
 }
 
 func readSnippets(vaultPath string, sources []snippetSource, contextLines int) ([]SnippetEntry, error) {

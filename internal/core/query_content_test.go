@@ -1,13 +1,70 @@
 package core
 
 import (
+	"bufio"
 	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestReadHeadOwnershipAndEmptyResults(t *testing.T) {
+	for _, tt := range []struct {
+		name, content string
+		n             int
+		want          []string
+	}{
+		{"small_head", "---\ntitle: test\n---\n\nhead\nbody\n" + strings.Repeat("tail\n", 1000), 2, []string{"head", "body"}},
+		{"short_body", "head\n", 3, []string{"head"}},
+		{"empty_file", "", 2, nil},
+		{"frontmatter_only", "---\ntitle: test\n---\n", 2, []string{}},
+		{"blank_only", "\n \n\t\n", 2, []string{}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := t.TempDir()
+			path := filepath.Join(vault, "Note.md")
+			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			head, err := readHead(vault, contentSource{path: "Note.md", mtime: info.ModTime().Unix()}, tt.n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(head, tt.want) {
+				t.Errorf("head = %#v, want %#v", head, tt.want)
+			}
+			if cap(head) != len(head) {
+				t.Errorf("head capacity = %d, want %d", cap(head), len(head))
+			}
+		})
+	}
+}
+
+func TestReadHeadScannerFailureAfterHead(t *testing.T) {
+	vault := t.TempDir()
+	path := filepath.Join(vault, "Note.md")
+	if err := os.WriteFile(path, []byte("head\n"+strings.Repeat("x", bufio.MaxScanTokenSize)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := readHead(vault, contentSource{path: "Note.md", mtime: info.ModTime().Unix()}, 1)
+	if !errors.Is(err, bufio.ErrTooLong) {
+		t.Errorf("error = %v, want Scanner token too long", err)
+	}
+	if head != nil {
+		t.Errorf("head = %#v, want nil on read failure", head)
+	}
+}
 
 func TestQueryContentSourceSelection(t *testing.T) {
 	db := newTestDB(t)
