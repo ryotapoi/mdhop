@@ -26,7 +26,8 @@
 - 設定ファイル: Vault 直下の `mdhop.yaml`（YAML 形式）
   - ファイルがなければデフォルト設定（除外なし）で動作する
   - `build` セクション: build 時のファイル除外
-  - `exclude` セクション: query 結果のフィルタ
+  - `exclude` セクション: search の除外。query では `query.via.exclude` キー不在時だけ経由先除外に流用
+  - `query.hide` / `query.via` セクション: 関連対象の表示と twohop 経由先の選択（下記参照）
 
 ```yaml
 build:
@@ -80,6 +81,7 @@ meta:
 - `mdhop query --tag tag` : タグ起点の関連情報を返す
 - `mdhop query --phantom name` : phantom 起点の関連情報を返す
 - `mdhop query --name name` : note/phantom/tag を意識せず関連情報を返す
+- `mdhop inspect --file A.md` : 索引済み note 一件の tags / meta と任意の本文冒頭を返す
 - `mdhop search --where "status=active"` : ノートをメタデータ条件で検索する
 - `mdhop diagnose` : basename 衝突、phantom 一覧を検出する
 - `mdhop status` : ディスクと現在の索引を比較し、未登録・変更済み・削除済みの note / asset を一覧にする。索引・ファイルは変更しない
@@ -118,17 +120,16 @@ meta:
 
 - `--format json|text` : 出力形式を指定する（default: text）
 - JSON は常に `untracked`、`modified`、`deleted` の path 配列を持つ。path は Vault 相対・forward slash・NFC、各配列は辞書順
-- `untracked` は現在の build 対象（note / asset、`build.exclude_paths` 適用後）で索引にないファイル。query 用 `exclude` は適用しない
+- `untracked` は現在の build 対象（note / asset、`build.exclude_paths` 適用後）で索引にないファイル。query の hide / via 条件と search の `exclude` は適用しない
 - `modified` は登録済み note / asset のディスク上の mtime が索引の mtime と秒精度で異なるファイル。本文 hash・サイズ・同一秒内の変更は検査しない
 - `deleted` は登録済み note / asset がディスク上にないファイル。現在の build 除外に一致する登録済みファイルも比較対象とする
 - status は差分の有無で失敗せず、索引・vault・設定を更新しない
 
-### resolve/query/diagnose/stats/reachable の出力
+### resolve/diagnose/stats/reachable の出力
 
 - `--format json|text` : 出力形式を指定する（default: text）
 - `--fields <comma-separated>` : 出力フィールドを制限する
   - resolve: `type,name,path,exists,subpath`
-  - query: `backlinks,tags,twohop,outgoing,head,snippet,meta`
   - diagnose: `basename_conflicts,asset_basename_conflicts,phantoms`
   - stats: `notes_total,notes_exists,edges_total,tags_total,phantoms_total,assets_total`
     - `edges_total` は出現回数ベースの総数
@@ -146,16 +147,6 @@ meta:
 - `exists`: note/assetの存在フラグ
 - `subpath`: `#Heading` / `#^block`（あれば）
 
-#### query
-
-- `backlinks`: 起点ノートへリンクしているノート一覧
-- `outgoing`: 起点ノートからの外向きリンク一覧
-- `twohop`: 共通ターゲット方式の関連ノート一覧（`via` ごとに `targets` を返す）
-- `tags`: 起点ノートが持つタグ一覧
-- `head`: ノート先頭N行（`--include-head`）
-- `snippet`: リンク周辺の前後N行（`--include-snippet`）
-- `meta`: エントリノードの frontmatter メタデータ（opt-in: `--fields` で明示指定時のみ）
-
 #### diagnose
 
 - `basename_conflicts`: note の basename 衝突一覧
@@ -171,24 +162,73 @@ meta:
 - `phantoms_total`: phantom総数
 - `assets_total`: asset総数
 
-### query の追加オプション
+### query の CLI 契約
 
-- `--file <path>` : ノート起点
-- `--tag <name>` : タグ起点（`#` は任意）
-- `--phantom <name>` : phantom 起点
-- `--name <name>` : 起点を自動判定（`#tag` はタグ扱い、曖昧ならエラー。ルート優先例外あり）
-- `--include-head <N>` : ノート冒頭 N 行を返す（frontmatterを除外し、先頭の空行を全て省く）
-- `--include-snippet <N>` : リンク周辺の前後 N 行ずつを返す（合計 2N+1 行）
-- `--max-backlinks <N>` : Backlinks の上限（default: 100）
-- `--max-twohop <N>` : two-hop の上限（default: 100）
-- `--max-via-per-target <N>` : two-hop の共通ターゲットごとの上限（default: 10）
-- `--link-key <key>` : direct な backlinks / outgoing を指定した frontmatter YAML key 由来のリンク出現に限定する。tags、twohop、head、snippet、meta、reachable には適用しない
-- `--path <glob>` : 結果ノード（backlinks / outgoing / twohop の targets / snippet）を一致するパスに絞る（複数回指定可、OR 結合）
-  - path を持たない node（phantom / tag）は除外されない（`--exclude` と同じ NULL 保護）
-  - twohop の via には適用しない（範囲外の via 経由で範囲内の targets に届くケースを保つ）
-- `--exclude <glob>` : 指定パターンに一致するパスを結果から除外する（複数回指定可）
-- `--exclude-tag <tag>` : 指定タグを結果から除外する（複数回指定可、`#` 付き推奨）
-- `--no-exclude` : `mdhop.yaml` の除外設定を無視する
+入口指定の `--file` / `--tag` / `--phantom` / `--name`、`--vault`、`--format text|json` は維持する。入口は従来同様一つだけ指定する。
+
+| 引数 | 確定する意味 |
+| --- | --- |
+| `--relations backlinks,outgoing,twohop` | 省略時は三関係すべて。指定時は列挙した関係のみ。順番は出力欄の順番を変えない。重複、未知名、空要素はエラー。 |
+| `--limit N` / `--offset N` | **関係を一つだけ明示選択したときのみ**指定可能。limit 省略は全件、offset 省略は 0。`N>0` / `N>=0` の整数。offset 単独なら残り全件。複数関係や関係指定省略との併用はエラー。専用 `--all`、`--count` は設けない。 |
+| `--via type:value` | 経由先を型と識別子で一つ選ぶ。型は `note` / `asset` / `phantom` / `tag`。note / asset は Vault 相対パス、phantom は名前、tag は `#` の有無を許すタグ名。指定型で正規化後完全一致。複数指定、未知型、空値はエラー。指定先が未登録・型違い・入口から未参照なら twohop は空で、他の via への fallback や入口解決由来のエラーにはしない。直接関係は制限しない。 |
+| `--via-path GLOB` / `--via-tag TAG` | 経由先の包含条件。path は note / asset、tag は tag 型に適用する。各引数は繰返し可能で、設定値とも OR、path と tag も OR。条件なしならすべて。`--via` と併用時はその一件との積集合。値はカンマ分割しない。 |
+| `--exclude-via-path GLOB` / `--exclude-via-tag TAG` | 繰返し可能な経由先の除外条件。path は note / asset、tag は tag 型に適用し、包含条件より優先する。ここで外した経由先は関係を生成しない。値はカンマ分割しない。 |
+| `--hide-path GLOB` / `--hide-tag TAG` | 繰返し可能な表示上の除外。note 対象・note 経由先には path、tag 対象・tag 経由先には tag を適用する。隠した経由先から対象を発見する関係自体は残す。asset / phantom は hide-path の対象外。入口オブジェクトは隠さない。値はカンマ分割しない。 |
+| `--no-config-hide` / `--no-config-via` | その目的の設定値だけを無視する。CLI 指定値は残る。`--no-config-via` は旧 exclude の fallback も無視する。 |
+| `--path GLOB` / `--where EXPR` | 従来同様、返す対象だけを絞る。経由先には掛けない。path を持たない tag / phantom は `--path` の対象外で残す。`--where` 指定時、tag / asset / phantom は一致しない。note の欠損属性は `NOT EXISTS` 等の既存評価に従う。 |
+| `--link-key KEY` | 従来同様、backlinks / outgoing の対象リンク出現だけを絞る。twohop の入口→via と対象→via の両側に適用しない。outgoing のタグも該当する直接リンク出現でなければ落ちる。 |
+| `--include-head N` | 返した関連 note の本文冒頭 N 行を付ける。`N>0`。省略時は head を取得しない。 |
+| `--include-snippet N` | 返した関係の根拠リンク行と前後 N 行を付ける。`N>=0`、0 はリンク行のみ。省略時は snippet を取得しない。値 0 と引数省略を区別する。 |
+
+例:
+
+```sh
+mdhop query --file Plan.md --format json
+mdhop query --file Plan.md --relations twohop --via note:topics/設計方針.md --format json
+mdhop query --file Plan.md --relations backlinks --limit 20 --offset 20 --format json
+mdhop query --file Plan.md --hide-path 'archive/*' --exclude-via-tag '#private' --format text
+```
+
+`--relations` は関連の種類、`--via*` は twohop の手がかり、`--hide*` は出力上の見せ方を指定する。`--via` で一つ選んでも backlinks / outgoing は消えない。twohop だけ欲しい場合は `--relations twohop` も指定する。
+
+旧 query の `--fields`、`--max-backlinks`、`--max-twohop`、`--max-via-per-target`、`--exclude`、`--exclude-tag`、`--no-exclude` は削除し、移行 alias を設けない。search の同名引数と動作は変更しない。旧上限は一対一の置換ではなく、必要な関係を一つ選んで `--limit` / `--offset` を使う。
+
+### inspect の CLI 契約
+
+`mdhop inspect --file Plan.md [--fields tags,meta] [--include-head N] [--format text|json] [--vault PATH]` は、索引上に存在する note 一件のタグと frontmatter 属性を取得し、指定時に本文冒頭を付ける。索引が無い場合は既存の読み取りコマンドと同じエラーにし、自動 build はしない。asset、phantom、索引に存在しない note はエラー。入口の関連探索はしない。既定の format は query と同じ text、vault は `.` とする。
+
+`--fields` 省略時は `tags,meta`。明示指定時は指定した属性だけで、重複・未知名・空要素はエラー。`--include-head N` は属性選択から独立した preview 指定で、`N>0`。head だけの属性モードは設けない。空の tags は `[]`、meta は `{}` で返し、指定した欄の有無が値の空と混同しない。tags は葉タグだけを表示するため、query outgoing に含まれる索引済み親タグと異なることがある。入力文字列のタグ階層を再構成する機能は加えない。
+
+meta は索引済みの属性だけを既存の `map[string][]string` 形式で返し、索引対象・値の意味は現行設定に従う。frontmatter 生 YAML の全属性取得や新しいメタデータ型は導入しない。JSON の `entry` は query と同じ typed NodeInfo、選択した `tags` / `meta` および指定した `head` のみを付ける。
+
+inspect は明示した一件の情報を返すため、query の hide / via 条件や旧 exclude の表示除外は適用しない。head 未指定なら本文の鮮度確認のためにファイルを読まず、索引上の tags / meta を返す。head 指定時のファイル欠落・更新検知は下記の本文読取契約に従う。
+
+```sh
+mdhop inspect --file Plan.md --format json
+mdhop inspect --file Plan.md --fields tags --include-head 5 --format text
+```
+
+たとえば `Plan.md` に `#planning`、索引済み `status: draft`、frontmatter 後の本文 `# 計画` がある場合:
+
+```json
+{"entry":{"type":"note","name":"Plan","path":"Plan.md","exists":true},"tags":["#planning"],"meta":{"status":["draft"]},"head":["# 計画"]}
+```
+
+これは `mdhop inspect --file Plan.md --include-head 1 --format json` の例。同じ入力の text は次の形で、選択した欄だけ出す。
+
+```text
+entry:
+  note "Plan.md"
+tags:
+  tag "#planning"
+meta:
+  "status": "draft"
+head:
+  "# 計画"
+```
+
+### query の対象メタデータ条件
+
 - `--where <expr>` : frontmatter メタデータによるフィルタ（複数回指定可）
   - 演算子: `=`, `!=`, `~`（LIKE）, `>`, `<`, `>=`, `<=`, EXISTS（演算子なし）, NOT EXISTS
     - 比較演算子が値の中にも現れる場合は、式の左端にある演算子でキーと値を分ける（例: `title=a!=b` はキー `title`、値 `a!=b` の等値比較）
@@ -216,20 +256,33 @@ meta:
     - 例: `--where "updated<today-90d"` → 90 日以上更新されていない note
     - 相対日付は date として比較する。比較は保存済み `sort_value` に対し `value_type='date'` ガード付きで行うため、左辺キーは `meta.types` で `date` 宣言されている必要がある。未宣言キーは `value_type='string'`・文字列正規化された `sort_value` で保存されており、ガードに弾かれてマッチしない
 
-### 除外フィルタの仕様
+### query 設定と照合規則
 
-- 適用範囲: query, search（stats/diagnose は対象外）
-- 除外対象（query）: backlinks, outgoing, tags, twohop（via と targets 両方）, snippet
-- 除外対象（search）: 検索結果のノード自体
-- エントリノード自体は除外されない（`--file daily/D.md --exclude "daily/*"` は正常動作）
-- `mdhop.yaml` の `exclude` と CLI の `--exclude`/`--exclude-tag` はマージして適用する
-- パス除外の glob パターン:
-  - SQLite GLOB 互換。`*` は任意文字列（`/` を含む）にマッチ、`?` は 1 文字にマッチ
-  - case-sensitive（`Daily/*` は `daily/D.md` にマッチしない）
-  - `[...]` 文字クラスは未サポート（パターンに `[` を含むとエラー）
-  - `**` は不要（`*` が `/` にもマッチするため）
-- タグ除外: 完全一致、case-insensitive
-- twohop の除外: 除外タグ/パスに一致する via はエントリごと削除される
+```yaml
+exclude:                         # 既存。search では従来どおり使う
+  paths: ["archive/*"]
+  tags: ["#private"]
+query:
+  hide:
+    paths: ["archive/*"]
+    tags: ["#private"]
+  via:
+    include:
+      paths: ["topics/*"]
+      tags: ["#planning"]
+    exclude:
+      paths: ["topics/secret.md"]
+      tags: ["#private"]
+```
+
+各目的内で config と CLI を足す。path 条件、tag 条件、それぞれの複数値は OR。via の包含と除外は独立し、除外が優先する。`query.via.exclude` **キー自体が無い場合だけ**旧トップレベル `exclude` を via 除外に流用する。空の `query.via.exclude: {paths: [], tags: []}` は明示的な上書きとして扱う。`query.hide` へ旧 exclude は流用しない。`query.via.include` の有無は fallback の判定に影響しない。
+
+GLOB は Vault 相対、大小文字を区別する。`*` は `/` をまたぎ、`?` は一文字、`[]` 文字クラスは非対応としてエラー。`archive/*` は配下を再帰的に照合し、`archive/` 単独を配下指定とみなさない。CLI では `'*'` をシェル展開されないよう引用する。型付きの完全一致 `--via` は GLOB ではない。tag は先頭 `#` を揃えて大文字小文字を区別せず完全一致で比較する。
+
+### search の除外フィルタ
+
+- 検索結果の node に `exclude.paths` / `exclude.tags` と CLI `--exclude` を適用する。config と CLI は合成し、`--no-exclude` は config だけを無視する。
+- query の hide / via 設定は適用しない。glob / tag の照合規則は上記と共通。
 
 ### コマンド詳細（必須/任意）
 
@@ -241,7 +294,7 @@ meta:
   - 補足: `mdhop.yaml` の `build.exclude_paths` に一致するファイルはインデックスから除外される
     - 除外ファイルへのリンクは phantom ノードとして扱われる
     - 除外ファイル内のタグはインデックスに含まれない
-    - query の `exclude.paths` とは独立（build 除外はインデックス作成前にフィルタ、query 除外はクエリ結果をフィルタ）
+    - query の hide / via 条件とは独立（build 除外は索引作成前に適用）
     - mutation コマンド（`add` / `update` / `delete` / `move`）は `build.exclude_paths` を参照せず、DB 状態に対して動作する。不整合（例: `add --file daily/D.md`）は次の `build` で解消される
 - `update`
   - 必須: `--file`（複数回指定可）
@@ -367,10 +420,12 @@ meta:
   - 必須: `--from`, `--link`
   - 任意: `--vault`, `--format`, `--fields`
 - `query`
-  - 必須: `--file` または `--tag` または `--phantom` または `--name`
-  - 任意: `--vault`, `--format`, `--fields`, `--include-head`, `--include-snippet`,
-    `--max-backlinks`, `--max-twohop`, `--max-via-per-target`, `--link-key`,
-    `--path`, `--exclude`, `--exclude-tag`, `--no-exclude`, `--where`
+  - 必須: `--file` / `--tag` / `--phantom` / `--name` のちょうど一つ
+  - 任意引数と制約: [query の CLI 契約](#query-の-cli-契約)参照
+- `inspect`
+  - 必須: `--file`
+  - 任意: `--vault`, `--format`, `--fields tags,meta`, `--include-head`
+  - 属性選択と本文読取: [inspect の CLI 契約](#inspect-の-cli-契約)参照
 - `search`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`, `--where`, `--path`, `--exclude`, `--no-exclude`,
@@ -542,18 +597,22 @@ meta:
   - wikilink と markdown link の同一ターゲット一致
   - basename 一致（ただし曖昧ならエラー）
 
-## query のルール（要点）
+## query の関係と返却順
 
-- Backlinks, Tags, Two-Hop, Outgoing を返す
-- 2 Hop は「共通ターゲット方式（A->X かつ B->X）」
-- Two-Hop は **経由対象（via）を必ず返す**（例: `A <-via- X -> B` の X）
-- Outgoing は起点ノートからの外向きリンク一覧
-- phantom をクエリ対象に含める
-- 出力は priority と上限指定でノイズを抑える
-  - `--max-backlinks`（default: 100）
-  - `--max-twohop`（default: 100）
-  - `--max-via-per-target`（default: 10）
-  - 並び順の詳細は将来定義する
+`Plan.md` が `topics/設計方針.md` と `#planning` を参照し、`Guide.md` が `Plan.md`・`topics/設計方針.md`・`#planning` を参照し、`Review.md` が `Plan.md` を参照する場合:
+
+- backlinks: `Plan.md ← Guide.md` と `Plan.md ← Review.md`。入口へのリンク元。
+- outgoing: `Plan.md → topics/設計方針.md` と `Plan.md → #planning`。入口が参照する先。タグも索引上の通常のリンク先として含める。
+- twohop: `Plan.md → topics/設計方針.md ← Guide.md` と `Plan.md → #planning ← Guide.md`。`Guide.md` は対象として一件、経由先は二件。JSON キーは `2hoplink` とする。
+
+全入口タイプで twohop は **入口→経由先←対象** のみ。従来の非 note 入口に対する `入口←経由元→対象` 特例は廃止する。tag / asset / phantom 入口は索引で outgoing を持たないため、twohop は空、backlinks は従来どおり返る。タグの階層親も索引済みのリンク先なら outgoing に含め、twohop の経由候補と一致させる。
+
+1. 実行時点の索引から、選択した関係の候補リンクを取得する。直接関係には `--link-key`、twohop には型付き経由指定・包含・除外を適用する。twohop は入口から出る各リンク先を経由先とし、そこへリンクする別対象を集める。X と Y を共有する対象で X だけ via 除外した場合は Y 経由で残り、許可された via がゼロになった場合だけ消える。入口自身は関連対象から外す。`build.exclude_paths` 等により索引にない関係は復元しない。外部 URL は対象外。DB schema / 索引更新方法は変更しない。
+2. 対象に `--path` / `--where` を適用する。hide 対象を除く。twohop では hidden via を **対象の発見からは除かず**、後で構造化した経由先欄からのみ隠す。隠した経由先が全件でも対象は残し、`relation: []` と `hidden_relation: true` を返す。
+3. 各関係内で typed node ID により対象を一件にまとめる。backlinks と twohop の両方にいる `Guide.md` は両欄に一回ずつ載る。twohop で同じ対象に複数の経由先があれば `relation` に全件載せ、経由ごとの旧件数上限は設けない。
+4. 各欄を独立に安定順へ並べる。path がある node を Vault 相対 path の Unicode NFC コードポイント順、path がない node をその後ろへ type・NFC name 順。最後に安定した typed node ID で同順位を解く。経由先も同順。ロケール依存順にはしない。
+5. 一関係を明示した場合だけ、その欄の対象単位で offset 件を飛ばし limit 件を返す。空・hidden・重複候補は枠を使わない。limit 未指定なら残り全部。`next_offset` は次の有効対象が存在するときだけ次に渡す整数、それ以外は null。存在判定用の一件は本文プレビューを読まない。total / count は計算しない。実行をまたぐ索引の保存・更新検知・整合保証・専用エラーは設けない。
+6. 最後に、返す対象の head と、その対象との関係を示す snippet を必要に応じて読む。outgoing の snippet の読み取り元は対象ではなく入口の本文となる。複数関係を全件返す場合も選択した関係に必要な本文だけ読む。表示から隠した via に紐づく snippet は生成しない。
 
 ### ミューテーション系の出力
 
@@ -573,49 +632,92 @@ meta:
 
 ## 出力形式
 
-- `--format json | text`
-- `--fields` で出力項目を選択
-- query の `backlinks/outgoing/twohop` は **type を含めて出力**する
-  - `note` / `asset` の場合は `name/path/exists` を含む
-  - `phantom/tag` は `name` を含む
-  - `twohop` は経由対象 `via` と、その `targets` を必ず含む
-- `--include-head` はノート冒頭 N 行を返す（`head` フィールド）
-- `--include-snippet` はリンク周辺 N 行を返す（`snippet` フィールド）
-  - `head/snippet` は `--fields` の指定名
-  - 将来: `head` / `snippet` 単体指定時の専用フォーマットを検討する
+format / fields はコマンド別の契約に従う。query は relations、inspect は属性 fields を選び、search 等の fields は従来どおり。JSON stdout は単独で parse 可能とし、警告は stderr に出す。
 
-### query 出力例（twohop）
+### query の JSON と text
 
-text:
-```
-twohop:
-- via: note: Notes/Design.md
-  targets:
-  - note: Notes/Spec.md
-  - note: Notes/Plan.md
-- via: phantom: MissingConcept
-  targets:
-  - note: Notes/Spec.md
-```
+JSON stdout は agent 向けインターフェース。警告は stderr。キー `backlinks` / `outgoing` / `2hoplink` は選択した関係だけ出す。選択した欄が空なら必ず `[]` とし、未選択欄はキー自体を省略する。`omitempty` による空欄消失を避ける。関係の選択が一つでも三つでも同じ形式を使う。
 
-json:
-```
+上の利用例に対する JSON（ページ指定なし）:
+
+```json
 {
-  "twohop":[
-    {
-      "via":{"type":"note","name":"Design","path":"Notes/Design.md","exists":true},
-      "targets":[
-        {"type":"note","name":"Spec","path":"Notes/Spec.md","exists":true},
-        {"type":"note","name":"Plan","path":"Notes/Plan.md","exists":true}
-      ]
-    },
-    {
-      "via":{"type":"phantom","name":"MissingConcept"},
-      "targets":[{"type":"note","name":"Spec","path":"Notes/Spec.md","exists":true}]
-    }
-  ]
+  "entry": {"type":"note","name":"Plan","path":"Plan.md","exists":true},
+  "backlinks": [
+    {"type":"note","name":"Guide","path":"Guide.md","exists":true},
+    {"type":"note","name":"Review","path":"Review.md","exists":true}
+  ],
+  "outgoing": [
+    {"type":"note","name":"設計方針","path":"topics/設計方針.md","exists":true},
+    {"type":"tag","name":"#planning"}
+  ],
+  "2hoplink": [
+    {"type":"note","name":"Guide","path":"Guide.md","exists":true,
+     "relation":[
+       {"type":"note","name":"設計方針","path":"topics/設計方針.md","exists":true},
+       {"type":"tag","name":"#planning"}
+     ],"hidden_relation":false}
+  ],
+  "page":{"offset":0,"limit":null,"next_offset":null}
 }
 ```
+
+`relation` は対象が入口と共有する経由先であり、対象との別関係種別ではない。ノート以外も `type` と `name` で識別する。asset は path と exists、phantom は name を持ち path を持たない。未作成リンクの phantom と実在ファイルを混同しない。`exists` は実在確認可能な note / asset だけに付ける。hide された経由先の識別子は `relation` に出さず、存在だけ `hidden_relation` で示す。例えば上例で `--hide-tag '#planning'` を付けると `Guide` 自体は残り、`relation` は設計方針だけ、`hidden_relation` は true になる。トップレベル独立 `tags`、入口の `head` / `meta` / `snippet`、旧 `items` / `total` は query に設けない。
+
+単一関係で `--relations backlinks --limit 1` の結果は `backlinks` が一件、他の関係キーは無し、`page: {"offset":0,"limit":1,"next_offset":1}`。次ページで末尾に達したら `next_offset: null`。`offset` が対象数以上なら選択欄 `[]`、`next_offset: null`。
+
+text は入口を先頭に、選択した関係の見出しを backlinks → outgoing → 2hoplink の順に出し、各対象を一行に一件表示する。対象識別子と経由先識別子は JSON の文字列引用規則（ダブルクォートと escape）で囲む。コンマ・タブ・改行を含む path でも区切りと混同しない。型は識別子の外に置く。twohop の対象の次に `relation:` 行、その下に経由先を一行ずつ置き、非表示経由がある場合は別行に `hidden_relation: true` と書く。最後に page の三値を表示する。プレビュー指定時は対象または経由先の直下に `head:` / `snippet:` を追加し、snippet は `source_path`、行範囲、引用した生行をインデントして並べる。機械で読む用途は JSON を用いる。
+
+未選択の関係は見出しごと省略する。選択済みで対象が0件の場合だけ、その見出しの下に `（該当なし）` と表示する。
+
+```text
+entry:
+  note "Plan.md"
+backlinks:
+  note "Guide.md"
+  note "Review.md"
+outgoing:
+  note "topics/設計方針.md"
+  tag "#planning"
+2hoplink:
+  note "Guide.md"
+    relation:
+      note "topics/設計方針.md"
+      tag "#planning"
+page:
+  offset: 0
+  limit: null
+  next_offset: null
+```
+
+### query / inspect の本文プレビュー
+
+`head` は本文の frontmatter と直後の空行を飛ばした先頭 N 行。見出し抽出や自動要約ではない。query では返した関連対象が note の場合だけ、その対象に `head: ["..."]` を付ける。inspect では指定 note に同じ内容を付ける。search の head 契約も維持する。
+
+head 未指定時と note 以外の対象では `head` キーを省略する。指定した note の本文が空なら `head: []` とする。snippet も未指定ならキーを省略し、指定時は対応するリンク出現を配列で返す。空の配列と未指定を `omitempty` で混同しない。
+
+`snippet` は関係を立証する実リンク出現の生テキストと前後 N 行。frontmatter 内のタグやリンクも特別整形せず、該当行をそのまま返す。JSON では対象との対応を失わないよう、backlinks / outgoing 対象に `snippet` 配列、twohop では各 `relation` 経由先に `snippet` 配列を付ける。各要素は `source_path`、1 始まりで両端を含む `start_line` / `end_line`、生の行配列 `lines` を持つ。同じ edge 出現は一回、別の出現は一つずつ返し、前後文脈が重なっても統合しない。複数出現はファイル・行・索引 edge ID で安定化する。同じ対象でも条件に合うリンク出現だけを採る。
+
+- `Plan.md → topics/設計方針.md` の outgoing: `Plan.md` 内の設計方針へのリンク箇所。
+- `Guide.md → Plan.md` の backlinks: `Guide.md` 内の Plan へのリンク箇所。tag / asset / phantom 入口の backlinks も実際の参照元本文。
+- `Plan.md → topics/設計方針.md ← Guide.md` の twohop: `Guide.md` 内の設計方針へのリンク箇所。入口 Plan 側のリンク箇所はここでは重ねて返さない。
+
+twohop の入口側根拠が必要なら、経由先を入口として backlinks を `--path Plan.md` で絞る別 query で取得できる。tag 経由なら `--tag planning --relations backlinks --path Plan.md --include-snippet 0`。この補完は通常出力の必須機能にしない。`--path` / `--where` は返却対象の選択だけに掛け、snippet の参照元へ再適用しない。`--link-key` は直接関係の出現だけを絞り、twohop の snippet を落とさない。落ちた対象の出現、ページの先読み一件、表示から隠した経由先の snippet は生成しない。hide は構造化した node / via の列挙を制限するが、別の可視リンクの生 snippet や head に偶然現れる同じ文字列の全文検閲まではしない。
+
+`mdhop query --file Plan.md --relations twohop --via note:topics/設計方針.md --include-head 1 --include-snippet 0 --format json` では、`Guide.md` が 7 行目で `[[設計方針]]` を参照し、本文先頭が `# ガイド` なら、関連部分は次の形になる。`--link-key` を追加しても twohop のこの snippet は残る。
+
+```json
+{
+  "entry":{"type":"note","name":"Plan","path":"Plan.md","exists":true},
+  "2hoplink":[{"type":"note","name":"Guide","path":"Guide.md","exists":true,
+    "relation":[{"type":"note","name":"設計方針","path":"topics/設計方針.md","exists":true,
+      "snippet":[{"source_path":"Guide.md","start_line":7,"end_line":7,"lines":["[[設計方針]]"]}]}],
+    "hidden_relation":false,"head":["# ガイド"]}],
+  "page":{"offset":0,"limit":null,"next_offset":null}
+}
+```
+
+head / snippet を指定しなければ本文ファイルを読まない。指定して選択後の本文を読む際、ファイル欠落・索引時からの更新は既存の `ErrFileNotFound` / `ErrSourceStale` の扱いを維持する。プレビュー用にページ外の対象を先読みしない。
 
 ### graph 出力例
 

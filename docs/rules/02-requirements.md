@@ -66,18 +66,14 @@
 - 全 link は source と使用原文が完全一致する保存 edge を優先し、複数出現の target / subpath が異なる場合は曖昧エラーにする。完全一致がなければ従来の正規化一致で解決する（参照リンクは完全一致のみ）。表文脈・定義は index snapshot から取得する
 - Markdown 参照リンクは、使用原文に一致する source の保存 edge から解決する。JSON は通常 link と同じ shape。未定義・未索引の使用原文はエラーとなる。定義変更は update 後に反映し、query/resolve は本文を再走査しない。記法の詳細と非 rewrite 制限は `docs/specs/overview.md` を正本とする
 
-### 2.4 ノート取得（query）
+### 2.4 関連探索（query）と単体属性取得（inspect）
 
-- 指定ノート（`--file`）の以下を返す:
-  - `Backlinks`
-  - `Tags`
-  - `2 Hop Links`（共通ターゲット方式）
-- phantom をクエリ対象に含める
-  - phantom クエリ時の two-hop seed は inbound/auto をサポート
-- 出力順/ノイズ対策:
-  - priority（backlink > tags > two-hop(link) > two-hop(tag deep) > two-hop(tag shallow)）
-  - 上限 (`max_backlinks`, `max_twohop`, `max_via_per_target`) で切る
-- `--link-key <key>` は direct な backlinks / outgoing を指定 frontmatter key 由来のリンクに限定する
+- query は一つの入口の backlinks / outgoing / twohop を通常全件返す。relations で関係を選び、明示一関係だけ limit / offset により対象をページ取得する。既定上限・経由ごとの件数上限は設けない。
+- twohop は全入口で入口→経由先←対象。tag / asset / phantom は outgoing を持たないため twohop は空、backlinks は返す。outgoing には索引済みタグ階層親を含める。
+- via 選択・包含・除外は twohop の経由候補、hide は対象と経由識別子の表示に適用する。hidden via から見つけた対象は残す。全経由先を対象ごとにまとめ、安定順に返す。
+- `--link-key <key>` は direct な backlinks / outgoing のリンク出現だけを指定 frontmatter key 由来に限定する。
+- inspect は索引済み note 一件の葉タグと metadata、任意 head を取得する。関連探索・自動索引作成は行わず、query の hide / via 条件は適用しない。
+- CLI / config / 出力の詳細は `docs/specs/overview.md` を正本とする。
 
 - メタデータフィルタ（`--where`）:
   - frontmatter の値によるノードフィルタリング
@@ -88,9 +84,9 @@
 ### 2.5 省コンテキスト出力
 
 - `--format json|text`
-- `--fields`: 出力フィールド選択（未知指定はエラー）
-- `--include-head`: ノート冒頭 N 行を返す
-- `--include-snippet`: リンク周辺 N 行を返す
+- query は `--relations`、inspect は `--fields tags,meta`、その他 fields 対応コマンドは各自の属性を選択する（未知指定はエラー）
+- `--include-head`: query は返却 note、inspect は指定 note の本文冒頭 N 行を返す
+- query の `--include-snippet`: 各返却関係を示す実リンク出現の周辺 N 行を返す。outgoing は入口、backlinks / twohop は対象本文から読む。hidden / ページ外の不要本文は読まない
   - DBには本文TEXTを保存しない（位置情報のみ）
   - query 時にファイルから切り出す
   - stale（mtime不一致）または保存済みのリンク位置が現在のファイル行数を超える場合はエラーにする

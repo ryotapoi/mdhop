@@ -73,32 +73,24 @@
 
 ## query
 
-- 起点: `--file/--tag/--phantom/--name` のいずれか
-- `--name #tag` はタグ扱い、曖昧ならエラー
-- `--name` のルート優先: basename重複でもルートファイルに解決
-- `backlinks/tags/outgoing/twohop` の出力
-- `twohop` は via→targets 構造
-- `backlinks/outgoing/twohop` は type を含める
-- `--fields` による出力制限（未知値はエラー）
-- `--format text/json` の出力差
-- `--include-head/--include-snippet` の出力
-- head は frontmatter と先頭空行を除き、指定行数だけ返す。空ファイルと本文なしの場合も確認する
-- stale（mtime不一致）検出でエラー
-- `max-*` の上限適用
-- `--link-key <key>` は任意の frontmatter key 由来の link occurrence に限定して direct backlinks / outgoing を返す。同一 node への複数出現は 1 件に重複排除される
-  - 省略または空値は従来どおり非フィルタ。twohop、tags、head、snippet、meta、reachable には適用しない
-- `--exclude` でパス除外: backlinks/outgoing/twohop/snippet から除外パスが消える
-- `--exclude` 複数パス除外
-- `--exclude-tag` でタグ除外: tags から消える、twohop の via から消える
-- `--exclude` でパス除外時に twohop の via/targets 両方から消える
-- `--exclude` 時に phantom が消えないこと（NULL 安全性）
-- エントリノード自体は除外されない
-- `--no-exclude` で config の除外を無視
-- CLI `--exclude`/`--exclude-tag` と config の除外がマージされる
-- nil exclude（除外なし）で全結果が返る（回帰ガード）
-- config ファイルなし → ゼロ Config
-- config YAML 不正 → エラー
-- glob パターンに `[` → エラー
+- 入口 file / tag / phantom / name の一意選択、name の曖昧エラーとルート優先を確認する。
+- 通常三関係全件、選択済み空 `[]` と未選択省略、全入口共通の入口→via←対象、non-note の backlinks と空 outgoing / twohop、タグ親 outgoing を確認する。
+- 対象重複排除・全 via・型・安定順、旧上限を超える対象と経由先を確認する。
+- typed via 四型の正規化・完全一致・未登録・型不一致・未参照、via の OR 包含 / 優先除外を確認する。直接関係は via 条件で変えない。
+- hide は note / tag の対象と経由識別子を隠し、hidden via のみでも対象・空 relation・hidden_relation を残す。asset / phantom と入口は隠さない。
+- config 合成、旧 exclude fallback のキー不在と明示空、include の独立性、目的別 no-config と CLI 値保持を確認する。search の旧 exclude は保持する。
+- 一関係明示時だけ limit / offset を許し、対象単位のページ・末尾 / 範囲外・offset 単独・next_offset を確認する。複数関係、空 / 重複 / 不正 relations、旧 flags、非正 limit、負 offset、不正 via / glob / preview はエラー。
+- path / where は対象のみ、link-key は直接 edge のみへ適用する。twohop とその snippet は link-key で落とさない。
+- head は返却 note、snippet は backlinks の対象→入口 / outgoing の入口→対象 / twohop の対象→可視 via。前後文脈・別出現・frontmatter 生行と1始まり両端含む行範囲を確認する。
+- 未指定 preview の省略、指定済み空配列、本文冒頭の frontmatter / 空行除去、必要本文 missing / stale を確認する。hidden / page 外 / 先読み / 未選択関係の不要本文を読まない。
+- JSON の typed node、page の整数 / null と stdout 単独解析、text の comma / tab / newline / quote escape を確認する。process 終了コード、stderr error prefix、file / DB 無変更を実バイナリで確認する。
+
+## inspect
+
+- 索引 note 一件の tags / meta、葉タグと query の親タグの差、複数値を確認する。fields は既定両方、選択済み空 tags `[]` / meta `{}` と未選択省略を区別する。
+- 任意の正整数 head は属性選択と独立。head 空は `[]`。hide / via / 旧 exclude は適用しない。
+- fields の重複 / 未知 / 空、head 非正、file 未指定 / 非 note / 未索引 / 索引なしはエラー。索引なしでも自動 build しない。
+- head なしは本文 missing / stale でも索引属性を返す。head ありは既存 missing / stale エラー。JSON / text 引用、stdout / stderr / 終了コード、file / DB 無変更を確認する。
 
 ## add
 

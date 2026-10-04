@@ -65,18 +65,18 @@
 
 - 状況: あるタグを持つノートを一覧したい
 - 手順:
-  1) `mdhop query --vault . --tag '#project'`
+  1) `mdhop query --vault . --tag '#project' --relations backlinks`
 - 期待結果:
-  - #project タグを持つノート一覧が返る
+  - #project タグを持つノートが backlinks に返る。tag 入口の outgoing / twohop は空。
 
 ## 6. 2hop で関連探索
 
 - 状況: 直接リンクが無いが関連の強いノートを探したい
 - 手順:
-  1) `mdhop query --vault . --file Notes/Design.md`
+  1) `mdhop query --vault . --file Notes/Design.md --relations twohop`
   2) 返ってきた 2hop のノートを開く
 - 期待結果:
-  - 2hop による関連ノートが得られる
+  - 入口→経由先←対象の関係で、一件の対象に共有する全経由先が付く。タグや索引済み親タグも経由先になる。
 
 ## 7. 診断 → 曖昧性の検出
 
@@ -158,7 +158,7 @@
 - 手順:
   1) `mdhop query --vault . --file Notes/Design.md --include-snippet 3`
 - 期待結果:
-  - Backlinks にリンク周辺の行が含まれる
+  - backlinks はリンク元、outgoing は入口、twohop は対象→可視経由先の本文から根拠行を返す。`--include-head 3` を足すと返却 note の本文冒頭を付ける。
 
 ## 16. 曖昧リンクの解消（disambiguate）
 
@@ -197,7 +197,7 @@
 
 - 状況: `sources` key 由来の直接参照だけを確認したい
 - 手順:
-  1) `mdhop query --vault . --file Notes/Design.md --link-key sources --fields backlinks,outgoing`
+  1) `mdhop query --vault . --file Notes/Design.md --link-key sources --relations backlinks,outgoing`
 - 期待結果:
   - backlinks / outgoing は指定 key 由来に限定される
 
@@ -209,3 +209,15 @@
   2) 結果の `source_path` と `line` を開く
 - 期待結果:
   - finding ごとに source の行位置が得られる
+
+## 22. 入口の属性と本文冒頭を確認
+
+- 状況: 関連探索をせず note 一件の属性を読む
+- 手順: `mdhop inspect --file Notes/Design.md --fields tags,meta --include-head 5 --format json`
+- 期待結果: 索引の葉タグと metadata、frontmatter と先頭空行を除く本文冒頭を返す。head 未指定では本文を読まない。query の hide / via 条件は適用しない。
+
+## 23. 経由先の選択・非表示とページ取得
+
+- `mdhop query --file Notes/Design.md --relations twohop --via tag:project --limit 20 --offset 20 --format json` で共有タグ経由の関連対象をページ取得する。続きは `page.next_offset` を使う。
+- `--hide-tag project` は経由識別子だけを隠し、対象を残す。`--exclude-via-tag project` はその経由から関係を作らない。対象自体の選択は `--path` / `--where` で行う。
+- 複数関係のページ指定はエラー。旧 query の移行は [CLI 契約](overview.md#query-の-cli-契約)参照。

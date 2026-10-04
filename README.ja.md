@@ -13,7 +13,7 @@ Markdown リポジトリ内のリンク関係を SQLite にインデックス化
 - **wikilink / markdown link / tag / frontmatter 対応** — Obsidian 互換のリンク解釈
 - **Markdown 参照リンク対応** — 同一文書の定義を使って完全形・省略形の参照を解決し、関連検索に反映
 - **ローカル完結** — 外部サービス不要。pure Go + SQLite
-- **Coding Agent 向け最適化** — `--fields` や `--include-snippet` で必要最小限のコンテキストだけ返す
+- **Coding Agent 向け最適化** — `query --relations`、`inspect --fields`、`--include-snippet` で必要最小限のコンテキストだけ返す
 
 ## インストール
 
@@ -57,7 +57,8 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `convert` | リンク形式を wikilink ↔ markdown で変換 |
 | `repair` | 壊れた・vault 外を指すパスリンクを basename 形式に修復 |
 | `resolve` | リンクの解決先を返す |
-| `query` | 起点ノートの Backlinks / Two-Hop / Tags 等を返す |
+| `query` | 一つの入口の backlinks / outgoing / twohop を返す |
+| `inspect` | 索引済み note 一件の tags / meta と任意 head を返す |
 | `search` | frontmatter メタデータ・パス・孤立検出条件で Vault 全体からノートを検索 |
 | `reachable` | 入口 note からリンクで到達できる / できない note を列挙 |
 | `graph` | リンクグラフを JSON / Graphviz dot で出力 |
@@ -78,14 +79,14 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 ```bash
 mdhop stats --format json
 mdhop search --where "status=active || status=review" --fields meta --format json
-mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
+mdhop query --file Notes/Design.md --relations backlinks,outgoing --format json
 mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
 mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 ```
 
 ## 設定（mdhop.yaml）
 
-Vault 直下に `mdhop.yaml` を置くと、build 時・query 時の除外パターンと frontmatter の扱いを指定できる。
+Vault 直下に `mdhop.yaml` を置くと、build 除外、query の表示・経由先選択、search 除外、frontmatter の扱いを指定できる。
 
 ```yaml
 build:
@@ -99,11 +100,28 @@ exclude:
   tags:
     - "#daily"
 
+query:
+  hide:
+    paths: ["archive/*"]
+  via:
+    exclude: {paths: [], tags: []}
+
 meta:
   link_keys:        # raw path 値をリンク edge にする frontmatter key
     - related
     - sources
 ```
+
+## v0.21.0 への移行
+
+- query の `--fields` は削除。関係は `--relations backlinks,outgoing,twohop` で選び、入口の tags / meta / head は `mdhop inspect --file Notes/Design.md --include-head 5 --format json` へ移す。query の head は関連 note、snippet は各関係の根拠行を返す。
+- `--max-backlinks` / `--max-twohop` / `--max-via-per-target` は削除し、既定は全件・全経由先。一対一の置換ではなく、必要な関係を一つ選び `--relations backlinks --limit 20 --offset 20` を使う。旧 flags の alias はない。
+- query の `--exclude` / `--exclude-tag` / `--no-exclude` は削除。表示は `--hide-path` / `--hide-tag`、twohop の経由先選択は `--via*` / `--exclude-via*`、設定無効化は `--no-config-hide` / `--no-config-via` へ分ける。
+- 旧 config `exclude` は `query.via.exclude` **キー不在時だけ**経由先除外へ fallback する。上例の明示空は fallback を無効にする。`query.hide` には流用せず、via include の有無は fallback と独立。CLI 値は no-config 指定時も残る。search の旧 exclude / fields / head 契約は変わらない。
+- JSON は `entry`、選択した `backlinks` / `outgoing` / `2hoplink` 配列、`page` を返す。twohop は対象ごとの全 `relation` と `hidden_relation` を持つ。独立 tags、入口 preview / meta、旧 via→targets 構造を読む処理は更新が必要。選択済み空と未選択を区別する。
+- tag / asset / phantom 入口の backlinks は維持する。outgoing / twohop は空。query outgoing には親タグも含み、inspect tags は葉タグを返す。index schema は変更しない。
+
+詳しい契約と出力例は [コマンド仕様](docs/specs/overview.md)を参照。この案内は v0.21.0 の契約変更であり、release / tag の公開記録ではない。
 
 ## ドキュメント
 

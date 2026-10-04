@@ -187,7 +187,8 @@ number の負数終端 `:` は全数字より辞書順で後に置かれ、小�
 
 ネストタグの扱い:
 - 格納時: `#a/b/c` を見つけたら `#a`, `#a/b`, `#a/b/c` へ全てエッジ
-- 出力時: 最深のみ（祖先は省略）
+- inspect の tags 表示時: 最深のみ（祖先は省略）
+- query の outgoing / twohop 経由候補: 索引済み親タグも含める
 
 ### 4.3 2 Hop Links（共通ターゲット方式）
 
@@ -196,13 +197,9 @@ number の負数終端 `:` は全数字より辞書順で後に置かれ、小�
 - X は `note|asset|phantom|tag` を含む
 - A/B は原則 note（sourceになれるのは実ファイルのみ）
 
-phantom クエリ用 seed:
-- outbound: `targets(A)`
-- inbound: `sources(A)`（= backlinks）
-- auto: noteなら outbound、phantomなら inbound
+全入口で outbound（`targets(A)`）のみを使う。tag / asset / phantom は source edge を持たないため twohop は空となる。inbound / auto の特例は設けない。
 
-ノイズ対策:
-- `--max-backlinks`、`--max-twohop`、`--max-via-per-target` で返却件数を制限する
+対象を typed node ID でまとめて全経由先を返す。via 条件で経由を選び、hide は発見後の表示だけを変える。一関係の有効対象を安定順にページ取得し、本文を読む前に返却対象を確定する。count / total や実行間の index 同時更新保証は設けない。詳細は `docs/specs/overview.md` 参照。
 
 ### 4.4 メタデータフィルタ（--where）
 
@@ -229,7 +226,7 @@ SQL 生成パターン:
 
 ### 4.5 メタデータ取得
 
-`--fields meta` で起点ノードの全 frontmatter メタデータを返す（opt-in。挙動は docs/specs/overview.md 参照）。
+inspect は既定で索引済み note 一件の metadata を返し、`--fields meta` で属性を限定できる。query は入口 metadata を返さない。search の `--fields meta` は従来どおり opt-in。値は索引済みの `map[string][]string` とし、詳細は `docs/specs/overview.md` 参照。
 
 SQL パターン: `SELECT key, value, sort_value, value_type FROM meta WHERE node_id = ? ORDER BY key, value`
 
@@ -264,12 +261,13 @@ SQL パターン: `SELECT key, value, sort_value, value_type FROM meta WHERE nod
 
 ### 6.1 `--include-head`（ノート冒頭）
 
-- `--include-head <N>` で各ノートの先頭 N 行を返す
+- `--include-head <N>` で query の返却 note / inspect の指定 note の本文先頭 N 行を返す（frontmatter と先頭空行を除く）
 - note だけが本文を持つ。asset/phantom/tag は head を持たない
 
 ### 6.2 `--include-snippet`（リンク周辺）
 
-- `--include-snippet <N>` で DB の位置情報を使い、リンク周辺 N 行を返す
+- query の `--include-snippet <N>` で DB の edge 出現の位置情報を使い、根拠行と前後 N 行を生行として返す。outgoing は入口、backlinks は対象→入口、twohop は対象→可視 via の本文を読む
+- preview 未指定では本文を読まず、指定時も hidden / ページ外 / 先読みの不要本文は読まない
 - head は `--include-head`、snippet は `--include-snippet` を指定したときだけ返す
 
 ---

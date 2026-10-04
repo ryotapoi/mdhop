@@ -26,10 +26,10 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 ### 2.2 mdhop が提供する“省コンテキスト能力”
 
 - “どこを見ればよいか” を **DBクエリで即決**できる（= grep しない）
-- `--fields` / `--include-head` / `--include-snippet` により
+- query の `--relations`、inspect 等の `--fields`、`--include-head` / `--include-snippet` により
   - 必要なフィールドだけ返す
   - `--include-head` でノート冒頭、`--include-snippet` でリンク周辺の **最小スニペット**を返す
-- asset/phantom/tag をノードとして扱い、存在しないノートでも関連探索（two-hop 含む）が可能
+- asset/phantom/tag をノードとして扱い、存在しないノートでも backlinks を探索できる。twohop は全入口で入口→経由先←対象に統一する
 
 ---
 
@@ -90,7 +90,8 @@ mdhop は、Obsidian Vault のような **複数 Markdown ファイルのリン�
 - `mdhop build` : Vault 全量を解析してDB作成
 - `mdhop update --file ...` : 指定ファイルのみ差分更新（ファイル削除も反映）
 - `mdhop resolve --from A.md --link '[[X]]'` : リンク解決（曖昧ならエラー）
-- `mdhop query --file A.md` : backlinks/tags/twohop を返す（fields で絞る）
+- `mdhop query --file A.md` : backlinks/outgoing/twohop を全件返す（relations で選択）
+- `mdhop inspect --file A.md` : 一件の索引済み tags/meta と任意の本文冒頭を返す
 - `mdhop diagnose` : basename衝突、phantom一覧等を検出
 
 （mutate: イベント時のみ）

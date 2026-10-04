@@ -45,9 +45,9 @@
 
 #### 5. 正本・移行・最終受入
 
-- [ ] [実装仕様](v0.21.0.md)と実装結果を照合し、`docs/specs/`・利用者向け移行案内を更新して v0.21.0 を検証する
+- [x] [実装仕様](v0.21.0.md)と実装結果を照合し、`docs/specs/`・利用者向け移行案内を更新して v0.21.0 を検証する
 
-  完了: 旧 query CLI からの置換、旧 config fallback、search 不変、非 note 入口、タグ経由、JSON / text の型と escape、ページ・抜粋を実バイナリで確認する。`docs/rules/verification.md` の全 gate を満たし、実装と正本に差がない。便利な一括 script はこの版の必須機能に含めない。
+  完了（評価対象）: query / inspect の正本と rules の旧記述、README 両版の移行案内を凍結仕様・実装へ合わせた。全受入8項目を既存集中テストに対応付け、旧 query CLI 拒否、config fallback と明示空、search 不変、非 note 入口、タグ経由、JSON / text の型・escape、対象ページ、preview の所属・本文読取境界を実バイナリ79件で確認した。正本の JSON / text 例も別 vault の実行結果へ照合した。ローカル macOS で集中テスト、`go test ./...`・`go build ./...`・`go vet ./...`・実バイナリ build が成功し、stdout / stderr・終了コード・file / DB 無変更を確認した。対象commitのremote CIは未起動でUbuntuは未確認、前段からの検証限界として保持する。index同時更新保証は対象外。便利な一括scriptは製品化せず、release / tag 公開は行っていない。
 
 ### 今後の検討
 
