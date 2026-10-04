@@ -23,6 +23,8 @@ func main() {
 		err = runBuild(os.Args[2:])
 	case "resolve":
 		err = runResolve(os.Args[2:])
+	case "inspect":
+		err = runInspect(os.Args[2:])
 	case "query":
 		err = runQuery(os.Args[2:])
 	case "stats":
@@ -112,6 +114,7 @@ Index Commands:
 
 Query Commands:
   resolve    Resolve a link from a source file
+  inspect    Inspect indexed attributes of one note
   query      Query related information for a node
   search     Search notes by metadata and path conditions
   reachable  Check link reachability from an entry note

@@ -16,7 +16,7 @@ func TestCommandsRejectPositionalArguments(t *testing.T) {
 		name string
 		run  func([]string) error
 	}{
-		{"build", runBuild}, {"resolve", runResolve}, {"query", runQuery},
+		{"build", runBuild}, {"resolve", runResolve}, {"query", runQuery}, {"inspect", runInspect},
 		{"stats", runStats}, {"diagnose", runDiagnose}, {"status", runStatus},
 		{"meta-check", runMetaCheck}, {"meta-validate", runMetaValidate},
 		{"delete", runDelete}, {"update", runUpdate}, {"set", runSet},

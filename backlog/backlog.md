@@ -33,9 +33,9 @@
 
 #### 3. inspect による単体情報取得
 
-- [ ] [inspect の契約](v0.21.0.md#mdhop-inspect)を CLI・core・JSON / text に実装する
+- [x] [inspect の契約](v0.21.0.md#mdhop-inspect)を CLI・core・JSON / text に実装する
 
-  完了: 索引上の note 一件の tags / meta と任意 head を指定どおり返し、空欄と未選択欄を区別できる。属性選択と head 指定の独立、親タグと葉タグの表示差、不正な fields / head 指定、索引にない file や note 以外の入力を確認し、共通検証 gate が通る。
+  完了: 索引上の note 一件の tags / meta と任意 head を返し、選択済みの空欄（tags / head は `[]`、meta は `{}`）と未選択欄の省略を JSON / text で区別する。属性選択と head 指定の独立、親タグと葉タグの表示差、複数 meta 値と引用、hide / via / 旧 exclude の非適用、不正 fields / head、未登録 file・非 note・索引なしを集中テストと実バイナリで確認した。本文変更・削除後も head なしでは索引属性を返し、head ありでは stale / missing エラーになる。正整数の最大 head 行数でも overflow しない。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリ33件が通り、JSON 単独解析、stdout / stderr・終了コード、inspect による file / DB の無変更、索引の自動作成なしを確認した。query preview と正本文書の移行は段階4・5に残す。
 
 #### 4. query の head / snippet
 

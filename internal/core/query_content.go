@@ -37,9 +37,9 @@ func readHead(vaultPath string, source contentSource, n int) ([]string, error) {
 		start++
 	}
 
-	end := start + n
-	if end > len(lines) {
-		end = len(lines)
+	end := len(lines)
+	if n < len(lines)-start {
+		end = start + n
 	}
 
 	if lines == nil {
