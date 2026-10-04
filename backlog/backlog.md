@@ -21,9 +21,9 @@
 
 #### 1. 設定と絞り込みの土台
 
-- [ ] [設定と照合規則](v0.21.0.md#設定と照合規則)の目的別 config、旧 exclude fallback、GLOB と型付き経由先の解析を実装する
+- [x] [設定と照合規則](v0.21.0.md#設定と照合規則)の目的別 config、旧 exclude fallback、GLOB と型付き経由先の解析を実装する
 
-  完了: config の欠落と明示空を区別し、hide / via include / via exclude を独立合成できる。旧 exclude は新 via exclude キー不在時だけ fallback となり、search の既存契約は変わらない。異常値と競合、GLOB の `/`・`?`・`[]` の集中テストが通る。
+  完了: config の欠落と明示空を区別し、hide / via include / via exclude を独立合成できる。旧 exclude は新 via exclude キー不在時だけ fallback となり、search の既存契約は変わらない。異常値と競合、GLOB の `/`・`?`・`[]`、型付き経由先の正規化と完全一致の集中テスト、および `go test ./...`・`go build ./...`・`go vet ./...` が通った。実バイナリで search の旧 exclude・`--no-exclude`・明示 CLI 条件と設定構造エラーの stdout / stderr・終了コードを確認した。新 query CLI と関係生成への接続は段階 2 で行う。
 
 #### 2. query の関係・選択・ページ・出力
 

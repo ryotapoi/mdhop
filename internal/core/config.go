@@ -81,6 +81,7 @@ func (mc MetaConfig) LookupType(key string) (MetaTypeInfo, bool) {
 type Config struct {
 	Build   BuildConfig   `yaml:"build"`
 	Exclude ExcludeConfig `yaml:"exclude"`
+	Query   QueryConfig   `yaml:"query"`
 	Meta    MetaConfig    `yaml:"meta"`
 }
 
@@ -93,6 +94,36 @@ type BuildConfig struct {
 type ExcludeConfig struct {
 	Paths []string `yaml:"paths"`
 	Tags  []string `yaml:"tags"`
+}
+
+// QueryConfig separates display hiding from via selection.
+type QueryConfig struct {
+	Hide ExcludeConfig  `yaml:"hide"`
+	Via  QueryViaConfig `yaml:"via"`
+}
+
+// QueryViaConfig uses nil Exclude only when the key is absent.
+type QueryViaConfig struct {
+	Include ExcludeConfig  `yaml:"include"`
+	Exclude *ExcludeConfig `yaml:"exclude"`
+}
+
+// UnmarshalYAML rejects null exclusions rather than treating them as absent.
+func (q *QueryViaConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain QueryViaConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var fields map[string]yaml.Node
+	if err := value.Decode(&fields); err != nil {
+		return err
+	}
+	if _, present := fields["exclude"]; present && decoded.Exclude == nil {
+		return fmt.Errorf("query.via.exclude: expected mapping, got null")
+	}
+	*q = QueryViaConfig(decoded)
+	return nil
 }
 
 // LoadConfig reads mdhop.yaml from the vault root.
