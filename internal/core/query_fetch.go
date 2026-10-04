@@ -6,95 +6,79 @@ import (
 	"strings"
 )
 
-func queryBacklinks(db dbExecer, targetID int64, limit int, ef *ExcludeFilter, wc *WhereClause, include []string, linkKey string) ([]NodeInfo, error) {
-	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
-		 FROM edges e JOIN nodes n ON n.id = e.source_id
-		 WHERE e.target_id = ?`
-	args := []any{targetID}
-	if linkKey != "" {
-		q += ` AND e.frontmatter_key = ?`
-		args = append(args, linkKey)
-	}
-
-	if ef != nil {
-		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
-		q += pathSQL
-		args = append(args, pathArgs...)
-	}
-
-	inclSQL, inclArgs := pathIncludeNullSafeSQL("n.path", include)
-	q += inclSQL
-	args = append(args, inclArgs...)
-
-	if wc != nil {
-		metaSQL, metaArgs := wc.MetaFilterSQL("n.id")
-		q += metaSQL
-		args = append(args, metaArgs...)
-	}
-
-	q += ` ORDER BY n.path, n.name LIMIT ?`
-	args = append(args, limit)
-
-	rows, err := db.Query(q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var result []NodeInfo
-	for rows.Next() {
-		info, err := scanNodeInfo(rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, info)
-	}
-	return result, rows.Err()
+type queryNode struct {
+	id   int64
+	info NodeInfo
 }
 
-func queryOutgoing(db dbExecer, sourceID int64, ef *ExcludeFilter, wc *WhereClause, include []string, linkKey string) ([]NodeInfo, error) {
-	q := `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
-		 FROM edges e JOIN nodes n ON n.id = e.target_id
-		 WHERE e.source_id = ? AND e.target_id != ? AND n.type IN ('note','phantom','asset')`
-	args := []any{sourceID, sourceID}
-	if linkKey != "" {
-		q += ` AND e.frontmatter_key = ?`
-		args = append(args, linkKey)
+func queryNodeLess(a, b queryNode) bool {
+	ap, bp := normalizeTextNFC(a.info.Path), normalizeTextNFC(b.info.Path)
+	if (ap != "") != (bp != "") {
+		return ap != ""
 	}
-
-	if ef != nil {
-		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
-		q += pathSQL
-		args = append(args, pathArgs...)
+	if ap != bp {
+		return ap < bp
 	}
-
-	inclSQL, inclArgs := pathIncludeNullSafeSQL("n.path", include)
-	q += inclSQL
-	args = append(args, inclArgs...)
-
-	if wc != nil {
-		metaSQL, metaArgs := wc.MetaFilterSQL("n.id")
-		q += metaSQL
-		args = append(args, metaArgs...)
+	if ap == "" {
+		if a.info.Type != b.info.Type {
+			return a.info.Type < b.info.Type
+		}
+		an, bn := normalizeTextNFC(a.info.Name), normalizeTextNFC(b.info.Name)
+		if an != bn {
+			return an < bn
+		}
 	}
+	return a.id < b.id
+}
 
-	q += ` ORDER BY n.path, n.name`
+func queryTargetSQL(opts QueryOptions) (string, []any) {
+	q, args := pathIncludeNullSafeSQL("n.path", opts.Path)
+	if opts.Where != nil {
+		q += " AND n.type = 'note'"
+		where, values := opts.Where.MetaFilterSQL("n.id")
+		q += where
+		args = append(args, values...)
+	}
+	return q, args
+}
 
+func queryDirect(db dbExecer, entryID int64, relation string, opts QueryOptions) ([]NodeInfo, error) {
+	q := `SELECT DISTINCT n.id, n.type, n.name, COALESCE(n.path,''), n.exists_flag FROM edges e JOIN nodes n ON n.id = e.source_id WHERE e.target_id = ? AND n.id != ?`
+	if relation == FieldQueryOutgoing {
+		q = `SELECT DISTINCT n.id, n.type, n.name, COALESCE(n.path,''), n.exists_flag FROM edges e JOIN nodes n ON n.id = e.target_id WHERE e.source_id = ? AND n.id != ?`
+	}
+	args := []any{entryID, entryID}
+	if opts.LinkKey != "" {
+		q += " AND e.frontmatter_key = ?"
+		args = append(args, opts.LinkKey)
+	}
+	condition, values := queryTargetSQL(opts)
+	q += condition
+	args = append(args, values...)
 	rows, err := db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	var result []NodeInfo
+	nodes := []queryNode{}
 	for rows.Next() {
-		info, err := scanNodeInfo(rows)
+		id, info, err := scanNodeInfoWithID(rows)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, info)
+		if !opts.Filter.IsHidden(info) {
+			nodes = append(nodes, queryNode{id, info})
+		}
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sort.Slice(nodes, func(i, j int) bool { return queryNodeLess(nodes[i], nodes[j]) })
+	result := make([]NodeInfo, len(nodes))
+	for i, n := range nodes {
+		result[i] = n.info
+	}
+	return result, nil
 }
 
 func queryTags(db dbExecer, sourceID int64, ef *ExcludeFilter) ([]string, error) {
@@ -199,131 +183,67 @@ func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
 	return result, nil
 }
 
-func queryTwoHop(db dbExecer, entryID int64, entryType NodeType, maxTwoHop, maxViaPerTarget int, ef *ExcludeFilter, wc *WhereClause, include []string) ([]TwoHopEntry, error) {
-	var seedQuery string
-	var seedIsOutbound bool
-
-	switch entryType {
-	case NodeTypeNote:
-		// Outbound seed: targets of the entry.
-		seedQuery = `SELECT DISTINCT target_id FROM edges WHERE source_id = ?`
-		seedIsOutbound = true
-	default:
-		// Inbound seed: sources linking to the entry.
-		seedQuery = `SELECT DISTINCT source_id FROM edges WHERE target_id = ?`
-		seedIsOutbound = false
-	}
-
-	seedRows, err := db.Query(seedQuery, entryID)
+func queryTwoHop(db dbExecer, entryID int64, opts QueryOptions) ([]TwoHopEntry, error) {
+	q := `SELECT DISTINCT n.id,n.type,n.name,COALESCE(n.path,''),n.exists_flag,
+ v.id,v.type,v.name,COALESCE(v.path,''),v.exists_flag
+ FROM edges seed JOIN nodes v ON v.id = seed.target_id
+ JOIN edges e ON e.target_id = v.id JOIN nodes n ON n.id = e.source_id
+ WHERE seed.source_id = ? AND n.id != ?`
+	args := []any{entryID, entryID}
+	condition, values := queryTargetSQL(opts)
+	q += condition
+	args = append(args, values...)
+	rows, err := db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer seedRows.Close()
-
-	var seedIDs []int64
-	for seedRows.Next() {
-		var id int64
-		if err := seedRows.Scan(&id); err != nil {
+	defer rows.Close()
+	type target struct {
+		node   queryNode
+		via    []queryNode
+		hidden bool
+	}
+	targets := make(map[int64]*target)
+	for rows.Next() {
+		var n, v queryNode
+		var ne, ve int
+		if err := rows.Scan(&n.id, &n.info.Type, &n.info.Name, &n.info.Path, &ne, &v.id, &v.info.Type, &v.info.Name, &v.info.Path, &ve); err != nil {
 			return nil, err
 		}
-		seedIDs = append(seedIDs, id)
-	}
-	if err := seedRows.Err(); err != nil {
-		return nil, err
-	}
-
-	viaInfoMap, err := fetchNodeInfoBatch(db, seedIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	var wcSQL string
-	var wcArgs []any
-	if wc != nil {
-		wcSQL, wcArgs = wc.MetaFilterSQL("n.id")
-	}
-
-	var entries []TwoHopEntry
-	for _, viaID := range seedIDs {
-		if len(entries) >= maxTwoHop {
-			break
-		}
-
-		viaInfo, ok := viaInfoMap[viaID]
-		if !ok {
-			return nil, fmt.Errorf("node not found in batch: id=%d", viaID)
-		}
-
-		if ef != nil && ef.IsViaExcluded(viaInfo) {
+		n.info.Exists = ne == 1
+		v.info.Exists = ve == 1
+		if !opts.Filter.AllowsVia(v.info) || opts.Filter.IsHidden(n.info) {
 			continue
 		}
-
-		var targetQuery string
-		var targetArgs []any
-		if seedIsOutbound {
-			targetQuery = `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
-				 FROM edges e JOIN nodes n ON n.id = e.source_id
-				 WHERE e.target_id = ? AND e.source_id != ?`
-			targetArgs = []any{viaID, entryID}
+		t := targets[n.id]
+		if t == nil {
+			t = &target{node: n}
+			targets[n.id] = t
+		}
+		if opts.Filter.IsHidden(v.info) {
+			t.hidden = true
 		} else {
-			targetQuery = `SELECT DISTINCT n.type, n.name, COALESCE(n.path,''), n.exists_flag
-				 FROM edges e JOIN nodes n ON n.id = e.target_id
-				 WHERE e.source_id = ? AND e.target_id != ?`
-			targetArgs = []any{viaID, entryID}
-		}
-
-		if ef != nil {
-			tagSQL, tagArgs := ef.TagExcludeSQL("n.name")
-			if tagSQL != "" {
-				// Tag exclusions apply only to tag targets; other node types may share the same name.
-				targetQuery += " AND (n.type != 'tag' OR " + strings.TrimPrefix(tagSQL, " AND ") + ")"
-				targetArgs = append(targetArgs, tagArgs...)
-			}
-
-			pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
-			targetQuery += pathSQL
-			targetArgs = append(targetArgs, pathArgs...)
-		}
-
-		// Include filter applies to targets only; via nodes are kept as
-		// connectors even when outside the included paths.
-		inclSQL, inclArgs := pathIncludeNullSafeSQL("n.path", include)
-		targetQuery += inclSQL
-		targetArgs = append(targetArgs, inclArgs...)
-
-		if wcSQL != "" {
-			targetQuery += wcSQL
-			targetArgs = append(targetArgs, wcArgs...)
-		}
-
-		targetQuery += ` ORDER BY n.path, n.name LIMIT ?`
-		targetArgs = append(targetArgs, maxViaPerTarget)
-
-		targetRows, err := db.Query(targetQuery, targetArgs...)
-		if err != nil {
-			return nil, err
-		}
-
-		var targets []NodeInfo
-		for targetRows.Next() {
-			info, err := scanNodeInfo(targetRows)
-			if err != nil {
-				targetRows.Close()
-				return nil, err
-			}
-			targets = append(targets, info)
-		}
-		targetRows.Close()
-		if err := targetRows.Err(); err != nil {
-			return nil, err
-		}
-
-		if len(targets) > 0 {
-			entries = append(entries, TwoHopEntry{Via: viaInfo, Targets: targets})
+			t.via = append(t.via, v)
 		}
 	}
-
-	return entries, nil
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	ordered := make([]*target, 0, len(targets))
+	for _, t := range targets {
+		ordered = append(ordered, t)
+	}
+	sort.Slice(ordered, func(i, j int) bool { return queryNodeLess(ordered[i].node, ordered[j].node) })
+	result := make([]TwoHopEntry, len(ordered))
+	for i, t := range ordered {
+		sort.Slice(t.via, func(i, j int) bool { return queryNodeLess(t.via[i], t.via[j]) })
+		via := make([]NodeInfo, len(t.via))
+		for j, v := range t.via {
+			via[j] = v.info
+		}
+		result[i] = TwoHopEntry{NodeInfo: t.node.info, Relation: via, HiddenRelation: t.hidden}
+	}
+	return result, nil
 }
 
 type contentSource struct {

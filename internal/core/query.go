@@ -1,6 +1,9 @@
 package core
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+)
 
 // EntrySpec specifies the entry node for a query.
 type EntrySpec struct {
@@ -10,41 +13,22 @@ type EntrySpec struct {
 	Name    string // auto-detect: #tag → tag, otherwise note → phantom
 }
 
-const (
-	DefaultMaxBacklinks    = 100
-	DefaultMaxTwoHop       = 100
-	DefaultMaxViaPerTarget = 10
-)
-
-// QueryOptions controls which fields to return and their limits.
+// QueryOptions selects relations and filters their targets. Nil Relations selects all.
+// Page arguments require an explicitly selected single relation.
 type QueryOptions struct {
-	Fields          []string       // nil/empty = all standard fields
-	IncludeHead     int            // 0 = skip
-	IncludeSnippet  int            // 0 = skip
-	MaxBacklinks    int            // default 100
-	MaxTwoHop       int            // default 100
-	MaxViaPerTarget int            // default 10
-	Exclude         *ExcludeFilter // nil = no exclusion
-	Where           *WhereClause   // nil = no filtering
-	// LinkKey restricts direct outgoing and backlinks to occurrences parsed
-	// from the named YAML frontmatter key.
-	LinkKey string
-	// Path restricts result nodes (backlinks, outgoing, twohop targets,
-	// snippet sources) to paths matching the globs. NULL-path nodes
-	// (phantom/tag) are kept, and twohop via nodes are not filtered.
-	Path []string
+	Relations []string
+	Filter    *QueryFilter
+	Limit     *int
+	Offset    *int
+	Where     *WhereClause
+	LinkKey   string
+	Path      []string
 }
 
-// Query field names accepted by QueryOptions.Fields and the query --fields
-// CLI flag.
 const (
 	FieldQueryBacklinks = "backlinks"
-	FieldQueryTags      = "tags"
 	FieldQueryTwoHop    = "twohop"
 	FieldQueryOutgoing  = "outgoing"
-	FieldQueryHead      = "head"
-	FieldQuerySnippet   = "snippet"
-	FieldQueryMeta      = "meta"
 )
 
 // NodeInfo describes a node in the graph.
@@ -79,10 +63,18 @@ func scanNodeInfoWithID(rows *sql.Rows) (int64, NodeInfo, error) {
 	return id, NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}, nil
 }
 
-// TwoHopEntry represents a via node and the targets reachable through it.
+// TwoHopEntry is a target and all visible shared outgoing destinations.
 type TwoHopEntry struct {
-	Via     NodeInfo
-	Targets []NodeInfo
+	NodeInfo
+	Relation       []NodeInfo
+	HiddenRelation bool
+}
+
+// QueryPage describes the returned target page without a total count.
+type QueryPage struct {
+	Offset     int
+	Limit      *int
+	NextOffset *int
 }
 
 // SnippetEntry represents lines surrounding a link occurrence in a source file.
@@ -93,122 +85,111 @@ type SnippetEntry struct {
 	Lines      []string
 }
 
-// QueryResult contains all requested fields for a query.
+// QueryResult keeps unselected relations nil and selected empty relations non-nil.
 type QueryResult struct {
 	Entry     NodeInfo
-	Backlinks []NodeInfo     // nil = not requested
-	Outgoing  []NodeInfo     // nil = not requested
-	TwoHop    []TwoHopEntry  // nil = not requested
-	Tags      []string       // nil = not requested
-	Head      []string       // nil = not requested
-	Snippets  []SnippetEntry // nil = not requested
-	Meta      []MetaRow      // nil = not requested
+	Backlinks []NodeInfo
+	Outgoing  []NodeInfo
+	TwoHop    []TwoHopEntry
+	Page      QueryPage
 }
 
-// Query returns related information for the given entry node.
+// Query returns indexed relations without reading note bodies.
 func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, error) {
-	if err := validateGlobPatterns(opts.Path); err != nil {
+	if err := validateQueryOptions(opts); err != nil {
 		return nil, err
 	}
-
 	db, err := openDBChecked(vaultPath)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
-
 	nodeID, info, err := findEntryNode(db, entry)
 	if err != nil {
 		return nil, err
 	}
-
-	if opts.MaxBacklinks <= 0 {
-		opts.MaxBacklinks = DefaultMaxBacklinks
+	result := &QueryResult{Entry: info, Page: QueryPage{Limit: opts.Limit}}
+	if opts.Offset != nil {
+		result.Page.Offset = *opts.Offset
 	}
-	if opts.MaxTwoHop <= 0 {
-		opts.MaxTwoHop = DefaultMaxTwoHop
+	relations := opts.Relations
+	if relations == nil {
+		relations = []string{FieldQueryBacklinks, FieldQueryOutgoing, FieldQueryTwoHop}
 	}
-	if opts.MaxViaPerTarget <= 0 {
-		opts.MaxViaPerTarget = DefaultMaxViaPerTarget
-	}
-
-	result := &QueryResult{Entry: info}
-
-	ef := opts.Exclude
-	wc := opts.Where
-
-	if isFieldActive(FieldQueryBacklinks, opts.Fields) {
-		bl, err := queryBacklinks(db, nodeID, opts.MaxBacklinks, ef, wc, opts.Path, opts.LinkKey)
-		if err != nil {
-			return nil, err
-		}
-		result.Backlinks = bl
-	}
-
-	if isFieldActive(FieldQueryOutgoing, opts.Fields) {
-		if info.Type == NodeTypeNote {
-			og, err := queryOutgoing(db, nodeID, ef, wc, opts.Path, opts.LinkKey)
-			if err != nil {
-				return nil, err
+	for _, relation := range relations {
+		switch relation {
+		case FieldQueryBacklinks, FieldQueryOutgoing:
+			nodes := []NodeInfo{}
+			if relation == FieldQueryBacklinks || info.Type == NodeTypeNote {
+				nodes, err = queryDirect(db, nodeID, relation, opts)
+				if err != nil {
+					return nil, err
+				}
 			}
-			result.Outgoing = og
-		}
-	}
-
-	if isFieldActive(FieldQueryTags, opts.Fields) {
-		if info.Type == NodeTypeNote {
-			tags, err := queryTags(db, nodeID, ef)
-			if err != nil {
-				return nil, err
+			start, end, next := queryPageBounds(len(nodes), result.Page.Offset, opts.Limit)
+			nodes = nodes[start:end]
+			result.Page.NextOffset = next
+			if relation == FieldQueryBacklinks {
+				result.Backlinks = nodes
+			} else {
+				result.Outgoing = nodes
 			}
-			result.Tags = tags
-		}
-	}
-
-	if isFieldActive(FieldQueryTwoHop, opts.Fields) {
-		th, err := queryTwoHop(db, nodeID, info.Type, opts.MaxTwoHop, opts.MaxViaPerTarget, ef, wc, opts.Path)
-		if err != nil {
-			return nil, err
-		}
-		result.TwoHop = th
-	}
-
-	if isFieldActive(FieldQueryHead, opts.Fields) && opts.IncludeHead > 0 {
-		if info.Type == NodeTypeNote && info.Exists {
-			source, err := queryHeadSource(db, nodeID)
-			if err != nil {
-				return nil, err
+		case FieldQueryTwoHop:
+			targets := []TwoHopEntry{}
+			if info.Type == NodeTypeNote {
+				targets, err = queryTwoHop(db, nodeID, opts)
+				if err != nil {
+					return nil, err
+				}
 			}
-			head, err := readHead(vaultPath, source, opts.IncludeHead)
-			if err != nil {
-				return nil, err
-			}
-			result.Head = head
+			start, end, next := queryPageBounds(len(targets), result.Page.Offset, opts.Limit)
+			result.TwoHop = targets[start:end]
+			result.Page.NextOffset = next
 		}
 	}
-
-	if isFieldActive(FieldQuerySnippet, opts.Fields) && opts.IncludeSnippet > 0 {
-		sources, err := querySnippetSources(db, nodeID, ef, opts.Path)
-		if err != nil {
-			return nil, err
-		}
-		snippets, err := readSnippets(vaultPath, sources, opts.IncludeSnippet)
-		if err != nil {
-			return nil, err
-		}
-		result.Snippets = snippets
-	}
-
-	if isFieldActive(FieldQueryMeta, opts.Fields) && len(opts.Fields) > 0 {
-		meta, err := queryMetaByNode(db, nodeID)
-		if err != nil {
-			return nil, err
-		}
-		if meta == nil {
-			meta = []MetaRow{}
-		}
-		result.Meta = meta
-	}
-
 	return result, nil
+}
+
+func validateQueryOptions(opts QueryOptions) error {
+	if err := validateGlobPatterns(opts.Path); err != nil {
+		return err
+	}
+	if opts.Relations != nil {
+		if len(opts.Relations) == 0 {
+			return fmt.Errorf("relations: select at least one relation")
+		}
+		seen := make(map[string]bool)
+		for _, r := range opts.Relations {
+			if r != FieldQueryBacklinks && r != FieldQueryOutgoing && r != FieldQueryTwoHop {
+				return fmt.Errorf("relations: unknown relation %q", r)
+			}
+			if seen[r] {
+				return fmt.Errorf("relations: duplicate relation %q", r)
+			}
+			seen[r] = true
+		}
+	}
+	if opts.Limit != nil && *opts.Limit <= 0 {
+		return fmt.Errorf("limit must be positive")
+	}
+	if opts.Offset != nil && *opts.Offset < 0 {
+		return fmt.Errorf("offset must be non-negative")
+	}
+	if (opts.Limit != nil || opts.Offset != nil) && (opts.Relations == nil || len(opts.Relations) != 1) {
+		return fmt.Errorf("limit and offset require one explicit relation")
+	}
+	return nil
+}
+
+func queryPageBounds(length, offset int, limit *int) (int, int, *int) {
+	start := min(offset, length)
+	end := length
+	if limit != nil && *limit < length-start {
+		end = start + *limit
+	}
+	if end < length {
+		next := end
+		return start, end, &next
+	}
+	return start, end, nil
 }

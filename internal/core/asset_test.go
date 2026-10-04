@@ -229,7 +229,7 @@ func TestQueryAssetBacklinks(t *testing.T) {
 	}
 
 	result, err := Query(vault, EntrySpec{File: "image.png"}, QueryOptions{
-		Fields: []string{"backlinks"},
+		Relations: []string{"backlinks"},
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -252,7 +252,7 @@ func TestQueryNoteOutgoingIncludesAsset(t *testing.T) {
 	}
 
 	result, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"outgoing"},
+		Relations: []string{"outgoing"},
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -277,31 +277,13 @@ func TestQueryAssetByName(t *testing.T) {
 	}
 
 	result, err := Query(vault, EntrySpec{Name: "image.png"}, QueryOptions{
-		Fields: []string{"backlinks"},
+		Relations: []string{"backlinks"},
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
 	if result.Entry.Type != NodeTypeAsset {
 		t.Fatalf("expected entry type=asset, got %q", result.Entry.Type)
-	}
-}
-
-func TestQueryAssetHeadSkipped(t *testing.T) {
-	vault := copyVault(t, "vault_build_assets")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	result, err := Query(vault, EntrySpec{File: "image.png"}, QueryOptions{
-		Fields:      []string{"head"},
-		IncludeHead: 5,
-	})
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	if result.Head != nil {
-		t.Fatal("expected head=nil for asset")
 	}
 }
 
@@ -715,82 +697,53 @@ func TestUpdateRemovesOrphanAsset(t *testing.T) {
 
 func TestQueryAssetTwoHop(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
-	os.WriteFile(filepath.Join(vault, "C.md"), []byte("![[image.png]]\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("![[image.png]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
+		t.Fatal(err)
 	}
-
-	result, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields:          []string{"twohop"},
-		MaxTwoHop:       10,
-		MaxViaPerTarget: 10,
-	})
+	result, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}})
 	if err != nil {
-		t.Fatalf("query: %v", err)
+		t.Fatal(err)
 	}
-	// TwoHopEntry: Via is a single NodeInfo (the intermediate), Targets are the destinations.
-	// A.md → image.png ← C.md: Via=image.png, Targets includes C.md.
 	found := false
-	for _, th := range result.TwoHop {
-		if th.Via.Type == NodeTypeAsset && th.Via.Path == "image.png" {
-			for _, tgt := range th.Targets {
-				if tgt.Path == "C.md" {
-					found = true
-				}
+	for _, target := range result.TwoHop {
+		if target.Path != "C.md" {
+			continue
+		}
+		for _, relation := range target.Relation {
+			if relation.Type == NodeTypeAsset && relation.Path == "image.png" {
+				found = true
 			}
 		}
 	}
 	if !found {
-		t.Fatal("expected twohop to include C.md via image.png")
+		t.Fatalf("expected C.md related via image.png: %+v", result.TwoHop)
 	}
 }
 
-func TestQueryAssetSnippet(t *testing.T) {
+func TestQueryAssetViaFilter(t *testing.T) {
 	vault := copyVault(t, "vault_build_assets")
+	if err := os.WriteFile(filepath.Join(vault, "C.md"), []byte("![[image.png]]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
+		t.Fatal(err)
 	}
-
-	result, err := Query(vault, EntrySpec{File: "image.png"}, QueryOptions{
-		Fields:         []string{"snippet"},
-		IncludeSnippet: 3,
-	})
+	filter, err := NewQueryFilter(Config{}, QueryFilterOptions{ViaExclude: ExcludeConfig{Paths: []string{"image.png"}}})
 	if err != nil {
-		t.Fatalf("query: %v", err)
+		t.Fatal(err)
 	}
-	if len(result.Snippets) == 0 {
-		t.Fatal("expected at least one snippet for asset backlink")
-	}
-	// Snippet source should be A.md.
-	if result.Snippets[0].SourcePath != "A.md" {
-		t.Fatalf("expected snippet source=A.md, got %q", result.Snippets[0].SourcePath)
-	}
-}
-
-func TestQueryAssetExcludeIntegration(t *testing.T) {
-	vault := copyVault(t, "vault_build_assets")
-	os.WriteFile(filepath.Join(vault, "C.md"), []byte("![[image.png]]\n"), 0o644)
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	ef, err := NewExcludeFilter(ExcludeConfig{}, []string{"image.png"}, nil)
+	result, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}, Filter: filter})
 	if err != nil {
-		t.Fatalf("NewExcludeFilter: %v", err)
+		t.Fatal(err)
 	}
-	result, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields:          []string{"twohop"},
-		MaxTwoHop:       10,
-		MaxViaPerTarget: 10,
-		Exclude:         ef,
-	})
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	// image.png via should be excluded, so C.md should not appear via image.png.
-	for _, th := range result.TwoHop {
-		if th.Via.Type == NodeTypeAsset && th.Via.Path == "image.png" {
-			t.Fatal("image.png via should be excluded by ExcludeFilter")
+	for _, target := range result.TwoHop {
+		for _, relation := range target.Relation {
+			if relation.Path == "image.png" {
+				t.Fatal("excluded asset connector retained")
+			}
 		}
 	}
 }

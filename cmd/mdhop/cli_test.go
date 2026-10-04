@@ -64,12 +64,11 @@ func TestRunQuery_InvalidFormat(t *testing.T) {
 	}
 }
 
-func TestRunQuery_InvalidField(t *testing.T) {
-	// Use an empty temp dir (no index) to verify validation happens before DB open.
-	vault := t.TempDir()
-	err := runQuery([]string{"--vault", vault, "--file", "A.md", "--fields", "bad"})
-	if err == nil || !strings.Contains(err.Error(), "unknown query field") {
-		t.Errorf("expected unknown query field error, got: %v", err)
+func TestRunQuery_InvalidRelations(t *testing.T) {
+	// Validate before opening the index.
+	err := runQuery([]string{"--vault", t.TempDir(), "--file", "A.md", "--relations", "bad"})
+	if err == nil || !strings.Contains(err.Error(), "relation") {
+		t.Errorf("expected invalid relation error, got: %v", err)
 	}
 }
 
@@ -998,7 +997,7 @@ func TestRunQuery_PathFilter(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_query_exclude")
 
 	out := captureStdout(t, func() error {
-		return runQuery([]string{"--vault", vault, "--file", "A.md", "--path", "daily/*", "--fields", "outgoing", "--format", "json"})
+		return runQuery([]string{"--vault", vault, "--file", "A.md", "--path", "daily/*", "--relations", "outgoing", "--format", "json"})
 	})
 
 	var m struct {
@@ -1018,9 +1017,8 @@ func TestRunQuery_PathFilter(t *testing.T) {
 			t.Errorf("outgoing should not contain %s with --path daily/*", og.Path)
 		}
 	}
-	if len(names) != 2 || names[0] != "Missing" || names[1] != "D" {
-		// Order: phantom (empty path) sorts first by path.
-		t.Errorf("outgoing names = %v, want [Missing D]", names)
+	if want := []string{"D", "Missing", "#project"}; !reflect.DeepEqual(names, want) {
+		t.Errorf("outgoing names = %v, want %v", names, want)
 	}
 }
 
@@ -1040,7 +1038,7 @@ func TestRunQuery_LinkKey(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() error {
-		return runQuery([]string{"--vault", vault, "--file", "Source.md", "--link-key", "quoted", "--fields", "outgoing", "--format", "json"})
+		return runQuery([]string{"--vault", vault, "--file", "Source.md", "--link-key", "quoted", "--relations", "outgoing", "--format", "json"})
 	})
 	var result struct {
 		Outgoing []struct {
@@ -1055,7 +1053,7 @@ func TestRunQuery_LinkKey(t *testing.T) {
 	}
 
 	out = captureStdout(t, func() error {
-		return runQuery([]string{"--vault", vault, "--file", "Source.md", "--link-key", "", "--fields", "outgoing", "--format", "json"})
+		return runQuery([]string{"--vault", vault, "--file", "Source.md", "--link-key", "", "--relations", "outgoing", "--format", "json"})
 	})
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
 		t.Fatalf("json unmarshal empty link key: %v\noutput: %s", err, out)
@@ -1402,15 +1400,15 @@ func TestRunQuery_WhereInvalidExpr(t *testing.T) {
 	}
 }
 
-func TestRunQuery_WhereWithNoExclude(t *testing.T) {
+func TestRunQuery_WhereWithNoConfigHideAndVia(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_query_where")
 
-	// --where + --no-exclude should work (config loaded for meta, exclude disabled)
+	// --where still loads metadata definitions when query config conditions are disabled.
 	out := captureStdout(t, func() error {
 		return runQuery([]string{
 			"--vault", vault, "--file", "A.md",
-			"--fields", "backlinks", "--format", "json",
-			"--where", "status=active", "--no-exclude",
+			"--relations", "backlinks", "--format", "json",
+			"--where", "status=active", "--no-config-hide", "--no-config-via",
 		})
 	})
 
@@ -1431,13 +1429,13 @@ func TestRunQuery_WhereWithNoExclude(t *testing.T) {
 	}
 }
 
-func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
+func TestRunQuery_WhereE2E(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_query_where")
 
 	output := captureStdout(t, func() error {
 		return runQuery([]string{
 			"--vault", vault, "--file", "A.md",
-			"--fields", "backlinks,meta",
+			"--relations", "backlinks",
 			"--format", "json",
 			"--where", "status=active",
 		})
@@ -1474,15 +1472,8 @@ func TestRunQuery_WhereAndMetaE2E(t *testing.T) {
 		t.Errorf("expected 2 backlinks, got %d: %v", len(backlinks), names)
 	}
 
-	meta, ok := m["meta"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected meta object, got: %v", m["meta"])
-	}
-	if _, ok := meta["priority"]; !ok {
-		t.Error("expected priority in meta")
-	}
-	if _, ok := meta["status"]; !ok {
-		t.Error("expected status in meta")
+	if _, ok := m["meta"]; ok {
+		t.Error("query should not return entry metadata")
 	}
 }
 

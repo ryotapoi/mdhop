@@ -9,8 +9,8 @@ func TestQueryBacklinksIncludePath(t *testing.T) {
 	vault := setupExcludeVault(t)
 	// A.md is linked from B.md, C.md, daily/D.md, templates/T.md.
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Path:   []string{"daily/*"},
+		Relations: []string{"backlinks"},
+		Path:      []string{"daily/*"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -27,8 +27,8 @@ func TestQueryOutgoingIncludePathKeepsPhantom(t *testing.T) {
 	vault := setupExcludeVault(t)
 	// A.md links to B, C, D, Missing (phantom).
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"outgoing"},
-		Path:   []string{"daily/*"},
+		Relations: []string{"outgoing"},
+		Path:      []string{"daily/*"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -43,65 +43,34 @@ func TestQueryOutgoingIncludePathKeepsPhantom(t *testing.T) {
 	}
 }
 
-func TestQueryTwoHopIncludePathFiltersTargetsNotVia(t *testing.T) {
+func TestQueryTwoHopIncludePathFiltersTargetsNotRelations(t *testing.T) {
 	vault := setupExcludeVault(t)
-	// A → B (via), B is linked from C.md and daily/D.md (targets).
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"twohop"},
-		Path:   []string{"daily/*"},
-	})
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}, Path: []string{"daily/*"}})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if len(res.TwoHop) != 1 {
-		t.Fatalf("twohop count = %d, want 1: %+v", len(res.TwoHop), res.TwoHop)
+	for _, target := range res.TwoHop {
+		if target.Path != "daily/D.md" {
+			t.Fatalf("target outside included path: %+v", target)
+		}
 	}
-	entry := res.TwoHop[0]
-	// Via B.md is outside daily/* but kept as connector.
-	if entry.Via.Name != "B" {
-		t.Errorf("via name = %q, want B", entry.Via.Name)
-	}
-	if len(entry.Targets) != 1 || entry.Targets[0].Path != "daily/D.md" {
-		t.Errorf("targets = %+v, want only daily/D.md", entry.Targets)
+	if len(res.TwoHop) == 0 {
+		t.Fatal("expected daily/D.md through an unfiltered relation")
 	}
 }
 
-func TestQuerySnippetsIncludePath(t *testing.T) {
+func TestQueryIncludePathWithHide(t *testing.T) {
 	vault := setupExcludeVault(t)
-	// B.md is linked from A.md, C.md, daily/D.md.
-	res, err := Query(vault, EntrySpec{File: "B.md"}, QueryOptions{
-		Fields:         []string{"snippet"},
-		IncludeSnippet: 1,
-		Path:           []string{"daily/*"},
-	})
+	filter, err := NewQueryFilter(Config{}, QueryFilterOptions{Hide: ExcludeConfig{Paths: []string{"templates/*"}}})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if len(res.Snippets) != 1 {
-		t.Fatalf("snippets count = %d, want 1: %+v", len(res.Snippets), res.Snippets)
-	}
-	if res.Snippets[0].SourcePath != "daily/D.md" {
-		t.Errorf("snippet source = %q, want daily/D.md", res.Snippets[0].SourcePath)
-	}
-}
-
-func TestQueryIncludePathWithExclude(t *testing.T) {
-	vault := setupExcludeVault(t)
-	// Include daily/* and templates/*, then exclude templates/*.
-	ef, err := NewExcludeFilter(ExcludeConfig{}, []string{"templates/*"}, nil)
+	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}, Path: []string{"daily/*", "templates/*"}, Filter: filter})
 	if err != nil {
-		t.Fatalf("NewExcludeFilter: %v", err)
-	}
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields:  []string{"backlinks"},
-		Path:    []string{"daily/*", "templates/*"},
-		Exclude: ef,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
 	if len(res.Backlinks) != 1 || res.Backlinks[0].Path != "daily/D.md" {
-		t.Errorf("backlinks = %+v, want only daily/D.md", res.Backlinks)
+		t.Fatalf("backlinks = %+v", res.Backlinks)
 	}
 }
 

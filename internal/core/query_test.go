@@ -39,7 +39,7 @@ func setupFullVault(t *testing.T) string {
 
 func TestQueryEntryFile(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestQueryEntryFile(t *testing.T) {
 
 func TestQueryEntryTag(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Tag: "overview"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{Tag: "overview"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestQueryEntryTag(t *testing.T) {
 
 func TestQueryEntryTagWithHash(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Tag: "#overview"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{Tag: "#overview"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestQueryEntryTagWithHash(t *testing.T) {
 
 func TestQueryEntryPhantom(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestQueryEntryPhantom(t *testing.T) {
 
 func TestQueryEntryNameNote(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Name: "Design"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{Name: "Design"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestQueryEntryNameNote(t *testing.T) {
 
 func TestQueryEntryNameTag(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Name: "#overview"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{Name: "#overview"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestQueryErrorNoDB(t *testing.T) {
 
 func TestQueryBacklinks(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestQueryBacklinks(t *testing.T) {
 
 func TestQueryBacklinksPhantom(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestQueryBacklinksPhantom(t *testing.T) {
 
 func TestQueryBacklinksTag(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Tag: "overview"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{Tag: "overview"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -282,8 +282,8 @@ func TestQueryBacklinksTag(t *testing.T) {
 func TestQueryBacklinksLimit(t *testing.T) {
 	vault := setupFullVault(t)
 	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
-		Fields:       []string{"backlinks"},
-		MaxBacklinks: 1,
+		Relations: []string{"backlinks"},
+		Limit:     intPtr(1),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -296,7 +296,7 @@ func TestQueryBacklinksLimit(t *testing.T) {
 func TestQueryBacklinksDistinct(t *testing.T) {
 	vault := setupFullVault(t)
 	// sub/Impl.md is linked from Index.md thrice (wikilink + markdown + relative wikilink).
-	res, err := Query(vault, EntrySpec{File: "sub/Impl.md"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{File: "sub/Impl.md"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -315,17 +315,17 @@ func TestQueryBacklinksDistinct(t *testing.T) {
 
 func TestQueryOutgoing(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"outgoing"}})
+	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Relations: []string{"outgoing"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Index.md → Design (×3 but distinct), sub/Impl (×3 but distinct), Missing (phantom). No tags, no self-link.
+	// Index.md → Design (×3 but distinct), sub/Impl (×3 but distinct), Missing (phantom). Including tags, no self-link.
 	names := nodeNames(res.Outgoing)
 	expectContains(t, names, "Design")
 	expectContains(t, names, "Impl")
 	expectContains(t, names, "Missing")
-	if len(res.Outgoing) != 3 {
-		t.Errorf("outgoing count = %d, want 3, got %v", len(res.Outgoing), names)
+	if len(res.Outgoing) != 7 {
+		t.Errorf("outgoing count = %d, want 7, got %v", len(res.Outgoing), names)
 	}
 	wantTypes := map[string]NodeType{"Design": NodeTypeNote, "Impl": NodeTypeNote, "Missing": NodeTypePhantom}
 	for _, o := range res.Outgoing {
@@ -339,457 +339,192 @@ func TestQueryOutgoing(t *testing.T) {
 
 func TestQueryOutgoingPhantomEntry(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Fields: []string{"outgoing"}})
+	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Relations: []string{"outgoing"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Outgoing != nil {
-		t.Errorf("outgoing = %v, want nil for phantom entry", res.Outgoing)
+	if res.Outgoing == nil || len(res.Outgoing) != 0 {
+		t.Errorf("outgoing = %v, want selected empty slice for phantom entry", res.Outgoing)
 	}
 }
 
-// --- Tags tests ---
+// --- Two-hop relation tests ---
 
-func TestQueryTags(t *testing.T) {
+func TestQueryTwoHopSharedDestinations(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"tags"}})
+	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// Index.md has: #project, #status/active (expanded: #status, #status/active), #overview.
-	// Leaf filter: #status excluded because #status/active exists.
-	expectContains(t, res.Tags, "#overview")
-	expectContains(t, res.Tags, "#project")
-	expectContains(t, res.Tags, "#status/active")
-	if len(res.Tags) != 3 {
-		t.Errorf("tags count = %d, want 3, got %v", len(res.Tags), res.Tags)
-	}
-}
-
-func TestQueryTagsNonNote(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Fields: []string{"tags"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Tags != nil {
-		t.Errorf("tags = %v, want nil for phantom entry", res.Tags)
-	}
-}
-
-// --- TwoHop tests ---
-
-func TestQueryTwoHop(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"twohop"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
 	if len(res.TwoHop) == 0 {
-		t.Fatal("expected twohop entries, got 0")
+		t.Fatal("expected related targets")
 	}
-	// Index→Design, Index→sub/Impl, Index→Missing, Index→Index(self), Index→tags...
-	// For outbound seed: via nodes are all targets of Index.
-	// e.g., via=Design → targets=[sub/Impl] (Impl also links to Design)
-	// via=sub/Impl → targets=[Design] (Design links to sub/Impl)
-	viaNames := make(map[string]bool)
-	for _, entry := range res.TwoHop {
-		viaNames[entry.Via.Name] = true
-	}
-	if !viaNames["Design"] {
-		t.Error("expected Design as a via node")
-	}
-	if !viaNames["Impl"] {
-		t.Error("expected Impl as a via node")
-	}
-	for _, entry := range res.TwoHop {
-		if entry.Via.Type != NodeTypeNote && entry.Via.Type != NodeTypePhantom && entry.Via.Type != NodeTypeTag {
-			t.Errorf("via %s: unexpected type %q", entry.Via.Name, entry.Via.Type)
+	foundDesign := false
+	for _, target := range res.TwoHop {
+		if target.Path == "Index.md" {
+			t.Fatal("entry appeared as its own related target")
 		}
-		for _, target := range entry.Targets {
-			if target.Type != NodeTypeNote && target.Type != NodeTypePhantom && target.Type != NodeTypeTag {
-				t.Errorf("target %s via %s: unexpected type %q", target.Name, entry.Via.Name, target.Type)
+		if target.Name == "Design" {
+			foundDesign = true
+			if len(target.Relation) == 0 {
+				t.Fatal("Design has no shared destination")
 			}
 		}
 	}
-}
-
-func TestQueryTwoHopMaxLimit(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{
-		Fields:    []string{"twohop"},
-		MaxTwoHop: 1,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(res.TwoHop) > 1 {
-		t.Errorf("twohop count = %d, want <= 1", len(res.TwoHop))
+	if !foundDesign {
+		t.Fatalf("Design absent from twohop: %+v", res.TwoHop)
 	}
 }
 
-func TestQueryTwoHopMaxViaPerTarget(t *testing.T) {
+func TestQueryTwoHopNonNoteEmpty(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{
-		Fields:          []string{"twohop"},
-		MaxViaPerTarget: 1,
-	})
+	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Relations: []string{FieldQueryTwoHop}})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	for _, entry := range res.TwoHop {
-		if len(entry.Targets) > 1 {
-			t.Errorf("via %s has %d targets, want <= 1", entry.Via.Name, len(entry.Targets))
+	if res.TwoHop == nil || len(res.TwoHop) != 0 {
+		t.Fatalf("twohop = %+v, want selected empty relation", res.TwoHop)
+	}
+}
+
+func TestQueryRelationSelectionAndPagination(t *testing.T) {
+	vault := setupFullVault(t)
+	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Relations: []string{FieldQueryOutgoing}, Limit: intPtr(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Outgoing) != 1 || res.Backlinks != nil || res.TwoHop != nil {
+		t.Fatalf("selected relations = %+v", res)
+	}
+	if res.Page.Offset != 0 || res.Page.Limit == nil || *res.Page.Limit != 1 || res.Page.NextOffset == nil || *res.Page.NextOffset != 1 {
+		t.Fatalf("page = %+v", res.Page)
+	}
+	next, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Relations: []string{FieldQueryOutgoing}, Limit: intPtr(1), Offset: res.Page.NextOffset})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(next.Outgoing) != 1 || next.Outgoing[0] == res.Outgoing[0] {
+		t.Fatalf("next page = %+v", next)
+	}
+}
+
+func TestQueryRelationValidation(t *testing.T) {
+	vault := setupFullVault(t)
+	for _, opts := range []QueryOptions{
+		{Relations: []string{}},
+		{Relations: []string{"unknown"}},
+		{Relations: []string{FieldQueryBacklinks, FieldQueryBacklinks}},
+		{Limit: intPtr(1)},
+		{Relations: []string{FieldQueryBacklinks, FieldQueryOutgoing}, Limit: intPtr(1)},
+		{Relations: []string{FieldQueryBacklinks}, Limit: intPtr(0)},
+		{Relations: []string{FieldQueryBacklinks}, Offset: intPtr(-1)},
+	} {
+		if _, err := Query(vault, EntrySpec{File: "Index.md"}, opts); err == nil {
+			t.Errorf("accepted %+v", opts)
 		}
 	}
 }
 
-func TestQueryTwoHopNoSelf(t *testing.T) {
+func TestQueryTagsHelper(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"twohop"}})
+	db, err := openDBChecked(vault)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	for _, entry := range res.TwoHop {
-		for _, target := range entry.Targets {
-			if target.Path == "Index.md" {
-				t.Errorf("Index.md appears as twohop target via %s", entry.Via.Name)
-			}
-		}
+	defer db.Close()
+	id, _, err := findEntryNode(db, EntrySpec{File: "Index.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tags, err := queryTags(db, id, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"#overview", "#project", "#status/active"} {
+		expectContains(t, tags, want)
+	}
+	if len(tags) != 3 {
+		t.Fatalf("tags = %v", tags)
 	}
 }
 
-func TestQueryTwoHopTagVia(t *testing.T) {
-	vault := setupFullVault(t)
-	// Index.md and Design.md both have #overview. So twohop from Index should have
-	// via=#overview → targets=[Design] (or vice versa).
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"twohop"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	found := false
-	for _, entry := range res.TwoHop {
-		if entry.Via.Type == NodeTypeTag && entry.Via.Name == "#overview" {
-			found = true
-			targetNames := nodeNames(entry.Targets)
-			expectContains(t, targetNames, "Design")
+func TestQueryRelationsBeyondFormerCaps(t *testing.T) {
+	vault := t.TempDir()
+	var links strings.Builder
+	links.WriteString("[[Anchor]]\n")
+	for i := range 15 {
+		name := fmt.Sprintf("Via%02d", i)
+		links.WriteString("[[" + name + "]]\n")
+		if err := os.WriteFile(filepath.Join(vault, name+".md"), nil, 0o644); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if !found {
-		vias := make([]string, len(res.TwoHop))
-		for i, e := range res.TwoHop {
-			vias[i] = fmt.Sprintf("%s(%s)", e.Via.Name, e.Via.Type)
-		}
-		t.Errorf("expected #overview as tag-via, got vias: %v", vias)
+	if err := os.WriteFile(filepath.Join(vault, "Anchor.md"), nil, 0o644); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestQueryTwoHopPhantom(t *testing.T) {
-	vault := setupFullVault(t)
-	// Missing is a phantom linked from Index.md.
-	// Inbound seed: sources linking to Missing = [Index.md].
-	// For each via (Index.md), find other targets of Index.md (excluding Missing).
-	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Fields: []string{"twohop"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := os.WriteFile(filepath.Join(vault, "Entry.md"), []byte(links.String()), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if len(res.TwoHop) == 0 {
-		t.Fatal("expected twohop entries for phantom, got 0")
-	}
-	// Via = Index.md, targets should include Design, sub/Impl, etc. (but not Missing).
-	found := false
-	for _, entry := range res.TwoHop {
-		if entry.Via.Type != NodeTypeNote && entry.Via.Type != NodeTypePhantom && entry.Via.Type != NodeTypeTag {
-			t.Errorf("via %s: unexpected type %q", entry.Via.Name, entry.Via.Type)
-		}
-		for _, target := range entry.Targets {
-			if target.Type != NodeTypeNote && target.Type != NodeTypePhantom && target.Type != NodeTypeTag {
-				t.Errorf("target %s via %s: unexpected type %q", target.Name, entry.Via.Name, target.Type)
-			}
-		}
-		if entry.Via.Name == "Index" {
-			found = true
-			if entry.Via.Type != NodeTypeNote {
-				t.Errorf("via Index: type = %q, want %q", entry.Via.Type, "note")
-			}
-			for _, target := range entry.Targets {
-				if target.Name == "Missing" {
-					t.Error("Missing should not appear as a target")
-				}
-			}
+	for i := range 125 {
+		name := fmt.Sprintf("Peer%03d.md", i)
+		if err := os.WriteFile(filepath.Join(vault, name), []byte(links.String()), 0o644); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if !found {
-		t.Error("expected Index as a via node for phantom twohop")
-	}
-}
-
-// --- Head tests ---
-
-func TestQueryHead(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{
-		Fields:      []string{"head"},
-		IncludeHead: 3,
-	})
+	buildForQuery(t, vault)
+	backlinks, err := Query(vault, EntrySpec{File: "Anchor.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	// Index.md has frontmatter (3 lines: ---, tags, ---), then "# Index", "", "Welcome to the vault."
-	want := []string{"# Index", "", "Welcome to the vault."}
-	if len(res.Head) != len(want) {
-		t.Fatalf("head lines = %d, want %d: %v", len(res.Head), len(want), res.Head)
+	if len(backlinks.Backlinks) != 126 {
+		t.Fatalf("backlinks = %d, want 126", len(backlinks.Backlinks))
 	}
-	for i, line := range want {
-		if res.Head[i] != line {
-			t.Errorf("head[%d] = %q, want %q", i, res.Head[i], line)
+	full, err := Query(vault, EntrySpec{File: "Entry.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(full.TwoHop) != 125 || full.Page.Limit != nil || full.Page.NextOffset != nil {
+		t.Fatalf("twohop count/page = %d/%+v", len(full.TwoHop), full.Page)
+	}
+	for i, target := range full.TwoHop {
+		want := fmt.Sprintf("Peer%03d.md", i)
+		if target.Path != want {
+			t.Fatalf("target %d = %s, want %s", i, target.Path, want)
+		}
+		if len(target.Relation) != 16 {
+			t.Fatalf("%s relations = %d, want 16", target.Path, len(target.Relation))
+		}
+		if target.Relation[0].Path != "Anchor.md" || target.Relation[1].Path != "Via00.md" || target.Relation[15].Path != "Via14.md" {
+			t.Fatalf("relation sort = %+v", target.Relation)
 		}
 	}
-}
-
-func TestQueryHeadNoFrontmatter(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
-		Fields:      []string{"head"},
-		IncludeHead: 2,
-	})
+	page, err := Query(vault, EntrySpec{File: "Entry.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}, Limit: intPtr(100)})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	// Design.md has no frontmatter: "# Design", ""
-	want := []string{"# Design", ""}
-	if len(res.Head) != len(want) {
-		t.Fatalf("head lines = %d, want %d: %v", len(res.Head), len(want), res.Head)
+	if len(page.TwoHop) != 100 || page.Page.NextOffset == nil || *page.Page.NextOffset != 100 {
+		t.Fatalf("first page = %d/%+v", len(page.TwoHop), page.Page)
 	}
-	for i, line := range want {
-		if res.Head[i] != line {
-			t.Errorf("head[%d] = %q, want %q", i, res.Head[i], line)
-		}
-	}
-}
-
-func TestQueryHeadStale(t *testing.T) {
-	vault := setupFullVault(t)
-	// Modify the file after build to make it stale.
-	path := filepath.Join(vault, "Index.md")
-	content, err := os.ReadFile(path)
+	last, err := Query(vault, EntrySpec{File: "Entry.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}, Limit: intPtr(100), Offset: page.Page.NextOffset})
 	if err != nil {
-		t.Fatalf("read Index.md: %v", err)
+		t.Fatal(err)
 	}
-	writeStaleTestFile(t, path, append(content, []byte("\nmodified\n")...))
-
-	_, err = Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{
-		Fields:      []string{"head"},
-		IncludeHead: 3,
-	})
-	if err == nil {
-		t.Fatal("expected stale error, got nil")
+	if len(last.TwoHop) != 25 || last.TwoHop[0].Path != "Peer100.md" || last.Page.NextOffset != nil {
+		t.Fatalf("last page = %d/%+v", len(last.TwoHop), last.Page)
 	}
-	if !strings.Contains(err.Error(), "stale") {
-		t.Errorf("error = %q, want containing 'stale'", err.Error())
-	}
-}
-
-func TestQueryHeadNotRequested(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{
-		Fields:      []string{"head"},
-		IncludeHead: 0,
-	})
+	filter, err := NewQueryFilter(Config{}, QueryFilterOptions{Hide: ExcludeConfig{Paths: []string{"Peer000.md", "Via00.md"}}, ViaExclude: ExcludeConfig{Paths: []string{"Via01.md"}}})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if res.Head != nil {
-		t.Errorf("head = %v, want nil when IncludeHead=0", res.Head)
-	}
-}
-
-// --- Snippet tests ---
-
-func TestQuerySnippet(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
-		Fields:         []string{"snippet"},
-		IncludeSnippet: 1,
-	})
+	filtered, err := Query(vault, EntrySpec{File: "Entry.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}, Filter: filter})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if len(res.Snippets) == 0 {
-		t.Fatal("expected snippets, got 0")
+	if len(filtered.TwoHop) != 124 || filtered.TwoHop[0].Path != "Peer001.md" {
+		t.Fatalf("filtered targets = %d/%+v", len(filtered.TwoHop), filtered.TwoHop[0])
 	}
-	// Design.md is linked from Index.md and sub/Impl.md.
-	sourcePaths := make(map[string]bool)
-	for _, s := range res.Snippets {
-		sourcePaths[s.SourcePath] = true
-	}
-	if !sourcePaths["Index.md"] {
-		t.Error("expected snippet from Index.md")
-	}
-	if !sourcePaths["sub/Impl.md"] {
-		t.Error("expected snippet from sub/Impl.md")
-	}
-	for _, s := range res.Snippets {
-		if len(s.Lines) == 0 {
-			t.Errorf("snippet from %s has 0 lines", s.SourcePath)
-		}
-	}
-}
-
-func TestQuerySnippetStale(t *testing.T) {
-	vault := setupFullVault(t)
-	// Modify a source file after build.
-	path := filepath.Join(vault, "Index.md")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read Index.md: %v", err)
-	}
-	writeStaleTestFile(t, path, append(content, []byte("\nmodified\n")...))
-
-	_, err = Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
-		Fields:         []string{"snippet"},
-		IncludeSnippet: 1,
-	})
-	if err == nil {
-		t.Fatal("expected stale error, got nil")
-	}
-	if !strings.Contains(err.Error(), "stale") {
-		t.Errorf("error = %q, want containing 'stale'", err.Error())
-	}
-}
-
-// --- Fields filter tests ---
-
-func TestQueryFieldsFilter(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{Fields: []string{"backlinks"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Backlinks == nil {
-		t.Error("backlinks should be populated")
-	}
-	if res.Outgoing != nil {
-		t.Error("outgoing should be nil when not requested")
-	}
-	if res.TwoHop != nil {
-		t.Error("twohop should be nil when not requested")
-	}
-	if res.Tags != nil {
-		t.Error("tags should be nil when not requested")
-	}
-}
-
-// --- Snippet context lines tests ---
-
-func TestQuerySnippetContextLines(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
-		Fields:         []string{"snippet"},
-		IncludeSnippet: 2,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(res.Snippets) != 4 {
-		t.Fatalf("snippets count = %d, want 4", len(res.Snippets))
-	}
-
-	// Helper to find snippets by source path and line start.
-	findSnippet := func(sourcePath string, lineStart int) *SnippetEntry {
-		for i := range res.Snippets {
-			if res.Snippets[i].SourcePath == sourcePath && res.Snippets[i].LineStart == lineStart {
-				return &res.Snippets[i]
-			}
-		}
-		return nil
-	}
-
-	// Verify line_start == line_end assumption: for single-line links with context=2,
-	// a non-boundary snippet should have exactly 2*context+1 = 5 lines.
-	// sub/Impl.md L10 (file 12 lines): start=max(0,10-2-1)=7 → LineStart=8, end=min(10+2,12)=12 → LineEnd=12
-	s := findSnippet("sub/Impl.md", 8)
-	if s == nil {
-		t.Fatal("snippet from sub/Impl.md LineStart=8 not found")
-	}
-	if s.LineEnd != 12 {
-		t.Errorf("sub/Impl.md snippet: LineEnd = %d, want 12", s.LineEnd)
-	}
-	if len(s.Lines) != 5 {
-		t.Errorf("sub/Impl.md snippet: lines count = %d, want 5 (confirms line_start==line_end)", len(s.Lines))
-	}
-
-	// Index.md L10: start=7 → LineStart=8, end=12 → LineEnd=12
-	s = findSnippet("Index.md", 8)
-	if s == nil {
-		t.Fatal("snippet from Index.md LineStart=8 not found")
-	}
-	if s.LineEnd != 12 {
-		t.Errorf("Index.md L10 snippet: LineEnd = %d, want 12", s.LineEnd)
-	}
-	if len(s.Lines) != 5 {
-		t.Errorf("Index.md L10 snippet: lines count = %d, want 5", len(s.Lines))
-	}
-
-	// Index.md L14: start=11 → LineStart=12, end=min(16,16)=16 → LineEnd=16
-	s = findSnippet("Index.md", 12)
-	if s == nil {
-		t.Fatal("snippet from Index.md LineStart=12 not found")
-	}
-	if s.LineEnd != 16 {
-		t.Errorf("Index.md L14 snippet: LineEnd = %d, want 16", s.LineEnd)
-	}
-	if len(s.Lines) != 5 {
-		t.Errorf("Index.md L14 snippet: lines count = %d, want 5", len(s.Lines))
-	}
-
-	// Index.md L16: start=13 → LineStart=14, end=min(18,16)=16 → LineEnd=16
-	s = findSnippet("Index.md", 14)
-	if s == nil {
-		t.Fatal("snippet from Index.md LineStart=14 not found")
-	}
-	if s.LineEnd != 16 {
-		t.Errorf("Index.md L16 snippet: LineEnd = %d, want 16", s.LineEnd)
-	}
-	if len(s.Lines) != 3 {
-		t.Errorf("Index.md L16 snippet: lines count = %d, want 3", len(s.Lines))
-	}
-}
-
-func TestQuerySnippetBoundary(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
-		Fields:         []string{"snippet"},
-		IncludeSnippet: 20,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	for _, s := range res.Snippets {
-		switch s.SourcePath {
-		case "sub/Impl.md":
-			// 12-line file, context=20 should clamp to full file.
-			if s.LineStart != 1 {
-				t.Errorf("sub/Impl.md: LineStart = %d, want 1", s.LineStart)
-			}
-			if s.LineEnd != 12 {
-				t.Errorf("sub/Impl.md: LineEnd = %d, want 12", s.LineEnd)
-			}
-			if len(s.Lines) != 12 {
-				t.Errorf("sub/Impl.md: lines count = %d, want 12", len(s.Lines))
-			}
-		case "Index.md":
-			// 16-line file, context=20 should clamp to full file.
-			if s.LineStart != 1 {
-				t.Errorf("Index.md (L%d): LineStart = %d, want 1", s.LineStart, s.LineStart)
-			}
-			if s.LineEnd != 16 {
-				t.Errorf("Index.md: LineEnd = %d, want 16", s.LineEnd)
-			}
-			if len(s.Lines) != 16 {
-				t.Errorf("Index.md: lines count = %d, want 16", len(s.Lines))
-			}
-		}
+	if len(filtered.TwoHop[0].Relation) != 14 || !filtered.TwoHop[0].HiddenRelation {
+		t.Fatalf("filtered relations = %+v", filtered.TwoHop[0])
 	}
 }
 
@@ -821,106 +556,6 @@ func TestFilterLeafTags(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// --- Meta tests ---
-
-func setupMetaVault(t *testing.T) string {
-	t.Helper()
-	vault := copyVaultForQuery(t, "vault_query_where")
-	buildForQuery(t, vault)
-	return vault
-}
-
-func TestQueryMetaRequested(t *testing.T) {
-	vault := setupMetaVault(t)
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Fields: []string{"meta"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Meta == nil {
-		t.Fatal("Meta should be non-nil when requested")
-	}
-	// A.md has priority:1, status:active, aliases:[alpha]
-	got := make(map[string][]string)
-	for _, m := range res.Meta {
-		got[m.Key] = append(got[m.Key], m.Value)
-	}
-	if v, ok := got["priority"]; !ok || len(v) != 1 || v[0] != "1" {
-		t.Errorf("priority = %v, want [1]", v)
-	}
-	if v, ok := got["status"]; !ok || len(v) != 1 || v[0] != "active" {
-		t.Errorf("status = %v, want [active]", v)
-	}
-	if v, ok := got["aliases"]; !ok || len(v) != 1 || v[0] != "alpha" {
-		t.Errorf("aliases = %v, want [alpha]", v)
-	}
-}
-
-func TestQueryMetaNotRequestedNil(t *testing.T) {
-	vault := setupMetaVault(t)
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Fields: []string{"backlinks"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Meta != nil {
-		t.Errorf("Meta should be nil when not requested, got %v", res.Meta)
-	}
-}
-
-func TestQueryMetaDefaultFieldsNil(t *testing.T) {
-	// Fields=nil (all standard) should NOT include meta (opt-in only)
-	vault := setupMetaVault(t)
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Meta != nil {
-		t.Errorf("Meta should be nil with default fields, got %v", res.Meta)
-	}
-}
-
-func TestQueryMetaEmptyForNoFrontmatter(t *testing.T) {
-	vault := setupMetaVault(t)
-	// D.md has no frontmatter
-	res, err := Query(vault, EntrySpec{File: "D.md"}, QueryOptions{Fields: []string{"meta"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Meta == nil {
-		t.Fatal("Meta should be non-nil (empty slice) when requested but no meta exists")
-	}
-	if len(res.Meta) != 0 {
-		t.Errorf("Meta should be empty for D.md, got %v", res.Meta)
-	}
-}
-
-func TestQueryMetaPhantomEntry(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Fields: []string{"meta"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Meta == nil {
-		t.Fatal("Meta should be non-nil (empty slice) for phantom entry")
-	}
-	if len(res.Meta) != 0 {
-		t.Errorf("Meta should be empty for phantom, got %v", res.Meta)
-	}
-}
-
-func TestQueryMetaTagEntry(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Tag: "overview"}, QueryOptions{Fields: []string{"meta"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Meta == nil {
-		t.Fatal("Meta should be non-nil (empty slice) for tag entry")
-	}
-	if len(res.Meta) != 0 {
-		t.Errorf("Meta should be empty for tag, got %v", res.Meta)
 	}
 }
 

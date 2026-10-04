@@ -81,7 +81,7 @@ func TestQueryLinkKeyFiltersOnlyDirectLinks(t *testing.T) {
 		{name: "backlinks body excluded", entry: EntrySpec{File: "Body.md"}, key: "related", field: FieldQueryBacklinks, paths: nil},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := Query(vault, tt.entry, QueryOptions{Fields: []string{tt.field}, LinkKey: tt.key})
+			result, err := Query(vault, tt.entry, QueryOptions{Relations: []string{tt.field}, LinkKey: tt.key})
 			if err != nil {
 				t.Fatalf("query: %v", err)
 			}
@@ -101,14 +101,6 @@ func TestQueryLinkKeyFiltersOnlyDirectLinks(t *testing.T) {
 		})
 	}
 
-	result, err := Query(vault, EntrySpec{File: "Source.md"}, QueryOptions{Fields: []string{FieldQueryTags}, LinkKey: "related"})
-	if err != nil {
-		t.Fatalf("tags query: %v", err)
-	}
-	if !reflect.DeepEqual(result.Tags, []string{"#topic"}) {
-		t.Errorf("tags = %#v, want [#topic]", result.Tags)
-	}
-
 	if err := os.WriteFile(filepath.Join(vault, "Raw2.md"), []byte("# Raw2\n"), 0o644); err != nil {
 		t.Fatalf("write Raw2: %v", err)
 	}
@@ -121,7 +113,7 @@ func TestQueryLinkKeyFiltersOnlyDirectLinks(t *testing.T) {
 	if _, err := Add(vault, AddOptions{Files: []string{"Raw2.md"}}); err != nil {
 		t.Fatalf("add Raw2: %v", err)
 	}
-	result, err = Query(vault, EntrySpec{File: "Raw2.md"}, QueryOptions{Fields: []string{FieldQueryBacklinks}, LinkKey: "related"})
+	result, err := Query(vault, EntrySpec{File: "Raw2.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}, LinkKey: "related"})
 	if err != nil {
 		t.Fatalf("updated backlinks query: %v", err)
 	}
@@ -135,7 +127,7 @@ func TestQueryLinkKeyFiltersOnlyDirectLinks(t *testing.T) {
 	if _, err := Add(vault, AddOptions{Files: []string{"AddedSource.md"}}); err != nil {
 		t.Fatalf("add source with selected key: %v", err)
 	}
-	result, err = Query(vault, EntrySpec{File: "Quoted.md"}, QueryOptions{Fields: []string{FieldQueryBacklinks}, LinkKey: "selected"})
+	result, err = Query(vault, EntrySpec{File: "Quoted.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}, LinkKey: "selected"})
 	if err != nil {
 		t.Fatalf("added-source backlinks query: %v", err)
 	}
@@ -173,7 +165,7 @@ func TestQueryLinkKeyComposesWithDirectQueryBehavior(t *testing.T) {
 			t.Fatalf("query: %v", err)
 		}
 		infos := result.Outgoing
-		if opts.Fields[0] == FieldQueryBacklinks {
+		if opts.Relations[0] == FieldQueryBacklinks {
 			infos = result.Backlinks
 		}
 		got := make([]string, 0, len(infos))
@@ -185,29 +177,29 @@ func TestQueryLinkKeyComposesWithDirectQueryBehavior(t *testing.T) {
 
 	// "selected" is intentionally absent from meta.link_keys: quoted
 	// frontmatter wikilinks retain their own YAML key regardless of config.
-	if got := paths(t, EntrySpec{File: "Source.md"}, QueryOptions{Fields: []string{FieldQueryOutgoing}, LinkKey: "selected"}); !reflect.DeepEqual(got, []string{"Target.md"}) {
+	if got := paths(t, EntrySpec{File: "Source.md"}, QueryOptions{Relations: []string{FieldQueryOutgoing}, LinkKey: "selected"}); !reflect.DeepEqual(got, []string{"Target.md"}) {
 		t.Errorf("selected outgoing = %#v, want one distinct Target.md", got)
 	}
-	if got := paths(t, EntrySpec{File: "Source.md"}, QueryOptions{Fields: []string{FieldQueryOutgoing}}); !reflect.DeepEqual(got, []string{"Target.md"}) {
+	if got := paths(t, EntrySpec{File: "Source.md"}, QueryOptions{Relations: []string{FieldQueryOutgoing}}); !reflect.DeepEqual(got, []string{"Target.md"}) {
 		t.Errorf("omitted LinkKey outgoing = %#v, want unfiltered Target.md", got)
 	}
-	if got := paths(t, EntrySpec{File: "Source.md"}, QueryOptions{Fields: []string{FieldQueryOutgoing}, LinkKey: "missing"}); len(got) != 0 {
+	if got := paths(t, EntrySpec{File: "Source.md"}, QueryOptions{Relations: []string{FieldQueryOutgoing}, LinkKey: "missing"}); len(got) != 0 {
 		t.Errorf("unknown LinkKey outgoing = %#v, want empty", got)
 	}
 
 	// A.md sorts first but has only the other key. The limit therefore proves
 	// the key restriction is applied before ordering and limiting.
-	if got := paths(t, EntrySpec{File: "Target.md"}, QueryOptions{Fields: []string{FieldQueryBacklinks}, LinkKey: "selected", MaxBacklinks: 1}); !reflect.DeepEqual(got, []string{"C.md"}) {
+	if got := paths(t, EntrySpec{File: "Target.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}, LinkKey: "selected", Limit: intPtr(1)}); !reflect.DeepEqual(got, []string{"C.md"}) {
 		t.Errorf("limited selected backlinks = %#v, want C.md", got)
 	}
-	if got := paths(t, EntrySpec{File: "Target.md"}, QueryOptions{Fields: []string{FieldQueryBacklinks}, LinkKey: "selected", Path: []string{"dir/*"}}); !reflect.DeepEqual(got, []string{"dir/B.md"}) {
+	if got := paths(t, EntrySpec{File: "Target.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}, LinkKey: "selected", Path: []string{"dir/*"}}); !reflect.DeepEqual(got, []string{"dir/B.md"}) {
 		t.Errorf("path-filtered selected backlinks = %#v, want dir/B.md", got)
 	}
 
 	if _, err := MoveDir(vault, MoveDirOptions{FromDir: "move", ToDir: "moved"}); err != nil {
 		t.Fatalf("move dir: %v", err)
 	}
-	if got := paths(t, EntrySpec{File: "Target.md"}, QueryOptions{Fields: []string{FieldQueryBacklinks}, LinkKey: "selected", Path: []string{"moved/*"}}); !reflect.DeepEqual(got, []string{"moved/Linker.md"}) {
+	if got := paths(t, EntrySpec{File: "Target.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}, LinkKey: "selected", Path: []string{"moved/*"}}); !reflect.DeepEqual(got, []string{"moved/Linker.md"}) {
 		t.Errorf("moved selected backlinks = %#v, want moved/Linker.md", got)
 	}
 }

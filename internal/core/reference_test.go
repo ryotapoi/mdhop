@@ -40,11 +40,11 @@ func TestReferenceSnapshotRelationsAndUpdate(t *testing.T) {
 	if _, err := Resolve(v, "A.md", "[Other][guide]"); !errors.Is(err, ErrLinkNotFound) {
 		t.Fatalf("unindexed: %v", err)
 	}
-	q, err := Query(v, EntrySpec{File: "A.md"}, QueryOptions{Fields: []string{FieldQueryOutgoing, FieldQueryTwoHop}})
-	if err != nil || len(q.Outgoing) != 1 || q.Outgoing[0].Path != "B.md" || len(q.TwoHop) != 1 || len(q.TwoHop[0].Targets) != 1 || q.TwoHop[0].Targets[0].Path != "C.md" {
+	q, err := Query(v, EntrySpec{File: "A.md"}, QueryOptions{Relations: []string{FieldQueryOutgoing, FieldQueryTwoHop}})
+	if err != nil || len(q.Outgoing) != 1 || q.Outgoing[0].Path != "B.md" || len(q.TwoHop) != 1 || q.TwoHop[0].Path != "C.md" {
 		t.Fatalf("relations: %+v %v", q, err)
 	}
-	b, err := Query(v, EntrySpec{File: "B.md"}, QueryOptions{Fields: []string{FieldQueryBacklinks}})
+	b, err := Query(v, EntrySpec{File: "B.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}})
 	if err != nil || len(b.Backlinks) != 2 {
 		t.Fatalf("backlinks: %+v %v", b, err)
 	}
@@ -68,7 +68,7 @@ func TestReferenceSnapshotRelationsAndUpdate(t *testing.T) {
 	if _, err := Resolve(v, "A.md", "[guide]"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Query(v, EntrySpec{File: "A.md"}, QueryOptions{Fields: []string{FieldQueryOutgoing}}); err != nil {
+	if _, err := Query(v, EntrySpec{File: "A.md"}, QueryOptions{Relations: []string{FieldQueryOutgoing}}); err != nil {
 		t.Fatal(err)
 	}
 	after, err := os.ReadFile(dbPath(v))
@@ -261,7 +261,7 @@ func TestReferenceUnsupportedMultilineDoesNotCreateRelations(t *testing.T) {
 				files["B.md"] = ""
 			}
 			v := referenceVault(t, files)
-			q, err := Query(v, EntrySpec{File: "A.md"}, QueryOptions{Fields: []string{FieldQueryOutgoing}})
+			q, err := Query(v, EntrySpec{File: "A.md"}, QueryOptions{Relations: []string{FieldQueryOutgoing}})
 			if err != nil || len(q.Outgoing) != 0 {
 				t.Fatalf("unsupported construct produced outgoing: %+v %v", q, err)
 			}

@@ -3,50 +3,46 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
 const queryHelp = `Usage: mdhop query (--file <path>|--tag <name>|--phantom <name>|--name <name>) [options]
 
-Return related information for one entry note, tag, phantom, or auto-detected name.
+Return backlinks, outgoing links, and notes sharing a link target with one entry.
 
 Entry options:
-  --file <path>     Note entry by vault-relative path.
-  --tag <name>      Tag entry. Leading # is optional.
-  --phantom <name>  Phantom entry.
-  --name <name>     Auto-detect note, phantom, or tag. Ambiguous names fail.
+  --file <path>             Note entry by vault-relative path.
+  --tag <name>              Tag entry. Leading # is optional.
+  --phantom <name>          Phantom entry.
+  --name <name>             Auto-detect note, phantom, or tag. Ambiguous names fail.
 
 Options:
-  --fields <list>             Optional. Comma-separated fields: backlinks,tags,twohop,outgoing,head,snippet,meta.
-  --include-head <N>          Include the first N content lines as head.
-  --include-snippet <N>       Include N context lines around matching links as snippet.
-  --max-backlinks <N>         Backlinks limit. Default: 100.
-  --max-twohop <N>            Two-hop result limit. Default: 100.
-  --max-via-per-target <N>    Via entries per two-hop target. Default: 10.
-  --link-key <key>            Restrict direct backlinks and outgoing links to a frontmatter key.
-  --path <glob>               Optional, repeatable. Include result paths matching any glob.
-  --exclude <glob>            Optional, repeatable. Exclude result paths matching the glob.
-  --exclude-tag <tag>         Optional, repeatable. Exclude matching tags.
-  --no-exclude                Ignore mdhop.yaml exclude settings.
-  --where <expr>              Optional, repeatable. Metadata filter using =,!=,~,>,<,>=,<=, EXISTS/NOT EXISTS, coalesce(...), &&, ||, and today±N d/w/m/y dates. Multiple --where flags are ANDed; use " || " inside one expression for OR.
-  --vault <path>              Optional. Vault root directory. Default: ".".
-  --format json|text          Optional. Output format. Default: text.
+  --relations <list>        Comma-separated backlinks,outgoing,twohop. Default: all three.
+  --limit <N>               Return at most N targets; requires one explicit relation.
+  --offset <N>              Skip N targets; requires one explicit relation.
+  --via <type:value>        Select one typed two-hop via node.
+  --via-path <glob>         Include via paths matching a glob (repeatable).
+  --via-tag <tag>           Include via tags (repeatable).
+  --exclude-via-path <glob> Exclude via paths matching a glob (repeatable).
+  --exclude-via-tag <tag>   Exclude via tags (repeatable).
+  --hide-path <glob>        Hide matching note targets and via nodes (repeatable).
+  --hide-tag <tag>          Hide matching tag targets and via nodes (repeatable).
+  --no-config-hide          Ignore configured query hide conditions.
+  --no-config-via           Ignore configured query via conditions.
+  --link-key <key>          Restrict direct backlinks and outgoing links to a frontmatter key.
+  --path <glob>             Include result paths matching any glob (repeatable).
+  --where <expr>            Metadata filter (repeatable; expressions are ANDed).
+  --vault <path>            Vault root directory. Default: ".".
+  --format json|text        Output format. Default: text.
 
-Fields:
-  backlinks  Notes linking to the entry.
-  outgoing   Links from the entry note.
-  twohop     Related notes sharing outgoing targets with the entry; includes via targets.
-  tags       Tags on the entry note.
-  head       First N content lines, enabled by --include-head.
-  snippet    Link-adjacent context, enabled by --include-snippet.
-  meta       Entry frontmatter metadata; opt-in via --fields.
+The JSON fields are entry, selected backlinks/outgoing/2hoplink arrays, and page.
 
 Examples:
-  mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
-  mdhop query --tag architecture --fields backlinks --format json
-  mdhop query --file Notes/Design.md --where "status=active" --fields backlinks,meta --format json
-  mdhop query --file Notes/Design.md --where "status=active || status=review" --format json
+  mdhop query --file Plan.md --format json
+  mdhop query --file Plan.md --relations twohop --via note:topics/Design.md
+  mdhop query --file Plan.md --relations backlinks --limit 20 --offset 20
 
 `
 
@@ -59,86 +55,89 @@ func runQuery(args []string) error {
 	phantom := fs.String("phantom", "", "phantom entry")
 	name := fs.String("name", "", "auto-detect entry")
 	format := fs.String("format", "text", "output format (json or text)")
-	fields := fs.String("fields", "", "comma-separated fields to output")
-	includeHead := fs.Int("include-head", 0, "include first N lines of note")
-	includeSnippet := fs.Int("include-snippet", 0, "include N context lines around links")
-	maxBacklinks := fs.Int("max-backlinks", core.DefaultMaxBacklinks, "max backlinks")
-	maxTwoHop := fs.Int("max-twohop", core.DefaultMaxTwoHop, "max twohop entries")
-	maxViaPerTarget := fs.Int("max-via-per-target", core.DefaultMaxViaPerTarget, "max via entries per twohop target")
+	relations := fs.String("relations", "", "comma-separated relations")
+	limit := fs.Int("limit", 0, "max targets for one relation")
+	offset := fs.Int("offset", 0, "targets to skip for one relation")
 	linkKey := fs.String("link-key", "", "frontmatter key for direct link results")
-	var pathPatterns multiString
-	var excludePaths multiString
-	var excludeTags multiString
-	var whereExprs multiString
-	fs.Var(&pathPatterns, "path", "include result paths matching glob (repeatable)")
-	fs.Var(&excludePaths, "exclude", "exclude paths matching glob (repeatable)")
-	fs.Var(&excludeTags, "exclude-tag", "exclude tag (repeatable)")
+	noConfigHide := fs.Bool("no-config-hide", false, "ignore configured query hide")
+	noConfigVia := fs.Bool("no-config-via", false, "ignore configured query via")
+	var via, viaPaths, viaTags, excludeViaPaths, excludeViaTags multiString
+	var hidePaths, hideTags, pathPatterns, whereExprs multiString
+	fs.Var(&via, "via", "typed two-hop via node")
+	fs.Var(&viaPaths, "via-path", "include via path glob (repeatable)")
+	fs.Var(&viaTags, "via-tag", "include via tag (repeatable)")
+	fs.Var(&excludeViaPaths, "exclude-via-path", "exclude via path glob (repeatable)")
+	fs.Var(&excludeViaTags, "exclude-via-tag", "exclude via tag (repeatable)")
+	fs.Var(&hidePaths, "hide-path", "hide note path glob (repeatable)")
+	fs.Var(&hideTags, "hide-tag", "hide tag (repeatable)")
+	fs.Var(&pathPatterns, "path", "include result path glob (repeatable)")
 	fs.Var(&whereExprs, "where", "frontmatter filter (repeatable)")
-	noExclude := fs.Bool("no-exclude", false, "disable config file exclusions")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-
 	if err := validateFormat(*format); err != nil {
 		return err
 	}
 
-	fieldList := parseFields(*fields)
-	if err := validateFields(fieldList, validQueryFieldsCLI, "query"); err != nil {
-		return err
-	}
+	var selected []string
+	var pageLimit, pageOffset *int
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "relations":
+			selected = []string{}
+			if *relations != "" {
+				selected = strings.Split(*relations, ",")
+				for i := range selected {
+					selected[i] = strings.TrimSpace(selected[i])
+				}
+			}
+		case "limit":
+			pageLimit = limit
+		case "offset":
+			pageOffset = offset
+		}
+	})
 
 	var cfg core.Config
-	if !*noExclude || len(whereExprs) > 0 {
+	if !*noConfigHide || !*noConfigVia || len(whereExprs) > 0 {
 		var err error
 		cfg, err = core.LoadConfig(*vault)
 		if err != nil {
 			return err
 		}
 	}
-	var cfgExclude core.ExcludeConfig
-	if !*noExclude {
-		cfgExclude = cfg.Exclude
-	}
-	ef, err := core.NewExcludeFilter(cfgExclude, excludePaths, excludeTags)
+	filter, err := core.NewQueryFilter(cfg, core.QueryFilterOptions{
+		Hide:         core.ExcludeConfig{Paths: hidePaths, Tags: hideTags},
+		ViaInclude:   core.ExcludeConfig{Paths: viaPaths, Tags: viaTags},
+		ViaExclude:   core.ExcludeConfig{Paths: excludeViaPaths, Tags: excludeViaTags},
+		NoConfigHide: *noConfigHide,
+		NoConfigVia:  *noConfigVia,
+		Via:          via,
+	})
 	if err != nil {
 		return err
 	}
-
 	wc, err := core.ParseWhere(whereExprs, cfg.Meta)
 	if err != nil {
 		return err
 	}
 
-	entry := core.EntrySpec{
-		File:    *file,
-		Tag:     *tag,
-		Phantom: *phantom,
-		Name:    *name,
-	}
-
-	opts := core.QueryOptions{
-		Fields:          fieldList,
-		IncludeHead:     *includeHead,
-		IncludeSnippet:  *includeSnippet,
-		MaxBacklinks:    *maxBacklinks,
-		MaxTwoHop:       *maxTwoHop,
-		MaxViaPerTarget: *maxViaPerTarget,
-		Exclude:         ef,
-		Where:           wc,
-		LinkKey:         *linkKey,
-		Path:            pathPatterns,
-	}
-
-	result, err := core.Query(*vault, entry, opts)
+	result, err := core.Query(*vault, core.EntrySpec{
+		File: *file, Tag: *tag, Phantom: *phantom, Name: *name,
+	}, core.QueryOptions{
+		Relations: selected,
+		Filter:    filter,
+		Limit:     pageLimit,
+		Offset:    pageOffset,
+		Where:     wc,
+		LinkKey:   *linkKey,
+		Path:      pathPatterns,
+	})
 	if err != nil {
 		return err
 	}
-
-	switch *format {
-	case "json":
+	if *format == "json" {
 		return printQueryJSON(os.Stdout, result)
-	default:
-		return printQueryText(os.Stdout, result)
 	}
+	return printQueryText(os.Stdout, result)
 }

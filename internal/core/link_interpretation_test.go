@@ -139,7 +139,7 @@ func TestLinkInterpretationGraphAndUpdate(t *testing.T) {
 						t.Fatalf("resolve %q = %+v, %v", raw, got, err)
 					}
 				}
-				query, err := Query(vault, EntrySpec{File: "Source.md"}, QueryOptions{Fields: []string{"outgoing", "twohop"}})
+				query, err := Query(vault, EntrySpec{File: "Source.md"}, QueryOptions{Relations: []string{"outgoing", "twohop"}})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -147,10 +147,8 @@ func TestLinkInterpretationGraphAndUpdate(t *testing.T) {
 					t.Fatalf("outgoing %+v", query.Outgoing)
 				}
 				peer := false
-				for _, via := range query.TwoHop {
-					for _, target := range via.Targets {
-						peer = peer || target.Path == "Peer.md"
-					}
+				for _, target := range query.TwoHop {
+					peer = peer || target.Path == "Peer.md"
 				}
 				if !peer {
 					t.Fatalf("twohop %+v", query.TwoHop)
@@ -159,7 +157,7 @@ func TestLinkInterpretationGraphAndUpdate(t *testing.T) {
 				if exists {
 					entry = EntrySpec{File: "A%20B.md"}
 				}
-				back, err := Query(vault, entry, QueryOptions{Fields: []string{"backlinks"}})
+				back, err := Query(vault, entry, QueryOptions{Relations: []string{"backlinks"}})
 				if err != nil || len(back.Backlinks) != 2 {
 					t.Fatalf("backlinks %+v, %v", back, err)
 				}
@@ -471,7 +469,7 @@ func TestBacktickDestinationRewritePreservesRelations(t *testing.T) {
 		if err != nil || got.Path != "Z`Q.md" || got.Subpath != "#H`I" {
 			t.Fatalf("move/rebuild %+v, %v", got, err)
 		}
-		outgoing, err := Query(vault, EntrySpec{File: "Source.md"}, QueryOptions{Fields: []string{"outgoing"}})
+		outgoing, err := Query(vault, EntrySpec{File: "Source.md"}, QueryOptions{Relations: []string{"outgoing"}})
 		if err != nil || len(outgoing.Outgoing) != 1 || outgoing.Outgoing[0].Path != "Z`Q.md" {
 			t.Fatalf("outgoing %+v, %v", outgoing, err)
 		}

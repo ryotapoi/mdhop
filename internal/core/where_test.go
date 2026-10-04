@@ -649,8 +649,8 @@ func TestQueryBacklinksWhere_StatusEq(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -676,8 +676,8 @@ func TestQueryBacklinksWhere_PriorityGt(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -694,8 +694,8 @@ func TestQueryBacklinksWhere_MultipleFlagsSameKeyAND(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -711,8 +711,8 @@ func TestQueryBacklinksWhere_SameKeyOrExpression(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -728,8 +728,8 @@ func TestQueryBacklinksWhere_OrExpression(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -746,8 +746,8 @@ func TestQueryBacklinksWhere_OrExpressionAndSeparateFlag(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -764,8 +764,8 @@ func TestQueryBacklinksWhere_DiffKeyAND(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -782,8 +782,8 @@ func TestQueryBacklinksWhere_Exists(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -800,8 +800,8 @@ func TestQueryBacklinksWhere_NotExists(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -818,8 +818,8 @@ func TestQueryBacklinksWhere_Neq(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -836,8 +836,8 @@ func TestQueryBacklinksWhere_Like(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -855,8 +855,8 @@ func TestQueryOutgoingWhere(t *testing.T) {
 	}
 	// B links to A. A has status=active.
 	res, err := Query(vault, EntrySpec{File: "B.md"}, QueryOptions{
-		Fields: []string{"outgoing"},
-		Where:  wc,
+		Relations: []string{"outgoing"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -866,51 +866,19 @@ func TestQueryOutgoingWhere(t *testing.T) {
 
 func TestQueryTwoHopWhere(t *testing.T) {
 	vault := setupWhereVault(t)
-	metaCfg := loadMetaCfg(t, vault)
-	wc, err := ParseWhere([]string{"status=active"}, metaCfg)
+	wc, err := ParseWhere([]string{"status=active"}, loadMetaCfg(t, vault))
 	if err != nil {
-		t.Fatalf("parse: %v", err)
+		t.Fatal(err)
 	}
-	// B→A, A→{B,C,D,E}. TwoHop from B through A should filter targets by status=active.
-	res, err := Query(vault, EntrySpec{File: "B.md"}, QueryOptions{
-		Fields: []string{"twohop"},
-		Where:  wc,
-	})
+	res, err := Query(vault, EntrySpec{File: "B.md"}, QueryOptions{Relations: []string{FieldQueryTwoHop}, Where: wc})
 	if err != nil {
-		t.Fatalf("query: %v", err)
+		t.Fatal(err)
 	}
-	// Via=A, targets should only include active notes (E is active, C is done, D has no status).
-	// B itself is excluded from twohop targets (it's the entry).
-	found := false
-	for _, th := range res.TwoHop {
-		if th.Via.Name == "A" {
-			found = true
-			assertNames(t, "twohop targets via A", th.Targets, []string{"E"})
-		}
+	if len(res.TwoHop) != 1 || res.TwoHop[0].Name != "E" {
+		t.Fatalf("filtered twohop = %+v, want E", res.TwoHop)
 	}
-	if !found {
-		t.Error("expected twohop via A")
-	}
-}
-
-func TestQueryTagsWhere_Unaffected(t *testing.T) {
-	vault := setupWhereVault(t)
-	metaCfg := loadMetaCfg(t, vault)
-	wc, err := ParseWhere([]string{"status=active"}, metaCfg)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	// Tags should not be affected by where.
-	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"tags"},
-		Where:  wc,
-	})
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	// A.md has no inline tags → tags should be empty/nil but no error.
-	if res.Tags != nil && len(res.Tags) != 0 {
-		t.Errorf("tags should be empty, got %v", res.Tags)
+	if len(res.TwoHop[0].Relation) != 1 || res.TwoHop[0].Relation[0].Name != "A" {
+		t.Fatalf("relations = %+v, want A", res.TwoHop[0].Relation)
 	}
 }
 
@@ -918,8 +886,8 @@ func TestQueryBacklinksWhere_Nil(t *testing.T) {
 	vault := setupWhereVault(t)
 	// nil Where → no filter (backward compat).
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  nil,
+		Relations: []string{"backlinks"},
+		Where:     nil,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -936,8 +904,8 @@ func TestQueryBacklinksWhere_AliasNeq(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -957,8 +925,8 @@ func TestQueryBacklinksWhere_CoalescePriority(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -976,8 +944,8 @@ func TestQueryBacklinksWhere_CoalesceExists(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -1001,8 +969,8 @@ func TestQueryBacklinksWhere_CoalesceDifferingTypesFallback(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -1028,8 +996,8 @@ func TestQueryBacklinksWhere_CoalesceEqAndNeqParenthesized(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -1045,8 +1013,8 @@ func TestQueryBacklinksWhere_OrExpressionCoalesce(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -1065,8 +1033,8 @@ func TestQueryBacklinksWhere_AndExpressionMatchesRepeatedFlags(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -1080,8 +1048,8 @@ func TestQueryBacklinksWhere_AndExpressionMatchesRepeatedFlags(t *testing.T) {
 		t.Fatalf("parse repeated flags: %v", err)
 	}
 	flagResult, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  repeatedFlags,
+		Relations: []string{"backlinks"},
+		Where:     repeatedFlags,
 	})
 	if err != nil {
 		t.Fatalf("query repeated flags: %v", err)
@@ -1179,8 +1147,8 @@ func TestQueryBacklinksWhere_AndMixedKeys(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)
@@ -1199,8 +1167,8 @@ func TestQueryBacklinksWhere_AndNeqSameKey(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	res, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
-		Fields: []string{"backlinks"},
-		Where:  wc,
+		Relations: []string{"backlinks"},
+		Where:     wc,
 	})
 	if err != nil {
 		t.Fatalf("query: %v", err)

@@ -26,16 +26,37 @@ func TestNFDDiskPathsContentAndChecks(t *testing.T) {
 	if _, err := Build(vault); err != nil {
 		t.Fatal(err)
 	}
-	result, err := Query(vault, EntrySpec{File: "Café/Résumé.md"}, QueryOptions{Fields: []string{"head"}, IncludeHead: 2})
-	if err != nil || !reflect.DeepEqual(result.Head, []string{"# Present", "[[Target]]"}) {
-		t.Fatalf("head = %+v, %v", result, err)
-	}
-	result, err = Query(vault, EntrySpec{File: "Target.md"}, QueryOptions{Fields: []string{"snippet"}, IncludeSnippet: 1})
+	db, err := openDBChecked(vault)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Snippets) != 1 || result.Snippets[0].SourcePath != "Café/Résumé.md" || !reflect.DeepEqual(result.Snippets[0].Lines, []string{"# Present", "[[Target]]"}) {
-		t.Fatalf("snippets = %+v", result.Snippets)
+	defer db.Close()
+	sourceID, _, err := findEntryNode(db, EntrySpec{File: "Café/Résumé.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetID, _, err := findEntryNode(db, EntrySpec{File: "Target.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := queryHeadSource(db, sourceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := readHead(vault, source, 2)
+	if err != nil || !reflect.DeepEqual(head, []string{"# Present", "[[Target]]"}) {
+		t.Fatalf("head = %v, %v", head, err)
+	}
+	sources, err := querySnippetSources(db, targetID, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snippets, err := readSnippets(vault, sources, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snippets) != 1 || snippets[0].SourcePath != "Café/Résumé.md" || !reflect.DeepEqual(snippets[0].Lines, []string{"# Present", "[[Target]]"}) {
+		t.Fatalf("snippets = %+v", snippets)
 	}
 	diag, err := Diagnose(vault, DiagnoseOptions{Fields: []string{"anchors"}})
 	if err != nil || len(diag.BrokenAnchors) != 1 || diag.BrokenAnchors[0].Fragment != "Absent" {
@@ -46,19 +67,16 @@ func TestNFDDiskPathsContentAndChecks(t *testing.T) {
 		t.Fatalf("meta check = %+v, %v", check, err)
 	}
 	writeStaleTestFile(t, actual, []byte(content+"changed\n"))
-	_, err = Query(vault, EntrySpec{File: "Café/Résumé.md"}, QueryOptions{Fields: []string{"head"}, IncludeHead: 1})
-	if !errors.Is(err, ErrSourceStale) {
+	if _, err := readHead(vault, source, 1); !errors.Is(err, ErrSourceStale) {
 		t.Fatalf("head stale error = %v", err)
 	}
-	_, err = Query(vault, EntrySpec{File: "Target.md"}, QueryOptions{Fields: []string{"snippet"}, IncludeSnippet: 1})
-	if !errors.Is(err, ErrSourceStale) {
+	if _, err := readSnippets(vault, sources, 1); !errors.Is(err, ErrSourceStale) {
 		t.Fatalf("snippet stale error = %v", err)
 	}
 	if err := os.Remove(actual); err != nil {
 		t.Fatal(err)
 	}
-	_, err = Query(vault, EntrySpec{File: "Café/Résumé.md"}, QueryOptions{Fields: []string{"head"}, IncludeHead: 1})
-	if !errors.Is(err, ErrFileNotFound) {
+	if _, err := readHead(vault, source, 1); !errors.Is(err, ErrFileNotFound) {
 		t.Fatalf("missing head error = %v", err)
 	}
 	diag, err = Diagnose(vault, DiagnoseOptions{Fields: []string{"anchors"}})

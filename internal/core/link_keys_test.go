@@ -141,7 +141,7 @@ func TestBuildLinkKeysBacklinksReflected(t *testing.T) {
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	res, err := Query(vault, EntrySpec{File: "topics/a.md"}, QueryOptions{Fields: []string{"backlinks"}})
+	res, err := Query(vault, EntrySpec{File: "topics/a.md"}, QueryOptions{Relations: []string{"backlinks"}})
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}

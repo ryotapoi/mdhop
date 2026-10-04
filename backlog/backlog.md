@@ -27,9 +27,9 @@
 
 #### 2. query の関係・選択・ページ・出力
 
-- [ ] [CLI 契約](v0.21.0.md#mdhop-query)と[関係を作って返すまで](v0.21.0.md#関係を作って返すまで)に従い、query core、CLI、JSON / text formatter を一緒に変更する
+- [x] [CLI 契約](v0.21.0.md#mdhop-query)と[関係を作って返すまで](v0.21.0.md#関係を作って返すまで)に従い、query core、CLI、JSON / text formatter を一緒に変更する
 
-  完了: 三関係の全件取得、選択欄の省略と空配列、全入口で同じ twohop 向き、タグ outgoing、hide と via の独立、typed node と全経由先、単一関係ページ・next_offset が動く。旧 query オプションは削除され、既存呼出側と既存テストを同段階で更新する。head / snippet の新プレビュー機能は段階 4 で追加し、この段階の完了条件には含めない。選択0件・非表示経由のみ・重複対象・末尾ページ・不正入力の集中テストと共通検証 gate が通る。
+  完了: 三関係の全件取得、選択欄の省略と空配列、全入口で同じ twohop 向き、タグ outgoing、hide と via の独立、typed node と全経由先、単一関係ページ・next_offset が動く。旧 query オプションは削除され、既存呼出側と既存テストを同段階で更新する。head / snippet の新プレビュー機能は段階 4 で追加し、この段階の完了条件には含めない。選択0件・非表示経由のみ・重複対象・末尾ページ・不正入力、および旧上限を超える125対象・16経由先の集中テストが通った。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリの正常系・異常系27件を確認し、JSON単独解析、stdout / stderr・終了コード、query による file / DB の無変更、search の旧 exclude / no-exclude と head の不変を確認した。旧入口previewのテストは共有本文helperへ移し、NFD・stale・missing の保証を保持した。
 
 #### 3. inspect による単体情報取得
 
