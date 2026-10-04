@@ -42,7 +42,7 @@ func queryTargetSQL(opts QueryOptions) (string, []any) {
 	return q, args
 }
 
-func queryDirect(db dbExecer, entryID int64, relation string, opts QueryOptions) ([]NodeInfo, error) {
+func queryDirect(db dbExecer, entryID int64, relation string, opts QueryOptions) ([]QueryNode, error) {
 	q := `SELECT DISTINCT n.id, n.type, n.name, COALESCE(n.path,''), n.exists_flag FROM edges e JOIN nodes n ON n.id = e.source_id WHERE e.target_id = ? AND n.id != ?`
 	if relation == FieldQueryOutgoing {
 		q = `SELECT DISTINCT n.id, n.type, n.name, COALESCE(n.path,''), n.exists_flag FROM edges e JOIN nodes n ON n.id = e.target_id WHERE e.source_id = ? AND n.id != ?`
@@ -74,9 +74,9 @@ func queryDirect(db dbExecer, entryID int64, relation string, opts QueryOptions)
 		return nil, err
 	}
 	sort.Slice(nodes, func(i, j int) bool { return queryNodeLess(nodes[i], nodes[j]) })
-	result := make([]NodeInfo, len(nodes))
+	result := make([]QueryNode, len(nodes))
 	for i, n := range nodes {
-		result[i] = n.info
+		result[i] = QueryNode{NodeInfo: n.info, id: n.id}
 	}
 	return result, nil
 }
@@ -237,11 +237,11 @@ func queryTwoHop(db dbExecer, entryID int64, opts QueryOptions) ([]TwoHopEntry, 
 	result := make([]TwoHopEntry, len(ordered))
 	for i, t := range ordered {
 		sort.Slice(t.via, func(i, j int) bool { return queryNodeLess(t.via[i], t.via[j]) })
-		via := make([]NodeInfo, len(t.via))
+		via := make([]QueryNode, len(t.via))
 		for j, v := range t.via {
-			via[j] = v.info
+			via[j] = QueryNode{NodeInfo: v.info, id: v.id}
 		}
-		result[i] = TwoHopEntry{NodeInfo: t.node.info, Relation: via, HiddenRelation: t.hidden}
+		result[i] = TwoHopEntry{QueryNode: QueryNode{NodeInfo: t.node.info, id: t.node.id}, Relation: via, HiddenRelation: t.hidden}
 	}
 	return result, nil
 }

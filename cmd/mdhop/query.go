@@ -34,6 +34,8 @@ Options:
   --link-key <key>          Restrict direct backlinks and outgoing links to a frontmatter key.
   --path <glob>             Include result paths matching any glob (repeatable).
   --where <expr>            Metadata filter (repeatable; expressions are ANDed).
+  --include-head <N>        Include the first N body lines of returned notes (N > 0).
+  --include-snippet <N>     Include link occurrences with N context lines (N >= 0).
   --vault <path>            Vault root directory. Default: ".".
   --format json|text        Output format. Default: text.
 
@@ -56,6 +58,8 @@ func runQuery(args []string) error {
 	name := fs.String("name", "", "auto-detect entry")
 	format := fs.String("format", "text", "output format (json or text)")
 	relations := fs.String("relations", "", "comma-separated relations")
+	head := fs.Int("include-head", 0, "returned note body lines")
+	snippet := fs.Int("include-snippet", 0, "link context lines")
 	limit := fs.Int("limit", 0, "max targets for one relation")
 	offset := fs.Int("offset", 0, "targets to skip for one relation")
 	linkKey := fs.String("link-key", "", "frontmatter key for direct link results")
@@ -80,7 +84,7 @@ func runQuery(args []string) error {
 	}
 
 	var selected []string
-	var pageLimit, pageOffset *int
+	var pageLimit, pageOffset, includeHead, includeSnippet *int
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "relations":
@@ -91,6 +95,10 @@ func runQuery(args []string) error {
 					selected[i] = strings.TrimSpace(selected[i])
 				}
 			}
+		case "include-head":
+			includeHead = head
+		case "include-snippet":
+			includeSnippet = snippet
 		case "limit":
 			pageLimit = limit
 		case "offset":
@@ -125,13 +133,15 @@ func runQuery(args []string) error {
 	result, err := core.Query(*vault, core.EntrySpec{
 		File: *file, Tag: *tag, Phantom: *phantom, Name: *name,
 	}, core.QueryOptions{
-		Relations: selected,
-		Filter:    filter,
-		Limit:     pageLimit,
-		Offset:    pageOffset,
-		Where:     wc,
-		LinkKey:   *linkKey,
-		Path:      pathPatterns,
+		Relations:      selected,
+		IncludeHead:    includeHead,
+		IncludeSnippet: includeSnippet,
+		Filter:         filter,
+		Limit:          pageLimit,
+		Offset:         pageOffset,
+		Where:          wc,
+		LinkKey:        *linkKey,
+		Path:           pathPatterns,
 	})
 	if err != nil {
 		return err

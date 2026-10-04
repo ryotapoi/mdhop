@@ -403,7 +403,7 @@ func TestQueryRelationSelectionAndPagination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(next.Outgoing) != 1 || next.Outgoing[0] == res.Outgoing[0] {
+	if len(next.Outgoing) != 1 || next.Outgoing[0].NodeInfo == res.Outgoing[0].NodeInfo {
 		t.Fatalf("next page = %+v", next)
 	}
 }
@@ -561,7 +561,7 @@ func TestFilterLeafTags(t *testing.T) {
 
 // --- helpers ---
 
-func nodeNames(nodes []NodeInfo) []string {
+func nodeNames(nodes []QueryNode) []string {
 	var names []string
 	for _, n := range nodes {
 		names = append(names, n.Name)

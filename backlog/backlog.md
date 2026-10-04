@@ -39,9 +39,9 @@
 
 #### 4. query の head / snippet
 
-- [ ] [head / snippet の範囲](v0.21.0.md#head--snippet-の範囲)に従い、返す関係に必要な本文プレビューを追加する
+- [x] [head / snippet の範囲](v0.21.0.md#head--snippet-の範囲)に従い、返す関係に必要な本文プレビューを追加する
 
-  完了: head は返却 note のみ、snippet は出力関係に属する実リンク出現のみを付ける。outgoing / backlinks / twohop の本文側、frontmatter の生行、`--path` / `--where` / `--link-key`、隠した経由先、ページの先読み対象を確認する。search が使う共通本文読取は保ち、共通検証 gate が通る。
+  完了: head は返却 note のみ、snippet は出力関係に属する実リンク出現のみを付ける。backlinks は対象→入口、outgoing は入口→対象、twohop は対象→可視 via の生行を返し、frontmatter タグ・リンク、型付き入口・via、同一行の別 edge と重複する文脈、複数 seed でも増殖しない出現を確認した。`--path` / `--where` は対象だけ、`--link-key` は直接 edge だけへ適用し、hidden・ページ外・先読み・未選択関係の不要本文を読まない。必要な本文の missing / stale と最大 int の snippet 文脈も確認した。JSON の指定済み空と省略、text の所属・引用 escape、preview flag の 0 / 不正値を集中テストで固定した。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリ27件が通り、stdout 単独 JSON 解析、stdout / stderr・終了コード、file / DB の無変更、search の共通 head / 旧 exclude の不変を確認した。正本文書の移行と版全体の最終受入は段階5に残す。
 
 #### 5. 正本・移行・最終受入
 

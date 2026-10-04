@@ -16,13 +16,15 @@ type EntrySpec struct {
 // QueryOptions selects relations and filters their targets. Nil Relations selects all.
 // Page arguments require an explicitly selected single relation.
 type QueryOptions struct {
-	Relations []string
-	Filter    *QueryFilter
-	Limit     *int
-	Offset    *int
-	Where     *WhereClause
-	LinkKey   string
-	Path      []string
+	Relations      []string
+	Filter         *QueryFilter
+	Limit          *int
+	Offset         *int
+	Where          *WhereClause
+	LinkKey        string
+	Path           []string
+	IncludeHead    *int
+	IncludeSnippet *int
 }
 
 const (
@@ -63,10 +65,18 @@ func scanNodeInfoWithID(rows *sql.Rows) (int64, NodeInfo, error) {
 	return id, NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}, nil
 }
 
+// QueryNode carries previews belonging to one returned target or via.
+type QueryNode struct {
+	NodeInfo
+	Head    []string
+	Snippet []SnippetEntry
+	id      int64
+}
+
 // TwoHopEntry is a target and all visible shared outgoing destinations.
 type TwoHopEntry struct {
-	NodeInfo
-	Relation       []NodeInfo
+	QueryNode
+	Relation       []QueryNode
 	HiddenRelation bool
 }
 
@@ -88,13 +98,13 @@ type SnippetEntry struct {
 // QueryResult keeps unselected relations nil and selected empty relations non-nil.
 type QueryResult struct {
 	Entry     NodeInfo
-	Backlinks []NodeInfo
-	Outgoing  []NodeInfo
+	Backlinks []QueryNode
+	Outgoing  []QueryNode
 	TwoHop    []TwoHopEntry
 	Page      QueryPage
 }
 
-// Query returns indexed relations without reading note bodies.
+// Query reads previews only for returned relations when requested.
 func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, error) {
 	if err := validateQueryOptions(opts); err != nil {
 		return nil, err
@@ -119,7 +129,7 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 	for _, relation := range relations {
 		switch relation {
 		case FieldQueryBacklinks, FieldQueryOutgoing:
-			nodes := []NodeInfo{}
+			nodes := []QueryNode{}
 			if relation == FieldQueryBacklinks || info.Type == NodeTypeNote {
 				nodes, err = queryDirect(db, nodeID, relation, opts)
 				if err != nil {
@@ -147,10 +157,19 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 			result.Page.NextOffset = next
 		}
 	}
+	if err := addQueryPreviews(db, vaultPath, nodeID, opts, result); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
 func validateQueryOptions(opts QueryOptions) error {
+	if opts.IncludeHead != nil && *opts.IncludeHead <= 0 {
+		return fmt.Errorf("include-head must be positive")
+	}
+	if opts.IncludeSnippet != nil && *opts.IncludeSnippet < 0 {
+		return fmt.Errorf("include-snippet must be non-negative")
+	}
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return err
 	}

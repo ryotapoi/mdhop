@@ -85,7 +85,7 @@ func TestQueryLinkKeyFiltersOnlyDirectLinks(t *testing.T) {
 			if err != nil {
 				t.Fatalf("query: %v", err)
 			}
-			var infos []NodeInfo
+			var infos []QueryNode
 			if tt.field == FieldQueryOutgoing {
 				infos = result.Outgoing
 			} else {

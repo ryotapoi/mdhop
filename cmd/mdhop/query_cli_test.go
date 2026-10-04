@@ -23,6 +23,11 @@ func TestRunQuery_RelationAndPageValidation(t *testing.T) {
 		name string
 		args []string
 	}{
+		{"zero head", []string{"--include-head", "0"}},
+		{"negative head", []string{"--include-head", "-1"}},
+		{"noninteger head", []string{"--include-head", "one"}},
+		{"negative snippet", []string{"--include-snippet", "-1"}},
+		{"noninteger snippet", []string{"--include-snippet", "one"}},
 		{"explicit empty", []string{"--relations", ""}},
 		{"empty member", []string{"--relations", "backlinks,"}},
 		{"duplicate", []string{"--relations", "backlinks,backlinks"}},
@@ -43,8 +48,6 @@ func TestRunQuery_RelationAndPageValidation(t *testing.T) {
 		{"legacy exclude", []string{"--exclude", "x"}},
 		{"legacy exclude tag", []string{"--exclude-tag", "x"}},
 		{"legacy no exclude", []string{"--no-exclude"}},
-		{"deferred head", []string{"--include-head", "1"}},
-		{"deferred snippet", []string{"--include-snippet", "0"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -197,5 +200,39 @@ func TestRunQuery_ConfigControlsStayIndependent(t *testing.T) {
 	}
 	if got := paths("--no-config-via", "--no-config-hide", "--exclude-via-path", "V.md"); len(got) != 0 {
 		t.Fatalf("CLI via exclusion should still apply, got %v", got)
+	}
+}
+
+func TestRunQuery_PreviewFlags(t *testing.T) {
+	vault := t.TempDir()
+	for path, content := range map[string]string{"A.md": "[[B]]\n", "B.md": "# B\n"} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatal(err)
+	}
+	for _, preview := range []bool{false, true} {
+		args := []string{"--vault", vault, "--file", "A.md", "--relations", "outgoing", "--format", "json"}
+		if preview {
+			args = append(args, "--include-head", "1", "--include-snippet", "0")
+		}
+		output := captureStdout(t, func() error { return runQuery(args) })
+		var r struct {
+			Entry    map[string]any   `json:"entry"`
+			Outgoing []map[string]any `json:"outgoing"`
+		}
+		if err := json.Unmarshal([]byte(output), &r); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := r.Entry["head"]; ok {
+			t.Fatal("entry head")
+		}
+		_, head := r.Outgoing[0]["head"]
+		_, snippet := r.Outgoing[0]["snippet"]
+		if head != preview || snippet != preview {
+			t.Fatalf("preview=%v output=%s", preview, output)
+		}
 	}
 }

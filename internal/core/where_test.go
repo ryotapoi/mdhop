@@ -656,7 +656,7 @@ func TestQueryBacklinksWhere_StatusEq(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// B (active), E (active); C is done, D has no status.
-	assertNames(t, "status=active", res.Backlinks, []string{"B", "E"})
+	assertQueryNames(t, "status=active", res.Backlinks, []string{"B", "E"})
 }
 
 func loadMetaCfg(t *testing.T, vault string) MetaConfig {
@@ -683,7 +683,7 @@ func TestQueryBacklinksWhere_PriorityGt(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// B (2>1), C (3>1). D has no priority. E has priority=abc → value_type="string" → type guard excludes.
-	assertNames(t, "priority>1", res.Backlinks, []string{"B", "C"})
+	assertQueryNames(t, "priority>1", res.Backlinks, []string{"B", "C"})
 }
 
 func TestQueryBacklinksWhere_MultipleFlagsSameKeyAND(t *testing.T) {
@@ -700,7 +700,7 @@ func TestQueryBacklinksWhere_MultipleFlagsSameKeyAND(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	assertNames(t, "priority=2 AND priority=3", res.Backlinks, nil)
+	assertQueryNames(t, "priority=2 AND priority=3", res.Backlinks, nil)
 }
 
 func TestQueryBacklinksWhere_SameKeyOrExpression(t *testing.T) {
@@ -717,7 +717,7 @@ func TestQueryBacklinksWhere_SameKeyOrExpression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	assertNames(t, "priority=2 || priority=3", res.Backlinks, []string{"B", "C"})
+	assertQueryNames(t, "priority=2 || priority=3", res.Backlinks, []string{"B", "C"})
 }
 
 func TestQueryBacklinksWhere_OrExpression(t *testing.T) {
@@ -735,7 +735,7 @@ func TestQueryBacklinksWhere_OrExpression(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// B matches priority=2. C matches status=done.
-	assertNames(t, "status=done || priority=2", res.Backlinks, []string{"B", "C"})
+	assertQueryNames(t, "status=done || priority=2", res.Backlinks, []string{"B", "C"})
 }
 
 func TestQueryBacklinksWhere_OrExpressionAndSeparateFlag(t *testing.T) {
@@ -753,7 +753,7 @@ func TestQueryBacklinksWhere_OrExpressionAndSeparateFlag(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// The OR expression admits B/C/E by status, then the separate flag ANDs priority=2.
-	assertNames(t, "(status active OR done) AND priority=2", res.Backlinks, []string{"B"})
+	assertQueryNames(t, "(status active OR done) AND priority=2", res.Backlinks, []string{"B"})
 }
 
 func TestQueryBacklinksWhere_DiffKeyAND(t *testing.T) {
@@ -771,7 +771,7 @@ func TestQueryBacklinksWhere_DiffKeyAND(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// B: active + priority=2 (>1) → match. C: done. E: active but priority=abc (type guard).
-	assertNames(t, "status=active AND priority>1", res.Backlinks, []string{"B"})
+	assertQueryNames(t, "status=active AND priority>1", res.Backlinks, []string{"B"})
 }
 
 func TestQueryBacklinksWhere_Exists(t *testing.T) {
@@ -789,7 +789,7 @@ func TestQueryBacklinksWhere_Exists(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// B (priority=2), C (priority=3), E (priority=abc). D has no priority.
-	assertNames(t, "EXISTS priority", res.Backlinks, []string{"B", "C", "E"})
+	assertQueryNames(t, "EXISTS priority", res.Backlinks, []string{"B", "C", "E"})
 }
 
 func TestQueryBacklinksWhere_NotExists(t *testing.T) {
@@ -807,7 +807,7 @@ func TestQueryBacklinksWhere_NotExists(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// D links to A and has no priority key. B/C/E all have priority.
-	assertNames(t, "priority NOT EXISTS", res.Backlinks, []string{"D"})
+	assertQueryNames(t, "priority NOT EXISTS", res.Backlinks, []string{"D"})
 }
 
 func TestQueryBacklinksWhere_Neq(t *testing.T) {
@@ -825,7 +825,7 @@ func TestQueryBacklinksWhere_Neq(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// B (active, not done), E (active, not done). C is done → excluded. D has no status → no meta → excluded.
-	assertNames(t, "status!=done", res.Backlinks, []string{"B", "E"})
+	assertQueryNames(t, "status!=done", res.Backlinks, []string{"B", "E"})
 }
 
 func TestQueryBacklinksWhere_Like(t *testing.T) {
@@ -843,7 +843,7 @@ func TestQueryBacklinksWhere_Like(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// B (active matches "act%"), E (active matches). C (done doesn't match). D has no status.
-	assertNames(t, "status~act%", res.Backlinks, []string{"B", "E"})
+	assertQueryNames(t, "status~act%", res.Backlinks, []string{"B", "E"})
 }
 
 func TestQueryOutgoingWhere(t *testing.T) {
@@ -861,7 +861,7 @@ func TestQueryOutgoingWhere(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	assertNames(t, "outgoing status=active", res.Outgoing, []string{"A"})
+	assertQueryNames(t, "outgoing status=active", res.Outgoing, []string{"A"})
 }
 
 func TestQueryTwoHopWhere(t *testing.T) {
@@ -893,7 +893,7 @@ func TestQueryBacklinksWhere_Nil(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// All backlinks: B, C, D, E.
-	assertNames(t, "nil where", res.Backlinks, []string{"B", "C", "D", "E"})
+	assertQueryNames(t, "nil where", res.Backlinks, []string{"B", "C", "D", "E"})
 }
 
 func TestQueryBacklinksWhere_AliasNeq(t *testing.T) {
@@ -914,7 +914,7 @@ func TestQueryBacklinksWhere_AliasNeq(t *testing.T) {
 	// C has aliases=[charlie] → no beta → included.
 	// D has no aliases key → no meta → excluded (!=  means "key exists AND value doesn't match").
 	// E has no aliases key → excluded.
-	assertNames(t, "aliases!=beta", res.Backlinks, []string{"C"})
+	assertQueryNames(t, "aliases!=beta", res.Backlinks, []string{"C"})
 }
 
 func TestQueryBacklinksWhere_CoalescePriority(t *testing.T) {
@@ -933,7 +933,7 @@ func TestQueryBacklinksWhere_CoalescePriority(t *testing.T) {
 	}
 	// B matches by reviewed. E has no reviewed, so it falls back to updated and matches.
 	// C would match by updated under a naive OR, but reviewed exists and is too recent.
-	assertNames(t, "coalesce(reviewed, updated)<=2025-07-04", res.Backlinks, []string{"B", "E"})
+	assertQueryNames(t, "coalesce(reviewed, updated)<=2025-07-04", res.Backlinks, []string{"B", "E"})
 }
 
 func TestQueryBacklinksWhere_CoalesceExists(t *testing.T) {
@@ -950,7 +950,7 @@ func TestQueryBacklinksWhere_CoalesceExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	assertNames(t, "coalesce(reviewed, updated)", res.Backlinks, []string{"B", "C", "E"})
+	assertQueryNames(t, "coalesce(reviewed, updated)", res.Backlinks, []string{"B", "C", "E"})
 }
 
 func TestQueryBacklinksWhere_CoalesceDifferingTypesFallback(t *testing.T) {
@@ -977,7 +977,7 @@ func TestQueryBacklinksWhere_CoalesceDifferingTypesFallback(t *testing.T) {
 	}
 	// E has only updated. With updated undeclared, it is stored as value_type=string
 	// and must still be compared by the updated branch's own string type.
-	assertNames(t, "coalesce reviewed date, updated string", res.Backlinks, []string{"B", "E"})
+	assertQueryNames(t, "coalesce reviewed date, updated string", res.Backlinks, []string{"B", "E"})
 }
 
 func TestQueryBacklinksWhere_CoalesceEqAndNeqParenthesized(t *testing.T) {
@@ -1002,7 +1002,7 @@ func TestQueryBacklinksWhere_CoalesceEqAndNeqParenthesized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	assertNames(t, "coalesce eq intersect neq", res.Backlinks, []string{"B", "E"})
+	assertQueryNames(t, "coalesce eq intersect neq", res.Backlinks, []string{"B", "E"})
 }
 
 func TestQueryBacklinksWhere_OrExpressionCoalesce(t *testing.T) {
@@ -1020,7 +1020,7 @@ func TestQueryBacklinksWhere_OrExpressionCoalesce(t *testing.T) {
 		t.Fatalf("query: %v", err)
 	}
 	// B/E match coalesce; C matches status=done despite coalesce selecting reviewed=2026-01-01.
-	assertNames(t, "coalesce old OR status done", res.Backlinks, []string{"B", "C", "E"})
+	assertQueryNames(t, "coalesce old OR status done", res.Backlinks, []string{"B", "C", "E"})
 }
 
 // --- AND integration tests ---
@@ -1041,7 +1041,7 @@ func TestQueryBacklinksWhere_AndExpressionMatchesRepeatedFlags(t *testing.T) {
 	}
 	// B (priority=2, >=2 AND <=3), C (priority=3, >=2 AND <=3).
 	// E has priority=abc → type guard excludes. D has no priority.
-	assertNames(t, "priority>=2 && priority<=3", res.Backlinks, []string{"B", "C"})
+	assertQueryNames(t, "priority>=2 && priority<=3", res.Backlinks, []string{"B", "C"})
 
 	repeatedFlags, err := ParseWhere([]string{"priority>=2", "priority<=3"}, metaCfg)
 	if err != nil {
@@ -1054,7 +1054,7 @@ func TestQueryBacklinksWhere_AndExpressionMatchesRepeatedFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query repeated flags: %v", err)
 	}
-	assertNames(t, "repeated flags", flagResult.Backlinks, []string{"B", "C"})
+	assertQueryNames(t, "repeated flags", flagResult.Backlinks, []string{"B", "C"})
 }
 
 func TestSearchWhere_AndSameKey(t *testing.T) {
@@ -1156,7 +1156,7 @@ func TestQueryBacklinksWhere_AndMixedKeys(t *testing.T) {
 	// status!=done: B(active), E(active). C(done) excluded. D(no meta) excluded.
 	// priority>1: B(2), C(3). E(abc) excluded by type guard.
 	// Intersection: B only.
-	assertNames(t, "status!=done && priority>1", res.Backlinks, []string{"B"})
+	assertQueryNames(t, "status!=done && priority>1", res.Backlinks, []string{"B"})
 }
 
 func TestQueryBacklinksWhere_AndNeqSameKey(t *testing.T) {
@@ -1176,5 +1176,14 @@ func TestQueryBacklinksWhere_AndNeqSameKey(t *testing.T) {
 	// B(active) excluded by status!=active. C(done) excluded by status!=done.
 	// E(active) excluded by status!=active. D has no status → excluded (no meta row).
 	// All excluded → empty result.
-	assertNames(t, "status!=done && status!=active", res.Backlinks, nil)
+	assertQueryNames(t, "status!=done && status!=active", res.Backlinks, nil)
+}
+
+func assertQueryNames(t *testing.T, label string, got []QueryNode, want []string) {
+	t.Helper()
+	nodes := make([]NodeInfo, len(got))
+	for i, n := range got {
+		nodes[i] = n.NodeInfo
+	}
+	assertNames(t, label, nodes, want)
 }

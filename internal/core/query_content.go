@@ -80,13 +80,13 @@ func readSnippets(vaultPath string, sources []snippetSource, contextLines int) (
 			return nil, fmt.Errorf("%w: %s has been modified since last build", ErrSourceStale, source.path)
 		}
 		// line_start and line_end are 1-based.
-		start := source.lineStart - contextLines - 1 // 0-based
-		if start < 0 {
-			start = 0
+		start := 0
+		if contextLines < source.lineStart-1 {
+			start = source.lineStart - 1 - contextLines
 		}
-		end := source.lineEnd + contextLines // 0-based exclusive
-		if end > len(lines) {
-			end = len(lines)
+		end := len(lines)
+		if contextLines < len(lines)-source.lineEnd {
+			end = source.lineEnd + contextLines
 		}
 
 		snippets = append(snippets, SnippetEntry{
