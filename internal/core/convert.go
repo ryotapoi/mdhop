@@ -272,7 +272,7 @@ func parseLinksForConvert(content string) parseResult {
 		if _, _, definition := referenceDefinition(raw); definition {
 			return
 		}
-		links := parseMarkdownSelfLinks(clean, lineNum)
+		links := parseMarkdownSelfLinks(maskWikiLinks(clean), lineNum)
 		for i := range links {
 			links[i].inTable = tableLines[lineNum]
 		}

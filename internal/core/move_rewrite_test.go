@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1487,6 +1488,52 @@ func TestMove_CaseCollisionPreservesCollateralTarget(t *testing.T) {
 				t.Fatalf("rebuild: %v", err)
 			}
 			assertTarget()
+		})
+	}
+}
+
+func TestMovePreservesMarkdownAliasBoundaries(t *testing.T) {
+	for _, outgoing := range []bool{false, true} {
+		t.Run(fmt.Sprintf("outgoing=%v", outgoing), func(t *testing.T) {
+			vault := t.TempDir()
+			raw, replacement, source, from, to := "[shown](Old.md)", "[shown](New.md)", "Source.md", "Old.md", "New.md"
+			if outgoing {
+				raw, replacement, source, from, to = "[shown](./Old.md)", "[shown](../Old.md)", "sub/Source.md", "Source.md", "sub/Source.md"
+			}
+			alias := "[[Target|" + raw + "]]"
+			display := "[outer " + raw + "](https://example.com)"
+			original := alias + " " + display + " " + raw + "\n"
+			writeInterpretationFiles(t, vault, map[string]string{"Source.md": original, "Old.md": "old", "Target.md": "target"})
+			buildVault(t, vault)
+			result, err := Move(vault, MoveOptions{From: from, To: to})
+			if err != nil || len(result.Rewritten) != 1 {
+				t.Fatalf("move %+v, %v", result, err)
+			}
+			if got := string(mustReadFile(t, filepath.Join(vault, source))); got != alias+" "+display+" "+replacement+"\n" {
+				t.Fatalf("content %q", got)
+			}
+			edges := queryEdges(t, dbPath(vault), source)
+			foundAlias, foundOuter := false, false
+			for _, edge := range edges {
+				foundAlias = foundAlias || edge.rawLink == alias
+				foundOuter = foundOuter || edge.rawLink == replacement
+			}
+			if !foundAlias || !foundOuter {
+				t.Fatalf("edges %+v", edges)
+			}
+			for _, link := range []string{alias, replacement} {
+				resolved, err := Resolve(vault, source, link)
+				want := "Target.md"
+				if link == replacement {
+					want = "New.md"
+					if outgoing {
+						want = "Old.md"
+					}
+				}
+				if err != nil || resolved.Path != want {
+					t.Fatalf("resolve %s: %+v, %v", link, resolved, err)
+				}
+			}
 		})
 	}
 }

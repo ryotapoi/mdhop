@@ -63,13 +63,15 @@
 
   完了: `replaceOutsideInlineCode` の開始 backtick に解析側と同じ連続 backslash の奇偶判定を加えた。1・3個の回帰テストの修正前失敗と修正後成功、0・2個の code span 保護、既存 delimiter-run 判定、集中テスト、`go test ./...`、`go build ./...` を確認した。実バイナリで修正前の不一致を再現し、修正後の move 直後の本文・DB edge・resolve と convert の本文・4件の更新報告が一致すること、convert が DB を変更せず再 build 後に索引と整合すること、両 dry-run の file / DB 無変更と code-only link の resolve 失敗を確認した。
 
-- [ ] wikilink の alias 内を Markdown 自己リンクとして変換しない（FR-003）
+- [x] wikilink の alias 内を Markdown 自己リンクとして変換しない（FR-003）
 
-  現象・根拠: `[[Target|[shown](&num;H)]]` に `convert --to wikilink` を実行すると、自己リンクの追加 scanner が alias 内を独立リンクとして収集し、本文を `[[Target|[[#H|shown]]]]` へ変更する。`internal/core/convert.go` の `parseLinksForConvert` は `clean` をそのまま追加 scanner に渡し、scanner は opening `[[` のみを読み飛ばす。通常解析は `internal/core/parse.go` の `maskWikiLinks` で wikilink 全体を除外しており、境界が不一致。静的追跡で確認済み、実更新は未確認。
+  現象・根拠: `[[Target|[shown](&num;H)]]` に `convert --to wikilink` を実行すると、自己リンクの追加 scanner が alias 内を独立リンクとして収集し、本文を `[[Target|[[#H|shown]]]]` へ変更する。`internal/core/convert.go` の `parseLinksForConvert` は `clean` をそのまま追加 scanner に渡し、scanner は opening `[[` のみを読み飛ばす。通常解析は `internal/core/parse.go` の `maskWikiLinks` で wikilink 全体を除外しており、境界が不一致。実バイナリで alias と外側が同一 raw のときの誤変換を再現済み。通常 convert と move incoming / outgoing の共有本文置換でも alias や Markdown 表示文への置換漏れを確認した。
 
-  修正範囲: 追加 scanner の入力にも既存の `maskWikiLinks` を再利用し、wikilink 全体を除外する。新しい境界 parser や変換方式は追加しない。
+  修正範囲: 追加 scanner の入力に既存の `maskWikiLinks` を再利用する。共有本文置換も Markdown に限って wikilink と表示文を除外し、既存の bracket / destination / inline code helper で独立した occurrence を照合する。新 parser や汎用位置追跡モデルは追加しない。
 
   受入条件: 上記入力と literal `#H` を使う対照入力の既存 wikilink・alias を原文のまま保持し、alias 内を Rewritten として報告しない。同じ行の wikilink 外にある通常の Markdown 自己リンクは変換する。byte 位置・行番号、表文脈、frontmatter / fence / inline code の除外、dry-run の本文・DB 無変更を維持する。
+
+  完了: entity / literal の自己リンク、alias だけの入力、同一行の外側リンクと Markdown 表示文を確認した。恒久回帰の修正前失敗と修正後成功、表・multibyte・frontmatter / fence / inline code の保持、move incoming / outgoing の本文・DB raw・resolve 整合を確認した。`go test ./internal/core/`、`go test ./...`、`go build ./...`、`go vet ./...` が成功。表示文中の inline code / wikilink を mask 済み raw で上書きしない原文照合も恒久回帰と実 CLI convert / move で確認した。実バイナリで両変換方向・embed・escaped backtick の対照、convert と template move dry-run の file / DB 無変更、actual convert の DB 無変更と再 build 後の整合、move 直後の索引整合、および不正入力の失敗と無変更を確認した。
 
 - [ ] 同一 query の snippet 生成で同じ本文の全量読取・保持を重複させない（FR-004）
 

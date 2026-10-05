@@ -765,3 +765,33 @@ func TestConvertMarkdownSelfLinkParenthesesRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertSelfLinksOutsideWikiAliases(t *testing.T) {
+	for _, target := range []string{"#H", "&num;H"} {
+		t.Run(target, func(t *testing.T) {
+			raw := "[shown](" + target + ")"
+			alias := "[[Target|" + raw + "]]"
+			content := "---\nx: \"" + raw + "\"\n---\n" + alias + "\n| column |\n| --- |\n| 日本語 " + alias + " " + raw + " |\n`" + raw + "`\n```\n" + raw + "\n```\n"
+			links := parseLinksForConvert(content).Links
+			var self []linkOccur
+			for _, lo := range links {
+				if lo.linkType == LinkTypeMarkdown {
+					self = append(self, lo)
+				}
+			}
+			if len(self) != 1 || self[0].rawLink != raw || self[0].lineStart != 7 || !self[0].inTable {
+				t.Fatalf("self links %+v", self)
+			}
+			vault := t.TempDir()
+			writeInterpretationFiles(t, vault, map[string]string{"Source.md": content, "Target.md": "target"})
+			result, err := Convert(vault, ConvertOptions{ToFormat: "wikilink", Files: []string{"Source.md"}})
+			if err != nil || len(result.Rewritten) != 1 {
+				t.Fatalf("result %+v, %v", result, err)
+			}
+			want := strings.Replace(content, alias+" "+raw, alias+` [[#H\|shown]]`, 1)
+			if got := string(mustReadFile(t, filepath.Join(vault, "Source.md"))); got != want {
+				t.Fatalf("got %q, want %q", got, want)
+			}
+		})
+	}
+}

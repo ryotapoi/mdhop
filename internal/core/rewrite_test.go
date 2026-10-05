@@ -396,7 +396,7 @@ func TestReplaceOutsideInlineCodeEscapedBackticks(t *testing.T) {
 		{"three backslashes", "\\\\\\`[[A]]", "\\\\\\`[[B]]"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := replaceOutsideInlineCode(tt.line, "[[A]]", "[[B]]"); got != tt.want {
+			if got := replaceBodyLink(tt.line, "[[A]]", "[[B]]", LinkTypeWikilink); got != tt.want {
 				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
@@ -414,7 +414,7 @@ func TestReplaceOutsideInlineCodeDelimiterRuns(t *testing.T) {
 				line += " LINK"
 				want += " NEW"
 			}
-			if got := replaceOutsideInlineCode(line, "LINK", "NEW"); got != want {
+			if got := replaceBodyLink(line, "LINK", "NEW", LinkTypeWikilink); got != want {
 				t.Errorf("got %q, want %q", got, want)
 			}
 		})
@@ -473,6 +473,43 @@ func TestRollbackReportsMtimeRestoreFailure(t *testing.T) {
 				t.Fatalf("lost primary error: %v", wrapped)
 			}
 			assertRollbackFailureReported(t, wrapped, primary.Error(), "Source.md")
+		})
+	}
+}
+
+func TestRewriteContentCandidateMarkdownBoundaries(t *testing.T) {
+	for _, prefix := range []string{
+		"[[Target|[shown](Old.md)]]",
+		"[outer [shown](Old.md)](https://example.com)",
+		"`[shown](Old.md)`",
+	} {
+		t.Run(prefix, func(t *testing.T) {
+			content := prefix + " ![shown](Old.md) [shown](Old.md)\n"
+			got, err := rewriteContentCandidate([]byte(content), []rewriteEntry{{rawLink: "[shown](Old.md)", newRawLink: "[[Old|shown]]", linkType: LinkTypeMarkdown, lineStart: 1}})
+			want := prefix + " ![[Old|shown]] [[Old|shown]]\n"
+			if err != nil || string(got) != want {
+				t.Fatalf("got %q, %v; want %q", got, err, want)
+			}
+		})
+	}
+}
+
+func TestRewriteContentCandidatePreservesMaskedLabels(t *testing.T) {
+	for _, line := range []string{"[`shown`](Old.md)", "[outer [[Target]]](Old.md)"} {
+		t.Run(line, func(t *testing.T) {
+			var rewrites []rewriteEntry
+			for _, link := range parseLinks(line).Links {
+				if link.linkType == LinkTypeMarkdown {
+					rewrites = append(rewrites, rewriteEntry{rawLink: link.rawLink, newRawLink: convertMarkdownToWikilink(link.rawLink), linkType: link.linkType, lineStart: link.lineStart})
+				}
+			}
+			if len(rewrites) != 1 || rewrites[0].rawLink == line {
+				t.Fatalf("expected masked Markdown raw, got %+v", rewrites)
+			}
+			got, err := rewriteContentCandidate([]byte(line), rewrites)
+			if err != nil || string(got) != line {
+				t.Fatalf("got %q, %v; want original %q", got, err, line)
+			}
 		})
 	}
 }

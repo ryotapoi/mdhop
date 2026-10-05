@@ -143,12 +143,43 @@ func rewriteRawLink(rawLink string, linkType LinkType, targetPath string, table 
 	return rawLink
 }
 
-// replaceOutsideInlineCode replaces occurrences of old with new in line,
-// but only outside backtick-delimited inline code spans.
-func replaceOutsideInlineCode(line, old, new string) string {
+// replaceBodyLink rewrites matching raw links outside inline code. Markdown
+// matches must start at a disjoint bracket span, outside wikilinks and labels.
+func replaceBodyLink(line, old, new string, linkType LinkType) string {
+	clean := line
+	if linkType == LinkTypeMarkdown {
+		clean = maskWikiLinks(stripInlineCode(line))
+	}
 	var result strings.Builder
-	i := 0
-	for i < len(line) {
+	for i := 0; i < len(line); {
+		if linkType == LinkTypeMarkdown {
+			if clean[i] != '[' {
+				result.WriteByte(line[i])
+				i++
+				continue
+			}
+			end, _ := referenceBracketEnd(clean, i)
+			if end < 0 {
+				result.WriteString(line[i:])
+				break
+			}
+			end++
+			if end < len(clean) && clean[end] == '(' {
+				close := markdownDestinationEnd(clean, end+1)
+				if close < 0 {
+					result.WriteString(line[i:])
+					break
+				}
+				end = close + 1
+			}
+			if line[i:end] == old {
+				result.WriteString(new)
+			} else {
+				result.WriteString(line[i:end])
+			}
+			i = end
+			continue
+		}
 		if line[i] == '`' {
 			backslashes := 0
 			for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
@@ -161,8 +192,7 @@ func replaceOutsideInlineCode(line, old, new string) string {
 				continue
 			}
 		}
-		// Check for old string match.
-		if strings.HasPrefix(line[i:], old) {
+		if strings.HasPrefix(clean[i:], old) {
 			result.WriteString(new)
 			i += len(old)
 			continue
@@ -302,7 +332,7 @@ func rewriteContentCandidate(content []byte, rewrites []rewriteEntry) ([]byte, e
 			continue
 		}
 		for _, re := range res {
-			lines[lineNum-1] = replaceOutsideInlineCode(lines[lineNum-1], re.rawLink, re.newRawLink)
+			lines[lineNum-1] = replaceBodyLink(lines[lineNum-1], re.rawLink, re.newRawLink, re.linkType)
 		}
 	}
 	return []byte(strings.Join(lines, "\n")), nil
