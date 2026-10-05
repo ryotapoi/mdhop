@@ -70,7 +70,7 @@
 
   完了: 自己リンクの alias 分岐にも既存の `tableWikiAliasSafe` を適用し、表内で末尾 backslash が奇数個の場合は原文を保持する。安全な alias 変換（末尾 backslash なし・偶数個）、alias 不要、表外を回帰テストで固定し、対象の一列表の表文脈と復号済み fragment を確認した。集中テスト、`go test ./...`、`go build ./...` と実バイナリの build → convert dry-run → convert → 再 build が成功し、原文 bytes、dry-run の file / DB 無変更、保持した fragment-only Markdown link の edge 不生成と resolve の `link not found`、安全な表内自己リンクの変換・resolve を確認した。
 
-- [ ] destination 内の escape された backtick によるリンク索引の欠落を直す
+- [x] destination 内の escape された backtick によるリンク索引の欠落を直す
 
   分類: 不具合で、既存の本文 scanner の escape 判定を局所的に補えば保守負担を増やさず修正できる。変更前から存在し、`dea83cc` の build / update / resolve で再現を確認済み。新しい parser、CLI、DB 項目は不要。
 
@@ -83,6 +83,8 @@
   現象: `internal/core/parse.go` の `stripInlineCode` が escape された backtick を code span の開始と扱い、閉じ backtick がないため行末まで空白化する。build / update は成功するが両リンクが索引から欠落し、outgoing は空、resolve は `link not found` となる。backtick を `%60` とした対照入力では両ノートへのリンクが索引に入る。destination の ASCII punctuation backslash escape を復号する仕様（`docs/specs/overview.md`「リンク解釈（互換性）」）に反する。
 
   受入条件: 上記入力を build / update すると ``A`B.md`` と `C.md` への両 edge が作られ、outgoing と原文指定の resolve で確認できる。`stripInlineCode` の開始 delimiter 判定で backslash の奇偶による escape を扱い、実際の code span 内のリンク除外と位置保持を維持する。escape されない backtick と連続 backslash の対照ケースも確認する。
+
+  完了: `stripInlineCode` の開始 backtick に直前の連続 backslash の奇偶判定を加え、奇数個なら原文を保持する。1・3個と0・2個の対照、実 code span の除外と closing delimiter 直前の backslash、masking の byte 位置、復号済み target・raw link・行位置を回帰テストで確認した。修正前の回帰失敗と修正後の集中テスト、`go test ./...`、`go build ./...` の成功を記録し、実バイナリで再現入力の build と `%60` 対照からの update における両 edge・outgoing・原文 resolve、source file 無変更、未索引 fragment の resolve 失敗と DB 無変更を確認した。
 
 ### 今後の検討
 

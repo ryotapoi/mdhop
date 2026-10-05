@@ -1,6 +1,7 @@
 package core
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -1086,6 +1087,7 @@ func TestParseInlineCodeDelimiterRuns(t *testing.T) {
 		"```[[Hidden]] ` #hidden `` [hidden](Hidden.md)```",
 		"``[[Hidden]] ` #hidden ``` [hidden](Hidden.md)``",
 		"``[[Hidden]] ` #hidden [hidden](Hidden.md)",
+		"`[[Hidden]] [hidden](Hidden.md) #hidden\\`",
 	} {
 		t.Run(code, func(t *testing.T) {
 			content := "text #before [[Before]] " + code
@@ -1104,6 +1106,39 @@ func TestParseInlineCodeDelimiterRuns(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestStripInlineCodeEscapedDelimiters(t *testing.T) {
+	tests := []struct {
+		name, line, want string
+	}{
+		{"unescaped", "前 `hidden [hidden](Hidden.md) 后", "前 " + strings.Repeat(" ", len("`hidden [hidden](Hidden.md) 后"))},
+		{"one backslash", "前 \\`[shown](Shown.md) 后", "前 \\`[shown](Shown.md) 后"},
+		{"two backslashes", "前 \\\\`[hidden](Hidden.md) 后", "前 \\\\" + strings.Repeat(" ", len("`[hidden](Hidden.md) 后"))},
+		{"three backslashes", "前 \\\\\\`[shown](Shown.md) 后", "前 \\\\\\`[shown](Shown.md) 后"},
+		{"closed span", "前 `hidden` [shown](Shown.md) 后", "前          [shown](Shown.md) 后"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stripInlineCode(tt.line); got != tt.want {
+				t.Errorf("stripInlineCode(%q) = %q, want %q", tt.line, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseMarkdownEscapedBacktickDestination(t *testing.T) {
+	links := parseLinks("heading\n[shown](A\\`B.md) [later](C.md)\n").Links
+	wantTargets := []string{"A`B", "C"}
+	wantRaw := []string{"[shown](A\\`B.md)", "[later](C.md)"}
+	if len(links) != len(wantTargets) {
+		t.Fatalf("links = %+v, want targets %v", links, wantTargets)
+	}
+	for i, link := range links {
+		if link.target != wantTargets[i] || link.rawLink != wantRaw[i] || link.lineStart != 2 || link.lineEnd != 2 {
+			t.Errorf("link[%d] = %+v, want target=%q rawLink=%q at line 2", i, link, wantTargets[i], wantRaw[i])
+		}
 	}
 }
 

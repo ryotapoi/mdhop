@@ -185,10 +185,16 @@ func stripInlineCode(line string) string {
 	var out strings.Builder
 	for i := 0; i < len(line); {
 		if line[i] == '`' {
-			end := inlineCodeEnd(line, i)
-			out.WriteString(strings.Repeat(" ", end-i))
-			i = end
-			continue
+			backslashes := 0
+			for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
+				backslashes++
+			}
+			if backslashes%2 == 0 {
+				end := inlineCodeEnd(line, i)
+				out.WriteString(strings.Repeat(" ", end-i))
+				i = end
+				continue
+			}
 		}
 		out.WriteByte(line[i])
 		i++
