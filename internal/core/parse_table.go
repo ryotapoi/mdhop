@@ -1,6 +1,13 @@
 package core
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+// Type 7 HTML blocks require a complete tag alone on the line. Other HTML
+// starts below need only a prefix, so inline tags and autolinks remain cells.
+var tableHTMLTagLine = regexp.MustCompile(`^(?:<[A-Za-z][A-Za-z0-9-]*(?:[ \t\r\n\f]+[A-Za-z_:][A-Za-z0-9_.:-]*(?:[ \t\r\n\f]*=[ \t\r\n\f]*(?:[^ \t\r\n\f"'=<>\x60]+|'[^']*'|"[^"]*"))?)*[ \t\r\n\f]*/?>|</[A-Za-z][A-Za-z0-9-]*[ \t\r\n\f]*>)[ \t\r\n\f]*$`)
 
 // bodyTableLines records table context without changing source spans. Only the
 // body lines already admitted by the shared fence/frontmatter scanner qualify.
@@ -84,7 +91,7 @@ func tableBlockBoundary(raw string) bool {
 		return true
 	}
 	heading := strings.TrimLeft(trim, "#")
-	if len(heading) < len(trim) && (heading == "" || strings.HasPrefix(heading, " ") || strings.HasPrefix(heading, "\t")) || strings.HasPrefix(trim, ">") || strings.HasPrefix(trim, "<") {
+	if len(heading) < len(trim) && (heading == "" || strings.HasPrefix(heading, " ") || strings.HasPrefix(heading, "\t")) || strings.HasPrefix(trim, ">") || tableHTMLBlockStart(trim) {
 		return true
 	}
 	if strings.HasPrefix(trim, "- ") || strings.HasPrefix(trim, "+ ") || strings.HasPrefix(trim, "* ") {
@@ -101,4 +108,43 @@ func tableBlockBoundary(raw string) bool {
 		return true
 	}
 	return false
+}
+
+// tableHTMLBlockStart recognizes GFM HTML block starts only. It does not parse
+// HTML contents or change the shared body scanner's treatment of HTML lines.
+func tableHTMLBlockStart(line string) bool {
+	if len(line) < 2 || line[0] != '<' {
+		return false
+	}
+	if strings.HasPrefix(line, "<!--") || strings.HasPrefix(line, "<?") || strings.HasPrefix(line, "<![CDATA[") || len(line) > 2 && line[1] == '!' && line[2] >= 'A' && line[2] <= 'Z' {
+		return true
+	}
+	start := 1
+	closing := line[start] == '/'
+	if closing {
+		start++
+	}
+	end := start
+	for end < len(line) && (line[end] >= 'A' && line[end] <= 'Z' || line[end] >= 'a' && line[end] <= 'z' || line[end] >= '0' && line[end] <= '9' || line[end] == '-') {
+		end++
+	}
+	if end == start {
+		return false
+	}
+	spaceOrEnd := end == len(line) || strings.ContainsRune(" \t\r\n\f", rune(line[end]))
+	if !spaceOrEnd && line[end] != '>' && !strings.HasPrefix(line[end:], "/>") {
+		return false
+	}
+	// Only known block tags need case folding, bounded by the longest name.
+	if end-start <= len("blockquote") {
+		switch strings.ToLower(line[start:end]) {
+		case "script", "pre", "style":
+			if !closing {
+				return spaceOrEnd || line[end] == '>'
+			}
+		case "address", "article", "aside", "base", "basefont", "blockquote", "body", "caption", "center", "col", "colgroup", "dd", "details", "dialog", "dir", "div", "dl", "dt", "fieldset", "figcaption", "figure", "footer", "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hr", "html", "iframe", "legend", "li", "link", "main", "menu", "menuitem", "nav", "noframes", "ol", "optgroup", "option", "p", "param", "section", "source", "summary", "table", "tbody", "td", "tfoot", "th", "thead", "title", "tr", "track", "ul":
+			return true
+		}
+	}
+	return tableHTMLTagLine.MatchString(line)
 }

@@ -49,6 +49,52 @@
 
   完了（評価対象）: query / inspect の正本と rules の旧記述、README 両版の移行案内を凍結仕様・実装へ合わせた。全受入8項目を既存集中テストに対応付け、旧 query CLI 拒否、config fallback と明示空、search 不変、非 note 入口、タグ経由、JSON / text の型・escape、対象ページ、preview の所属・本文読取境界を実バイナリ79件で確認した。正本の JSON / text 例も別 vault の実行結果へ照合した。ローカル macOS で集中テスト、`go test ./...`・`go build ./...`・`go vet ./...`・実バイナリ build が成功し、stdout / stderr・終了コード・file / DB 無変更を確認した。対象commitのremote CIは未起動でUbuntuは未確認、前段からの検証限界として保持する。index同時更新保証は対象外。便利な一括scriptは製品化せず、release / tag 公開は行っていない。
 
+#### 6. 検証済み不具合の局所修正
+
+- [ ] escaped backtick 後のリンクを解析と同じ範囲で書き換える（FR-001）
+
+  現象・根拠: 本文が ``\`[[A]]`` の行を build して `A.md` を `B.md` へ move すると、解析済みの `[[A]]` を rewrite が inline code として扱い、本文を置換しない。move は成功し、外部 edge の raw_link だけが `[[B]]` へ更新される。同じ位置の Markdown link の convert でも、未置換を Rewritten として報告する。`internal/core/parse.go` の `stripInlineCode` は開始 backtick 前の連続 backslash の奇偶を判定するが、`internal/core/rewrite.go` の `replaceOutsideInlineCode` は判定しない。静的追跡で確認済み、実操作は未確認。
+
+  修正範囲: `replaceOutsideInlineCode` の開始 delimiter 判定を既存の解析側と揃える局所修正。既存の `inlineCodeEnd` を維持し、新しい parser・書き換え方式・DB 項目は追加しない。
+
+  受入条件: 奇数個（1・3個）の backslash 後の backtick に続くリンクを move / convert が実際に置換し、move 後の本文・DB edge・resolve と convert の更新報告が一致する。偶数個（0・2個）の backslash 後の実 code span 内ではリンクを置換せず、同じ長さの delimiter で閉じる既存の判定を保つ。dry-run の本文・DB 無変更も確認する。
+
+- [ ] wikilink の alias 内を Markdown 自己リンクとして変換しない（FR-003）
+
+  現象・根拠: `[[Target|[shown](&num;H)]]` に `convert --to wikilink` を実行すると、自己リンクの追加 scanner が alias 内を独立リンクとして収集し、本文を `[[Target|[[#H|shown]]]]` へ変更する。`internal/core/convert.go` の `parseLinksForConvert` は `clean` をそのまま追加 scanner に渡し、scanner は opening `[[` のみを読み飛ばす。通常解析は `internal/core/parse.go` の `maskWikiLinks` で wikilink 全体を除外しており、境界が不一致。静的追跡で確認済み、実更新は未確認。
+
+  修正範囲: 追加 scanner の入力にも既存の `maskWikiLinks` を再利用し、wikilink 全体を除外する。新しい境界 parser や変換方式は追加しない。
+
+  受入条件: 上記入力と literal `#H` を使う対照入力の既存 wikilink・alias を原文のまま保持し、alias 内を Rewritten として報告しない。同じ行の wikilink 外にある通常の Markdown 自己リンクは変換する。byte 位置・行番号、表文脈、frontmatter / fence / inline code の除外、dry-run の本文・DB 無変更を維持する。
+
+- [ ] 同一 query の snippet 生成で同じ本文の全量読取・保持を重複させない（FR-004）
+
+  現象・根拠: `query --relations outgoing --include-snippet 0` の複数対象や、同一対象の複数 via で、関係ごとに同じ本文を全文読み直す。`internal/core/query_preview.go` は関係単位で `readSnippets` を呼び、`internal/core/query_content.go` の既存 fileCache は呼出しごとに作られる。返す `Lines` も全文配列の subslice のため、本文量と関係数に比例して読取・保持が重複する。構造は静的追跡で確認済み、実時間・メモリ影響は未測定。
+
+  修正範囲: 既存の path ごとの本文 cache を `addQueryPreviews` の単一 query の snippet 生成中だけ共有し、抜粋の `Lines` は必要範囲をコピーして返す。製品側の `readSnippets` 呼出しは同関数内の一箇所のみ。局所的な受渡しと既存読取 helper の変更に限定し、新しい cache 抽象・長期 state・head との統合は追加しない。
+
+  受入条件: 複数 outgoing と同一対象の複数可視 via について、同じ本文の全量読取は query 内で一回となり、各 snippet の生行・行番号・所属・重複出現規則は変わらない。返却 `Lines` は全文配列を保持しない。必要な本文の初回読取で missing / stale を検出し、NFD path、行範囲検証、hidden via・ページ外・先読み・未選択関係の不要本文を読まない保証を維持する。snippet 未指定時はこの共有読取を行わない。
+
+- [x] autolink で始まる GFM 表の文脈を保持する（FR-002）
+
+  修正範囲・受入条件: `tableBlockBoundary` の `<` 一律判定を表境界に必要な HTML block start の局所分類へ変える。URL / email autolink と inline HTML を先頭 cell に持つ有効表では escaped pipe alias と原文位置を保ち、実 HTML block start は表を終了する。共有本文 scanner、frontmatter / fence / code span の扱いは変えない。
+
+  完了: autolink / email / inline HTML の header・body、実 HTML block と block に似た inline cell の対照を恒久回帰テストで固定した。集中テストと全 gate が成功し、実バイナリの build → resolve → convert dry-run / actual → 再 build で、表内 alias の解釈と変換後の解決先、実 HTML 境界対照、dry-run の file / DB 無変更を確認した。
+
+- [x] twohop の経由先選択を backlinks 展開前に適用する（FR-005）
+
+  修正範囲・受入条件: 入口 outgoing の経由先を既存 `AllowsVia` で先に選び、許可した経由先だけ展開する。型付き指定、包含・除外、対象 filter、direct 限定の link-key、hide による表示除外と hidden via による発見、全経由先・安定順を保つ。SQL に predicate を複製しない。
+
+  完了: 既存 query / link-key 回帰と追加 page parity 回帰、全 gate が成功した。実バイナリで型付き via、via 除外、hidden-only relation、JSON / text、stdout / stderr・終了コードと query の file / DB 無変更を確認した。合成 sparse fixture の選択経由先では変更前 3.78ms から 0.212ms、dense では 265ms から 5.31ms に短縮し、公開結果の hash は一致した。
+
+- [x] query のページ対象だけを保持・関係展開する（FR-006）
+
+  修正範囲・受入条件: direct は既存 comparator とフィルタを使い offset + limit + 一件先読みだけを Go 側へ保持する。twohop は対象ページを確定した後、その対象の全 relation を作る。公開結果は全件取得の対象 slice と一致し、next_offset、空配列、offset-only・最大 int、hidden_relation と返却対象だけの preview を保つ。schema / CLI 契約は変えない。
+
+  完了: 三関係の対象 slice・全 relation・next_offset、空・末尾・overflow 境界を恒久回帰で固定し、preview の既存回帰と実バイナリで hidden via・ページ外・先読みの欠落本文を読まないことを確認した。集中テスト、`go test ./...`・`go build ./...`・`go vet ./...`・実バイナリ build と代表 CLI 21件がローカル macOS で成功した。既存8条件の公開結果 hash は baseline / FR-005 単独 / 本候補で一致し、dense limit1 は FR-005 単独の 183.7ms / 36.95MB allocated bytes/op から 68.0ms / 0.446MB に改善した。追加の medium / large page window も公開結果は一致し、dense の limit100 / offset100 は FR-005 単独の 186.8ms → 70.3ms、limit1000 / offset1000 は 190.6ms → 106.7ms へ改善した。sparse の後者は FR-005 単独の 3.65ms → 5.59ms（約1.94ms / 53%増、変更前 baseline 比は約0.91ms / 20%増）となった。全件に近いページの二段階 scan と heap の追加コストを明示し、密な関係の改善とのトレードオフを許容して取得段階 paging を採用した。
+
+  検証限界: 2,500対象の合成 sparse / dense vault、warm cache の測定であり実 vault の速度や peak RSS は保証しない。SQL DISTINCT は全候補を走査し、offset-only・overflow-sized window は全対象取得へ fallback する。33経由先を超える広い入口は未測定。remote CI は未起動、Ubuntu は未確認。実行 command・exit・duration・stdout / stderr と比較値は `tmp/workflow/v021-fixes-20261005/changes/table-query-fixes/validation/`、既存測定は `tmp/workflow/query-optimization-20261005/summary.json` に保存した。
+
 ### リンク解釈の不具合修正
 
 - [x] 表内の自己リンクを wikilink に変換するとき、表構造と fragment の意味を保持する

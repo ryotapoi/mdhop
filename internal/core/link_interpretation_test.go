@@ -74,10 +74,19 @@ func TestTableWikilinkContext(t *testing.T) {
 		{"header and body", "| [[X\\|shown]] | next |\n| :--- | ---: |\n| [[X\\|shown]] | cell |", []int{1, 3}},
 		{"one column bare delimiter", "| [[X\\|shown]] |\n---\n[[X\\|shown]]", []int{1, 3}},
 		{"optional outer pipes", "[[X\\|shown]] | next\n:--- | ---:\n[[X\\|shown]] | cell", []int{1, 3}},
+		{"autolink header and body", "<https://example.com> | [[X\\|shown]]\n--- | ---\n<https://example.com> | [[X\\|shown]]", []int{1, 3}},
+		{"autolink body", "URL | Note\n--- | ---\n<https://example.com> | [[X\\|shown]]", []int{3}},
+		{"email autolink", "<user@example.com> | [[X\\|shown]]\n--- | ---\n<user@example.com> | [[X\\|shown]]", []int{1, 3}},
+		{"pipe leading HTML cells", "| <div> | [[X\\|shown]] |\n| --- | --- |\n| <div> | [[X\\|shown]] |", []int{1, 3}},
+		{"inline HTML cells", "<span>text</span> | [[X\\|shown]]\n--- | ---\n<span>text</span> | [[X\\|shown]]", []int{1, 3}},
 		{"mismatched cells", "[[X\\|shown]] | next\n--- | --- | ---\n[[X\\|shown]]", nil},
 		{"invalid delimiter", "[[X\\|shown]] | next\n--- | :---::\n[[X\\|shown]]", nil},
 		{"blank termination", "a | b\n--- | ---\n[[X\\|shown]] | c\n\n[[X\\|shown]]", []int{3}},
 		{"block termination", "a | b\n--- | ---\n# Heading\n[[X\\|shown]]", nil},
+		{"HTML block termination", "a | b\n--- | ---\n<DIV class=\"x\">\n[[X\\|shown]] | cell", nil},
+		{"HTML block header", "<div> | [[X\\|shown]]\n--- | ---\n[[X\\|shown]] | cell", nil},
+		{"HTML custom tag termination", "a | b\n--- | ---\n<custom-tag title=\"a > b\">\n[[X\\|shown]] | cell", nil},
+		{"HTML comment termination", "a | b\n--- | ---\n<!-- comment -->\n[[X\\|shown]] | cell", nil},
 		{"fence and inline code", "```\na | b\n--- | ---\n[[X\\|shown]] | c\n```\n`a | b`\n--- | ---\n`[[X\\|shown]]`", nil},
 		{"frontmatter", "---\nref: '[[X\\|shown]]'\n---\na | b\n--- | ---\n[[X\\|shown]] | c", []int{6}},
 		{"outside", "[[X\\|shown]] | prose", nil},
@@ -100,6 +109,29 @@ func TestTableWikilinkContext(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tableLines, tt.tableLines) {
 				t.Fatalf("table lines %v, want %v", tableLines, tt.tableLines)
+			}
+		})
+	}
+}
+
+func TestTableHTMLBlockBoundaries(t *testing.T) {
+	for _, start := range []string{
+		"<script>", "<pre class=x", "<style", "<!--", "<?instruction",
+		"<!DOCTYPE html>", "<![CDATA[", "</DIV>", "<div", "<div/>",
+		"<custom-tag enabled value='x'>", "</custom-tag>",
+	} {
+		t.Run(start, func(t *testing.T) {
+			links := parseLinks("a | b\n--- | ---\n" + start + "\n[[X\\|shown]] | cell").Links
+			if len(links) != 1 || links[0].inTable || links[0].target != `X\` {
+				t.Fatalf("HTML block should end table: %+v", links)
+			}
+		})
+	}
+	for _, cell := range []string{"<scripture>", "<script/>", "<!doctype html>", "<divine>text", "<span title='x'>text</span>", "<custom-tag invalid=>", "<https://example.com>", "<user@example.com>"} {
+		t.Run(cell, func(t *testing.T) {
+			links := parseLinks("a | b\n--- | ---\n" + cell + " | [[X\\|shown]]").Links
+			if len(links) != 1 || !links[0].inTable || links[0].target != "X" {
+				t.Fatalf("inline cell should remain in table: %+v", links)
 			}
 		})
 	}

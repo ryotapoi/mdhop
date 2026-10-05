@@ -131,14 +131,11 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		case FieldQueryBacklinks, FieldQueryOutgoing:
 			nodes := []QueryNode{}
 			if relation == FieldQueryBacklinks || info.Type == NodeTypeNote {
-				nodes, err = queryDirect(db, nodeID, relation, opts)
+				nodes, result.Page.NextOffset, err = queryDirect(db, nodeID, relation, opts)
 				if err != nil {
 					return nil, err
 				}
 			}
-			start, end, next := queryPageBounds(len(nodes), result.Page.Offset, opts.Limit)
-			nodes = nodes[start:end]
-			result.Page.NextOffset = next
 			if relation == FieldQueryBacklinks {
 				result.Backlinks = nodes
 			} else {
@@ -147,14 +144,12 @@ func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, 
 		case FieldQueryTwoHop:
 			targets := []TwoHopEntry{}
 			if info.Type == NodeTypeNote {
-				targets, err = queryTwoHop(db, nodeID, opts)
+				targets, result.Page.NextOffset, err = queryTwoHop(db, nodeID, opts)
 				if err != nil {
 					return nil, err
 				}
 			}
-			start, end, next := queryPageBounds(len(targets), result.Page.Offset, opts.Limit)
-			result.TwoHop = targets[start:end]
-			result.Page.NextOffset = next
+			result.TwoHop = targets
 		}
 	}
 	if err := addQueryPreviews(db, vaultPath, nodeID, opts, result); err != nil {

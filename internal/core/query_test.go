@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -378,12 +379,22 @@ func TestQueryTwoHopSharedDestinations(t *testing.T) {
 
 func TestQueryTwoHopNonNoteEmpty(t *testing.T) {
 	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Relations: []string{FieldQueryTwoHop}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res.TwoHop == nil || len(res.TwoHop) != 0 {
-		t.Fatalf("twohop = %+v, want selected empty relation", res.TwoHop)
+	for _, relation := range []string{FieldQueryTwoHop, FieldQueryOutgoing} {
+		for _, opts := range []QueryOptions{{Relations: []string{relation}}, {Relations: []string{relation}, Limit: intPtr(1)}, {Relations: []string{relation}, Offset: intPtr(int(^uint(0) >> 1))}} {
+			res, err := Query(vault, EntrySpec{Phantom: "Missing"}, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if relation == FieldQueryTwoHop && (res.TwoHop == nil || len(res.TwoHop) != 0) {
+				t.Fatalf("twohop = %+v, want selected empty relation", res.TwoHop)
+			}
+			if relation == FieldQueryOutgoing && (res.Outgoing == nil || len(res.Outgoing) != 0) {
+				t.Fatalf("outgoing = %+v, want selected empty relation", res.Outgoing)
+			}
+			if res.Page.NextOffset != nil {
+				t.Fatalf("empty relation next offset = %d", *res.Page.NextOffset)
+			}
+		}
 	}
 }
 
@@ -577,4 +588,75 @@ func expectContains(t *testing.T, list []string, want string) {
 		}
 	}
 	t.Errorf("expected %q in %v", want, list)
+}
+
+// Pages must preserve the complete relation list for each selected target,
+// and handle offsets and limits without overflow.
+func TestQueryPagesMatchFullRelations(t *testing.T) {
+	vault := setupFullVault(t)
+	maxInt := int(^uint(0) >> 1)
+	filter, err := NewQueryFilter(Config{}, QueryFilterOptions{Hide: ExcludeConfig{Paths: []string{"Design.md"}, Tags: []string{"project"}}, ViaExclude: ExcludeConfig{Tags: []string{"overview"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, relation := range []string{FieldQueryBacklinks, FieldQueryOutgoing, FieldQueryTwoHop} {
+		for _, f := range []*QueryFilter{nil, filter} {
+			opts := QueryOptions{Relations: []string{relation}, Filter: f}
+			full, err := Query(vault, EntrySpec{File: "Index.md"}, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			length := len(full.Outgoing)
+			if relation == FieldQueryBacklinks {
+				length = len(full.Backlinks)
+			} else if relation == FieldQueryTwoHop {
+				length = len(full.TwoHop)
+			}
+			for _, offset := range []int{0, 1, length, length + 1, maxInt} {
+				for _, limit := range []*int{nil, intPtr(1), intPtr(2), intPtr(maxInt)} {
+					limitName := "none"
+					if limit != nil {
+						limitName = fmt.Sprint(*limit)
+					}
+					t.Run(fmt.Sprintf("%s/filter=%v/offset=%d/limit=%s", relation, f != nil, offset, limitName), func(t *testing.T) {
+						opts.Offset = intPtr(offset)
+						opts.Limit = limit
+						page, err := Query(vault, EntrySpec{File: "Index.md"}, opts)
+						if err != nil {
+							t.Fatal(err)
+						}
+						start := min(offset, length)
+						end := length
+						if limit != nil && *limit < length-start {
+							end = start + *limit
+						}
+						switch relation {
+						case FieldQueryBacklinks:
+							if page.Backlinks == nil || !reflect.DeepEqual(page.Backlinks, full.Backlinks[start:end]) {
+								t.Fatalf("backlinks page=%+v", page.Backlinks)
+							}
+						case FieldQueryOutgoing:
+							if page.Outgoing == nil || !reflect.DeepEqual(page.Outgoing, full.Outgoing[start:end]) {
+								t.Fatalf("outgoing page=%+v", page.Outgoing)
+							}
+						case FieldQueryTwoHop:
+							if page.TwoHop == nil || !reflect.DeepEqual(page.TwoHop, full.TwoHop[start:end]) {
+								t.Fatalf("twohop page=%+v", page.TwoHop)
+							}
+						}
+						if page.Page.Offset != offset {
+							t.Fatalf("offset=%d", page.Page.Offset)
+						}
+						if end < length {
+							if page.Page.NextOffset == nil || *page.Page.NextOffset != end {
+								t.Fatalf("next offset=%v want %d", page.Page.NextOffset, end)
+							}
+						} else if page.Page.NextOffset != nil {
+							t.Fatalf("unexpected next offset=%d", *page.Page.NextOffset)
+						}
+					})
+				}
+			}
+		}
+	}
 }
