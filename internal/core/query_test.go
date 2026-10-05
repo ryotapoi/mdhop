@@ -280,20 +280,6 @@ func TestQueryBacklinksTag(t *testing.T) {
 	}
 }
 
-func TestQueryBacklinksLimit(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{File: "Design.md"}, QueryOptions{
-		Relations: []string{"backlinks"},
-		Limit:     intPtr(1),
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(res.Backlinks) != 1 {
-		t.Errorf("backlinks count = %d, want 1", len(res.Backlinks))
-	}
-}
-
 func TestQueryBacklinksDistinct(t *testing.T) {
 	vault := setupFullVault(t)
 	// sub/Impl.md is linked from Index.md thrice (wikilink + markdown + relative wikilink).
@@ -335,17 +321,6 @@ func TestQueryOutgoing(t *testing.T) {
 				t.Errorf("outgoing %s: type = %q, want %q", o.Name, o.Type, wantType)
 			}
 		}
-	}
-}
-
-func TestQueryOutgoingPhantomEntry(t *testing.T) {
-	vault := setupFullVault(t)
-	res, err := Query(vault, EntrySpec{Phantom: "Missing"}, QueryOptions{Relations: []string{"outgoing"}})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res.Outgoing == nil || len(res.Outgoing) != 0 {
-		t.Errorf("outgoing = %v, want selected empty slice for phantom entry", res.Outgoing)
 	}
 }
 

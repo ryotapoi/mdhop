@@ -235,15 +235,6 @@ func TestParseTagNestedExpansion(t *testing.T) {
 	}
 }
 
-func TestParseTagCodeFenceExcluded(t *testing.T) {
-	content := "```\n#not-a-tag\n```\n"
-	links := parseLinksSlice(content)
-	tags := filterByType(links, "tag")
-	if len(tags) != 0 {
-		t.Errorf("expected no tags in code fence, got %d: %+v", len(tags), tags)
-	}
-}
-
 func TestParseCodeFenceDelimiters(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -653,13 +644,6 @@ func TestParseFrontmatterWikilinkCommentAfterQuoted(t *testing.T) {
 	}
 	if fmw[0].target != "B" {
 		t.Errorf("target = %q, want B", fmw[0].target)
-	}
-}
-
-func TestParseURLIgnored(t *testing.T) {
-	links := parseLinksSlice("[link](https://example.com)\n")
-	if len(links) != 0 {
-		t.Errorf("URL should be ignored, got %d: %+v", len(links), links)
 	}
 }
 

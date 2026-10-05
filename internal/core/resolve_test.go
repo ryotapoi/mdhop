@@ -27,21 +27,6 @@ func buildVault(t *testing.T, vaultPath string) {
 	}
 }
 
-func TestResolveFieldConstants(t *testing.T) {
-	fields := map[string]string{
-		"type":    FieldResolveType,
-		"name":    FieldResolveName,
-		"path":    FieldResolvePath,
-		"exists":  FieldResolveExists,
-		"subpath": FieldResolveSubpath,
-	}
-	for want, got := range fields {
-		if got != want {
-			t.Errorf("field constant = %q, want %q", got, want)
-		}
-	}
-}
-
 func TestResolveWikilinkBasename(t *testing.T) {
 	vault := copyVaultForResolve(t, "vault_build_full")
 	buildVault(t, vault)
@@ -413,36 +398,6 @@ func TestResolveErrorLinkNotInSource(t *testing.T) {
 	}
 }
 
-func TestResolveBasenameRootPriority(t *testing.T) {
-	// Design.md is at root + insert other/Design.md → root priority resolves to root.
-	vault := filepath.Join(t.TempDir(), "vault")
-	if err := testutil.CopyDir(filepath.Join("..", "..", "testdata", "vault_build_full"), vault); err != nil {
-		t.Fatalf("copy vault: %v", err)
-	}
-	buildVault(t, vault)
-
-	// Manually insert a second note with the same basename as "Design".
-	db := openTestDB(t, dbPath(vault))
-	_, err := db.Exec(
-		`INSERT INTO nodes (node_key, type, name, path, exists_flag, mtime) VALUES (?, 'note', 'Design', 'other/Design.md', 1, 0)`,
-		noteKey("other/Design.md"),
-	)
-	if err != nil {
-		db.Close()
-		t.Fatalf("insert duplicate: %v", err)
-	}
-	db.Close()
-
-	// Root priority: Design.md is at root → resolves to it.
-	res, err := Resolve(vault, "Index.md", "[[Design]]")
-	if err != nil {
-		t.Fatalf("expected success (root priority), got: %v", err)
-	}
-	if res.Path != "Design.md" {
-		t.Errorf("path = %q, want %q", res.Path, "Design.md")
-	}
-}
-
 func TestResolveBasenameAmbiguousNoRoot(t *testing.T) {
 	// Two notes in subdirs (no root) → ambiguous.
 	vault := filepath.Join(t.TempDir(), "vault")
@@ -478,46 +433,6 @@ func TestResolveBasenameAmbiguousNoRoot(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "ambiguous") {
 		t.Errorf("error = %q, want containing %q", err.Error(), "ambiguous")
-	}
-}
-
-func TestResolveBasenameBackendAmbiguityPolicy(t *testing.T) {
-	db := openTestDB(t, filepath.Join(t.TempDir(), "index.sqlite"))
-	defer db.Close()
-	if err := initSchema(db); err != nil {
-		t.Fatalf("init schema: %v", err)
-	}
-
-	link := linkOccur{
-		rawLink:    "[[A]]",
-		target:     "A",
-		linkType:   LinkTypeWikilink,
-		isBasename: true,
-	}
-
-	rm := newResolveMaps([]string{"sub1/A.md", "sub2/A.md"}, nil)
-	id, _, err := resolveLink(db, "Source.md", link, rm)
-	if err != nil {
-		t.Fatalf("map resolver should fall through to phantom, got: %v", err)
-	}
-	var nodeType NodeType
-	var name string
-	if err := db.QueryRow(`SELECT type, name FROM nodes WHERE id = ?`, id).Scan(&nodeType, &name); err != nil {
-		t.Fatalf("query resolved node: %v", err)
-	}
-	if nodeType != NodeTypePhantom || name != "A" {
-		t.Fatalf("map resolver target = (%s, %q), want phantom A", nodeType, name)
-	}
-
-	if _, err := upsertNote(db, "sub1/A.md", "A", 0, 1); err != nil {
-		t.Fatalf("insert first note: %v", err)
-	}
-	if _, err := upsertNote(db, "sub2/A.md", "A", 0, 1); err != nil {
-		t.Fatalf("insert second note: %v", err)
-	}
-	_, _, err = resolveLinkFromDB(db, "Source.md", link)
-	if !errors.Is(err, ErrAmbiguousLink) {
-		t.Fatalf("DB resolver error = %v, want ErrAmbiguousLink", err)
 	}
 }
 

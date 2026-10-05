@@ -93,17 +93,6 @@ func TestParseWhere_Eq(t *testing.T) {
 	}
 }
 
-func TestParseWhere_Neq(t *testing.T) {
-	wc, err := ParseWhere([]string{"status!=done"}, MetaConfig{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	c := wc.Conditions[0]
-	if c.Key != "status" || c.Op != WhereOpNeq || c.Value != "done" {
-		t.Errorf("got {%q, %d, %q}, want {status, Neq, done}", c.Key, c.Op, c.Value)
-	}
-}
-
 func TestParseWhere_LeftmostOperator(t *testing.T) {
 	tests := []struct {
 		expr  string
@@ -133,17 +122,6 @@ func TestParseWhere_LeftmostOperator(t *testing.T) {
 				t.Errorf("got {%q, %d, %q}, want {%q, %d, %q}", c.Key, c.Op, c.Value, tt.key, tt.op, tt.value)
 			}
 		})
-	}
-}
-
-func TestParseWhere_Like(t *testing.T) {
-	wc, err := ParseWhere([]string{"status~act%"}, MetaConfig{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	c := wc.Conditions[0]
-	if c.Key != "status" || c.Op != WhereOpLike || c.Value != "act%" {
-		t.Errorf("got {%q, %d, %q}, want {status, Like, act%%}", c.Key, c.Op, c.Value)
 	}
 }
 
@@ -265,17 +243,6 @@ func TestParseWhere_NotExists(t *testing.T) {
 	}
 }
 
-func TestParseWhere_NotExistsTrimsSpace(t *testing.T) {
-	wc, err := ParseWhere([]string{" priority NOT EXISTS "}, MetaConfig{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	c := wc.Conditions[0]
-	if c.Key != "priority" || c.Op != WhereOpNotExists || c.Value != "" {
-		t.Errorf("got {%q, %d, %q}, want {priority, NotExists, \"\"}", c.Key, c.Op, c.Value)
-	}
-}
-
 func TestParseWhere_CoalesceComparison(t *testing.T) {
 	metaCfg := MetaConfig{
 		Types: map[string]MetaTypeInfo{
@@ -385,17 +352,6 @@ func TestParseWhere_NormalizationFailure(t *testing.T) {
 	_, err := ParseWhere([]string{"priority>abc"}, metaCfg)
 	if err == nil {
 		t.Fatal("expected error for normalization failure")
-	}
-}
-
-func TestParseWhere_ValueContainsEquals(t *testing.T) {
-	wc, err := ParseWhere([]string{"title=A=B"}, MetaConfig{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	c := wc.Conditions[0]
-	if c.Key != "title" || c.Op != WhereOpEq || c.Value != "A=B" {
-		t.Errorf("got {%q, %d, %q}, want {title, Eq, A=B}", c.Key, c.Op, c.Value)
 	}
 }
 

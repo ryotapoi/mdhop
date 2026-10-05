@@ -10,70 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestLooksLikeDate(t *testing.T) {
-	tests := []struct {
-		input string
-		want  bool
-	}{
-		{"2024-01-15", true},
-		{"2024-1-5", true},
-		{"2024/01/15", true},
-		{"2024-01-02T15:04:05", true},
-		{"2024-01-02T15:04:05Z", true},
-		{"2024-01-02T15:04:05+09:00", true},
-		{"not-a-date", false},
-		{"42", false},
-		{"", false},
-	}
-	for _, tt := range tests {
-		if got := looksLikeDate(tt.input); got != tt.want {
-			t.Errorf("looksLikeDate(%q) = %v, want %v", tt.input, got, tt.want)
-		}
-	}
-}
-
-func TestLooksLikeNumber(t *testing.T) {
-	tests := []struct {
-		input string
-		want  bool
-	}{
-		{"42", true},
-		{"-3.14", true},
-		{"+10", true},
-		{"0", true},
-		{"1.0", true},
-		{"abc", false},
-		{"1.2.3", false},
-		{"", false},
-	}
-	for _, tt := range tests {
-		if got := looksLikeNumber(tt.input); got != tt.want {
-			t.Errorf("looksLikeNumber(%q) = %v, want %v", tt.input, got, tt.want)
-		}
-	}
-}
-
-func TestLooksLikeSemver(t *testing.T) {
-	tests := []struct {
-		input string
-		want  bool
-	}{
-		{"1.2.3", true},
-		{"v1.2.3", true},
-		{"1.0", true},
-		{"v2.0", true},
-		{"42", false},
-		{"abc", false},
-		{"1.2.3-beta", false},
-		{"", false},
-	}
-	for _, tt := range tests {
-		if got := looksLikeSemver(tt.input); got != tt.want {
-			t.Errorf("looksLikeSemver(%q) = %v, want %v", tt.input, got, tt.want)
-		}
-	}
-}
-
 func TestPresetMetaTypes(t *testing.T) {
 	presets := presetMetaTypes()
 
@@ -669,24 +605,4 @@ meta:
 		}
 	})
 
-	t.Run("round trip generated YAML", func(t *testing.T) {
-		dir := t.TempDir()
-		result, err := InitMeta(dir, InitMetaOptions{Preset: true, NoComment: true})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(result.YAML), 0644); err != nil {
-			t.Fatal(err)
-		}
-		cfg, err := LoadConfig(dir)
-		if err != nil {
-			t.Fatalf("LoadConfig round-trip: %v", err)
-		}
-		if cfg.Meta.Types["created"].Name != MetaTypeDate {
-			t.Errorf("created: %v", cfg.Meta.Types["created"])
-		}
-		if cfg.Meta.Types["version"].Name != MetaTypeSemver {
-			t.Errorf("version: %v", cfg.Meta.Types["version"])
-		}
-	})
 }

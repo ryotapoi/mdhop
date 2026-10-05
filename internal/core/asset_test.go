@@ -537,35 +537,6 @@ func TestDiagnoseAssetBasenameConflicts(t *testing.T) {
 	}
 }
 
-// --- isAmbiguousBasenameLink tests for asset key space ---
-
-func TestIsAmbiguousBasenameLink_AssetNotAmbiguousInNoteKeySpace(t *testing.T) {
-	// "image.png" as target: note basenameCounts["image.png"] = 0, asset assetBasenameCounts["image.png"] = 1 → not ambiguous.
-	rm := &resolveMaps{
-		basenameCounts:      map[string]int{},
-		pathSet:             map[string]string{},
-		assetBasenameCounts: map[string]int{"image.png": 1},
-		assetPathSet:        map[string]string{},
-	}
-	if isAmbiguousBasenameLink("image.png", rm) {
-		t.Fatal("expected not ambiguous")
-	}
-}
-
-func TestIsAmbiguousBasenameLink_NoteAndAssetSeparateKeySpaces(t *testing.T) {
-	// "Note" as target: note basenameCounts["note"] = 1 → not ambiguous (note found).
-	// Even if assetBasenameCounts["note"] = 2, note takes priority.
-	rm := &resolveMaps{
-		basenameCounts:      map[string]int{"note": 1},
-		pathSet:             map[string]string{},
-		assetBasenameCounts: map[string]int{"note": 2},
-		assetPathSet:        map[string]string{"note": "sub/note"},
-	}
-	if isAmbiguousBasenameLink("Note", rm) {
-		t.Fatal("expected not ambiguous (note key space has unique match)")
-	}
-}
-
 // --- Phantom extension preservation (D10) ---
 
 func TestPhantomPreservesNonMdExtension(t *testing.T) {

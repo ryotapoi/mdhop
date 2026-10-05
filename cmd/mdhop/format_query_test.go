@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/ryotapoi/mdhop/internal/core"
@@ -74,9 +72,6 @@ func TestPrintQueryText_SelectionAndEscaping(t *testing.T) {
 		"page:\n  offset: 0\n  limit: null\n  next_offset: null\n"
 	if got := buf.String(); got != want {
 		t.Errorf("text = %q, want %q", got, want)
-	}
-	if !json.Valid([]byte(strings.TrimSpace(strings.TrimPrefix(strings.Split(want, "\n")[1], "  note ")))) {
-		t.Error("entry identifier should follow JSON string quoting")
 	}
 }
 

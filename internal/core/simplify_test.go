@@ -21,40 +21,30 @@ func TestSimplifyBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check that unique path links are rewritten.
-	found := map[string]string{} // old → new
-	for _, r := range result.Rewritten {
-		found[r.OldLink] = r.NewLink
-	}
-
-	// Wikilink: [[sub/B]] → [[B]]
-	if got, ok := found["[[sub/B]]"]; !ok || got != "[[B]]" {
-		t.Errorf("expected [[sub/B]] → [[B]], got %q (ok=%v)", got, ok)
-	}
-	// Markdown: [text](sub/C.md) → [text](C.md)
-	if got, ok := found["[text](sub/C.md)"]; !ok || got != "[text](C.md)" {
-		t.Errorf("expected [text](sub/C.md) → [text](C.md), got %q (ok=%v)", got, ok)
-	}
-}
-
-func TestSimplifyAsset(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_simplify", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	found := map[string]string{}
 	for _, r := range result.Rewritten {
-		found[r.OldLink] = r.NewLink
+		found[r.File+"\x00"+r.OldLink] = r.NewLink
+		if r.OldLink == "#mytag" {
+			t.Errorf("tag was reported as a rewritten link: %+v", r)
+		}
 	}
-
-	if got, ok := found["[[images/photo.png]]"]; !ok || got != "[[photo.png]]" {
-		t.Errorf("expected [[images/photo.png]] → [[photo.png]], got %q (ok=%v)", got, ok)
+	for _, tc := range []struct{ name, file, old, want string }{
+		{"note wikilink", "A.md", "[[sub/B]]", "[[B]]"},
+		{"note Markdown", "A.md", "[text](sub/C.md)", "[text](C.md)"},
+		{"asset", "A.md", "[[images/photo.png]]", "[[photo.png]]"},
+		{"relative parent", "deep/D.md", "[[../sub/B]]", "[[B]]"},
+		{"relative current", "deep/D.md", "[[./E]]", "[[E]]"},
+		{"subpath", "A.md", "[[sub/B#Heading]]", "[[B#Heading]]"},
+		{"alias", "A.md", "[[sub/B|alias]]", "[[B|alias]]"},
+		{"Markdown fragment", "A.md", "[text](sub/B.md#section)", "[text](B.md#section)"},
+		{"Markdown without extension", "A.md", "[noext](sub/B)", "[noext](B)"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := found[tc.file+"\x00"+tc.old]
+			if !ok || got != tc.want {
+				t.Errorf("%s: %q → %q (present=%v), want %q", tc.file, tc.old, got, ok, tc.want)
+			}
+		})
 	}
 }
 
@@ -112,32 +102,6 @@ func TestSimplifySkippedAmbiguousAsset(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected [[assets1/icon.png]] in skipped list")
-	}
-}
-
-func TestSimplifyRelativePath(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_simplify", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	found := map[string]string{}
-	for _, r := range result.Rewritten {
-		if r.File == "deep/D.md" {
-			found[r.OldLink] = r.NewLink
-		}
-	}
-
-	if got, ok := found["[[../sub/B]]"]; !ok || got != "[[B]]" {
-		t.Errorf("expected [[../sub/B]] → [[B]], got %q (ok=%v)", got, ok)
-	}
-	if got, ok := found["[[./E]]"]; !ok || got != "[[E]]" {
-		t.Errorf("expected [[./E]] → [[E]], got %q (ok=%v)", got, ok)
 	}
 }
 
@@ -203,69 +167,6 @@ func TestSimplifyInlineCodeIgnored(t *testing.T) {
 	content, _ := os.ReadFile(filepath.Join(tmp, "A.md"))
 	if got := string(content); !strings.Contains(got, "`[[sub/B]]`") {
 		t.Error("inline code [[sub/B]] should be preserved")
-	}
-}
-
-func TestSimplifySubpathPreserved(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_simplify", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	found := map[string]string{}
-	for _, r := range result.Rewritten {
-		found[r.OldLink] = r.NewLink
-	}
-
-	if got, ok := found["[[sub/B#Heading]]"]; !ok || got != "[[B#Heading]]" {
-		t.Errorf("expected [[sub/B#Heading]] → [[B#Heading]], got %q (ok=%v)", got, ok)
-	}
-}
-
-func TestSimplifyAliasPreserved(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_simplify", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	found := map[string]string{}
-	for _, r := range result.Rewritten {
-		found[r.OldLink] = r.NewLink
-	}
-
-	if got, ok := found["[[sub/B|alias]]"]; !ok || got != "[[B|alias]]" {
-		t.Errorf("expected [[sub/B|alias]] → [[B|alias]], got %q (ok=%v)", got, ok)
-	}
-}
-
-func TestSimplifyMarkdownFragment(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_simplify", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	found := map[string]string{}
-	for _, r := range result.Rewritten {
-		found[r.OldLink] = r.NewLink
-	}
-
-	if got, ok := found["[text](sub/B.md#section)"]; !ok || got != "[text](B.md#section)" {
-		t.Errorf("expected [text](sub/B.md#section) → [text](B.md#section), got %q (ok=%v)", got, ok)
 	}
 }
 
@@ -432,46 +333,6 @@ func TestSimplifyBuildExclude(t *testing.T) {
 	}
 	if !foundUniqueAsset {
 		t.Error("assets1 exclusion should leave assets2/icon.png as a unique asset target")
-	}
-}
-
-func TestSimplifyMarkdownNoMdExt(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_simplify", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	found := map[string]string{}
-	for _, r := range result.Rewritten {
-		found[r.OldLink] = r.NewLink
-	}
-
-	// [noext](sub/B) → [noext](B) (no .md extension preserved)
-	if got, ok := found["[noext](sub/B)"]; !ok || got != "[noext](B)" {
-		t.Errorf("expected [noext](sub/B) → [noext](B), got %q (ok=%v)", got, ok)
-	}
-}
-
-func TestSimplifyTagsUntouched(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_simplify", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := core.Simplify(tmp, core.SimplifyOptions{DryRun: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, r := range result.Rewritten {
-		if r.OldLink == "#mytag" {
-			t.Error("tag should not be rewritten")
-		}
 	}
 }
 

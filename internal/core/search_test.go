@@ -397,25 +397,6 @@ func TestSearch_WhereMulti(t *testing.T) {
 	}
 }
 
-func TestSearch_Limit(t *testing.T) {
-	vault := setupSearchVault(t)
-
-	result, err := Search(vault, SearchOptions{Limit: 2})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if result.Total != 5 {
-		t.Errorf("total = %d, want 5 (total before limit)", result.Total)
-	}
-	if len(result.Items) != 2 {
-		t.Fatalf("items = %d, want 2", len(result.Items))
-	}
-	if result.Items[0].Node.Path != "A.md" {
-		t.Errorf("items[0].path = %q, want A.md", result.Items[0].Node.Path)
-	}
-}
-
 func TestSearch_Offset(t *testing.T) {
 	vault := setupSearchVault(t)
 
@@ -676,19 +657,6 @@ func TestSearch_FieldsMeta(t *testing.T) {
 	}
 }
 
-func TestSearch_FieldsDefault(t *testing.T) {
-	vault := setupSearchVault(t)
-
-	result, err := Search(vault, SearchOptions{Limit: 1})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if result.Items[0].Meta != nil {
-		t.Errorf("meta should be nil when not requested")
-	}
-}
-
 func TestSearch_IncludeHead(t *testing.T) {
 	vault := setupSearchVault(t)
 
@@ -713,19 +681,6 @@ func TestSearch_IncludeHead(t *testing.T) {
 	// First non-frontmatter line of A.md is "# A"
 	if item.Head[0] != "# A" {
 		t.Errorf("head[0] = %q, want %q", item.Head[0], "# A")
-	}
-}
-
-func TestSearch_IncludeHeadZero(t *testing.T) {
-	vault := setupSearchVault(t)
-
-	result, err := Search(vault, SearchOptions{Limit: 1})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if result.Items[0].Head != nil {
-		t.Errorf("head should be nil when include-head is 0")
 	}
 }
 

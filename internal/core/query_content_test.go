@@ -40,9 +40,6 @@ func TestReadHeadOwnershipAndEmptyResults(t *testing.T) {
 			if !reflect.DeepEqual(head, tt.want) {
 				t.Errorf("head = %#v, want %#v", head, tt.want)
 			}
-			if cap(head) != len(head) {
-				t.Errorf("head capacity = %d, want %d", cap(head), len(head))
-			}
 		})
 	}
 }

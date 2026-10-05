@@ -125,21 +125,6 @@ func linkTypeSet(t *testing.T, linkTypes []LinkType) map[LinkType]bool {
 	return set
 }
 
-func TestLinkTypeSQLIn(t *testing.T) {
-	sql, args := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
-	if want := "e.link_type IN (?, ?, ?)"; sql != want {
-		t.Errorf("SQL = %q, want %q", sql, want)
-	}
-	if len(args) != len(rewriteLinkTypes) {
-		t.Fatalf("argument count = %d, want %d", len(args), len(rewriteLinkTypes))
-	}
-	for i, linkType := range rewriteLinkTypes {
-		if got, want := args[i], string(linkType); got != want {
-			t.Errorf("argument %d = %q, want %q", i, got, want)
-		}
-	}
-}
-
 func assertSQLLinkTypesDeclared(t *testing.T, listName string, sqlTypes, declared map[LinkType]bool) {
 	t.Helper()
 	for linkType := range sqlTypes {

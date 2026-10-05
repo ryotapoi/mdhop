@@ -22,6 +22,35 @@ func TestFormatCommandError(t *testing.T) {
 	}
 }
 
+func TestCommandsRejectInvalidFormat(t *testing.T) {
+	cases := []struct {
+		name string
+		run  func([]string) error
+		args []string
+	}{
+		{"resolve", runResolve, []string{"--from", "A.md", "--link", "[[X]]"}},
+		{"query", runQuery, []string{"--file", "A.md"}},
+		{"stats", runStats, nil},
+		{"delete", runDelete, []string{"--file", "A.md"}},
+		{"update", runUpdate, []string{"--file", "A.md"}},
+		{"add", runAdd, []string{"--file", "A.md"}},
+		{"move", runMove, []string{"--from", "A.md", "--to", "B.md"}},
+		{"diagnose", runDiagnose, nil},
+		{"disambiguate", runDisambiguate, []string{"--name", "A"}},
+		{"convert", runConvert, []string{"--to", "wikilink"}},
+		{"repair", runRepair, nil},
+		{"simplify", runSimplify, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append(append([]string{}, tc.args...), "--format", "yaml")
+			if err := tc.run(args); err == nil || !strings.Contains(err.Error(), "invalid format") {
+				t.Fatalf("expected invalid format error, got: %v", err)
+			}
+		})
+	}
+}
+
 func TestRunBuild_InvalidFlag(t *testing.T) {
 	err := runBuild([]string{"--invalid"})
 	if err == nil {
@@ -43,24 +72,10 @@ func TestRunResolve_MissingLink(t *testing.T) {
 	}
 }
 
-func TestRunResolve_InvalidFormat(t *testing.T) {
-	err := runResolve([]string{"--from", "A.md", "--link", "[[X]]", "--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
-
 func TestRunResolve_InvalidField(t *testing.T) {
 	err := runResolve([]string{"--from", "A.md", "--link", "[[X]]", "--fields", "type,invalid"})
 	if err == nil || !strings.Contains(err.Error(), "unknown resolve field") {
 		t.Errorf("expected unknown field error, got: %v", err)
-	}
-}
-
-func TestRunQuery_InvalidFormat(t *testing.T) {
-	err := runQuery([]string{"--file", "A.md", "--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
 	}
 }
 
@@ -73,13 +88,6 @@ func TestRunQuery_InvalidRelations(t *testing.T) {
 }
 
 // --- Stats CLI tests ---
-
-func TestRunStats_InvalidFormat(t *testing.T) {
-	err := runStats([]string{"--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
 
 func TestRunStats_InvalidField(t *testing.T) {
 	err := runStats([]string{"--fields", "invalid"})
@@ -217,13 +225,6 @@ func TestPrintStatsJSON_FieldsFilter(t *testing.T) {
 
 // --- Delete CLI tests ---
 
-func TestRunDelete_InvalidFormat(t *testing.T) {
-	err := runDelete([]string{"--file", "A.md", "--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
-
 func TestRunDelete_MissingFile(t *testing.T) {
 	err := runDelete([]string{})
 	if err == nil || !strings.Contains(err.Error(), "--file is required") {
@@ -320,13 +321,6 @@ func TestRunDelete_Rm_UnregisteredFile(t *testing.T) {
 }
 
 // --- Update CLI tests ---
-
-func TestRunUpdate_InvalidFormat(t *testing.T) {
-	err := runUpdate([]string{"--file", "A.md", "--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
 
 func TestRunUpdate_MissingFile(t *testing.T) {
 	err := runUpdate([]string{})
@@ -578,13 +572,6 @@ func TestRunSet_DateCreatesFrontmatter(t *testing.T) {
 
 // --- Add CLI tests ---
 
-func TestRunAdd_InvalidFormat(t *testing.T) {
-	err := runAdd([]string{"--file", "A.md", "--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
-
 func TestRunAdd_MissingFile(t *testing.T) {
 	err := runAdd([]string{})
 	if err == nil || !strings.Contains(err.Error(), "--file is required") {
@@ -649,13 +636,6 @@ func TestRunAdd_Integration(t *testing.T) {
 }
 
 // --- Move CLI tests ---
-
-func TestRunMove_InvalidFormat(t *testing.T) {
-	err := runMove([]string{"--from", "A.md", "--to", "B.md", "--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
 
 func TestRunMove_MissingFrom(t *testing.T) {
 	err := runMove([]string{"--to", "X.md"})
@@ -912,13 +892,6 @@ func TestRunMove_ToTemplateDirModeIntegration(t *testing.T) {
 
 // --- Diagnose CLI tests ---
 
-func TestRunDiagnose_InvalidFormat(t *testing.T) {
-	err := runDiagnose([]string{"--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
-
 func TestRunDiagnose_InvalidField(t *testing.T) {
 	err := runDiagnose([]string{"--fields", "invalid"})
 	if err == nil || !strings.Contains(err.Error(), "unknown diagnose field") {
@@ -947,14 +920,8 @@ func TestRunDiagnose_TextOutput(t *testing.T) {
 	if !strings.Contains(out, "sub2/A.md") {
 		t.Errorf("text output missing sub2/A.md, got:\n%s", out)
 	}
-	if len(result.Phantoms) == 0 {
-		if strings.Contains(out, "phantoms:") {
-			t.Errorf("expected no phantoms section for empty list, got:\n%s", out)
-		}
-	} else {
-		if !strings.Contains(out, "phantoms:") {
-			t.Errorf("text output missing phantoms:, got:\n%s", out)
-		}
+	if strings.Contains(out, "phantoms:") {
+		t.Errorf("expected no phantoms section for empty list, got:\n%s", out)
 	}
 }
 
@@ -1206,13 +1173,6 @@ func TestPrintDiagnoseJSON_FieldsFilter(t *testing.T) {
 }
 
 // --- Disambiguate CLI tests ---
-
-func TestRunDisambiguate_InvalidFormat(t *testing.T) {
-	err := runDisambiguate([]string{"--name", "A", "--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
 
 func TestRunDisambiguate_MissingName(t *testing.T) {
 	err := runDisambiguate([]string{})
@@ -1898,13 +1858,6 @@ func TestRunConvert_MissingTo(t *testing.T) {
 	}
 }
 
-func TestRunConvert_InvalidFormat(t *testing.T) {
-	err := runConvert([]string{"--to", "wikilink", "--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
-
 func TestRunConvert_ToWikilinkDryRunJSON(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_convert")
 
@@ -1959,13 +1912,6 @@ func TestRunConvert_ToWikilinkDryRunJSON(t *testing.T) {
 }
 
 // --- Repair CLI tests ---
-
-func TestRunRepair_InvalidFormat(t *testing.T) {
-	err := runRepair([]string{"--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
 
 func TestRunRepair_DryRunJSON(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_repair")
@@ -2054,13 +2000,6 @@ func TestRunRepair_PathFilterDryRunJSON(t *testing.T) {
 }
 
 // --- Simplify CLI tests ---
-
-func TestRunSimplify_InvalidFormat(t *testing.T) {
-	err := runSimplify([]string{"--format", "yaml"})
-	if err == nil || !strings.Contains(err.Error(), "invalid format") {
-		t.Errorf("expected invalid format error, got: %v", err)
-	}
-}
 
 func TestRunSimplify_DryRunJSON(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_simplify")

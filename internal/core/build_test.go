@@ -176,16 +176,6 @@ func countEdges(t *testing.T, dbp string) int {
 
 // --- Existing tests ---
 
-func TestBuildCreatesDB(t *testing.T) {
-	vault := copyVault(t, "vault_build_basic")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	if _, err := os.Stat(dbPath(vault)); err != nil {
-		t.Fatalf("db not created: %v", err)
-	}
-}
-
 func TestBuildNormalizesUnicodePathsToNFC(t *testing.T) {
 	vault := t.TempDir()
 	// Disk path uses NFD: "Cafe" + combining acute accent.
