@@ -49,6 +49,39 @@
 
   完了（評価対象）: query / inspect の正本と rules の旧記述、README 両版の移行案内を凍結仕様・実装へ合わせた。全受入8項目を既存集中テストに対応付け、旧 query CLI 拒否、config fallback と明示空、search 不変、非 note 入口、タグ経由、JSON / text の型・escape、対象ページ、preview の所属・本文読取境界を実バイナリ79件で確認した。正本の JSON / text 例も別 vault の実行結果へ照合した。ローカル macOS で集中テスト、`go test ./...`・`go build ./...`・`go vet ./...`・実バイナリ build が成功し、stdout / stderr・終了コード・file / DB 無変更を確認した。対象commitのremote CIは未起動でUbuntuは未確認、前段からの検証限界として保持する。index同時更新保証は対象外。便利な一括scriptは製品化せず、release / tag 公開は行っていない。
 
+### リンク解釈の不具合修正
+
+- [ ] 表内の自己リンクを wikilink に変換するとき、表構造と fragment の意味を保持する
+
+  分類: 明確な不具合で修正必須。通常の `convert --to wikilink` が実ファイルを書き換え、表構造とリンク先 fragment を変えてしまう。`15ea54c..dea83cc` の変更で導入され、`dea83cc` の CLI と再 build で再現を確認済み。
+
+  再現: `Source.md` に次の一列表を置き、build 後に同ファイルを wikilink へ convert し、再 build する。
+
+  ```markdown
+  | [shown](#H%5C) |
+  | --- |
+  ```
+
+  現象: decoded fragment 末尾の backslash 1 個と表内 alias separator の backslash が連続し、pipe 直前が backslash 2 個になる。header が2列、delimiter row が1列として解釈され、自己リンク edge の `in_table=0`、`subpath` 末尾が backslash 2 個となる。resolve の JSON でも元の fragment と異なる値を返す。
+
+  修正範囲: `internal/core/convert.go` の `convertMarkdownToWikilink` にある自己リンクの alias 分岐。通常リンク側で使う `internal/core/markdown_destination.go` の `tableWikiAliasSafe` と同じ安全条件を適用できる。新しい表解析や変換方式を追加せず、同じ意味を表現できない場合は原文を保持する既存契約（`docs/specs/overview.md`「再出力と既存 index」）に従う。
+
+  受入条件: 上記入力は convert 後も原文を保持し、再解析しても一列表であることと decoded fragment 末尾の backslash が1個であることを確認する。再 build で fragment-only Markdown destination は既存仕様どおり graph に含めず、破損した自己リンク edge を生成しない。表内の安全な自己リンクの alias 変換、alias 不要の自己リンク、通常リンクと表外リンクの既存変換を保つ。
+
+- [ ] destination 内の escape された backtick によるリンク索引の欠落を直す
+
+  分類: 不具合で、既存の本文 scanner の escape 判定を局所的に補えば保守負担を増やさず修正できる。変更前から存在し、`dea83cc` の build / update / resolve で再現を確認済み。新しい parser、CLI、DB 項目は不要。
+
+  再現: 実在するノート ``A`B.md`` と `C.md` を作り、`Source.md` の本文を次の1行にして build または update する（destination の backslash は1個）。
+
+  ```markdown
+  [shown](A\`B.md) [later](C.md)
+  ```
+
+  現象: `internal/core/parse.go` の `stripInlineCode` が escape された backtick を code span の開始と扱い、閉じ backtick がないため行末まで空白化する。build / update は成功するが両リンクが索引から欠落し、outgoing は空、resolve は `link not found` となる。backtick を `%60` とした対照入力では両ノートへのリンクが索引に入る。destination の ASCII punctuation backslash escape を復号する仕様（`docs/specs/overview.md`「リンク解釈（互換性）」）に反する。
+
+  受入条件: 上記入力を build / update すると ``A`B.md`` と `C.md` への両 edge が作られ、outgoing と原文指定の resolve で確認できる。`stripInlineCode` の開始 delimiter 判定で backslash の奇偶による escape を扱い、実際の code span 内のリンク除外と位置保持を維持する。escape されない backtick と連続 backslash の対照ケースも確認する。
+
 ### 今後の検討
 
 - [ ] 全量 build と変更検出・差分反映を比較し、自動差分更新を追加する価値を判断する
