@@ -93,13 +93,15 @@
 
   完了: 共通 rewrite と移動 note 自身の相対 outgoing rewrite の表現判定を LinkType で区別し、quoted frontmatter の backtick を許可した。single/double quote、既存 target/subpath と alias の保持、書き換え直後と再 build 後の原文・DB edge・exact raw resolve の一致を恒久回帰で確認した。本文の表現不能拒否と YAML 原文対応不能拒否、actual / template dry-run の file・DB・一時 file 無変更を確認した。集中テスト、`go test ./...`、`go build ./...`、`go vet ./...` と実バイナリの正常・異常経路が成功。複雑な YAML scalar の対応範囲は拡張していない。
 
-- [ ] 末尾の閉じ角括弧で参照先が変わる wikilink の必須書き換えを拒否する（FR-008）
+- [x] 末尾の閉じ角括弧で参照先が変わる wikilink の必須書き換えを拒否する（FR-008）
 
   現象・根拠: `A.md` と本文 `[[A]]` を持つ `Source.md` を build 後、`A.md` を `B].md` へ move すると、本文を `[[B]]]` に変更して成功する。`internal/core/markdown_destination.go` の `wikilinkRepresentable` は内部の `]]` だけを拒否し、単独の末尾 `]` を許す。`internal/core/rewrite.go` の wrapper 連結後は `internal/core/parse.go` の `wikiLinkSpans` が最初の `]]` で閉じるため、再解析 target は `B` となる。DB は移動先を指したままで、再 build により参照先が変わる。開始 SHA でも同じ構文を生成する既存不具合であり、今回の差分による導入ではない。
 
   修正範囲: 実際に出力する wikilink の wrapper・alias・subpath と既存 parser の境界に沿って表現可否を判定し、同じ意味を表現できない必須 rewrite は更新前に拒否する。新しいリンク構文や parser は追加しない。判断の正本は `docs/specs/overview.md`「再出力と既存 index」。
 
   受入条件: alias / subpath のない上記 move は file / DB を変更せずエラーになる。target または subpath の末尾 `]` が closing wrapper と結合する境界を確認し、表現可能な対照ケースは拒否せず、生成後の再解析で target / subpath の意味を保持する。dry-run と失敗時の無変更を確認する。
+
+  完了: closing wrapper に接する target/subpath の末尾 `]` を共有 rewrite と相対 outgoing rewrite で拒否し、subpath・alias・表内 alias が境界を隔てる表現可能な出力を保持した。convert は拡張子除去と alias 決定後に判定し、不能時は原文を保持する。修正前に既報出力を検出する回帰を確認し、本文・quoted frontmatter の actual / template dry-run 失敗時の file・DB・残留 file 無変更、有効 move の本文・DB raw・resolve と再 build 後の target/subpath 一致を恒久回帰と実バイナリで確認した。FR-007 の backtick 回帰、集中 test、`go test ./...`、`go build ./...`、`go vet ./...` が成功。新 parser・新構文は追加していない。
 
 - [x] autolink で始まる GFM 表の文脈を保持する（FR-002）
 

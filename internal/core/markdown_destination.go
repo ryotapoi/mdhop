@@ -151,7 +151,12 @@ func encodeMarkdownDestination(target, subpath string) string {
 	return result
 }
 
-func wikilinkRepresentable(target, subpath string, linkType LinkType) bool {
+func wikilinkRepresentable(target, subpath, alias string, linkType LinkType) bool {
+	// A trailing bracket touching the closing wrapper would close the link
+	// early. A subpath or alias separator can keep that bracket in the value.
+	if alias == "" && strings.HasSuffix(target+subpath, "]") {
+		return false
+	}
 	// Quoted frontmatter values bypass the body code span scanner. YAML source
 	// correspondence and scalar meaning are checked before writing the candidate.
 	if linkType != LinkTypeFrontmatterWikilink && strings.Contains(target+subpath, "`") {

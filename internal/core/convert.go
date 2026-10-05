@@ -135,7 +135,7 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 		return rawLink
 	}
 
-	if !wikilinkRepresentable(target, subpath, LinkTypeWikilink) || strings.Contains(text, "]]") {
+	if strings.Contains(text, "]]") {
 		return rawLink
 	}
 	separator := "|"
@@ -146,6 +146,13 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 	// Self-link: [text](#heading)
 	if target == "" && subpath != "" {
 		wikiTarget := subpath // e.g. "#Section"
+		alias := ""
+		if text != subpath {
+			alias = separator + text
+		}
+		if !wikilinkRepresentable("", subpath, alias, LinkTypeWikilink) {
+			return rawLink
+		}
 		if text == subpath {
 			return "[[" + wikiTarget + "]]"
 		}
@@ -168,6 +175,13 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 	needAlias := text != baseName
 	if subpath != "" && text == baseName+subpath {
 		needAlias = false
+	}
+	alias := ""
+	if needAlias {
+		alias = separator + text
+	}
+	if !wikilinkRepresentable(wikiTarget, subpath, alias, LinkTypeWikilink) {
+		return rawLink
 	}
 	if needAlias {
 		if len(table) > 0 && table[0] && !tableWikiAliasSafe(wikiTarget+subpath) {

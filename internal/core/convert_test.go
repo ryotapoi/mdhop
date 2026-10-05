@@ -795,3 +795,27 @@ func TestConvertSelfLinksOutsideWikiAliases(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertClosingBracketBoundary(t *testing.T) {
+	for _, tt := range []struct{ raw, want, target, subpath string }{
+		{`[B]](B%5D.md)`, `[B]](B%5D.md)`, "", ""},
+		{`[shown](B%5D.md)`, `[[B]|shown]]`, "B]", ""},
+		{`[B]](B%5D.md#H)`, `[[B]#H]]`, "B]", "#H"},
+		{`[B](B.md#H%5D)`, `[B](B.md#H%5D)`, "", ""},
+		{`[shown](B.md#H%5D)`, `[[B#H]|shown]]`, "B", "#H]"},
+		{`[#H]](#H%5D)`, `[#H]](#H%5D)`, "", ""},
+		{`[shown](#H%5D)`, `[[#H]|shown]]`, "", "#H]"},
+	} {
+		got := convertMarkdownToWikilink(tt.raw)
+		if got != tt.want {
+			t.Fatalf("%s: got %q, want %q", tt.raw, got, tt.want)
+		}
+		if got == tt.raw {
+			continue
+		}
+		links := parseWikiLinks(got, 1)
+		if len(links) != 1 || links[0].rawLink != got || links[0].target != tt.target || links[0].subpath != tt.subpath {
+			t.Fatalf("reparse = %+v", links)
+		}
+	}
+}

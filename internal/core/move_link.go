@@ -169,8 +169,11 @@ func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to str
 	}
 	if linkType == LinkTypeMarkdown {
 		rel = encodeMarkdownComponent(rel)
-	} else if !wikilinkRepresentable(rel, "", linkType) || len(table) > 0 && table[0] && strings.Contains(parts.suffix, `\|`) && !tableWikiAliasSafe(rel+strings.Split(parts.suffix, `\|`)[0]) {
-		return "", fmt.Errorf("cannot preserve wikilink destination while rewriting %q", rawLink)
+	} else {
+		wikiParts := splitWikilinkParts(rawLink, table...)
+		if !wikilinkRepresentable(rel, wikiParts.subpath, wikiParts.alias, linkType) || len(table) > 0 && table[0] && wikiParts.alias != "" && !tableWikiAliasSafe(rel+wikiParts.subpath) {
+			return "", fmt.Errorf("cannot preserve wikilink destination while rewriting %q", rawLink)
+		}
 	}
 	return parts.prefix + rel + parts.suffix, nil
 }

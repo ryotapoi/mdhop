@@ -532,3 +532,38 @@ func TestRewriteRawLinkBackticksByContext(t *testing.T) {
 		}
 	}
 }
+
+func TestRewriteRawLinkClosingBracketBoundary(t *testing.T) {
+	for _, tt := range []struct {
+		name, raw, path, want, target, subpath string
+		table                                  bool
+	}{
+		{"bare trailing bracket", "[[A]]", "B].md", "", "", "", false},
+		{"internal single bracket", "[[A]]", "B]C.md", "[[B]C]]", "B]C", "", false},
+		{"target separated by subpath", "[[A#H]]", "B].md", "[[B]#H]]", "B]", "#H", false},
+		{"target separated by alias", "[[A|shown]]", "B].md", "[[B]|shown]]", "B]", "", false},
+		{"subpath trailing bracket", "[[A#H]|shown]]", "B.md", "[[B#H]|shown]]", "B", "#H]", false},
+		{"table alias", `[[A#H]\|shown]]`, "B].md", `[[B]#H]\|shown]]`, "B]", "#H]", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, kind := range []LinkType{LinkTypeWikilink, LinkTypeFrontmatterWikilink} {
+				got := rewriteRawLink(tt.raw, kind, tt.path, tt.table)
+				if got != tt.want {
+					t.Fatalf("rewrite = %q, want %q", got, tt.want)
+				}
+				if got == "" {
+					continue
+				}
+				links := parseWikiLinks(got, 1, tt.table)
+				if len(links) != 1 || links[0].rawLink != got || links[0].target != tt.target || links[0].subpath != tt.subpath {
+					t.Fatalf("reparse = %+v", links)
+				}
+			}
+		})
+	}
+	// A synthetic candidate is needed: the existing parser cannot index a
+	// subpath ending in ] without an alias in the first place.
+	if got := rewriteRawLink("[[A#H]]]", LinkTypeWikilink, "B.md"); got != "" {
+		t.Fatalf("trailing subpath = %q", got)
+	}
+}

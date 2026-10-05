@@ -117,7 +117,7 @@ func rewriteRawLink(rawLink string, linkType LinkType, targetPath string, table 
 		parts := splitWikilinkParts(rawLink, table...)
 
 		newPath := buildRewritePath(targetPath)
-		if !wikilinkRepresentable(newPath, parts.subpath, linkType) || len(table) > 0 && table[0] && parts.alias != "" && !tableWikiAliasSafe(newPath+parts.subpath) {
+		if !wikilinkRepresentable(newPath, parts.subpath, parts.alias, linkType) || len(table) > 0 && table[0] && parts.alias != "" && !tableWikiAliasSafe(newPath+parts.subpath) {
 			return ""
 		}
 		return "[[" + newPath + parts.subpath + parts.alias + "]]"

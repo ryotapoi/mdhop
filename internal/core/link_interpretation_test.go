@@ -652,3 +652,87 @@ func TestFrontmatterBacktickRewritePreflightRejectsWithoutMutation(t *testing.T)
 		}
 	}
 }
+
+func TestClosingBracketRewritePreflightRejectsWithoutMutation(t *testing.T) {
+	for _, tt := range []struct{ name, source, wantErr string }{
+		{"body", "[[A]]\n", "cannot preserve wikilink destination"},
+		{"quoted frontmatter", "---\nrelated: \"[[A]]\"\n---\n", "cannot preserve wikilink destination"},
+	} {
+		for _, dryRun := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/dry=%v", tt.name, dryRun), func(t *testing.T) {
+				vault := newMoveVault(t, map[string]string{"Source.md": tt.source, "A.md": "target\n"})
+				snapshot := func() map[string]string {
+					files := map[string]string{}
+					if err := filepath.WalkDir(vault, func(path string, entry os.DirEntry, err error) error {
+						if err != nil {
+							return err
+						}
+						if entry.IsDir() {
+							files[path] = "directory"
+							return nil
+						}
+						content, err := os.ReadFile(path)
+						files[path] = string(content)
+						return err
+					}); err != nil {
+						t.Fatal(err)
+					}
+					return files
+				}
+				before := snapshot()
+				var err error
+				if dryRun {
+					_, err = PlanMoveTemplate(vault, MoveTemplateOptions{From: "A.md", Template: "B].md"})
+				} else {
+					_, err = Move(vault, MoveOptions{From: "A.md", To: "B].md"})
+				}
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %v, want %s", err, tt.wantErr)
+				}
+				if after := snapshot(); !reflect.DeepEqual(before, after) {
+					t.Fatalf("rejected move changed vault: before=%v after=%v", before, after)
+				}
+			})
+		}
+	}
+}
+
+func TestClosingBracketMoveRoundTrip(t *testing.T) {
+	original := "[[A#H]]\n[[A|shown]]\n[[A#H]|shown]]\n| column |\n| --- |\n| [[A\\|shown]] |\n---\n"
+	vault := newMoveVault(t, map[string]string{"Source.md": original, "A.md": "target\n", "Meta.md": "---\nrelated: '[[A|shown]]'\n---\n"})
+	before, err := os.ReadFile(dbPath(vault))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PlanMoveTemplate(vault, MoveTemplateOptions{From: "A.md", Template: "B].md"}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(dbPath(vault))
+	if err != nil || !reflect.DeepEqual(before, after) || readVaultFile(t, vault, "Source.md") != original {
+		t.Fatal("dry run mutated source or DB")
+	}
+	if _, err := Move(vault, MoveOptions{From: "A.md", To: "B].md"}); err != nil {
+		t.Fatal(err)
+	}
+	check := func() {
+		for _, tt := range []struct{ source, raw, subpath string }{
+			{"Source.md", "[[B]#H]]", "#H"},
+			{"Source.md", "[[B]|shown]]", ""},
+			{"Source.md", "[[B]#H]|shown]]", "#H]"},
+			{"Source.md", `[[B]\|shown]]`, ""},
+			{"Meta.md", "[[B]|shown]]", ""},
+		} {
+			if !strings.Contains(readVaultFile(t, vault, tt.source), tt.raw) {
+				t.Fatalf("missing output %s", tt.raw)
+			}
+			assertEdgeRawLinks(t, vault, tt.source, []string{tt.raw})
+			got, err := Resolve(vault, tt.source, tt.raw)
+			if err != nil || got.Path != "B].md" || got.Subpath != tt.subpath {
+				t.Fatalf("resolve %s: %+v, %v", tt.raw, got, err)
+			}
+		}
+	}
+	check()
+	buildVault(t, vault)
+	check()
+}

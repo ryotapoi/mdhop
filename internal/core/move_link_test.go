@@ -182,3 +182,30 @@ func cloneMovedLinkMaps(maps movedLinkMaps) movedLinkMaps {
 		basenameCounts:     cloneInts(maps.basenameCounts),
 	}
 }
+
+func TestRelativeOutgoingClosingBracketBoundary(t *testing.T) {
+	for _, tt := range []struct{ raw, want, target, subpath string }{
+		{"[[./A]]", "", "", ""},
+		{"[[./A#H]]", "[[../B]#H]]", "../B]", "#H"},
+		{"[[./A|shown]]", "[[../B]|shown]]", "../B]", ""},
+		{"[[./A#H]|shown]]", "[[../B]#H]|shown]]", "../B]", "#H]"},
+		{"[[./A#H]]]", "", "", ""},
+	} {
+		for _, kind := range []LinkType{LinkTypeWikilink, LinkTypeFrontmatterWikilink} {
+			got, err := rewriteOutgoingRelativeLink(tt.raw, kind, "Source.md", "sub/Source.md", map[string]string{"A.md": "B].md"}, "A.md")
+			if tt.want == "" {
+				if err == nil {
+					t.Fatalf("%s: expected rejection, got %q", tt.raw, got)
+				}
+				continue
+			}
+			if err != nil || got != tt.want {
+				t.Fatalf("%s: got %q, %v", tt.raw, got, err)
+			}
+			links := parseWikiLinks(got, 1)
+			if len(links) != 1 || links[0].rawLink != got || links[0].target != tt.target || links[0].subpath != tt.subpath {
+				t.Fatalf("reparse = %+v", links)
+			}
+		}
+	}
+}
