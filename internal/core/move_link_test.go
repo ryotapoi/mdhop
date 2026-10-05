@@ -29,6 +29,16 @@ func TestRewriteMovedOutgoingLink(t *testing.T) {
 			from: "A.md", to: "sub/A.md", want: "[[../B#Heading|label]]", wantOK: true,
 		},
 		{
+			name: "relative frontmatter allows backtick target and subpath",
+			link: linkOccur{rawLink: "[[./X`Y#H`I|shown]]", isRelative: true, linkType: LinkTypeFrontmatterWikilink},
+			from: "A.md", to: "sub/A.md", want: "[[../X`Y#H`I|shown]]", wantOK: true,
+		},
+		{
+			name: "relative body rejects backtick target",
+			link: linkOccur{rawLink: "[[./X`Y]]", isRelative: true, linkType: LinkTypeWikilink},
+			from: "A.md", to: "sub/A.md", wantErr: "cannot preserve wikilink destination",
+		},
+		{
 			name: "relative markdown preserves extension and fragment",
 			link: linkOccur{rawLink: "[label](./B.md#heading)", isRelative: true, linkType: LinkTypeMarkdown},
 			from: "A.md", to: "sub/A.md", want: "[label](../B.md#heading)", wantOK: true,

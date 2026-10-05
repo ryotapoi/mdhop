@@ -565,6 +565,7 @@ GLOB は Vault 相対、大小文字を区別する。`*` は `/` をまたぎ�
 
 - Markdown rewrite は decoded path / fragment の literal `%`、`#`、`&`、backslash、括弧、backtick などを percent encode して再解析時の意味を保つ。拡張子、relative move、表示文字列、subpath、embed の方針は従来どおり。表内 wikilink の alias separator は `\|` を保持する
 - convert は decoded Markdown target を wikilink にする。literal `#` / `|` / `]]` や target/subpath の backtick などで現行本文 scanner が同じ意味を表現できない場合は原文を保持する。必須 rewrite の参照先を wikilink として表現できない場合は file/DB 更新前にエラーにする。参照定義と frontmatter raw path の自動 rewrite は追加しない
+- 単一行 quoted frontmatter wikilink の target/subpath は backtick を保持して必須 rewrite できる。本文の code span 制約による拒否と区別し、原文対応と YAML 値の意味を保存できない candidate は file/DB 更新前に拒否する
 - index の解釈 version が異なる既存 DB は、読み取り・update・DB 利用 mutation の入口で `mdhop build` を案内するエラーになる。in-place migration / partial update で旧新の解釈を混在させず、build が成功した一時 DB で置換する。CLI flags と stdout JSON field は変更しない
 
 ## resolve のルール（要点）

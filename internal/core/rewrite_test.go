@@ -513,3 +513,22 @@ func TestRewriteContentCandidatePreservesMaskedLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestRewriteRawLinkBackticksByContext(t *testing.T) {
+	for _, tt := range []struct{ raw, target, want string }{
+		{"[[A|shown]]", "Z`Q.md", "[[Z`Q|shown]]"},
+		{"[[A#H`I|shown]]", "B.md", "[[B#H`I|shown]]"},
+	} {
+		if got := rewriteRawLink(tt.raw, LinkTypeWikilink, tt.target); got != "" {
+			t.Fatalf("body rewrite = %q, want rejection", got)
+		}
+		if got := rewriteRawLink(tt.raw, LinkTypeFrontmatterWikilink, tt.target); got != tt.want {
+			t.Fatalf("frontmatter rewrite = %q, want %q", got, tt.want)
+		}
+	}
+	for _, target := range []string{"A#B.md", "A|B.md", "A]]B.md", "A\nB.md"} {
+		if got := rewriteRawLink("[[A]]", LinkTypeFrontmatterWikilink, target); got != "" {
+			t.Fatalf("unsafe rewrite = %q", got)
+		}
+	}
+}

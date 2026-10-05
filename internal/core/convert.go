@@ -135,7 +135,7 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 		return rawLink
 	}
 
-	if !wikilinkRepresentable(target, subpath) || strings.Contains(text, "]]") {
+	if !wikilinkRepresentable(target, subpath, LinkTypeWikilink) || strings.Contains(text, "]]") {
 		return rawLink
 	}
 	separator := "|"

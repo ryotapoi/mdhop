@@ -151,8 +151,13 @@ func encodeMarkdownDestination(target, subpath string) string {
 	return result
 }
 
-func wikilinkRepresentable(target, subpath string) bool {
-	return !strings.ContainsAny(target, "#|`\r\n") && !strings.Contains(target, "]]") && !strings.ContainsAny(subpath, "|`\r\n") && !strings.Contains(subpath, "]]")
+func wikilinkRepresentable(target, subpath string, linkType LinkType) bool {
+	// Quoted frontmatter values bypass the body code span scanner. YAML source
+	// correspondence and scalar meaning are checked before writing the candidate.
+	if linkType != LinkTypeFrontmatterWikilink && strings.Contains(target+subpath, "`") {
+		return false
+	}
+	return !strings.ContainsAny(target, "#|\r\n") && !strings.Contains(target, "]]") && !strings.ContainsAny(subpath, "|\r\n") && !strings.Contains(subpath, "]]")
 }
 
 // An odd trailing backslash before the table alias escape would turn its pipe

@@ -83,13 +83,15 @@
 
   完了: query 内だけの本文 cache を全 snippet 関係で共有し、返却 `Lines` を独立コピーにした。初回読取後の削除・変更による再読取回避、独立 cache の missing / stale、cache hit の行範囲検証、抜粋間と本文 cache の非 alias を恒久回帰で確認した。既存の関係所属・重複出現・不要本文読取回避・NFD の集中テスト、`go test ./...`、`go build ./...` が成功。時間・メモリ改善量は未測定。
 
-- [ ] quoted frontmatter で表現可能な backtick を含む wikilink の必須書き換えを許可する（FR-007）
+- [x] quoted frontmatter で表現可能な backtick を含む wikilink の必須書き換えを許可する（FR-007）
 
   現象・根拠: `A.md` と `related: "[[A]]"` を持つ `Source.md` を build 後、`A.md` を ``Z`Q.md`` へ move すると、本文リンクがなくても `cannot preserve wikilink destination` エラーになる。`internal/core/rewrite.go` の `rewriteRawLink` は本文と frontmatter に共通の `wikilinkRepresentable` を適用し、backtick を一律拒否する。一方、`internal/core/parse_frontmatter.go` の quoted scalar 解析は本文の code span scanner を通らず、`internal/core/rewrite_frontmatter.go` の source 対応検証でも通常の backtick は表現可能。操作の拒否は今回追加された guard による。
 
   修正範囲: 本文と quoted frontmatter の表現条件を既存の link type と解析・source 対応検証に沿って区別する局所修正。本文で表現不能な宛先の拒否と、frontmatter の YAML 意味保存・操作前検証は維持する。複雑な YAML scalar 全般への対応拡張は含めない。
 
   受入条件: 単一行 quoted scalar の上記 move が成功し、書き換え後の本文・DB edge・原文 resolve・再 build 後の解決先が ``Z`Q.md`` で一致する。backtick を含む既存 target / subpath の必須書き換えも意味を保持する。本文の表現不能ケースと YAML source 対応を証明できないケースは file / DB 更新前に拒否し、失敗時と dry-run の無変更を確認する。
+
+  完了: 共通 rewrite と移動 note 自身の相対 outgoing rewrite の表現判定を LinkType で区別し、quoted frontmatter の backtick を許可した。single/double quote、既存 target/subpath と alias の保持、書き換え直後と再 build 後の原文・DB edge・exact raw resolve の一致を恒久回帰で確認した。本文の表現不能拒否と YAML 原文対応不能拒否、actual / template dry-run の file・DB・一時 file 無変更を確認した。集中テスト、`go test ./...`、`go build ./...`、`go vet ./...` と実バイナリの正常・異常経路が成功。複雑な YAML scalar の対応範囲は拡張していない。
 
 - [ ] 末尾の閉じ角括弧で参照先が変わる wikilink の必須書き換えを拒否する（FR-008）
 

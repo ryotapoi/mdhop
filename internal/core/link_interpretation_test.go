@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -552,4 +553,102 @@ func TestBacktickDestinationRewritePreservesRelations(t *testing.T) {
 			t.Fatal("destination created")
 		}
 	})
+}
+
+func TestFrontmatterBacktickDestinationRewrite(t *testing.T) {
+	for _, tt := range []struct {
+		name, source, target, from, to, movedSource, oldRaw, raw, subpath string
+	}{
+		{"double quoted incoming", "---\nrelated: \"[[A]]\"\n---\nbody\n", "A.md", "A.md", "Z`Q.md", "Source.md", "[[A]]", "[[Z`Q]]", ""},
+		{"single quoted target and subpath", "---\nrelated: '[[X`Y#H`I|shown]]'\n---\nbody\n", "X`Y.md", "X`Y.md", "Z`Q.md", "Source.md", "[[X`Y#H`I|shown]]", "[[Z`Q#H`I|shown]]", "#H`I"},
+		{"moved relative outgoing", "---\nrelated: \"[[./X`Y#H`I|shown]]\"\n---\nbody\n", "X`Y.md", "Source.md", "sub/Source.md", "sub/Source.md", "[[./X`Y#H`I|shown]]", "[[../X`Y#H`I|shown]]", "#H`I"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := newMoveVault(t, map[string]string{"Source.md": tt.source, tt.target: "target\n"})
+			beforeDB, err := os.ReadFile(dbPath(vault))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result, err := PlanMoveTemplate(vault, MoveTemplateOptions{From: tt.from, Template: tt.to}); err != nil || len(result.Moved) != 1 {
+				t.Fatalf("dry-run: %+v, %v", result, err)
+			}
+			if afterDB, err := os.ReadFile(dbPath(vault)); err != nil || !reflect.DeepEqual(beforeDB, afterDB) {
+				t.Fatal("dry-run changed DB", err)
+			}
+			if got := readVaultFile(t, vault, "Source.md"); got != tt.source {
+				t.Fatal("dry-run changed source", got)
+			}
+			if _, err := os.Stat(filepath.Join(vault, tt.to)); !os.IsNotExist(err) {
+				t.Fatal("dry-run created destination", err)
+			}
+			if _, err := Move(vault, MoveOptions{From: tt.from, To: tt.to}); err != nil {
+				t.Fatal(err)
+			}
+			if got, want := readVaultFile(t, vault, tt.movedSource), strings.Replace(tt.source, tt.oldRaw, tt.raw, 1); got != want {
+				t.Fatalf("source = %q, want %q", got, want)
+			}
+			wantTarget := tt.to
+			if tt.from == "Source.md" {
+				wantTarget = tt.target
+			}
+			check := func() {
+				t.Helper()
+				edges := queryEdges(t, dbPath(vault), tt.movedSource)
+				if len(edges) != 1 || edges[0].rawLink != tt.raw || edges[0].targetKey != noteKey(wantTarget) || edges[0].subpath != tt.subpath || edges[0].linkType != LinkTypeFrontmatterWikilink {
+					t.Fatalf("edges: %+v", edges)
+				}
+				got, err := Resolve(vault, tt.movedSource, tt.raw)
+				if err != nil || got.Path != wantTarget || got.Subpath != tt.subpath {
+					t.Fatalf("resolve: %+v, %v", got, err)
+				}
+			}
+			check()
+			buildVault(t, vault)
+			check()
+		})
+	}
+}
+
+func TestFrontmatterBacktickRewritePreflightRejectsWithoutMutation(t *testing.T) {
+	for _, tt := range []struct{ name, source, wantErr string }{
+		{"body", "[[A]]\n", "cannot preserve wikilink destination"},
+		{"encoded scalar", "---\nrelated: \"\\u005b\\u005bA\\u005d\\u005d\"\n---\n", "correspondence"},
+	} {
+		for _, dryRun := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/dry=%v", tt.name, dryRun), func(t *testing.T) {
+				vault := newMoveVault(t, map[string]string{"Source.md": tt.source, "A.md": "target\n"})
+				snapshot := func() map[string]string {
+					files := map[string]string{}
+					if err := filepath.WalkDir(vault, func(path string, entry os.DirEntry, err error) error {
+						if err != nil {
+							return err
+						}
+						if entry.IsDir() {
+							files[path] = "directory"
+							return nil
+						}
+						content, err := os.ReadFile(path)
+						files[path] = string(content)
+						return err
+					}); err != nil {
+						t.Fatal(err)
+					}
+					return files
+				}
+				before := snapshot()
+				var err error
+				if dryRun {
+					_, err = PlanMoveTemplate(vault, MoveTemplateOptions{From: "A.md", Template: "Z`Q.md"})
+				} else {
+					_, err = Move(vault, MoveOptions{From: "A.md", To: "Z`Q.md"})
+				}
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %v, want %s", err, tt.wantErr)
+				}
+				if after := snapshot(); !reflect.DeepEqual(before, after) {
+					t.Fatalf("rejected move changed vault: before=%v after=%v", before, after)
+				}
+			})
+		}
+	}
 }
