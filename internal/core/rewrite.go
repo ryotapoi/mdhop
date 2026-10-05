@@ -150,10 +150,16 @@ func replaceOutsideInlineCode(line, old, new string) string {
 	i := 0
 	for i < len(line) {
 		if line[i] == '`' {
-			end := inlineCodeEnd(line, i)
-			result.WriteString(line[i:end])
-			i = end
-			continue
+			backslashes := 0
+			for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
+				backslashes++
+			}
+			if backslashes%2 == 0 {
+				end := inlineCodeEnd(line, i)
+				result.WriteString(line[i:end])
+				i = end
+				continue
+			}
 		}
 		// Check for old string match.
 		if strings.HasPrefix(line[i:], old) {

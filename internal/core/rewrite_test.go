@@ -384,6 +384,25 @@ func mustReadFile(t *testing.T, path string) []byte {
 	return content
 }
 
+func TestReplaceOutsideInlineCodeEscapedBackticks(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		line string
+		want string
+	}{
+		{"no backslash", "`[[A]]` [[A]]", "`[[A]]` [[B]]"},
+		{"one backslash", "\\`[[A]]", "\\`[[B]]"},
+		{"two backslashes", "\\\\`[[A]]` [[A]]", "\\\\`[[A]]` [[B]]"},
+		{"three backslashes", "\\\\\\`[[A]]", "\\\\\\`[[B]]"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := replaceOutsideInlineCode(tt.line, "[[A]]", "[[B]]"); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestReplaceOutsideInlineCodeDelimiterRuns(t *testing.T) {
 	for _, code := range []string{
 		"`LINK`", "``LINK``", "```LINK ` LINK `` LINK```",
