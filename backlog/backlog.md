@@ -51,7 +51,7 @@
 
 ### リンク解釈の不具合修正
 
-- [ ] 表内の自己リンクを wikilink に変換するとき、表構造と fragment の意味を保持する
+- [x] 表内の自己リンクを wikilink に変換するとき、表構造と fragment の意味を保持する
 
   分類: 明確な不具合で修正必須。通常の `convert --to wikilink` が実ファイルを書き換え、表構造とリンク先 fragment を変えてしまう。`15ea54c..dea83cc` の変更で導入され、`dea83cc` の CLI と再 build で再現を確認済み。
 
@@ -67,6 +67,8 @@
   修正範囲: `internal/core/convert.go` の `convertMarkdownToWikilink` にある自己リンクの alias 分岐。通常リンク側で使う `internal/core/markdown_destination.go` の `tableWikiAliasSafe` と同じ安全条件を適用できる。新しい表解析や変換方式を追加せず、同じ意味を表現できない場合は原文を保持する既存契約（`docs/specs/overview.md`「再出力と既存 index」）に従う。
 
   受入条件: 上記入力は convert 後も原文を保持し、再解析しても一列表であることと decoded fragment 末尾の backslash が1個であることを確認する。再 build で fragment-only Markdown destination は既存仕様どおり graph に含めず、破損した自己リンク edge を生成しない。表内の安全な自己リンクの alias 変換、alias 不要の自己リンク、通常リンクと表外リンクの既存変換を保つ。
+
+  完了: 自己リンクの alias 分岐にも既存の `tableWikiAliasSafe` を適用し、表内で末尾 backslash が奇数個の場合は原文を保持する。安全な alias 変換（末尾 backslash なし・偶数個）、alias 不要、表外を回帰テストで固定し、対象の一列表の表文脈と復号済み fragment を確認した。集中テスト、`go test ./...`、`go build ./...` と実バイナリの build → convert dry-run → convert → 再 build が成功し、原文 bytes、dry-run の file / DB 無変更、保持した fragment-only Markdown link の edge 不生成と resolve の `link not found`、安全な表内自己リンクの変換・resolve を確認した。
 
 - [ ] destination 内の escape された backtick によるリンク索引の欠落を直す
 

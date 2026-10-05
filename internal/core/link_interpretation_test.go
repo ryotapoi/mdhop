@@ -396,6 +396,22 @@ func TestInterpretedConvertAndScanRewrites(t *testing.T) {
 }
 
 func TestTableWikiConversionRepresentability(t *testing.T) {
+	for _, tt := range []struct {
+		name, raw, want string
+		inTable         bool
+	}{
+		{"unsafe self alias in table", `[shown](#H%5C)`, `[shown](#H%5C)`, true},
+		{"safe self alias in table", `[shown](#H)`, `[[#H\|shown]]`, true},
+		{"even trailing backslashes in table", `[shown](#H%5C%5C)`, `[[#H\\\|shown]]`, true},
+		{"self without alias in table", `[#H\](#H%5C)`, `[[#H\]]`, true},
+		{"self alias outside table", `[shown](#H%5C)`, `[[#H\|shown]]`, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := convertMarkdownToWikilink(tt.raw, tt.inTable); got != tt.want {
+				t.Fatalf("conversion %q, want %q", got, tt.want)
+			}
+		})
+	}
 	raw := `[shown](X%5C.md)`
 	if got := convertMarkdownToWikilink(raw, true); got != raw {
 		t.Fatalf("unsafe table conversion %q", got)
@@ -403,10 +419,14 @@ func TestTableWikiConversionRepresentability(t *testing.T) {
 	if got := rewriteRawLink(`[[X\|shown]]`, LinkTypeWikilink, `Y\.md`, true); got != "" {
 		t.Fatalf("unsafe table rewrite %q", got)
 	}
-	content := "| column |\n| --- |\n| [shown](#H%20I) |"
+	content := "| [shown](#H%5C) |\n| --- |\n"
 	links := parseLinksForConvert(content).Links
 	if len(links) != 1 || !links[0].inTable {
 		t.Fatalf("self table context %+v", links)
+	}
+	_, destination := extractMarkdownParts(links[0].rawLink)
+	if target, subpath, external := markdownDestination(destination); target != "" || subpath != `#H\` || external {
+		t.Fatalf("self destination %q %q %v", target, subpath, external)
 	}
 }
 

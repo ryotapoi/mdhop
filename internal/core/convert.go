@@ -153,6 +153,9 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 		if text == subpath {
 			return "[[" + wikiTarget + "]]"
 		}
+		if len(table) > 0 && table[0] && !tableWikiAliasSafe(subpath) {
+			return rawLink
+		}
 		return "[[" + wikiTarget + separator + text + "]]"
 	}
 
