@@ -10,7 +10,7 @@ import (
 
 const queryHelp = `Usage: mdhop query (--file <path>|--tag <name>|--phantom <name>|--name <name>) [options]
 
-Return backlinks, outgoing links, and notes sharing a link target with one entry.
+Return backlinks, outgoing links, and notes sharing an outgoing target with one entry.
 
 Entry options:
   --file <path>             Note entry by vault-relative path.
@@ -20,31 +20,48 @@ Entry options:
 
 Options:
   --relations <list>        Comma-separated backlinks,outgoing,twohop. Default: all three.
-  --limit <N>               Return at most N targets; requires one explicit relation.
-  --offset <N>              Skip N targets; requires one explicit relation.
-  --via <type:value>        Select one typed two-hop via node.
+  --limit <N>               Return at most N targets (N > 0); requires one explicit relation.
+  --offset <N>              Skip N targets (N >= 0); requires one explicit relation.
+  --via <type:value>        Select one two-hop via node by exact type and identifier.
   --via-path <glob>         Include via paths matching a glob (repeatable).
   --via-tag <tag>           Include via tags (repeatable).
   --exclude-via-path <glob> Exclude via paths matching a glob (repeatable).
   --exclude-via-tag <tag>   Exclude via tags (repeatable).
-  --hide-path <glob>        Hide matching note targets and via nodes (repeatable).
+  --hide-path <glob>        Hide matching note targets and note via nodes (repeatable).
   --hide-tag <tag>          Hide matching tag targets and via nodes (repeatable).
   --no-config-hide          Ignore configured query hide conditions.
-  --no-config-via           Ignore configured query via conditions.
+  --no-config-via           Ignore configured query via conditions and legacy exclude fallback.
   --link-key <key>          Restrict direct backlinks and outgoing links to a frontmatter key.
-  --path <glob>             Include result paths matching any glob (repeatable).
+  --path <glob>             Include result target paths matching any glob (repeatable).
   --where <expr>            Metadata filter (repeatable; expressions are ANDed).
   --include-head <N>        Include the first N body lines of returned notes (N > 0).
-  --include-snippet <N>     Include link occurrences with N context lines (N >= 0).
+  --include-snippet <N>     Include source link lines with N lines of context (N >= 0).
   --vault <path>            Vault root directory. Default: ".".
   --format json|text        Output format. Default: text.
 
+Relations select output sections. Via conditions select two-hop paths; hide conditions
+remove visible note/tag targets and via identifiers. Hidden via nodes can still
+discover targets. --via accepts note/asset vault-relative paths, phantom names,
+or tag names (with optional #); it does not restrict backlinks or outgoing.
+Via include/exclude paths apply to note/asset nodes, and tags to tag nodes.
+Repeatable patterns combine with configured patterns; excludes take precedence.
+When query.via.exclude is absent, top-level exclude supplies via exclusions.
+Globs are case-sensitive, * crosses /, and [] character classes are unsupported.
+Quote globs to prevent shell expansion. --path and --where filter targets only;
+--link-key filters direct links only.
+
 The JSON fields are entry, selected backlinks/outgoing/2hoplink arrays, and page.
+Unselected relation fields are absent; selected empty relations are []. Page
+next_offset is null at the end. A missing limit returns all remaining targets.
+--include-head previews returned notes only. --include-snippet 0 includes just
+the link line; outgoing snippets come from the entry, backlinks from the target,
+and two-hop snippets from the target's link to each visible via node.
 
 Examples:
   mdhop query --file Plan.md --format json
   mdhop query --file Plan.md --relations twohop --via note:topics/Design.md
   mdhop query --file Plan.md --relations backlinks --limit 20 --offset 20
+  mdhop query --file Plan.md --hide-path 'archive/*' --exclude-via-tag '#private'
 
 `
 

@@ -20,7 +20,12 @@ Options:
   --format json|text  Output format. Default: text.
 
 Unselected fields are omitted; selected empty tags/head are [] and meta is {}.
-Head skips frontmatter and leading blank lines. Attributes use the index only.
+--include-head is independent of --fields and reads the note body. Head skips
+frontmatter and leading blank lines. Tags and meta use the index only; tags
+are leaf tags, while query outgoing may include indexed parent tags.
+
+Example:
+  mdhop inspect --file Plan.md --fields tags --include-head 5 --format json
 
 `
 

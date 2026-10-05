@@ -444,7 +444,7 @@ GLOB は Vault 相対、大小文字を区別する。`*` は `/` をまたぎ�
   - 補足: `--fields meta.<key>` で特定 frontmatter key のみ追加出力（複数指定可）。`meta` と併用すると全 key を出力
   - 補足: `--fields lines` / `outgoing_count` / `incoming_count` で computed field を追加出力（opt-in）。`lines` は build/update 時に確定したファイル全体の行数（frontmatter 含む）、`outgoing_count` / `incoming_count` は edges の集計値（tag edge を含む）
   - 補足: `--include-head N` でノート先頭N行を追加出力
-  - 補足: `--exclude`, `--no-exclude` は query と同じ挙動（config の除外 + CLI 除外）
+  - 補足: `--exclude`, `--no-exclude` は search 用の `exclude` 設定と CLI 除外を扱う。query の hide / via 条件とは独立
 - `diagnose`
   - 必須: なし
   - 任意: `--vault`, `--format`, `--fields`, `--path`, `--exclude`

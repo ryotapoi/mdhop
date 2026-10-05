@@ -226,7 +226,7 @@ SQL 生成パターン:
 
 ### 4.5 メタデータ取得
 
-inspect は既定で索引済み note 一件の metadata を返し、`--fields meta` で属性を限定できる。query は入口 metadata を返さない。search の `--fields meta` は従来どおり opt-in。値は索引済みの `map[string][]string` とし、詳細は `docs/specs/overview.md` 参照。
+inspect は既定で索引済み note 一件の葉タグと metadata を返し、`--fields tags` / `--fields meta` で属性を限定できる。query は入口の tags / metadata を返さない。search の `--fields meta` は従来どおり opt-in。metadata の値は索引済みの `map[string][]string` とし、詳細は `docs/specs/overview.md` 参照。
 
 SQL パターン: `SELECT key, value, sort_value, value_type FROM meta WHERE node_id = ? ORDER BY key, value`
 

@@ -102,7 +102,8 @@ type QueryConfig struct {
 	Via  QueryViaConfig `yaml:"via"`
 }
 
-// QueryViaConfig uses nil Exclude only when the key is absent.
+// QueryViaConfig uses nil Exclude only when the key is absent, allowing the
+// top-level exclude config to supply the query via exclusion fallback.
 type QueryViaConfig struct {
 	Include ExcludeConfig  `yaml:"include"`
 	Exclude *ExcludeConfig `yaml:"exclude"`

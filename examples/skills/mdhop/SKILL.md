@@ -10,7 +10,7 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 ## Rules
 
 - Use `--format json` for agent-facing output.
-- Use `--fields` on `query`, `search`, `resolve`, `reachable`, `stats`, and `diagnose` to avoid pulling unnecessary data.
+- Use `--relations` on `query` and `--fields` on `inspect`, `search`, `resolve`, `reachable`, `stats`, and `diagnose` to select only the data you need.
 - Run commands from the vault root, or pass `--vault <path>`.
 - Treat paths as vault-relative.
 - Do not use raw `mv`, `rm`, or `cp` for indexed vault files. Use `mdhop move`, `mdhop delete --rm`, and write-then-`mdhop add`.
@@ -25,7 +25,7 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 mdhop stats --format json
 mdhop diagnose --format json
 mdhop search --where "status=active || status=review" --fields meta --format json
-mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
+mdhop query --file Notes/Design.md --relations backlinks,outgoing --format json
 ```
 
 ### Check Index Drift Without Changing It
@@ -53,17 +53,20 @@ Run `mdhop search --help` for the full filter, sort, sampling, count, and output
 
 ### Explore Relationships
 
-Use `mdhop query` when you have an entry note, tag, phantom, or name and need backlinks, outgoing links, tags, two-hop related notes, snippets, head lines, or entry metadata.
+Use `mdhop query` when you have an entry note, tag, phantom, or name and need backlinks, outgoing links, or two-hop related notes. By default it returns all three relations. Use `mdhop inspect` for one indexed note's tags, metadata, or body preview.
 
 ```bash
-mdhop query --file Notes/Design.md --fields backlinks,outgoing --format json
-mdhop query --tag architecture --fields backlinks --format json
-mdhop query --file Notes/Design.md --fields backlinks,outgoing --link-key sources --format json
+mdhop query --file Notes/Design.md --relations backlinks,outgoing --format json
+mdhop query --tag architecture --relations backlinks --format json
+mdhop query --file Notes/Design.md --relations backlinks,outgoing --link-key sources --format json
+mdhop query --file Notes/Design.md --relations backlinks --limit 20 --offset 20 --format json
+mdhop query --file Notes/Design.md --relations twohop --via tag:architecture --format json
+mdhop query --file Notes/Design.md --hide-path 'archive/*' --exclude-via-tag '#private' --format json
+mdhop query --file Notes/Design.md --relations twohop --include-head 5 --include-snippet 0 --format json
+mdhop inspect --file Notes/Design.md --fields tags,meta --include-head 5 --format json
 ```
 
-Use `--link-key <key>` only when direct backlinks and outgoing links should be
-limited to that frontmatter link key. Run `mdhop query --help` for entry options,
-fields, metadata filters, limits, and include options.
+`--limit` and `--offset` require exactly one explicit relation. The JSON `page.next_offset` tells you whether another page exists. `--via*` selects or filters two-hop paths; `--exclude-via*` removes paths before finding targets. `--hide*` removes matching targets from display and hides via identifiers while preserving targets found through them. Use `--link-key <key>` only for direct backlinks and outgoing links. Head lines and snippets are read only when requested; `--include-snippet 0` returns the link line itself. Run `mdhop query --help` for filters and `mdhop inspect --help` for note attributes.
 
 ### Resolve One Link
 

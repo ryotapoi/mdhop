@@ -24,11 +24,11 @@ AI が編纂・保守する mdhop の作業の入口。**正本ではない** �
 
 | ファイル | regen | 内容 | 主なソース |
 |---|---|---|---|
-| [01-command-index.md](01-command-index.md) | full | 全 CLI サブコマンド → cmd/core 実装位置の索引 | `cmd/mdhop/main.go` ほか |
+| [01-command-index.md](01-command-index.md) | full | 全 CLI サブコマンド（query / inspect を含む）→ cmd/core 実装位置の索引 | `cmd/mdhop/main.go` ほか |
 | [02-write-map.md](02-write-map.md) | compiled | 書き込み系コマンドの破壊性・波及マップ | `internal/core/{add,update,delete,move,...}.go` |
 | [03-linktype-matrix.md](03-linktype-matrix.md) | full | LinkType 全種別 × パース/解決/リライトの対応表 | `internal/core/{parse,resolve,rewrite}.go` |
-| [04-shared-helpers.md](04-shared-helpers.md) | full | 共有ヘルパーの定義位置と呼び出しサイト対応表 | `internal/core/{rewrite,util,resolve_maps}.go` |
-| [05-output-contract.md](05-output-contract.md) | compiled | stdout JSON / stderr の出力契約ガイド | `cmd/mdhop/format*.go` |
+| [04-shared-helpers.md](04-shared-helpers.md) | full | 共有ヘルパーの定義位置と呼び出しサイト対応表（query / inspect / search の本文読取を含む） | `internal/core/{rewrite,util,query_content}.go` ほか |
+| [05-output-contract.md](05-output-contract.md) | compiled | stdout JSON / stderr の出力契約ガイド（query / inspect の選択欄を含む） | `cmd/mdhop/format*.go` |
 | [06-resolve-rewrite.md](06-resolve-rewrite.md) | compiled | リンク解決〜リライトの編纂ガイド（変更時の読む場所） | `internal/core/{parse,resolve,rewrite}.go` |
 
 外部知見（`regen: none`）の常設ファイルは現状ない。単一ファイルに何でも集約はしない方針: 特定の関数/ファイルだけに効く罠はそのソースのコメントに置き、複数箇所にまたがる挙動・設計理解は上の地図へ統合する。どちらにも収まらない外部由来の知見（ライブラリ仕様の罠・実測ログ等）が出たら、その時はテーマ別の `regen: none` ページを個別に立てる。
