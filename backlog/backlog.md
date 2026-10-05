@@ -73,13 +73,15 @@
 
   完了: entity / literal の自己リンク、alias だけの入力、同一行の外側リンクと Markdown 表示文を確認した。恒久回帰の修正前失敗と修正後成功、表・multibyte・frontmatter / fence / inline code の保持、move incoming / outgoing の本文・DB raw・resolve 整合を確認した。`go test ./internal/core/`、`go test ./...`、`go build ./...`、`go vet ./...` が成功。表示文中の inline code / wikilink を mask 済み raw で上書きしない原文照合も恒久回帰と実 CLI convert / move で確認した。実バイナリで両変換方向・embed・escaped backtick の対照、convert と template move dry-run の file / DB 無変更、actual convert の DB 無変更と再 build 後の整合、move 直後の索引整合、および不正入力の失敗と無変更を確認した。
 
-- [ ] 同一 query の snippet 生成で同じ本文の全量読取・保持を重複させない（FR-004）
+- [x] 同一 query の snippet 生成で同じ本文の全量読取・保持を重複させない（FR-004）
 
   現象・根拠: `query --relations outgoing --include-snippet 0` の複数対象や、同一対象の複数 via で、関係ごとに同じ本文を全文読み直す。`internal/core/query_preview.go` は関係単位で `readSnippets` を呼び、`internal/core/query_content.go` の既存 fileCache は呼出しごとに作られる。返す `Lines` も全文配列の subslice のため、本文量と関係数に比例して読取・保持が重複する。構造は静的追跡で確認済み、実時間・メモリ影響は未測定。
 
   修正範囲: 既存の path ごとの本文 cache を `addQueryPreviews` の単一 query の snippet 生成中だけ共有し、抜粋の `Lines` は必要範囲をコピーして返す。製品側の `readSnippets` 呼出しは同関数内の一箇所のみ。局所的な受渡しと既存読取 helper の変更に限定し、新しい cache 抽象・長期 state・head との統合は追加しない。
 
   受入条件: 複数 outgoing と同一対象の複数可視 via について、同じ本文の全量読取は query 内で一回となり、各 snippet の生行・行番号・所属・重複出現規則は変わらない。返却 `Lines` は全文配列を保持しない。必要な本文の初回読取で missing / stale を検出し、NFD path、行範囲検証、hidden via・ページ外・先読み・未選択関係の不要本文を読まない保証を維持する。snippet 未指定時はこの共有読取を行わない。
+
+  完了: query 内だけの本文 cache を全 snippet 関係で共有し、返却 `Lines` を独立コピーにした。初回読取後の削除・変更による再読取回避、独立 cache の missing / stale、cache hit の行範囲検証、抜粋間と本文 cache の非 alias を恒久回帰で確認した。既存の関係所属・重複出現・不要本文読取回避・NFD の集中テスト、`go test ./...`、`go build ./...` が成功。時間・メモリ改善量は未測定。
 
 - [ ] quoted frontmatter で表現可能な backtick を含む wikilink の必須書き換えを許可する（FR-007）
 

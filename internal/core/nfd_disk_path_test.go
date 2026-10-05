@@ -51,7 +51,7 @@ func TestNFDDiskPathsContentAndChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snippets, err := readSnippets(vault, sources, 1)
+	snippets, err := readSnippets(vault, sources, 1, make(map[string][]string))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestNFDDiskPathsContentAndChecks(t *testing.T) {
 	if _, err := readHead(vault, source, 1); !errors.Is(err, ErrSourceStale) {
 		t.Fatalf("head stale error = %v", err)
 	}
-	if _, err := readSnippets(vault, sources, 1); !errors.Is(err, ErrSourceStale) {
+	if _, err := readSnippets(vault, sources, 1, make(map[string][]string)); !errors.Is(err, ErrSourceStale) {
 		t.Fatalf("snippet stale error = %v", err)
 	}
 	if err := os.Remove(actual); err != nil {

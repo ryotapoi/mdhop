@@ -16,6 +16,10 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		}
 		return err
 	}
+	var snippetCache map[string][]string
+	if opts.IncludeSnippet != nil {
+		snippetCache = make(map[string][]string)
+	}
 	addSnippet := func(node *QueryNode, sourceID, targetID int64, key string) error {
 		if opts.IncludeSnippet == nil {
 			return nil
@@ -24,7 +28,7 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		if err != nil {
 			return err
 		}
-		node.Snippet, err = readSnippets(vault, sources, *opts.IncludeSnippet)
+		node.Snippet, err = readSnippets(vault, sources, *opts.IncludeSnippet, snippetCache)
 		if err == nil && node.Snippet == nil {
 			node.Snippet = []SnippetEntry{}
 		}

@@ -50,9 +50,7 @@ func readHead(vaultPath string, source contentSource, n int) ([]string, error) {
 	return head, nil
 }
 
-func readSnippets(vaultPath string, sources []snippetSource, contextLines int) ([]SnippetEntry, error) {
-	// Cache file lines per source path.
-	fileCache := make(map[string][]string)
+func readSnippets(vaultPath string, sources []snippetSource, contextLines int, fileCache map[string][]string) ([]SnippetEntry, error) {
 	var snippets []SnippetEntry
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 
@@ -89,11 +87,13 @@ func readSnippets(vaultPath string, sources []snippetSource, contextLines int) (
 			end = source.lineEnd + contextLines
 		}
 
+		snippetLines := make([]string, end-start)
+		copy(snippetLines, lines[start:end])
 		snippets = append(snippets, SnippetEntry{
 			SourcePath: source.path,
 			LineStart:  start + 1, // back to 1-based
 			LineEnd:    end,
-			Lines:      lines[start:end],
+			Lines:      snippetLines,
 		})
 	}
 

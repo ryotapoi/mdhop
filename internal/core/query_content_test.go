@@ -98,7 +98,7 @@ func TestQueryContentReaders(t *testing.T) {
 		t.Errorf("head = %#v, want %#v", head, want)
 	}
 
-	snippets, err := readSnippets(vault, []snippetSource{{contentSource: source, lineStart: 7, lineEnd: 7}}, 1)
+	snippets, err := readSnippets(vault, []snippetSource{{contentSource: source, lineStart: 7, lineEnd: 7}}, 1, make(map[string][]string))
 	if err != nil {
 		t.Fatalf("read snippets: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestQueryContentReaders(t *testing.T) {
 	if _, err := readHead(vault, contentSource{path: "missing.md", mtime: source.mtime}, 1); !errors.Is(err, ErrFileNotFound) {
 		t.Errorf("missing file error = %v, want ErrFileNotFound", err)
 	}
-	if _, err := readSnippets(vault, []snippetSource{{contentSource: contentSource{path: "Note.md", mtime: source.mtime + 1}, lineStart: 1, lineEnd: 1}}, 0); !errors.Is(err, ErrSourceStale) {
+	if _, err := readSnippets(vault, []snippetSource{{contentSource: contentSource{path: "Note.md", mtime: source.mtime + 1}, lineStart: 1, lineEnd: 1}}, 0, make(map[string][]string)); !errors.Is(err, ErrSourceStale) {
 		t.Errorf("stale source error = %v, want ErrSourceStale", err)
 	}
 
@@ -174,12 +174,73 @@ func TestReadSnippetsSameSecondTruncation(t *testing.T) {
 			if err := checkStale(path, source.mtime); err != nil {
 				t.Fatalf("same-second mtime must pass stale check: %v", err)
 			}
-			snippets, err := readSnippets(vault, []snippetSource{source}, tt.contextLines)
+			snippets, err := readSnippets(vault, []snippetSource{source}, tt.contextLines, make(map[string][]string))
 			if !errors.Is(err, ErrSourceStale) {
 				t.Errorf("error = %v, want ErrSourceStale", err)
 			}
 			if snippets != nil {
 				t.Errorf("snippets = %#v, want nil", snippets)
+			}
+		})
+	}
+}
+
+func TestReadSnippetsSharedCacheAndOwnership(t *testing.T) {
+	for _, mutation := range []string{"missing", "stale"} {
+		t.Run(mutation, func(t *testing.T) {
+			vault := t.TempDir()
+			path := filepath.Join(vault, "Source.md")
+			if err := os.WriteFile(path, []byte("first\n[[Target]]\n"+strings.Repeat("tail\n", 1000)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			source := snippetSource{contentSource: contentSource{path: "Source.md", mtime: info.ModTime().Unix()}, lineStart: 2, lineEnd: 2}
+			cache := make(map[string][]string)
+			first, err := readSnippets(vault, []snippetSource{source, source}, 0, cache)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedError := ErrFileNotFound
+			if mutation == "missing" {
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				expectedError = ErrSourceStale
+				if err := os.WriteFile(path, []byte("changed\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				later := info.ModTime().Add(10 * time.Second)
+				if err := os.Chtimes(path, later, later); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// Reusing the cache must return the initial content without accessing disk.
+			second, err := readSnippets(vault, []snippetSource{source}, 0, cache)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := SnippetEntry{SourcePath: "Source.md", LineStart: 2, LineEnd: 2, Lines: []string{"[[Target]]"}}
+			if !reflect.DeepEqual(first, []SnippetEntry{want, want}) || !reflect.DeepEqual(second, []SnippetEntry{want}) {
+				t.Fatalf("first = %#v, second = %#v, want unchanged duplicate occurrences", first, second)
+			}
+			first[0].Lines[0] = "modified"
+			if cache[source.path][1] != "[[Target]]" || first[1].Lines[0] != "[[Target]]" || second[0].Lines[0] != "[[Target]]" {
+				t.Fatal("snippet lines alias the cached body or another snippet")
+			}
+			if _, err := readSnippets(vault, []snippetSource{source}, 0, make(map[string][]string)); !errors.Is(err, expectedError) {
+				t.Fatalf("fresh cache error = %v, want %v", err, expectedError)
+			}
+			// Each occurrence still validates its indexed range on a cache hit.
+			for _, bounds := range [][2]int{{1003, 1003}, {2, 1003}} {
+				invalid := source
+				invalid.lineStart, invalid.lineEnd = bounds[0], bounds[1]
+				if _, err := readSnippets(vault, []snippetSource{invalid}, 0, cache); !errors.Is(err, ErrSourceStale) {
+					t.Fatalf("cached range %v error = %v, want ErrSourceStale", bounds, err)
+				}
 			}
 		})
 	}
