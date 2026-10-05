@@ -51,6 +51,8 @@
 
 #### 6. 検証済み不具合の局所修正
 
+検証元: `15ea54cb6ef13d1b8324c0eb97d5c243af32b81e..eea5097ed9af6d0023f3115e4d167a29fb7908e5` を Sol の fresh-review で確認し、別の Sol fresh subagent で候補5件の事実・到達経路・対応価値を検証した。全5件を対応候補と判定した。FR-001（`invariants-1`）と FR-003（`requirements-002`）は今回の解析変更で問題が起きる入力が増え、FR-004（`maintenance-1`）と FR-007（`local-1`）は今回の差分で導入された。FR-008（`contracts-2`）は差分前から同じ経路に存在する。静的追跡による確認であり、実操作による再現と性能測定は未実施。
+
 - [ ] escaped backtick 後のリンクを解析と同じ範囲で書き換える（FR-001）
 
   現象・根拠: 本文が ``\`[[A]]`` の行を build して `A.md` を `B.md` へ move すると、解析済みの `[[A]]` を rewrite が inline code として扱い、本文を置換しない。move は成功し、外部 edge の raw_link だけが `[[B]]` へ更新される。同じ位置の Markdown link の convert でも、未置換を Rewritten として報告する。`internal/core/parse.go` の `stripInlineCode` は開始 backtick 前の連続 backslash の奇偶を判定するが、`internal/core/rewrite.go` の `replaceOutsideInlineCode` は判定しない。静的追跡で確認済み、実操作は未確認。
@@ -74,6 +76,22 @@
   修正範囲: 既存の path ごとの本文 cache を `addQueryPreviews` の単一 query の snippet 生成中だけ共有し、抜粋の `Lines` は必要範囲をコピーして返す。製品側の `readSnippets` 呼出しは同関数内の一箇所のみ。局所的な受渡しと既存読取 helper の変更に限定し、新しい cache 抽象・長期 state・head との統合は追加しない。
 
   受入条件: 複数 outgoing と同一対象の複数可視 via について、同じ本文の全量読取は query 内で一回となり、各 snippet の生行・行番号・所属・重複出現規則は変わらない。返却 `Lines` は全文配列を保持しない。必要な本文の初回読取で missing / stale を検出し、NFD path、行範囲検証、hidden via・ページ外・先読み・未選択関係の不要本文を読まない保証を維持する。snippet 未指定時はこの共有読取を行わない。
+
+- [ ] quoted frontmatter で表現可能な backtick を含む wikilink の必須書き換えを許可する（FR-007）
+
+  現象・根拠: `A.md` と `related: "[[A]]"` を持つ `Source.md` を build 後、`A.md` を ``Z`Q.md`` へ move すると、本文リンクがなくても `cannot preserve wikilink destination` エラーになる。`internal/core/rewrite.go` の `rewriteRawLink` は本文と frontmatter に共通の `wikilinkRepresentable` を適用し、backtick を一律拒否する。一方、`internal/core/parse_frontmatter.go` の quoted scalar 解析は本文の code span scanner を通らず、`internal/core/rewrite_frontmatter.go` の source 対応検証でも通常の backtick は表現可能。操作の拒否は今回追加された guard による。
+
+  修正範囲: 本文と quoted frontmatter の表現条件を既存の link type と解析・source 対応検証に沿って区別する局所修正。本文で表現不能な宛先の拒否と、frontmatter の YAML 意味保存・操作前検証は維持する。複雑な YAML scalar 全般への対応拡張は含めない。
+
+  受入条件: 単一行 quoted scalar の上記 move が成功し、書き換え後の本文・DB edge・原文 resolve・再 build 後の解決先が ``Z`Q.md`` で一致する。backtick を含む既存 target / subpath の必須書き換えも意味を保持する。本文の表現不能ケースと YAML source 対応を証明できないケースは file / DB 更新前に拒否し、失敗時と dry-run の無変更を確認する。
+
+- [ ] 末尾の閉じ角括弧で参照先が変わる wikilink の必須書き換えを拒否する（FR-008）
+
+  現象・根拠: `A.md` と本文 `[[A]]` を持つ `Source.md` を build 後、`A.md` を `B].md` へ move すると、本文を `[[B]]]` に変更して成功する。`internal/core/markdown_destination.go` の `wikilinkRepresentable` は内部の `]]` だけを拒否し、単独の末尾 `]` を許す。`internal/core/rewrite.go` の wrapper 連結後は `internal/core/parse.go` の `wikiLinkSpans` が最初の `]]` で閉じるため、再解析 target は `B` となる。DB は移動先を指したままで、再 build により参照先が変わる。開始 SHA でも同じ構文を生成する既存不具合であり、今回の差分による導入ではない。
+
+  修正範囲: 実際に出力する wikilink の wrapper・alias・subpath と既存 parser の境界に沿って表現可否を判定し、同じ意味を表現できない必須 rewrite は更新前に拒否する。新しいリンク構文や parser は追加しない。判断の正本は `docs/specs/overview.md`「再出力と既存 index」。
+
+  受入条件: alias / subpath のない上記 move は file / DB を変更せずエラーになる。target または subpath の末尾 `]` が closing wrapper と結合する境界を確認し、表現可能な対照ケースは拒否せず、生成後の再解析で target / subpath の意味を保持する。dry-run と失敗時の無変更を確認する。
 
 - [x] autolink で始まる GFM 表の文脈を保持する（FR-002）
 
