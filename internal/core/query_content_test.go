@@ -66,33 +66,10 @@ func TestReadHeadScannerFailureAfterHead(t *testing.T) {
 	}
 }
 
-func TestQueryContentSourceSelection(t *testing.T) {
+func TestQueryHeadSourceSelection(t *testing.T) {
 	db := newTestDB(t)
-
-	for _, node := range []struct {
-		id, mtime       int64
-		key, name, path string
-	}{
-		{1, 100, "target", "Target", "Target.md"},
-		{2, 20, "source-b", "B", "b.md"},
-		{3, 10, "source-a", "A", "a.md"},
-		{4, 30, "source-excluded", "Excluded", "excluded.md"},
-	} {
-		if _, err := db.Exec(`INSERT INTO nodes (id, node_key, type, name, path, mtime) VALUES (?, ?, 'note', ?, ?, ?)`, node.id, node.key, node.name, node.path, node.mtime); err != nil {
-			t.Fatalf("insert node %q: %v", node.path, err)
-		}
-	}
-	for _, edge := range []struct {
-		source, lineStart, lineEnd int64
-	}{
-		{2, 1, 1},
-		{3, 8, 8},
-		{3, 2, 2},
-		{4, 3, 3},
-	} {
-		if _, err := db.Exec(`INSERT INTO edges (source_id, target_id, link_type, raw_link, line_start, line_end) VALUES (?, 1, 'wiki', 'Target', ?, ?)`, edge.source, edge.lineStart, edge.lineEnd); err != nil {
-			t.Fatalf("insert edge: %v", err)
-		}
+	if _, err := db.Exec(`INSERT INTO nodes (id, node_key, type, name, path, mtime) VALUES (1, 'target', 'note', 'Target', 'Target.md', 100)`); err != nil {
+		t.Fatal(err)
 	}
 
 	head, err := queryHeadSource(db, 1)
@@ -101,23 +78,6 @@ func TestQueryContentSourceSelection(t *testing.T) {
 	}
 	if head != (contentSource{path: "Target.md", mtime: 100}) {
 		t.Errorf("head source = %#v, want Target.md with mtime 100", head)
-	}
-
-	exclude, err := NewExcludeFilter(ExcludeConfig{}, []string{"excluded.md"}, nil)
-	if err != nil {
-		t.Fatalf("new exclude filter: %v", err)
-	}
-	sources, err := querySnippetSources(db, 1, exclude, []string{"a.md", "b.md"})
-	if err != nil {
-		t.Fatalf("query snippet sources: %v", err)
-	}
-	want := []snippetSource{
-		{contentSource: contentSource{path: "a.md", mtime: 10}, lineStart: 2, lineEnd: 2},
-		{contentSource: contentSource{path: "a.md", mtime: 10}, lineStart: 8, lineEnd: 8},
-		{contentSource: contentSource{path: "b.md", mtime: 20}, lineStart: 1, lineEnd: 1},
-	}
-	if !reflect.DeepEqual(sources, want) {
-		t.Errorf("snippet sources = %#v, want %#v", sources, want)
 	}
 }
 

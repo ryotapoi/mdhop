@@ -447,7 +447,7 @@ func TestQueryTagsHelper(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tags, err := queryTags(db, id, nil)
+	tags, err := queryTags(db, id)
 	if err != nil {
 		t.Fatal(err)
 	}

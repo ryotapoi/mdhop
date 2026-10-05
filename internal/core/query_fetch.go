@@ -67,20 +67,11 @@ func queryDirect(db dbExecer, entryID int64, relation string, opts QueryOptions)
 	return result, next, nil
 }
 
-func queryTags(db dbExecer, sourceID int64, ef *ExcludeFilter) ([]string, error) {
+func queryTags(db dbExecer, sourceID int64) ([]string, error) {
 	q := `SELECT DISTINCT n.name FROM edges e JOIN nodes n ON n.id = e.target_id
-		 WHERE e.source_id = ? AND n.type = 'tag'`
-	args := []any{sourceID}
+		 WHERE e.source_id = ? AND n.type = 'tag' ORDER BY n.name`
 
-	if ef != nil {
-		tagSQL, tagArgs := ef.TagExcludeSQL("n.name")
-		q += tagSQL
-		args = append(args, tagArgs...)
-	}
-
-	q += ` ORDER BY n.name`
-
-	rows, err := db.Query(q, args...)
+	rows, err := db.Query(q, sourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -119,54 +110,6 @@ func filterLeafTags(tags []string) []string {
 		leaves = append(leaves, t)
 	}
 	return leaves
-}
-
-func fetchNodeInfoBatch(db dbExecer, ids []int64) (map[int64]NodeInfo, error) {
-	if len(ids) == 0 {
-		return map[int64]NodeInfo{}, nil
-	}
-
-	result := make(map[int64]NodeInfo, len(ids))
-	const chunkSize = 500
-
-	for start := 0; start < len(ids); start += chunkSize {
-		end := start + chunkSize
-		if end > len(ids) {
-			end = len(ids)
-		}
-		chunk := ids[start:end]
-
-		placeholders := strings.Repeat("?,", len(chunk))
-		placeholders = placeholders[:len(placeholders)-1] // trim trailing comma
-
-		args := make([]any, len(chunk))
-		for i, id := range chunk {
-			args[i] = id
-		}
-
-		rows, err := db.Query(
-			fmt.Sprintf(`SELECT id, type, name, COALESCE(path,''), exists_flag FROM nodes WHERE id IN (%s)`, placeholders),
-			args...,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		for rows.Next() {
-			id, info, err := scanNodeInfoWithID(rows)
-			if err != nil {
-				rows.Close()
-				return nil, err
-			}
-			result[id] = info
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
-	}
-
-	return result, nil
 }
 
 func queryTwoHop(db dbExecer, entryID int64, opts QueryOptions) ([]TwoHopEntry, *int, error) {
@@ -284,44 +227,6 @@ func queryHeadSource(db dbExecer, nodeID int64) (contentSource, error) {
 		return contentSource{}, err
 	}
 	return source, nil
-}
-
-func querySnippetSources(db dbExecer, targetID int64, ef *ExcludeFilter, include []string) ([]snippetSource, error) {
-	q := `SELECT n.path, n.mtime, e.line_start, e.line_end
-		 FROM edges e JOIN nodes n ON n.id = e.source_id
-		 WHERE e.target_id = ?`
-	args := []any{targetID}
-
-	if ef != nil {
-		pathSQL, pathArgs := ef.PathExcludeSQL("n.path")
-		q += pathSQL
-		args = append(args, pathArgs...)
-	}
-
-	inclSQL, inclArgs := pathIncludeNullSafeSQL("n.path", include)
-	q += inclSQL
-	args = append(args, inclArgs...)
-
-	q += ` ORDER BY n.path, e.line_start`
-
-	rows, err := db.Query(q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var sources []snippetSource
-	for rows.Next() {
-		var source snippetSource
-		if err := rows.Scan(&source.path, &source.mtime, &source.lineStart, &source.lineEnd); err != nil {
-			return nil, err
-		}
-		sources = append(sources, source)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return sources, nil
 }
 
 // queryViaNodes applies the shared Go predicates before expanding any backlinks.

@@ -21,7 +21,7 @@ A CLI tool that indexes link relationships in Markdown repositories into SQLite.
 go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 ```
 
-After upgrading an existing vault to v0.20.0, run `mdhop build`. The index schema now stores reference link destinations. Rebuilding also updates the number sort format changed in v0.19.5.
+After upgrading an existing vault to v0.20.0 or v0.21.0, run `mdhop build`. v0.20.0 added stored reference link destinations and refreshed the number sort format changed in v0.19.5. v0.21.0 adds stored table context and an index interpretation version; older indexes require a rebuild.
 
 ## Quick Start
 
@@ -121,7 +121,7 @@ meta:
 - Query removes `--exclude`, `--exclude-tag`, and `--no-exclude`. Use `--hide-path` / `--hide-tag` for display, `--via*` / `--exclude-via*` for twohop discovery, and `--no-config-hide` / `--no-config-via` to ignore configured conditions.
 - Legacy config `exclude` falls back to via exclusion only when the **`query.via.exclude` key is absent**. The explicit empty value above disables fallback. It never supplies hide conditions; via include is independent. CLI conditions remain when no-config flags are used. Search retains its existing exclude / fields / head behavior.
 - JSON now returns `entry`, selected `backlinks` / `outgoing` / `2hoplink` arrays, and `page`. Each twohop target has all `relation` nodes and `hidden_relation`. Update consumers of the old via→targets shape, standalone tags, or entry preview / metadata. Selected empty arrays and omitted relations differ.
-- Tag / asset / phantom entries retain backlinks and have empty outgoing / twohop. Query outgoing includes indexed parent tags; inspect shows leaf tags. The index schema is unchanged.
+- Tag / asset / phantom entries retain backlinks and have empty outgoing / twohop. Query outgoing includes indexed parent tags; inspect shows leaf tags.
 
 See the [command specification](docs/specs/overview.md) for full contracts and examples. This describes the v0.21.0 contract; it does not announce a published release or tag.
 

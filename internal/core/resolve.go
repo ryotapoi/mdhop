@@ -48,34 +48,29 @@ func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
 	// Exact raw occurrences carry their index-time context, including table
 	// aliases and reference definitions. Never choose an arbitrary occurrence.
 	rows, err := db.Query(`SELECT DISTINCT target_id, COALESCE(subpath, '') FROM edges
-  WHERE source_id = ? AND raw_link = ?`, sourceID, link)
+  WHERE source_id = ? AND raw_link = ? LIMIT 2`, sourceID, link)
 	if err != nil {
 		return nil, err
 	}
-	var exact []struct {
-		id      int64
-		subpath string
-	}
-	for rows.Next() {
-		var match struct {
-			id      int64
-			subpath string
-		}
-		if err := rows.Scan(&match.id, &match.subpath); err != nil {
+	var exactID int64
+	var exactSubpath string
+	found := rows.Next()
+	if found {
+		if err := rows.Scan(&exactID, &exactSubpath); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		exact = append(exact, match)
 	}
+	ambiguous := found && rows.Next()
 	rows.Close()
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if len(exact) > 1 {
+	if ambiguous {
 		return nil, fmt.Errorf("%w: raw link has different indexed meanings in %s: %s", ErrAmbiguousLink, fromPath, link)
 	}
-	if len(exact) == 1 {
-		return fetchNodeResult(db, exact[0].id, exact[0].subpath)
+	if found {
+		return fetchNodeResult(db, exactID, exactSubpath)
 	}
 
 	// Parse the link string to get linkOccur.

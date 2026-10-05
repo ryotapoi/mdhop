@@ -136,25 +136,6 @@ func TestPathExcludeSQL_Nil(t *testing.T) {
 	}
 }
 
-func TestTagExcludeSQL(t *testing.T) {
-	ef := &ExcludeFilter{Tags: []string{"#daily", "#template"}}
-	sql, args := ef.TagExcludeSQL("n.name")
-	if sql == "" {
-		t.Fatal("expected non-empty SQL")
-	}
-	if len(args) != 2 {
-		t.Errorf("args = %v, want 2 items", args)
-	}
-}
-
-func TestTagExcludeSQL_Nil(t *testing.T) {
-	var ef *ExcludeFilter
-	sql, args := ef.TagExcludeSQL("n.name")
-	if sql != "" || args != nil {
-		t.Errorf("expected empty, got sql=%q args=%v", sql, args)
-	}
-}
-
 func TestIsViaExcluded(t *testing.T) {
 	ef := &ExcludeFilter{
 		PathGlobs: []string{"daily/*"},

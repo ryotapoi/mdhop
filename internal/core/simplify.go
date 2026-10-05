@@ -26,10 +26,6 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 	result := &SimplifyResult{}
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		DryRun: opts.DryRun,
-		ExcludePaths: func() ([]string, error) {
-			cfg, err := LoadConfig(vaultPath)
-			return cfg.Build.ExcludePaths, err
-		},
 		Prepare: func(files, excludePaths []string) (scanRewritePlan, error) {
 			assetFiles, err := collectAssetFiles(vaultPath)
 			if err != nil {

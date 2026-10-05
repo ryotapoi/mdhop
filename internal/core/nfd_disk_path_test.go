@@ -47,7 +47,7 @@ func TestNFDDiskPathsContentAndChecks(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(head, []string{"# Present", "[[Target]]"}) {
 		t.Fatalf("head = %v, %v", head, err)
 	}
-	sources, err := querySnippetSources(db, targetID, nil, nil)
+	sources, err := queryRelationSnippetSources(db, sourceID, targetID, "")
 	if err != nil {
 		t.Fatal(err)
 	}

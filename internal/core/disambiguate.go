@@ -252,10 +252,6 @@ func resolveDisambiguateTarget(name string, candidates []string, target string) 
 func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
-		ExcludePaths: func() ([]string, error) {
-			cfg, err := LoadConfig(vaultPath)
-			return cfg.Build.ExcludePaths, err
-		},
 		Prepare: func(files, _ []string) (scanRewritePlan, error) {
 			fileSet := make(map[string]bool, len(files))
 			pathSetLower := make(map[string]bool, len(files))

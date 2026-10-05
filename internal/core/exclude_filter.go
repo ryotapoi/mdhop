@@ -55,21 +55,6 @@ func (ef *ExcludeFilter) PathExcludeSQL(alias string) (string, []any) {
 	return fmt.Sprintf(" AND (%s IS NULL OR NOT (%s))", alias, globs), args
 }
 
-// TagExcludeSQL returns a SQL fragment and args for excluding tags by name.
-// alias is the column expression for the tag name (e.g. "n.name").
-func (ef *ExcludeFilter) TagExcludeSQL(alias string) (string, []any) {
-	if ef == nil || len(ef.Tags) == 0 {
-		return "", nil
-	}
-	placeholders := make([]string, len(ef.Tags))
-	args := make([]any, len(ef.Tags))
-	for i, t := range ef.Tags {
-		placeholders[i] = "?"
-		args[i] = t
-	}
-	return fmt.Sprintf(" AND LOWER(%s) NOT IN (%s)", alias, strings.Join(placeholders, ",")), args
-}
-
 // IsViaExcluded checks if a via node should be excluded from twohop results.
 func (ef *ExcludeFilter) IsViaExcluded(info NodeInfo) bool {
 	if ef == nil {

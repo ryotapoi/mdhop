@@ -41,17 +41,6 @@ type NodeInfo struct {
 	Exists bool
 }
 
-// scanNodeInfo scans a (type, name, path, exists_flag) row into a NodeInfo.
-func scanNodeInfo(rows *sql.Rows) (NodeInfo, error) {
-	var typ NodeType
-	var name, path string
-	var exists int
-	if err := rows.Scan(&typ, &name, &path, &exists); err != nil {
-		return NodeInfo{}, err
-	}
-	return NodeInfo{Type: typ, Name: name, Path: path, Exists: exists == 1}, nil
-}
-
 // scanNodeInfoWithID scans an (id, type, name, path, exists_flag) row into a
 // node id and a NodeInfo.
 func scanNodeInfoWithID(rows *sql.Rows) (int64, NodeInfo, error) {

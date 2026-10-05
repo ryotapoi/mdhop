@@ -6,12 +6,11 @@ import (
 )
 
 // scanRewriteOptions describes one disk-only markdown rewrite operation.
-// Commands provide their build exclusion configuration and a preparation
-// callback for command-specific file validation and link rewriting.
+// Commands provide a preparation callback for command-specific file validation
+// and link rewriting.
 type scanRewriteOptions struct {
-	DryRun       bool
-	ExcludePaths func() ([]string, error)
-	Prepare      func(files, excludePaths []string) (scanRewritePlan, error)
+	DryRun  bool
+	Prepare func(files, excludePaths []string) (scanRewritePlan, error)
 }
 
 // scanRewritePlan selects already-collected source files and decides their
@@ -28,10 +27,11 @@ func scanAndRewrite(vaultPath string, opts scanRewriteOptions) ([]rewriteEntry, 
 	if err != nil {
 		return nil, err
 	}
-	excludePaths, err := opts.ExcludePaths()
+	cfg, err := LoadConfig(vaultPath)
 	if err != nil {
 		return nil, err
 	}
+	excludePaths := cfg.Build.ExcludePaths
 	if err := validateGlobPatterns(excludePaths); err != nil {
 		return nil, err
 	}

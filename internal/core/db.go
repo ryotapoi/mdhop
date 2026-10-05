@@ -337,7 +337,7 @@ func queryMetaByNode(db dbExecer, nodeID int64) ([]MetaRow, error) {
 	return result, rows.Err()
 }
 
-func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, frontmatterKey, referenceTarget, subpath string, lineStart, lineEnd int, table ...bool) error {
+func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLink, frontmatterKey, referenceTarget, subpath string, lineStart, lineEnd int, inTable bool) error {
 	var key any
 	if frontmatterKey != "" {
 		key = frontmatterKey
@@ -349,7 +349,7 @@ func insertEdge(db dbExecer, sourceID, targetID int64, linkType LinkType, rawLin
 	_, err := db.Exec(
 		`INSERT INTO edges (source_id, target_id, link_type, raw_link, frontmatter_key, reference_target, subpath, line_start, line_end, in_table)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		sourceID, targetID, string(linkType), rawLink, key, reference, subpath, lineStart, lineEnd, len(table) > 0 && table[0],
+		sourceID, targetID, string(linkType), rawLink, key, reference, subpath, lineStart, lineEnd, inTable,
 	)
 	return err
 }

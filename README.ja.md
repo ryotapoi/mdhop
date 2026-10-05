@@ -21,7 +21,7 @@ Markdown リポジトリ内のリンク関係を SQLite にインデックス化
 go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 ```
 
-既存の Vault を v0.20.0 にアップグレードした場合は、`mdhop build` を実行してください。参照リンクの定義先を保存するため index schema が変わりました。v0.19.5 で変更された number 型 frontmatter metadata の sort 形式も再生成されます。
+既存の Vault を v0.20.0 または v0.21.0 にアップグレードした場合は、`mdhop build` を実行してください。v0.20.0 では参照リンクの定義先を保存し、v0.19.5 で変更された number 型 frontmatter metadata の sort 形式も再生成します。v0.21.0 では表内のリンク文脈と index の解釈 version を保存するため、旧 index の再生成が必要です。
 
 ## クイックスタート
 
@@ -119,7 +119,7 @@ meta:
 - query の `--exclude` / `--exclude-tag` / `--no-exclude` は削除。表示は `--hide-path` / `--hide-tag`、twohop の経由先選択は `--via*` / `--exclude-via*`、設定無効化は `--no-config-hide` / `--no-config-via` へ分ける。
 - 旧 config `exclude` は `query.via.exclude` **キー不在時だけ**経由先除外へ fallback する。上例の明示空は fallback を無効にする。`query.hide` には流用せず、via include の有無は fallback と独立。CLI 値は no-config 指定時も残る。search の旧 exclude / fields / head 契約は変わらない。
 - JSON は `entry`、選択した `backlinks` / `outgoing` / `2hoplink` 配列、`page` を返す。twohop は対象ごとの全 `relation` と `hidden_relation` を持つ。独立 tags、入口 preview / meta、旧 via→targets 構造を読む処理は更新が必要。選択済み空と未選択を区別する。
-- tag / asset / phantom 入口の backlinks は維持する。outgoing / twohop は空。query outgoing には親タグも含み、inspect tags は葉タグを返す。index schema は変更しない。
+- tag / asset / phantom 入口の backlinks は維持する。outgoing / twohop は空。query outgoing には親タグも含み、inspect tags は葉タグを返す。
 
 詳しい契約と出力例は [コマンド仕様](docs/specs/overview.md)を参照。この案内は v0.21.0 の契約変更であり、release / tag の公開記録ではない。
 

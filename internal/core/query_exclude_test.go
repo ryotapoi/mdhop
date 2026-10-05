@@ -147,30 +147,3 @@ func TestQueryFilterConfigIsExplicit(t *testing.T) {
 		}
 	}
 }
-
-func TestQueryTagsHelperExclude(t *testing.T) {
-	vault := setupExcludeVault(t)
-	db, err := openDBChecked(vault)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	id, _, err := findEntryNode(db, EntrySpec{File: "B.md"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	ef, err := NewExcludeFilter(ExcludeConfig{}, nil, []string{"#daily"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	tags, err := queryTags(db, id, ef)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, tag := range tags {
-		if tag == "#daily" {
-			t.Fatal("excluded tag retained")
-		}
-	}
-	expectContains(t, tags, "#project")
-}

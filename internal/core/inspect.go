@@ -56,7 +56,7 @@ func Inspect(vaultPath, file string, opts InspectOptions) (*InspectResult, error
 	}
 	result := &InspectResult{Entry: info}
 	if seen["tags"] {
-		result.Tags, err = queryTags(db, id, nil)
+		result.Tags, err = queryTags(db, id)
 		if err != nil {
 			return nil, err
 		}

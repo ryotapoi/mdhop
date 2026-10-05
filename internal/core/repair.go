@@ -42,10 +42,6 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 	result := &RepairResult{}
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		DryRun: opts.DryRun,
-		ExcludePaths: func() ([]string, error) {
-			cfg, err := LoadConfig(vaultPath)
-			return cfg.Build.ExcludePaths, err
-		},
 		Prepare: func(files, _ []string) (scanRewritePlan, error) {
 			diskPaths := newVaultDiskPathResolver(vaultPath)
 			pathSetLower := make(map[string]bool, len(files))
