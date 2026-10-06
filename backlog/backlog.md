@@ -11,7 +11,9 @@
 
 ## タスク
 
-### v0.21.0 関連探索と単体情報取得
+### v0.21.0
+
+#### 関連探索と単体情報取得
 
 - [x] [v0.21.0 の実装仕様](v0.21.0.md)を確定する
 
@@ -19,37 +21,37 @@
 
 以下の段階を上から同一バージョンで実施する。中間段階では新機能が未完成でもよく、最終段階までリリースしない。ただし各段階の完了時には、その段階で触れた契約の集中テストと、`docs/rules/verification.md` に従う `go test ./...`・`go build ./...` を通す。CLI を変更した段階は実バイナリで正常系・異常系、stdout / stderr、終了コードを確認する。型や API の変更で既存呼出側が壊れる場合は同段階で直し、後続段階に壊れた build や恒久的な互換 shim を渡さない。新仕様の全受入確認は最終段階で行う。
 
-#### 1. 設定と絞り込みの土台
+##### 1. 設定と絞り込みの土台
 
 - [x] [設定と照合規則](v0.21.0.md#設定と照合規則)の目的別 config、旧 exclude fallback、GLOB と型付き経由先の解析を実装する
 
   完了: config の欠落と明示空を区別し、hide / via include / via exclude を独立合成できる。旧 exclude は新 via exclude キー不在時だけ fallback となり、search の既存契約は変わらない。異常値と競合、GLOB の `/`・`?`・`[]`、型付き経由先の正規化と完全一致の集中テスト、および `go test ./...`・`go build ./...`・`go vet ./...` が通った。実バイナリで search の旧 exclude・`--no-exclude`・明示 CLI 条件と設定構造エラーの stdout / stderr・終了コードを確認した。新 query CLI と関係生成への接続は段階 2 で行う。
 
-#### 2. query の関係・選択・ページ・出力
+##### 2. query の関係・選択・ページ・出力
 
 - [x] [CLI 契約](v0.21.0.md#mdhop-query)と[関係を作って返すまで](v0.21.0.md#関係を作って返すまで)に従い、query core、CLI、JSON / text formatter を一緒に変更する
 
   完了: 三関係の全件取得、選択欄の省略と空配列、全入口で同じ twohop 向き、タグ outgoing、hide と via の独立、typed node と全経由先、単一関係ページ・next_offset が動く。旧 query オプションは削除され、既存呼出側と既存テストを同段階で更新する。head / snippet の新プレビュー機能は段階 4 で追加し、この段階の完了条件には含めない。選択0件・非表示経由のみ・重複対象・末尾ページ・不正入力、および旧上限を超える125対象・16経由先の集中テストが通った。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリの正常系・異常系27件を確認し、JSON単独解析、stdout / stderr・終了コード、query による file / DB の無変更、search の旧 exclude / no-exclude と head の不変を確認した。旧入口previewのテストは共有本文helperへ移し、NFD・stale・missing の保証を保持した。
 
-#### 3. inspect による単体情報取得
+##### 3. inspect による単体情報取得
 
 - [x] [inspect の契約](v0.21.0.md#mdhop-inspect)を CLI・core・JSON / text に実装する
 
   完了: 索引上の note 一件の tags / meta と任意 head を返し、選択済みの空欄（tags / head は `[]`、meta は `{}`）と未選択欄の省略を JSON / text で区別する。属性選択と head 指定の独立、親タグと葉タグの表示差、複数 meta 値と引用、hide / via / 旧 exclude の非適用、不正 fields / head、未登録 file・非 note・索引なしを集中テストと実バイナリで確認した。本文変更・削除後も head なしでは索引属性を返し、head ありでは stale / missing エラーになる。正整数の最大 head 行数でも overflow しない。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリ33件が通り、JSON 単独解析、stdout / stderr・終了コード、inspect による file / DB の無変更、索引の自動作成なしを確認した。query preview と正本文書の移行は段階4・5に残す。
 
-#### 4. query の head / snippet
+##### 4. query の head / snippet
 
 - [x] [head / snippet の範囲](v0.21.0.md#head--snippet-の範囲)に従い、返す関係に必要な本文プレビューを追加する
 
   完了: head は返却 note のみ、snippet は出力関係に属する実リンク出現のみを付ける。backlinks は対象→入口、outgoing は入口→対象、twohop は対象→可視 via の生行を返し、frontmatter タグ・リンク、型付き入口・via、同一行の別 edge と重複する文脈、複数 seed でも増殖しない出現を確認した。`--path` / `--where` は対象だけ、`--link-key` は直接 edge だけへ適用し、hidden・ページ外・先読み・未選択関係の不要本文を読まない。必要な本文の missing / stale と最大 int の snippet 文脈も確認した。JSON の指定済み空と省略、text の所属・引用 escape、preview flag の 0 / 不正値を集中テストで固定した。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリ27件が通り、stdout 単独 JSON 解析、stdout / stderr・終了コード、file / DB の無変更、search の共通 head / 旧 exclude の不変を確認した。正本文書の移行と版全体の最終受入は段階5に残す。
 
-#### 5. 正本・移行・最終受入
+##### 5. 正本・移行・最終受入
 
 - [x] [実装仕様](v0.21.0.md)と実装結果を照合し、`docs/specs/`・利用者向け移行案内を更新して v0.21.0 を検証する
 
   完了（評価対象）: query / inspect の正本と rules の旧記述、README 両版の移行案内を凍結仕様・実装へ合わせた。全受入8項目を既存集中テストに対応付け、旧 query CLI 拒否、config fallback と明示空、search 不変、非 note 入口、タグ経由、JSON / text の型・escape、対象ページ、preview の所属・本文読取境界を実バイナリ79件で確認した。正本の JSON / text 例も別 vault の実行結果へ照合した。ローカル macOS で集中テスト、`go test ./...`・`go build ./...`・`go vet ./...`・実バイナリ build が成功し、stdout / stderr・終了コード・file / DB 無変更を確認した。対象commitのremote CIは未起動でUbuntuは未確認、前段からの検証限界として保持する。index同時更新保証は対象外。便利な一括scriptは製品化せず、release / tag 公開は行っていない。
 
-#### 6. 検証済み不具合の局所修正
+##### 6. 検証済み不具合の局所修正
 
 検証元: `15ea54cb6ef13d1b8324c0eb97d5c243af32b81e..eea5097ed9af6d0023f3115e4d167a29fb7908e5` を Sol の fresh-review で確認し、別の Sol fresh subagent で候補5件の事実・到達経路・対応価値を検証した。全5件を対応候補と判定した。FR-001（`invariants-1`）と FR-003（`requirements-002`）は今回の解析変更で問題が起きる入力が増え、FR-004（`maintenance-1`）と FR-007（`local-1`）は今回の差分で導入された。FR-008（`contracts-2`）は差分前から同じ経路に存在する。静的追跡による確認であり、実操作による再現と性能測定は未実施。
 
@@ -123,7 +125,7 @@
 
   検証限界: 2,500対象の合成 sparse / dense vault、warm cache の測定であり実 vault の速度や peak RSS は保証しない。SQL DISTINCT は全候補を走査し、offset-only・overflow-sized window は全対象取得へ fallback する。33経由先を超える広い入口は未測定。remote CI は未起動、Ubuntu は未確認。実行 command・exit・duration・stdout / stderr と比較値は `tmp/workflow/v021-fixes-20261005/changes/table-query-fixes/validation/`、既存測定は `tmp/workflow/query-optimization-20261005/summary.json` に保存した。
 
-### リンク解釈の不具合修正
+#### リンク解釈の不具合修正
 
 - [x] 表内の自己リンクを wikilink に変換するとき、表構造と fragment の意味を保持する
 
@@ -160,7 +162,7 @@
 
   完了: `stripInlineCode` の開始 backtick に直前の連続 backslash の奇偶判定を加え、奇数個なら原文を保持する。1・3個と0・2個の対照、実 code span の除外と closing delimiter 直前の backslash、masking の byte 位置、復号済み target・raw link・行位置を回帰テストで確認した。修正前の回帰失敗と修正後の集中テスト、`go test ./...`、`go build ./...` の成功を記録し、実バイナリで再現入力の build と `%60` 対照からの update における両 edge・outgoing・原文 resolve、source file 無変更、未索引 fragment の resolve 失敗と DB 無変更を確認した。
 
-### 今後の検討
+#### basename lookup の高速化
 
 - [x] basename lookup の全行走査を、保守負担を大きく増やさずに高速化する
 
@@ -173,6 +175,8 @@
   完了: 改善前後の同条件測定で効果を示し、既存の解決契約と互換性を回帰検証する。保守負担が大きい案しか得られない場合は、比較結果と見送り理由を記録して完了とする。
 
   結果（2026-10-06）: SQL で printable ASCII の不一致行を除外し、NFD / Unicode 候補は従来の Go 比較へ残す局所案を採用した。10万 ASCII note の warm lookup は中央値約49.1ms → 約26.3ms、13.60MB/op → 2.24KB/op。SQLite の type 内走査と全 Unicode 背景の時間増は残る。schema・移行・cache・接続登録は追加せず、既存解決契約と旧 NFD 互換を回帰検証した。条件別の時間・allocation・単発 open の代償・採否理由は [ADR 0024](../docs/decisions/0024-basename-sql-prefilter.md) を参照。
+
+### 今後の検討
 
 - [ ] 全量 build と変更検出・差分反映を比較し、自動差分更新を追加する価値を判断する
 
