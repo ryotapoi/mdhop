@@ -135,3 +135,5 @@ See the [command specification](docs/specs/overview.md) for full contracts and e
 ## License
 
 [MIT License](LICENSE)
+
+Dependency copyright notices and license texts are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Include both files when redistributing binaries. See the [update and distribution procedure](docs/rules/licensing.md).

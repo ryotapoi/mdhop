@@ -133,3 +133,5 @@ meta:
 ## ライセンス
 
 [MIT License](LICENSE)
+
+依存ライブラリの著作権表記とライセンス全文は [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) に掲載。バイナリの再配布時は両ファイルを同梱する。[更新・配布手順](docs/rules/licensing.md)を参照。
