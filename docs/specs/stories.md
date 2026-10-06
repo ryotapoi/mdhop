@@ -104,7 +104,7 @@
   1) `mdhop build --vault .`
   2) `mdhop query --vault . --file Notes/Tagged.md`
 - 期待結果:
-  - 本文タグが `Tags` に出る
+  - 本文タグが `outgoing` に tag として出る
 
 ## 10. frontmatter tags の取り込み
 
@@ -113,7 +113,7 @@
   1) `mdhop build --vault .`
   2) `mdhop query --vault . --file Notes/Tagged.md`
 - 期待結果:
-  - frontmatter tags が `Tags` に出る
+  - frontmatter tags が `outgoing` に tag として出る
 
 ## 11. Markdown link の解決
 
