@@ -329,7 +329,7 @@
 ## status
 
 - untracked / modified / deleted の note / asset を返し、差分の有無はエラーにしない
-- index、vault、設定を変更せず、build 除外中の既存 index entry も deleted 判定する
+- index、vault、設定を変更せず、build 除外中の既存 index entry もディスク上の実在・更新状態と比較する。除外されたことだけでは deleted と判定しない
 
 ## meta-check
 
