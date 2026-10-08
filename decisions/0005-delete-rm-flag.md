@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0005: delete --rm flag for disk file removal
-
-## Status
-
-Accepted
 
 ## Context
 

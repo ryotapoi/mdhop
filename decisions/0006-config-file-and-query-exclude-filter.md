@@ -1,8 +1,10 @@
+---
+status: superseded
+superseded_by:
+  - 0026-query-and-search-filter-policy.md
+---
+
 # ADR 0006: Config file and query exclude filter
-
-## Status
-
-Accepted
 
 ## Context
 

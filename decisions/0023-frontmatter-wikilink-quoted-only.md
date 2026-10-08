@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0023: frontmatter wikilink は引用符付き YAML 値のみから抽出する
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -1,8 +1,10 @@
+---
+status: superseded
+superseded_by:
+  - 0027-move-collateral-rewrite-policy.md
+---
+
 # ADR 0008: move コマンドでコラテラルリンク書き換え
-
-## Status
-
-Accepted
 
 ## Context
 

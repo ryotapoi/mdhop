@@ -1,8 +1,10 @@
+---
+status: superseded
+superseded_by:
+  - 0030-metadata-command-boundaries.md
+---
+
 # ADR 0019: meta-check と meta-validate を別コマンドにする
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0010: repair をファイル走査ベースに変更
-
-## Status
-
-Accepted
 
 ## Context
 

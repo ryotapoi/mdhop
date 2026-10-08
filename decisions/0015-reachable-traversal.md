@@ -1,8 +1,10 @@
+---
+status: superseded
+superseded_by:
+  - 0029-reachable-navigation-traversal.md
+---
+
 # ADR 0015: reachable の走査設計
-
-## Status
-
-Accepted
 
 ## Context
 

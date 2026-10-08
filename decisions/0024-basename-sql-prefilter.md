@@ -1,3 +1,7 @@
+---
+status: current
+---
+
 # ADR 0024: basename 候補を SQL で保守的に絞る
 
 ## 判断時点と理由
@@ -55,7 +59,7 @@ SQLite 3.45.1 に採用 SQL の `EXPLAIN QUERY PLAN` を渡した結果は `SEAR
 
 `TestBasenameUnicodeAndLiteralCandidates` は明示した ID 集合で ASCII、旧 NFD、Unicode case、Unicode→ASCII、literal、NUL、invalid UTF-8、miss を検査し、一意な対象は query の `findEntryByName` と DB basename resolve でも確認した。NFD target は rebuild や保存済み exact raw edge を使わず検索した。既存の resolve backend priority と query name/root/ambiguous/missing test により選択順序と error/fallback を検証した。
 
-集中 test → `go test ./...` → `go build ./...` → `go vet ./...` は成功した。CLI の出力・終了コード・接続設定・schema・可視副作用を変えていないため追加の実バイナリ確認は不要とした。runtime raw log は `tmp/workflow/basename-20261006/changes/basename/` に置いた（永続成果物には含めない）。測定要約と再現 command はこの記録と benchmark に残した。
+集中 test → `go test ./...` → `go build ./...` → `go vet ./...` は成功した。CLI の出力・終了コード・接続設定・schema・可視副作用を変えていないため追加の実バイナリ確認は不要とした。runtime raw log は当時の非永続作業ディレクトリに置いた（永続成果物には含めず、現在は残っていない）。測定要約と再現 command はこの記録と benchmark に残した。
 
 実 Vault、他 OS、cold disk、更新との並行実行は未測定。合成名・全 ASCII/全 Unicode の極端な比率による性能傾向であり、実 Vault の性能保証ではない。DB 内で O(N) 走査が残ることと Unicode 背景の時間増を許容し、主対象の転送・allocation を大きく減らしながら移行・同期を増やさない点で採用した。
 

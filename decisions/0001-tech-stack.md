@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0001: 技術スタック方針
-
-## Status
-
-Accepted
 
 ## Context
 

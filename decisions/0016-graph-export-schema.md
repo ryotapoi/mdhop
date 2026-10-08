@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0016: graph export のスキーマと範囲
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0003: move auto-detects disk state
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0018: anchor 検査の heading を実行時抽出する
-
-## Status
-
-Accepted
 
 ## Context
 

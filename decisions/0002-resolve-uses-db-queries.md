@@ -1,8 +1,10 @@
+---
+status: superseded
+superseded_by:
+  - 0021-shared-link-resolver-backend.md
+---
+
 # ADR 0002: resolve のリンク解決に DB クエリを使用する
-
-## Status
-
-Superseded by ADR 0021
 
 ## Context
 

@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0020: vault path を NFC へ正規化する
-
-## Status
-
-Accepted
 
 ## Context
 

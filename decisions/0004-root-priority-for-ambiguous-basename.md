@@ -1,8 +1,10 @@
+---
+status: superseded
+superseded_by:
+  - 0025-root-priority-and-relative-rewrites.md
+---
+
 # ADR 0004: Root-priority rule for ambiguous basename links
-
-## Status
-
-Accepted
 
 ## Context
 

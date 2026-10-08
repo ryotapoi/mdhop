@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0007: Build exclude paths
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0011: Asset Node Management
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0012: Remove stale check for external rewrite targets in move
-
-## Status
-
-Accepted
 
 ## Context
 

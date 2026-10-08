@@ -1,8 +1,10 @@
+---
+status: superseded
+superseded_by:
+  - 0028-shared-batch-move-and-delete.md
+---
+
 # ADR 0009: Directory move as independent batch function
-
-## Status
-
-Accepted
 
 ## Context
 

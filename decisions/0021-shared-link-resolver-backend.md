@@ -1,8 +1,10 @@
+---
+status: superseded
+superseded_by:
+  - 0031-typed-link-resolver-backends.md
+---
+
 # ADR 0021: リンク解決を共通 backend interface へ統合する
-
-## Status
-
-Accepted
 
 ## Context
 

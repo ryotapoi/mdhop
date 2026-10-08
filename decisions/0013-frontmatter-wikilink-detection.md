@@ -1,8 +1,11 @@
+---
+status: superseded
+superseded_by:
+  - 0022-frontmatter-wikilink-rewrite-rollout.md
+  - 0023-frontmatter-wikilink-quoted-only.md
+---
+
 # ADR 0013: Frontmatter wikilink detection via raw text scan
-
-## Status
-
-Superseded by ADR 0022 (rewrite rollout), ADR 0023 (quoted-only extraction)
 
 ## Context
 

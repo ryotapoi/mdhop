@@ -1,8 +1,8 @@
+---
+status: current
+---
+
 # ADR 0014: meta.link_keys による frontmatter raw path の edge 化
-
-## Status
-
-Accepted
 
 ## Context
 
