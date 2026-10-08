@@ -126,7 +126,7 @@ func TestParseWhere_LeftmostOperator(t *testing.T) {
 }
 
 func TestParseWhere_Like_PreservesWhitespace(t *testing.T) {
-	// Spec: docs/specs/overview.md — `~` right-hand side whitespace handling.
+	// Whitespace on the right-hand side of ~ is part of the match pattern.
 	for _, tt := range []struct {
 		name  string
 		expr  string

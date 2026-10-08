@@ -121,17 +121,17 @@ meta:
 - JSON は `entry`、選択した `backlinks` / `outgoing` / `2hoplink` 配列、`page` を返す。twohop は対象ごとの全 `relation` と `hidden_relation` を持つ。独立 tags、入口 preview / meta、旧 via→targets 構造を読む処理は更新が必要。選択済み空と未選択を区別する。
 - tag / asset / phantom 入口の backlinks は維持する。outgoing / twohop は空。query outgoing には親タグも含み、inspect tags は葉タグを返す。
 
-詳しい契約と出力例は [コマンド仕様](docs/specs/overview.md)を参照。この案内は v0.21.0 の契約変更であり、release / tag の公開記録ではない。
+フラグと使用例は `mdhop <command> --help` を参照。この案内は v0.21.0 の契約変更であり、release / tag の公開記録ではない。
 
 ## ドキュメント
 
-- [コマンド仕様・挙動の詳細](docs/specs/overview.md)
-- [ユースケース・使用フロー](docs/specs/stories.md)
-- [設計思想](docs/rules/01-concept.md)
-- [データモデル](docs/rules/03-data-model.md)
+- [目的・要件](docs/requirements.md)
+- [設計判断](decisions/)
+- [検証手順](docs/verification.md)
+- [Versioning・release 手順](docs/release.md)
 
 ## ライセンス
 
 [MIT License](LICENSE)
 
-依存ライブラリの著作権表記とライセンス全文は [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) に掲載。バイナリの再配布時は両ファイルを同梱する。[更新・配布手順](docs/rules/licensing.md)を参照。
+依存ライブラリの著作権表記とライセンス全文は [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) に掲載。バイナリの再配布時は両ファイルを同梱する。[更新・配布手順](docs/licensing.md)を参照。

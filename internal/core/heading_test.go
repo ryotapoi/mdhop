@@ -16,7 +16,7 @@ func TestCollectHeadings(t *testing.T) {
 		"#NoSpace is not a heading\n" +
 		"####### Too many hashes\n"
 	got := collectHeadings(content)
-	// Spec: docs/specs/overview.md — anchor 正規化とインラインコードの扱い。
+	// Keep inline code in heading text while excluding fenced headings.
 	want := []string{"Top", "Sub Section", "Deep", "API `v2` Reference"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("collectHeadings = %v, want %v", got, want)

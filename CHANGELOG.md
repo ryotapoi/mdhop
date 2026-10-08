@@ -154,7 +154,7 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 - Corrected the `diagnose` description in the concept and requirements documents: it reports neither parse failures nor exclusion counts, and the opt-in anchor check was missing.
 - Stated the axis that separates core from mutate commands: whether a command rewrites Markdown notes in the vault.
 - Finished renaming `reconcile` / `canonicalize` to `disambiguate` / `simplify` in the rules documents.
-- Declared `docs/specs/overview.md` as the source of truth for command specifications, with CLI help as its summary.
+- Declared the command specification document as the source of truth at that time, with CLI help as its summary.
 
 ## [v0.16.3] - 2026-07-12
 

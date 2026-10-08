@@ -154,7 +154,7 @@
 - コンセプト資料・要件定義の `diagnose` 記述を修正。パース失敗も除外数も報告しないこと、opt-in の anchor 切れ検出が未記載だったことを実装に合わせた。
 - core / mutate を分ける分類軸（Vault の Markdown ノートを書き換えるか）を明記。
 - rules 側に残っていた旧語 `reconcile` / `canonicalize` を `disambiguate` / `simplify` へ更新完了。
-- コマンド仕様の正本が `docs/specs/overview.md` であり、CLI ヘルプはその要約である位置づけを明記。
+- 当時のコマンド仕様書を正本とし、CLI ヘルプはその要約である位置づけを明記。
 
 ## [v0.16.3] - 2026-07-12
 

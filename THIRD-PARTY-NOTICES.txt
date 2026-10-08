@@ -4,7 +4,7 @@ mdhop の実行時依存（直接・間接）および Go の著作権・ライ�
 各ライセンス本文は配布元の原文を保持する。mdhop 自身のライセンスは LICENSE を参照。
 確認対象: darwin/amd64, darwin/arm64, linux/amd64, linux/arm64, windows/amd64, windows/arm64。
 依存バージョンは各項目に記載。
-更新・配布手順: docs/rules/licensing.md
+更新・配布手順: docs/licensing.md
 
 ==============================================================================
 github.com/dustin/go-humanize v1.0.1 — LICENSE

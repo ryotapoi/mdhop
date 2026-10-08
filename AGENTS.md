@@ -1,21 +1,18 @@
 # mdhop
 
-mdhop は Coding Agent 向けの CLI ツール。Obsidian Vault 相当の Markdown リポジトリ内のリンク関係を SQLite に事前解析し、grep に頼らず関連ノートへ辿れるようにする。プロダクトの正本は `docs/rules/01-concept.md`。
+mdhop の目的・制約は `docs/requirements.md` にある。作業開始時に `docs/development.md` の言語・作業規則を読む。
 
 ## タスク別の正本
 
 タスクに必要な文書だけを読む。推測で済ませず、判断に影響する正本を確認する。
 
-- 目的・要件: `docs/rules/01-concept.md`、`docs/rules/02-requirements.md`
-- CLI の振る舞い: `docs/specs/`
-- DB schema、query、link resolve、path: `docs/rules/03-data-model.md` と関連する `docs/specs/`
-- 責務配置・依存方向: `docs/rules/architecture.md`
-- `docs/`、`backlog/`、`llm-wiki/` の配置と正本性: `docs/rules/information-management.md`
-- 検証: `docs/rules/verification.md`
-- 過去の判断理由: `docs/decisions/`
-
-stdout の JSON は agent 向けの安定インターフェースとして扱い、warnings などの付加情報は stderr に出す。
-
-## Language
-
-コード・コメント・commit message は英語。`AGENTS.md`、`.agents/`、`docs/`、`llm-wiki/`、`backlog/`、`README` 等の文書は日本語。
+- 目的・要件・出力の安定性: `docs/requirements.md`
+- CLI の操作: `README.ja.md` と `mdhop <command> --help`。実装・契約の変更では `cmd/mdhop/` の対象コマンドとテストを読む
+- DB schema、query、link resolve、path: `internal/core/` の対象実装とテスト、および関連する有効な ADR
+- 責務配置・依存方向・SQL の所有: `decisions/0032-module-and-sql-ownership.md`
+- 情報の配置: `docs/rules/information-management.md`
+- 検証: `docs/verification.md`
+- versioning・release: `docs/release.md`
+- 依存・Go version の更新と配布: `docs/licensing.md`
+- 設計判断: `decisions/` の `status: current` の ADR。過去の判断を調べる場合は `status: superseded` の ADR
+- 未着手・未リリースのタスク: `backlog/backlog.md`

@@ -1,22 +1,11 @@
 ---
 paths:
   - "docs/**"
-  - "llm-wiki/**"
+  - "decisions/**"
+  - "cache/**"
   - "backlog/**"
 ---
 
 # ドキュメントルール
 
-情報の配置・分類・権威（docs/ = 正本 / llm-wiki/ = 正本に負ける作業の入口 / regen 区分 / 昇格ルール）の正本は `docs/rules/information-management.md`。docs/ または llm-wiki/ を編集する前にそれを読む。ここでは重複を避け、編集時に踏みやすい運用上の注意だけを置く。
-
-## 編集時の注意
-
-- 実装の詳細はコードに置く。docs/ に手順を写経しない
-- 設計判断の理由は ADR（docs/decisions/）に記録する。コードから復元できない情報だけ残す
-- llm-wiki/ の `regen: full` / `compiled` を手で恒久編集しない。直したくなったら正本（docs/・ソース）を直して再編纂する
-
-## 外部仕様の編集
-
-- ユーザー視点の挙動・互換性・制約・非目標のみ書く
-- 内部実装の手順は書かない
-- 詳細はテストとコードに寄せる
+編集前に `docs/rules/information-management.md` を読む。言語・backlog の起票規則は `docs/development.md`、版を切る際の文書更新は `docs/release.md` に従う。

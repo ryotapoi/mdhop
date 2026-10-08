@@ -123,17 +123,17 @@ meta:
 - JSON now returns `entry`, selected `backlinks` / `outgoing` / `2hoplink` arrays, and `page`. Each twohop target has all `relation` nodes and `hidden_relation`. Update consumers of the old via→targets shape, standalone tags, or entry preview / metadata. Selected empty arrays and omitted relations differ.
 - Tag / asset / phantom entries retain backlinks and have empty outgoing / twohop. Query outgoing includes indexed parent tags; inspect shows leaf tags.
 
-See the [command specification](docs/specs/overview.md) for full contracts and examples. This describes the v0.21.0 contract; it does not announce a published release or tag.
+Run `mdhop <command> --help` for flags and examples. This describes the v0.21.0 contract; it does not announce a published release or tag.
 
 ## Documentation
 
-- [Command specification and behavior](docs/specs/overview.md)
-- [Use cases and workflows](docs/specs/stories.md)
-- [Design concepts](docs/rules/01-concept.md)
-- [Data model](docs/rules/03-data-model.md)
+- [Purpose and requirements](docs/requirements.md)
+- [Design decisions](decisions/)
+- [Verification procedure](docs/verification.md)
+- [Versioning and release procedure](docs/release.md)
 
 ## License
 
 [MIT License](LICENSE)
 
-Dependency copyright notices and license texts are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Include both files when redistributing binaries. See the [update and distribution procedure](docs/rules/licensing.md).
+Dependency copyright notices and license texts are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Include both files when redistributing binaries. See the [update and distribution procedure](docs/licensing.md).
