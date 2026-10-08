@@ -8,4 +8,4 @@ paths:
 
 # ドキュメントルール
 
-編集前に `docs/rules/information-management.md` を読む。言語・backlog の起票規則は `docs/development.md`、版を切る際の文書更新は `docs/release.md` に従う。
+編集前に `docs/information-management.md` を読む。言語・backlog の起票規則は `docs/development.md`、版を切る際の文書更新は `docs/release.md` に従う。
