@@ -137,6 +137,19 @@ func queryTwoHop(db dbExecer, entryID int64, opts QueryOptions) ([]TwoHopEntry, 
 	if opts.Limit != nil || opts.Offset != nil {
 		// Acquire distinct targets before expanding relations. The lookahead
 		// target and targets outside the page never get relation arrays.
+		// FR-006 was adopted in 080c28d after comparing public Query results on
+		// 2,500-target synthetic sparse/dense vaults (up to 33 vias), with warm
+		// filesystem/SQLite caches and no previews, on local macOS. Relative to
+		// FR-005 alone, dense limit1 fell from 183.7 to 68.0 ms and allocated
+		// bytes/op from 36.95 to 0.446 MB. Dense limit100/offset100 fell from
+		// 186.8 to 70.3 ms; limit1000/offset1000 from 190.6 to 106.7 ms.
+		// The latter sparse window rose from 3.65 to 5.59 ms (53%): we accepted
+		// the extra distinct scan and heap cost for the dense/small-page gains.
+		// Result hashes matched across baseline, FR-005 and FR-006. DISTINCT
+		// still scans eligible candidates; offset-only/overflow windows retain
+		// all targets. Allocated bytes are not peak RSS; real vaults, wider via
+		// sets and Ubuntu were not measured. This is adoption evidence, not a
+		// latency guarantee. Temporary raw logs are not permanent artifacts.
 		targetQuery := `SELECT DISTINCT n.id,n.type,n.name,COALESCE(n.path,''),n.exists_flag` + from
 		nodes, pageNext, err := queryNodePage(db, targetQuery, args, opts)
 		if err != nil {
@@ -230,6 +243,10 @@ func queryHeadSource(db dbExecer, nodeID int64) (contentSource, error) {
 }
 
 // queryViaNodes applies the shared Go predicates before expanding any backlinks.
+// Filtering here avoids expanding rejected vias without duplicating GLOB/type
+// predicates in SQL. In the 2026-10-05 FR-005 comparison (adopted in 080c28d),
+// selective sparse/dense queries fell from 3.78/265 ms to 0.212/5.31 ms with
+// identical public results; these were synthetic warm-cache measurements.
 func queryViaNodes(db dbExecer, entryID int64, filter *QueryFilter) (map[int64]queryNode, error) {
 	rows, err := db.Query(`SELECT DISTINCT n.id,n.type,n.name,COALESCE(n.path,''),n.exists_flag FROM edges e JOIN nodes n ON n.id=e.target_id WHERE e.source_id=?`, entryID)
 	if err != nil {

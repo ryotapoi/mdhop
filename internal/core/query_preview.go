@@ -16,6 +16,10 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		}
 		return err
 	}
+	// Share full-body reads only within this query: one file can support many
+	// returned relations. readSnippets copies excerpts so results do not retain
+	// full bodies. Keeping this local avoids invalidation state or coupling head
+	// reads to a longer-lived cache (FR-004, adopted in abd8a2a).
 	var snippetCache map[string][]string
 	if opts.IncludeSnippet != nil {
 		snippetCache = make(map[string][]string)

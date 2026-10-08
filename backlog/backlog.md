@@ -1,13 +1,6 @@
 # Backlog
 
-## 運用ルール
-
-- Backlog には、今後着手でき、完了を判定できる作業を `- [ ]` 形式のタスクとして置く。
-- 対応要否を決める調査もタスクにできる。観察事実だけを残さず、判断したい問いと、判断をもって完了とすることを明示する。
-- 粗いメモで起票してよいが、着手前に目的と受け入れ条件を読める粒度へ詰める。
-- バージョン番号を付ける場合は SemVer に従う。
-- タスクは `###` 見出しでグループに分ける。バージョンが確定したグループだけ、`### v0.11.0 名前` のように見出しへ番号を付ける。
-- グループが大きい場合は、`####` 見出しでさらに分割してよい。
+起票・完了項目の扱いは [開発手順](../docs/development.md) を参照する。
 
 ## タスク
 
@@ -15,39 +8,39 @@
 
 #### 関連探索と単体情報取得
 
-- [x] [v0.21.0 の実装仕様](v0.21.0.md)を確定する
+- [x] v0.21.0 の実装仕様を確定する（[未リリース受入記録](v0.21.0.md)）
 
-  完了: 関係・CLI・設定・出力・抜粋・移行・異常値と実装順を同ファイルへ記録した。
+  完了: 関係・CLI・設定・出力・抜粋・移行・異常値と実装順を確定した。目的・非目標は [要件](../docs/requirements.md)、約束はコードとテスト、未リリース受入記録は上記ファイルに残す。
 
-以下の段階を上から同一バージョンで実施する。中間段階では新機能が未完成でもよく、最終段階までリリースしない。ただし各段階の完了時には、その段階で触れた契約の集中テストと、`docs/rules/verification.md` に従う `go test ./...`・`go build ./...` を通す。CLI を変更した段階は実バイナリで正常系・異常系、stdout / stderr、終了コードを確認する。型や API の変更で既存呼出側が壊れる場合は同段階で直し、後続段階に壊れた build や恒久的な互換 shim を渡さない。新仕様の全受入確認は最終段階で行う。
+以下の段階を上から同一バージョンで実施する。中間段階では新機能が未完成でもよく、最終段階までリリースしない。ただし各段階の完了時には、その段階で触れた契約の集中テストと、`docs/verification.md` に従う `go test ./...`・`go build ./...` を通す。CLI を変更した段階は実バイナリで正常系・異常系、stdout / stderr、終了コードを確認する。型や API の変更で既存呼出側が壊れる場合は同段階で直し、後続段階に壊れた build や恒久的な互換 shim を渡さない。新仕様の全受入確認は最終段階で行う。
 
 ##### 1. 設定と絞り込みの土台
 
-- [x] [設定と照合規則](v0.21.0.md#設定と照合規則)の目的別 config、旧 exclude fallback、GLOB と型付き経由先の解析を実装する
+- [x] 目的別 config、旧 exclude fallback、GLOB と型付き経由先の解析を実装する（`internal/core/query_filter_test.go`）
 
   完了: config の欠落と明示空を区別し、hide / via include / via exclude を独立合成できる。旧 exclude は新 via exclude キー不在時だけ fallback となり、search の既存契約は変わらない。異常値と競合、GLOB の `/`・`?`・`[]`、型付き経由先の正規化と完全一致の集中テスト、および `go test ./...`・`go build ./...`・`go vet ./...` が通った。実バイナリで search の旧 exclude・`--no-exclude`・明示 CLI 条件と設定構造エラーの stdout / stderr・終了コードを確認した。新 query CLI と関係生成への接続は段階 2 で行う。
 
 ##### 2. query の関係・選択・ページ・出力
 
-- [x] [CLI 契約](v0.21.0.md#mdhop-query)と[関係を作って返すまで](v0.21.0.md#関係を作って返すまで)に従い、query core、CLI、JSON / text formatter を一緒に変更する
+- [x] query core、CLI、JSON / text formatter を一緒に変更する（`internal/core/query_test.go`、`cmd/mdhop/format_query_test.go`）
 
   完了: 三関係の全件取得、選択欄の省略と空配列、全入口で同じ twohop 向き、タグ outgoing、hide と via の独立、typed node と全経由先、単一関係ページ・next_offset が動く。旧 query オプションは削除され、既存呼出側と既存テストを同段階で更新する。head / snippet の新プレビュー機能は段階 4 で追加し、この段階の完了条件には含めない。選択0件・非表示経由のみ・重複対象・末尾ページ・不正入力、および旧上限を超える125対象・16経由先の集中テストが通った。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリの正常系・異常系27件を確認し、JSON単独解析、stdout / stderr・終了コード、query による file / DB の無変更、search の旧 exclude / no-exclude と head の不変を確認した。旧入口previewのテストは共有本文helperへ移し、NFD・stale・missing の保証を保持した。
 
 ##### 3. inspect による単体情報取得
 
-- [x] [inspect の契約](v0.21.0.md#mdhop-inspect)を CLI・core・JSON / text に実装する
+- [x] inspect を CLI・core・JSON / text に実装する（`internal/core/inspect_test.go`、`cmd/mdhop/inspect_test.go`）
 
   完了: 索引上の note 一件の tags / meta と任意 head を返し、選択済みの空欄（tags / head は `[]`、meta は `{}`）と未選択欄の省略を JSON / text で区別する。属性選択と head 指定の独立、親タグと葉タグの表示差、複数 meta 値と引用、hide / via / 旧 exclude の非適用、不正 fields / head、未登録 file・非 note・索引なしを集中テストと実バイナリで確認した。本文変更・削除後も head なしでは索引属性を返し、head ありでは stale / missing エラーになる。正整数の最大 head 行数でも overflow しない。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリ33件が通り、JSON 単独解析、stdout / stderr・終了コード、inspect による file / DB の無変更、索引の自動作成なしを確認した。query preview と正本文書の移行は段階4・5に残す。
 
 ##### 4. query の head / snippet
 
-- [x] [head / snippet の範囲](v0.21.0.md#head--snippet-の範囲)に従い、返す関係に必要な本文プレビューを追加する
+- [x] 返す関係に必要な本文プレビューを追加する（`internal/core/query_preview_test.go`）
 
   完了: head は返却 note のみ、snippet は出力関係に属する実リンク出現のみを付ける。backlinks は対象→入口、outgoing は入口→対象、twohop は対象→可視 via の生行を返し、frontmatter タグ・リンク、型付き入口・via、同一行の別 edge と重複する文脈、複数 seed でも増殖しない出現を確認した。`--path` / `--where` は対象だけ、`--link-key` は直接 edge だけへ適用し、hidden・ページ外・先読み・未選択関係の不要本文を読まない。必要な本文の missing / stale と最大 int の snippet 文脈も確認した。JSON の指定済み空と省略、text の所属・引用 escape、preview flag の 0 / 不正値を集中テストで固定した。`go test ./...`・`go build ./...`・`go vet ./...` と実バイナリ27件が通り、stdout 単独 JSON 解析、stdout / stderr・終了コード、file / DB の無変更、search の共通 head / 旧 exclude の不変を確認した。正本文書の移行と版全体の最終受入は段階5に残す。
 
 ##### 5. 正本・移行・最終受入
 
-- [x] [実装仕様](v0.21.0.md)と実装結果を照合し、`docs/specs/`・利用者向け移行案内を更新して v0.21.0 を検証する
+- [x] 確定した実装仕様と実装結果を照合し、文書・利用者向け移行案内を更新して v0.21.0 を検証する（[受入記録](v0.21.0.md)）
 
   完了（評価対象）: query / inspect の正本と rules の旧記述、README 両版の移行案内を凍結仕様・実装へ合わせた。全受入8項目を既存集中テストに対応付け、旧 query CLI 拒否、config fallback と明示空、search 不変、非 note 入口、タグ経由、JSON / text の型・escape、対象ページ、preview の所属・本文読取境界を実バイナリ79件で確認した。正本の JSON / text 例も別 vault の実行結果へ照合した。ローカル macOS で集中テスト、`go test ./...`・`go build ./...`・`go vet ./...`・実バイナリ build が成功し、stdout / stderr・終了コード・file / DB 無変更を確認した。対象commitのremote CIは未起動でUbuntuは未確認、前段からの検証限界として保持する。index同時更新保証は対象外。便利な一括scriptは製品化せず、release / tag 公開は行っていない。
 
@@ -99,7 +92,7 @@
 
   現象・根拠: `A.md` と本文 `[[A]]` を持つ `Source.md` を build 後、`A.md` を `B].md` へ move すると、本文を `[[B]]]` に変更して成功する。`internal/core/markdown_destination.go` の `wikilinkRepresentable` は内部の `]]` だけを拒否し、単独の末尾 `]` を許す。`internal/core/rewrite.go` の wrapper 連結後は `internal/core/parse.go` の `wikiLinkSpans` が最初の `]]` で閉じるため、再解析 target は `B` となる。DB は移動先を指したままで、再 build により参照先が変わる。開始 SHA でも同じ構文を生成する既存不具合であり、今回の差分による導入ではない。
 
-  修正範囲: 実際に出力する wikilink の wrapper・alias・subpath と既存 parser の境界に沿って表現可否を判定し、同じ意味を表現できない必須 rewrite は更新前に拒否する。新しいリンク構文や parser は追加しない。判断の正本は `docs/specs/overview.md`「再出力と既存 index」。
+  修正範囲: 実際に出力する wikilink の wrapper・alias・subpath と既存 parser の境界に沿って表現可否を判定し、同じ意味を表現できない必須 rewrite は更新前に拒否する。新しいリンク構文や parser は追加しない。約束は `internal/core/rewrite_test.go` の `TestRewriteRawLinkClosingBracketBoundary` と `internal/core/convert_test.go` の `TestConvertClosingBracketBoundary` に残す。
 
   受入条件: alias / subpath のない上記 move は file / DB を変更せずエラーになる。target または subpath の末尾 `]` が closing wrapper と結合する境界を確認し、表現可能な対照ケースは拒否せず、生成後の再解析で target / subpath の意味を保持する。dry-run と失敗時の無変更を確認する。
 
@@ -123,7 +116,7 @@
 
   完了: 三関係の対象 slice・全 relation・next_offset、空・末尾・overflow 境界を恒久回帰で固定し、preview の既存回帰と実バイナリで hidden via・ページ外・先読みの欠落本文を読まないことを確認した。集中テスト、`go test ./...`・`go build ./...`・`go vet ./...`・実バイナリ build と代表 CLI 21件がローカル macOS で成功した。既存8条件の公開結果 hash は baseline / FR-005 単独 / 本候補で一致し、dense limit1 は FR-005 単独の 183.7ms / 36.95MB allocated bytes/op から 68.0ms / 0.446MB に改善した。追加の medium / large page window も公開結果は一致し、dense の limit100 / offset100 は FR-005 単独の 186.8ms → 70.3ms、limit1000 / offset1000 は 190.6ms → 106.7ms へ改善した。sparse の後者は FR-005 単独の 3.65ms → 5.59ms（約1.94ms / 53%増、変更前 baseline 比は約0.91ms / 20%増）となった。全件に近いページの二段階 scan と heap の追加コストを明示し、密な関係の改善とのトレードオフを許容して取得段階 paging を採用した。
 
-  検証限界: 2,500対象の合成 sparse / dense vault、warm cache の測定であり実 vault の速度や peak RSS は保証しない。SQL DISTINCT は全候補を走査し、offset-only・overflow-sized window は全対象取得へ fallback する。33経由先を超える広い入口は未測定。remote CI は未起動、Ubuntu は未確認。実行 command・exit・duration・stdout / stderr と比較値は `tmp/workflow/v021-fixes-20261005/changes/table-query-fixes/validation/`、既存測定は `tmp/workflow/query-optimization-20261005/summary.json` に保存した。
+  検証限界: 2,500対象の合成 sparse / dense vault、warm cache の測定であり実 vault の速度や peak RSS は保証しない。SQL DISTINCT は全候補を走査し、offset-only・overflow-sized window は全対象取得へ fallback する。33経由先を超える広い入口は未測定。remote CI は未起動、Ubuntu は未確認。当時の一時ログは永続成果物ではない。採否理由・実測の要点と測定限界は `internal/core/query_fetch.go` のコメントにも残す。
 
 #### リンク解釈の不具合修正
 
@@ -140,7 +133,7 @@
 
   現象: decoded fragment 末尾の backslash 1 個と表内 alias separator の backslash が連続し、pipe 直前が backslash 2 個になる。header が2列、delimiter row が1列として解釈され、自己リンク edge の `in_table=0`、`subpath` 末尾が backslash 2 個となる。resolve の JSON でも元の fragment と異なる値を返す。
 
-  修正範囲: `internal/core/convert.go` の `convertMarkdownToWikilink` にある自己リンクの alias 分岐。通常リンク側で使う `internal/core/markdown_destination.go` の `tableWikiAliasSafe` と同じ安全条件を適用できる。新しい表解析や変換方式を追加せず、同じ意味を表現できない場合は原文を保持する既存契約（`docs/specs/overview.md`「再出力と既存 index」）に従う。
+  修正範囲: `internal/core/convert.go` の `convertMarkdownToWikilink` にある自己リンクの alias 分岐。通常リンク側で使う `internal/core/markdown_destination.go` の `tableWikiAliasSafe` と同じ安全条件を適用できる。新しい表解析や変換方式を追加せず、同じ意味を表現できない場合は原文を保持する既存契約（`internal/core/convert_test.go`）に従う。
 
   受入条件: 上記入力は convert 後も原文を保持し、再解析しても一列表であることと decoded fragment 末尾の backslash が1個であることを確認する。再 build で fragment-only Markdown destination は既存仕様どおり graph に含めず、破損した自己リンク edge を生成しない。表内の安全な自己リンクの alias 変換、alias 不要の自己リンク、通常リンクと表外リンクの既存変換を保つ。
 
@@ -156,7 +149,7 @@
   [shown](A\`B.md) [later](C.md)
   ```
 
-  現象: `internal/core/parse.go` の `stripInlineCode` が escape された backtick を code span の開始と扱い、閉じ backtick がないため行末まで空白化する。build / update は成功するが両リンクが索引から欠落し、outgoing は空、resolve は `link not found` となる。backtick を `%60` とした対照入力では両ノートへのリンクが索引に入る。destination の ASCII punctuation backslash escape を復号する仕様（`docs/specs/overview.md`「リンク解釈（互換性）」）に反する。
+  現象: `internal/core/parse.go` の `stripInlineCode` が escape された backtick を code span の開始と扱い、閉じ backtick がないため行末まで空白化する。build / update は成功するが両リンクが索引から欠落し、outgoing は空、resolve は `link not found` となる。backtick を `%60` とした対照入力では両ノートへのリンクが索引に入る。destination の ASCII punctuation backslash escape の復号に反する（`internal/core/parse_test.go` の `TestParseMarkdownEscapedBacktickDestination`）。
 
   受入条件: 上記入力を build / update すると ``A`B.md`` と `C.md` への両 edge が作られ、outgoing と原文指定の resolve で確認できる。`stripInlineCode` の開始 delimiter 判定で backslash の奇偶による escape を扱い、実際の code span 内のリンク除外と位置保持を維持する。escape されない backtick と連続 backslash の対照ケースも確認する。
 
@@ -174,7 +167,7 @@
 
   完了: 改善前後の同条件測定で効果を示し、既存の解決契約と互換性を回帰検証する。保守負担が大きい案しか得られない場合は、比較結果と見送り理由を記録して完了とする。
 
-  結果（2026-10-06）: SQL で printable ASCII の不一致行を除外し、NFD / Unicode 候補は従来の Go 比較へ残す局所案を採用した。10万 ASCII note の warm lookup は中央値約49.1ms → 約26.3ms、13.60MB/op → 2.24KB/op。SQLite の type 内走査と全 Unicode 背景の時間増は残る。schema・移行・cache・接続登録は追加せず、既存解決契約と旧 NFD 互換を回帰検証した。条件別の時間・allocation・単発 open の代償・採否理由は [ADR 0024](../docs/decisions/0024-basename-sql-prefilter.md) を参照。
+  結果（2026-10-06）: SQL で printable ASCII の不一致行を除外し、NFD / Unicode 候補は従来の Go 比較へ残す局所案を採用した。10万 ASCII note の warm lookup は中央値約49.1ms → 約26.3ms、13.60MB/op → 2.24KB/op。SQLite の type 内走査と全 Unicode 背景の時間増は残る。schema・移行・cache・接続登録は追加せず、既存解決契約と旧 NFD 互換を回帰検証した。条件別の時間・allocation・単発 open の代償・採否理由は [ADR 0024](../decisions/0024-basename-sql-prefilter.md) を参照。
 
 ### 今後の検討
 
@@ -187,3 +180,15 @@
   検討事項: 「前回 build 時刻より mtime が新しいファイルだけ」では、削除、mtime を保持した追加・移動・復元、同一秒の変更、build 中の変更を取りこぼし得る。既存のファイル別 mtime を用いる方法との違いと、保証できる範囲を確認する。また、変更していないノートでも、参照先の追加・削除や basename 衝突で解決結果が変わること、設定・解析規則・索引形式の変更では全量再生成が必要になることを踏まえ、全量 build と同じ関係を保つために必要な処理を評価する。
 
   完了: 測定条件と結果、採用 / 見送りの判断と根拠をまとめる。採用する場合は、解決する利用上の問題、最小の操作・変更検出規則、全量 build へ戻す条件と受入条件を明確にし、実装を別タスクとして起票する。
+
+- [ ] 索引に設定と製品バージョンを保存する必要性、および `.mdhop/meta.json` の要否を判断する
+
+  出典: 情報管理移行で旧文書から抽出した未実装案。ユーザーの既決の製品要求や実装予定を意味しない。現在の schema / link 解釈 version と rebuild の仕組みを確認し、追加保存が解決する問題、設定変更の検知、既存索引との互換性、保存場所の保守負担を比較する。
+
+  完了条件: 必要 / 不要の判断と理由を記録する。採用する場合だけ、保存する情報・形式・更新責務・受入条件を決めて実装タスクを起票する。`meta.json` の追加を前提としない。
+
+- [ ] 旧文書に残っていた未採用の探索・リンク解決案の採否を判断する
+
+  出典: 情報管理移行で旧文書から抽出した未実装案。対象は Obsidian 互換モード、常時 path 必須の設定、alias の表示・検索、metadata 集計。ユーザーの既決要求や採用済み仕様として扱わない。各案について解決する利用場面、現行 CLI での代替、既存の厳密解決・出力との整合、必要な保守負担を確認する。
+
+  完了条件: 各案を採用 / 見送りとして理由とともに判断する。採用する案だけ、範囲・非目標・受入条件を明示して実装タスクを起票する。
