@@ -10,9 +10,9 @@ mdhop 自身のライセンスはルートの `LICENSE`、外部依存の著作�
 
 ```sh
 go install github.com/google/go-licenses/v2@v2.0.1
-mkdir -p tmp/licenses
-go-licenses report ./cmd/mdhop --ignore github.com/ryotapoi/mdhop > tmp/licenses/report.csv
-go-licenses save ./cmd/mdhop --ignore github.com/ryotapoi/mdhop --save_path tmp/licenses/collected
+mkdir -p .tmp/licenses
+go-licenses report ./cmd/mdhop --ignore github.com/ryotapoi/mdhop > .tmp/licenses/report.csv
+go-licenses save ./cmd/mdhop --ignore github.com/ryotapoi/mdhop --save_path .tmp/licenses/collected
 ```
 
 `save` の出力先は未作成のディレクトリを使う。上記は現在の OS / architecture を調べる例。現行通知の確認対象は darwin / linux / windows の amd64 / arm64。別の配布対象は `GOOS=linux GOARCH=amd64 go-licenses report ...` のように環境変数を指定し、`save` も同じ設定で実行する。収集先は対象ごとに分け、`CGO_ENABLED` / build tag も配布ビルドに合わせる。依存モジュールと version は同じ設定での `go list -deps -f '{{if .Module}}{{.Module.Path}} {{.Module.Version}}{{end}}' ./cmd/mdhop` と照合する。非 Go コード等を検査できない旨の警告も確認する。

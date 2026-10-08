@@ -17,13 +17,13 @@
 
 ## 非自明な制約と例外
 
-- 調査・検証用の使い捨て Go source は package directory ではなく `tmp/_go/` に置き、関連作業後に破棄する。先頭が `_` の directory は `go test ./...` の探索対象外になる。
+- 調査・検証用の使い捨て Go source は package directory ではなく `.tmp/_go/` に置き、関連作業後に破棄する。先頭が `_` の directory は `go test ./...` の探索対象外になる。
 - CI の自動 gate は `go.mod` の Go version を使い、Ubuntu と macOS の両方で `go test ./...` を実行する。path、Unicode 正規化、file operation に関わる変更は platform 差を test で固定し、CI が動く変更では両 OS の結果を確認する。
 - `cmd/mdhop` の CLI test は主に `runQuery` などの run 関数を直接呼ぶため、process の終了コードや main で付与する error prefix までは保証しない。CLI contract に触れる変更では実バイナリ確認を省略しない。
-- `delete --rm`、`move`、`set`、rewrite 系など disk を変更する確認は、`testdata/vault_*` を一時 directory へコピーした vault または `tmp/` 配下の使い捨て vault で行う。repository の共有 fixture や利用者の vault を直接変更しない。file と DB の双方を確認し、dry-run がある command は無変更であることも確認する。
+- `delete --rm`、`move`、`set`、rewrite 系など disk を変更する確認は、`testdata/vault_*` を一時 directory へコピーした vault または `.tmp/` 配下の使い捨て vault で行う。repository の共有 fixture や利用者の vault を直接変更しない。file と DB の双方を確認し、dry-run がある command は無変更であることも確認する。
 - `convert`、`repair`、`simplify` は DB を使わず file を直接走査する。実際に書き換える確認の後は同じ一時 vault で `build` を実行し、index と書き換え後の file が整合することを確認する。
 - schema や index の永続形式を変えた場合は、既存 DB の in-place migration ではなく `build` による再生成を確認する。mutation の失敗系を変えた場合は、file と DB に部分更新や一時 file が残らないことも確認する。
-- JSON contract の変更では `AGENTS.md` の出力契約に対し、stdout を単独で parse でき、付加情報が stderr に分離されることを確認する。
+- JSON contract の変更では [要件](requirements.md)の出力契約に対し、stdout を単独で parse でき、付加情報が stderr に分離されることを確認する。
 - CLI test は process-wide の `os.Stdout` / `os.Stderr` を差し替えるものがあるため、それらを使う test は `t.Parallel()` にしない。
-- repository root の `mdhop.yaml` は `testdata/**` と `examples/**` を build 対象外にする。また root 全体には用途の異なる同名 file が多いため、mdhop 自身で docs や wiki を確認するときは `--path` で対象 subtree を限定し、root 全体の basename conflict を検証失敗として扱わない。
+- repository root の `mdhop.yaml` は `testdata/**` と `examples/**` を build 対象外にする。また root 全体には用途の異なる同名 file が多いため、mdhop 自身で文書を確認するときは `--path` で対象 subtree を限定し、root 全体の basename conflict を検証失敗として扱わない。
 - Go、SQLite、YAML の依存 API の仕様が実装判断や期待値に影響する変更では、その一次資料と実装・test を照合する。外部 API に依存しない変更では不要。

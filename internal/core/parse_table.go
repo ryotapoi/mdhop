@@ -11,6 +11,8 @@ var tableHTMLTagLine = regexp.MustCompile(`^(?:<[A-Za-z][A-Za-z0-9-]*(?:[ \t\r\n
 
 // bodyTableLines records table context without changing source spans. Only the
 // body lines already admitted by the shared fence/frontmatter scanner qualify.
+// The table grammar is based on https://github.github.com/gfm/#tables-extension-;
+// this contextual scanner is deliberately not a complete CommonMark block parser.
 func bodyTableLines(lines []string, fmEnd int) map[int]bool {
 	type bodyLine struct {
 		number int

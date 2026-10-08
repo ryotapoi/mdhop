@@ -21,7 +21,8 @@ type SimplifyResult struct {
 
 // Simplify rewrites path links to basename links when the basename is unique
 // or can be resolved via root-priority. It works by scanning files directly
-// (no DB required).
+// (no DB required). Shortening is explicit rather than automatic so recurring
+// basename collisions do not cause unrelated Git diffs to oscillate.
 func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 	result := &SimplifyResult{}
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{

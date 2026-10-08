@@ -34,6 +34,8 @@ func decodeMarkdownLexical(raw string) string {
 	return out.String()
 }
 
+// markdownEntity follows the semicolon-terminated entity subset of CommonMark 0.31.2:
+// https://spec.commonmark.org/0.31.2/#entity-and-numeric-character-references
 func markdownEntity(raw string) (string, int) {
 	end := strings.IndexByte(raw, ';')
 	if end < 2 || end > 33 {
@@ -112,6 +114,8 @@ func decodePercent(raw string) string {
 
 // markdownDestination separates syntax before percent decoding. Encoded # is
 // part of a filename; it must never become a fragment delimiter on a second pass.
+// One percent-decoding pass is mdhop's local-file convention, not a second
+// CommonMark lexical-decoding pass; generated schemes and delimiters stay literal.
 func markdownDestination(raw string) (target, subpath string, external bool) {
 	lexical := decodeMarkdownLexical(strings.TrimSpace(raw))
 	if isURL(lexical) {
