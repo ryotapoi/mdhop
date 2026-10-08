@@ -35,7 +35,7 @@ CLAUDE.local.md
 .claude/*.local.*
 
 # Temporary files (scratch notes, etc.)
-/tmp/
+/.tmp/
 
 # mdhop index (built on demand, e.g. by wiki-lint for llm-wiki/)
 .mdhop/
