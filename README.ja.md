@@ -4,7 +4,7 @@
 
 Markdown リポジトリ内のリンク関係を SQLite にインデックス化する CLI ツール。Obsidian Vault 相当のディレクトリで wikilink / markdown link / tag / frontmatter を解析し、grep に頼らず関連ノートへ辿れるようにする。Coding Agent（Claude Code, Codex 等）と CLI ユーザーの両方で使える。
 
-[English README](README.md) · [English changelog](CHANGELOG.md) · [日本語の変更履歴](CHANGELOG.ja.md)
+[English](README.md) · 日本語
 
 ## 特徴
 
@@ -121,10 +121,11 @@ meta:
 - JSON は `entry`、選択した `backlinks` / `outgoing` / `2hoplink` 配列、`page` を返す。twohop は対象ごとの全 `relation` と `hidden_relation` を持つ。独立 tags、入口 preview / meta、旧 via→targets 構造を読む処理は更新が必要。選択済み空と未選択を区別する。
 - tag / asset / phantom 入口の backlinks は維持する。outgoing / twohop は空。query outgoing には親タグも含み、inspect tags は葉タグを返す。
 
-フラグと使用例は `mdhop <command> --help` を参照。この案内は v0.21.0 の契約変更であり、release / tag の公開記録ではない。
+フラグと使用例は `mdhop <command> --help` を参照。
 
 ## ドキュメント
 
+- [変更履歴](CHANGELOG.ja.md)
 - [目的・要件](docs/requirements.md)
 - [設計判断](decisions/)
 - [検証手順](docs/verification.md)

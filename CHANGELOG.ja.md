@@ -1,8 +1,47 @@
 # 変更履歴
 
+[English](CHANGELOG.md) · 日本語
+
 この変更履歴は、プロジェクトの [GitHub Releases](https://github.com/ryotapoi/mdhop/releases)、Git tag、コミット履歴、backlog の完了済みバージョングループを照合して再構成しています。GitHub Release がないバージョンは、tag が作成されていなくても記載しています。
 
 ## [Unreleased]
+
+## [v0.21.0] - 2026-10-08
+
+### 追加
+
+- 索引済み note 一件の tags / meta と任意の head を取得する `inspect` を追加。属性選択と head 指定は独立し、head 読取時は本文の欠落・更新を検出する。
+- query に関係選択と単一関係の対象ページングを追加。入口・経由先を型付きで返し、twohop の各対象に全経由先を含め、次ページがある場合は `next_offset` を返す。
+- query の表示条件（`--hide-path` / `--hide-tag`）と twohop の経由先選択（`--via*` / `--exclude-via*`）を独立させ、設定の無効化も別々に指定可能にした。query の head は返却 note、snippet は各関係の根拠となる実リンク出現を返す。
+
+### 変更
+
+- query の JSON を `entry`、選択した `backlinks` / `outgoing` / `2hoplink` 配列、`page` に変更。twohop は対象ごとの `relation` と `hidden_relation` を持ち、選択済みの空配列と未選択欄の省略を区別する。outgoing には索引済み親タグも含む。
+- query の `--fields` / `--max-backlinks` / `--max-twohop` / `--max-via-per-target` / `--exclude` / `--exclude-tag` / `--no-exclude` を削除。既定は全対象・全経由先を返す。旧 config `exclude` は `query.via.exclude` キー不在時だけ経由先除外へ fallback し、search の挙動は維持する。
+
+### 修正
+
+- Markdown destination の backslash escape・HTML entity・percent escape を参照定義も含めて一貫して復号し、convert / move の書き換えで符号化されたファイル名区切りと fragment の意味を保持する。
+- Markdown 表内の wikilink alias separator の escape と原文位置を保持。URL / email autolink や inline HTML で始まる表にも対応する。索引済み raw link の完全一致 resolve は source snapshot を使い、同じ原文の出現が異なる宛先・fragment を指す場合は曖昧として拒否する。
+- escaped backtick 後のリンクを解析と書き換えで一貫して扱い、実際の inline code span 内のリンクは引き続き保護する。
+- convert / move で wikilink alias や Markdown 表示文の内側を独立した Markdown link として書き換えないよう修正。表内の安全でない自己リンクなど、wikilink で意味を保持できないリンクは convert 時に原文を保持する。
+- quoted frontmatter では backtick を含む wikilink の必須書き換えを許可。末尾の閉じ角括弧で参照先の意味が変わる書き換えは、file / index の変更前に拒否する。
+
+### 性能
+
+- twohop の経由先選択を backlinks 展開前に適用し、query のページ候補の保持量を制限。全経由先の関係展開は選択されたページ対象だけに行う。
+- 同一 query の snippet 間で本文を共有し、抜粋行をコピーして返却結果が本文全体の buffer を保持しないようにした。
+- SQL で printable ASCII の不一致 basename を事前除外し、Unicode / NFD と既存の解決規則を維持。ASCII が多い索引で allocation を削減する一方、Unicode が多い索引では走査コストが増える場合がある。
+
+### 文書
+
+- 要件・開発手順を整理し、README 両版と agent skill 例を更新。versioning と GitHub Release 公開を別手順にした。
+- 実行時依存と Go の通知を `THIRD-PARTY-NOTICES.txt` に追加し、バイナリ配布時に `LICENSE` と同梱する手順を整備。
+
+### アップグレード
+
+- 既存 Vault はアップグレード後に `mdhop build` を実行すること。表文脈と index 解釈 version を保存するため、旧 index は再生成まで拒否される。
+- query 呼出側を削除 flags と新出力に合わせて更新すること。関連 note の選択は `--relations`、入口の属性・head は `inspect`、ページングは単一関係の `--limit` / `--offset` を使う。[v0.21.0 への移行](README.ja.md#v0210-への移行)を参照。
 
 ## [v0.20.0] - 2026-10-04
 

@@ -4,7 +4,7 @@
 
 A CLI tool that indexes link relationships in Markdown repositories into SQLite. It parses wikilinks, markdown links, tags, and frontmatter in Obsidian Vault-compatible directories, enabling fast navigation to related notes without relying on grep. Designed for both Coding Agents (Claude Code, Codex, etc.) and CLI users.
 
-[日本語版 README](README.ja.md) · [Changelog](CHANGELOG.md) · [日本語の変更履歴](CHANGELOG.ja.md)
+English · [日本語](README.ja.md)
 
 ## Features
 
@@ -123,10 +123,11 @@ meta:
 - JSON now returns `entry`, selected `backlinks` / `outgoing` / `2hoplink` arrays, and `page`. Each twohop target has all `relation` nodes and `hidden_relation`. Update consumers of the old via→targets shape, standalone tags, or entry preview / metadata. Selected empty arrays and omitted relations differ.
 - Tag / asset / phantom entries retain backlinks and have empty outgoing / twohop. Query outgoing includes indexed parent tags; inspect shows leaf tags.
 
-Run `mdhop <command> --help` for flags and examples. This describes the v0.21.0 contract; it does not announce a published release or tag.
+Run `mdhop <command> --help` for flags and examples.
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md)
 - [Purpose and requirements](docs/requirements.md)
 - [Design decisions](decisions/)
 - [Verification procedure](docs/verification.md)

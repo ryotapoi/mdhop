@@ -1,8 +1,47 @@
 # Changelog
 
+English · [日本語](CHANGELOG.ja.md)
+
 This changelog was reconstructed from the project's [GitHub Releases](https://github.com/ryotapoi/mdhop/releases), Git tags, commit history, and completed version groups in the backlog. Versions without a GitHub Release are recorded here even when no tag was created.
 
 ## [Unreleased]
+
+## [v0.21.0] - 2026-10-08
+
+### Added
+
+- Added `inspect` to read one indexed note's tags and metadata, with optional head lines. Attribute selection and head selection are independent; head reads detect missing or stale source files.
+- Added relationship selection and single-relation target pagination to `query`, with typed entry and via nodes, all via nodes per two-hop target, and `next_offset` when another page exists.
+- Added independent query display filters (`--hide-path` / `--hide-tag`) and two-hop via selection (`--via*` / `--exclude-via*`), with separate configuration controls. Query head previews belong to returned notes; snippets show the actual link occurrences proving each relationship.
+
+### Changed
+
+- Changed the query JSON contract to `entry`, selected `backlinks` / `outgoing` / `2hoplink` arrays, and `page`. Two-hop results are grouped by target with `relation` and `hidden_relation`; selected empty arrays differ from omitted relationships. Outgoing results include indexed parent tags.
+- Removed query `--fields`, `--max-backlinks`, `--max-twohop`, `--max-via-per-target`, `--exclude`, `--exclude-tag`, and `--no-exclude`. The default returns all targets and via nodes. Legacy config `exclude` applies only as a via-exclusion fallback when `query.via.exclude` is absent; search behavior is unchanged.
+
+### Fixed
+
+- Decoded Markdown destination backslash escapes, HTML entities, and percent escapes consistently, including reference definitions. Preserved encoded filename delimiters and fragments during link conversion and move rewrites.
+- Preserved escaped wikilink alias separators and source positions in Markdown tables, including tables starting with URL/email autolinks or inline HTML. Exact indexed raw-link resolution uses the source snapshot and rejects occurrences with conflicting targets or fragments.
+- Indexed and rewrote links after escaped backticks consistently, while continuing to protect real inline code spans.
+- Prevented conversion and move rewrites from treating wikilink aliases or Markdown display text as independent Markdown links. Links that cannot preserve their meaning as wikilinks, including unsafe table self-links, remain unchanged during conversion.
+- Allowed required wikilink rewrites containing backticks in quoted frontmatter, while rejecting destinations whose trailing closing brackets would change their meaning before any file or index mutation.
+
+### Performance
+
+- Filtered two-hop via nodes before expanding backlinks and bounded retained query page candidates; expanded all via relations only for selected page targets.
+- Reused source bodies across snippets within one query and copied excerpt lines so returned snippets do not retain entire source buffers.
+- Prefiltered nonmatching printable ASCII basenames in SQL while retaining Unicode/NFD matching and existing resolution rules. This reduces allocations for ASCII-heavy indexes; Unicode-heavy indexes can incur additional scan cost.
+
+### Documentation
+
+- Consolidated requirements and development procedures, updated both READMEs and the example agent skill, and separated versioning from GitHub Release publication.
+- Added runtime dependency and Go license notices in `THIRD-PARTY-NOTICES.txt`, with distribution guidance for including it and `LICENSE` with binaries.
+
+### Upgrade
+
+- Run `mdhop build` for every existing vault after upgrading. Stored table context and an index interpretation version require index regeneration; older indexes are rejected until rebuilt.
+- Update query callers for the removed flags and new output shape. Use `--relations` for related-note selection, `inspect` for entry attributes/head, and single-relation `--limit` / `--offset` for pagination. See [Migrating to v0.21.0](README.md#migrating-to-v0210).
 
 ## [v0.20.0] - 2026-10-04
 
