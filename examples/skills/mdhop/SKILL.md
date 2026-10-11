@@ -98,7 +98,7 @@ Run `mdhop reachable --help`, `mdhop graph --help`, `mdhop stats --help`, or `md
 
 ### Validate Frontmatter
 
-Use `mdhop meta-check` to verify that frontmatter reference values point to real paths or wikilinks. Use `mdhop meta-validate` to check required keys and declared types from `mdhop.yaml`.
+Use `mdhop meta-check` to verify that frontmatter reference values point to real paths or wikilinks. Use `mdhop meta-validate` to check required keys and declared types from `mdhop.toml`.
 
 ```bash
 mdhop meta-check --key sources --kind path --format json
@@ -149,7 +149,7 @@ Run `mdhop disambiguate --help`, `mdhop repair --help`, `mdhop simplify --help`,
 
 ### Initialize Metadata Schema
 
-Use `mdhop init-meta` to scaffold `mdhop.yaml` `meta.types` from presets, a vault scan, or both.
+Use `mdhop init-meta` to scaffold `mdhop.toml` `meta.types` from presets, a vault scan, or both.
 
 ```bash
 mdhop init-meta --preset --scan

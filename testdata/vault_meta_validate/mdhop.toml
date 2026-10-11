@@ -1,0 +1,7 @@
+[meta]
+[meta.types]
+priority = 'number'
+updated = 'date'
+
+[meta.types.severity]
+ordered = ['low', 'medium', 'high', 'critical']

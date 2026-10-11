@@ -1,0 +1,4 @@
+[meta]
+[meta.types]
+priority = 'number'
+status = 'string'

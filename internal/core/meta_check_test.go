@@ -304,7 +304,7 @@ func TestMetaCheckExcludedTargetsAreResolveCandidates(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(vault, "excluded"), 0o755); err != nil {
 		t.Fatalf("mkdir excluded: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - excluded/**\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[build]\nexclude_paths = ['excluded/**']\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	source := `---
@@ -417,7 +417,7 @@ func TestMetaCheckExcludedCandidatesAffectBasenameResolution(t *testing.T) {
 			t.Fatalf("mkdir %s: %v", dir, err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - excluded/**\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[build]\nexclude_paths = ['excluded/**']\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(vault, "Source.md"), []byte("---\nsources:\n  - Duplicate\n  - RootChoice\n---\n"), 0o644); err != nil {

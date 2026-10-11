@@ -875,9 +875,9 @@ func TestUpdateDeletedFileMetaCleanup(t *testing.T) {
 
 func TestUpdateMetaWarnings(t *testing.T) {
 	vault := t.TempDir()
-	// Create mdhop.yaml with date type for "date" key.
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"),
-		[]byte("meta:\n  types:\n    date: date\n"), 0o644); err != nil {
+	// Create mdhop.toml with date type for "date" key.
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"),
+		[]byte("[meta]\n[meta.types]\ndate = 'date'\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ndate: 2024-01-01\n---\ncontent\n"), 0o644); err != nil {
@@ -949,7 +949,7 @@ func TestUpdateInvalidConfig(t *testing.T) {
 	beforeMeta := countMeta(t, dbPath(vault))
 
 	// Write invalid config.
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  types:\n    date: invalid_type\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[meta]\n[meta.types]\ndate = 'invalid_type'\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

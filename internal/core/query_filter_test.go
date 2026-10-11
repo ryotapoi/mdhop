@@ -9,7 +9,7 @@ import (
 func loadQueryTestConfig(t *testing.T, text string) (Config, error) {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(text), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(text), 0600); err != nil {
 		t.Fatal(err)
 	}
 	return LoadConfig(dir)
@@ -21,13 +21,13 @@ func TestQueryConfigFallback(t *testing.T) {
 		allowed     bool
 	}{
 		{"missing", "", false},
-		{"include only", "query:\n  via:\n    include:\n      paths: ['archive/*']\n", false},
-		{"empty mapping", "query:\n  via:\n    exclude: {}\n", true},
-		{"empty lists", "query:\n  via:\n    exclude: {paths: [], tags: []}\n", true},
-		{"replacement", "query:\n  via:\n    exclude: {paths: ['other/*']}\n", true},
+		{"include only", "[query]\n[query.via]\n[query.via.include]\npaths = ['archive/*']\n", false},
+		{"empty mapping", "[query]\n[query.via]\n[query.via.exclude]\n", true},
+		{"empty lists", "[query]\n[query.via]\n[query.via.exclude]\npaths = []\ntags = []\n", true},
+		{"replacement", "[query]\n[query.via]\n[query.via.exclude]\npaths = ['other/*']\n", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := loadQueryTestConfig(t, "exclude: {paths: ['archive/*']}\n"+tc.query)
+			cfg, err := loadQueryTestConfig(t, "[exclude]\npaths = ['archive/*']\n"+tc.query)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -48,9 +48,9 @@ func TestQueryConfigFallback(t *testing.T) {
 			}
 		})
 	}
-	for _, text := range []string{"exclude: null", "exclude: &empty null", "<<: {exclude: null}", "exclude: bad", "exclude: []", "include: {paths: bad}"} {
+	for _, text := range []string{"exclude = null", "exclude = 'bad'", "exclude = []", "include = { paths = 'bad' }"} {
 		t.Run(text, func(t *testing.T) {
-			if _, err := loadQueryTestConfig(t, "query:\n  via:\n    "+text+"\n"); err == nil {
+			if _, err := loadQueryTestConfig(t, "[query.via]\n"+text+"\n"); err == nil {
 				t.Fatal("expected structural error")
 			}
 		})
@@ -141,7 +141,7 @@ func TestQueryFilterGlob(t *testing.T) {
 			t.Fatal("character class must fail")
 		}
 	}
-	cfg, err := loadQueryTestConfig(t, "query:\n  hide: {paths: ['[a]']}\n  via:\n    include: {paths: ['[b]']}\n    exclude: {paths: ['[c]']}\n")
+	cfg, err := loadQueryTestConfig(t, "[query]\n[query.hide]\npaths = ['[a]']\n\n[query.via]\n[query.via.exclude]\npaths = ['[c]']\n\n[query.via.include]\npaths = ['[b]']\n")
 	if err != nil {
 		t.Fatalf("semantic validation leaked into config/search: %v", err)
 	}

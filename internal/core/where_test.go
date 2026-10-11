@@ -911,8 +911,8 @@ func TestQueryBacklinksWhere_CoalesceExists(t *testing.T) {
 
 func TestQueryBacklinksWhere_CoalesceDifferingTypesFallback(t *testing.T) {
 	vault := copyVaultForQuery(t, "vault_query_where")
-	cfg := []byte("meta:\n  types:\n    priority: number\n    status: string\n    created: date\n    reviewed: date\n")
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), cfg, 0o644); err != nil {
+	cfg := []byte("[meta]\n[meta.types]\ncreated = 'date'\npriority = 'number'\nreviewed = 'date'\nstatus = 'string'\n")
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), cfg, 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	buildForQuery(t, vault)

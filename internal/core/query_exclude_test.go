@@ -113,7 +113,7 @@ func TestQueryViaFilterExcludesConnector(t *testing.T) {
 
 func TestQueryFilterConfigIsExplicit(t *testing.T) {
 	vault := setupExcludeVault(t)
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("query:\n  hide:\n    paths: ['daily/*']\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[query]\n[query.hide]\npaths = ['daily/*']\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	unfiltered, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}})

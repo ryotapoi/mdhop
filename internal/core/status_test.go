@@ -31,7 +31,7 @@ func TestStatus_ClassifiesDifferencesWithoutChangingIndex(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	writeStatusFile(t, vault, "mdhop.yaml", "build:\n  exclude_paths: [\"draft/*\"]\n")
+	writeStatusFile(t, vault, "mdhop.toml", "[build]\nexclude_paths = ['draft/*']\n")
 	writeStatusFile(t, vault, "New.md", "new\n")
 	writeStatusFile(t, vault, "Extra.png", "extra")
 	writeStatusFile(t, vault, "draft/New.md", "excluded\n")
@@ -57,7 +57,7 @@ func TestStatus_ClassifiesDifferencesWithoutChangingIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("status: %v", err)
 	}
-	if want := []string{"Extra.png", "New.md", "mdhop.yaml"}; !reflect.DeepEqual(result.Untracked, want) {
+	if want := []string{"Extra.png", "New.md", "mdhop.toml"}; !reflect.DeepEqual(result.Untracked, want) {
 		t.Errorf("untracked = %#v, want %#v", result.Untracked, want)
 	}
 	if want := []string{"Modified.md"}; !reflect.DeepEqual(result.Modified, want) {

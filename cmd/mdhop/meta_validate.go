@@ -9,17 +9,17 @@ import (
 
 const metaValidateHelp = `Usage: mdhop meta-validate [--require <key>...] [--path <glob>...] [--exclude <glob>...] [--vault <path>] [--format json|text]
 
-Validate frontmatter against required keys and mdhop.yaml meta type declarations.
+Validate frontmatter against required keys and mdhop.toml meta type declarations.
 
 Options:
-  --require <key>     Optional, repeatable. Require a non-empty value for this key; overrides mdhop.yaml meta.profiles for this run only.
+  --require <key>     Optional, repeatable. Require a non-empty value for this key; overrides mdhop.toml meta.profiles for this run only.
   --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.
   --exclude <glob>    Optional, repeatable. Exclude source notes whose paths match the glob.
   --vault <path>      Optional. Vault root directory. Default: ".".
   --format json|text  Optional. Output format. Default: text.
 
 Behavior notes:
-  Fails if there is no --require, no mdhop.yaml meta.profiles, and no non-string meta.types declaration.
+  Fails if there is no --require, no mdhop.toml meta.profiles, and no non-string meta.types declaration.
 
 Output fields:
   violations[]  One item per schema violation.
@@ -47,7 +47,7 @@ func runMetaValidate(args []string) error {
 	var require multiString
 	var pathPatterns multiString
 	var excludePaths multiString
-	fs.Var(&require, "require", "frontmatter key that must hold a non-empty value; overrides mdhop.yaml meta.profiles for this run only, not persisted (repeatable)")
+	fs.Var(&require, "require", "frontmatter key that must hold a non-empty value; overrides mdhop.toml meta.profiles for this run only, not persisted (repeatable)")
 	fs.Var(&pathPatterns, "path", "restrict source notes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude source notes matching glob (repeatable)")
 	if err := parseFlags(fs, args); err != nil {

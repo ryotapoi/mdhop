@@ -14,7 +14,7 @@ func TestInspectIndexedAttributesAndHead(t *testing.T) {
 	for path, body := range map[string]string{
 		"A.md":     "---\nstatus: draft\nlabels: [z, a]\nraw: {nested: ignored}\n---\n\n# Plan\n#parent/child [[Ghost]] [[image.png]]\n",
 		"Empty.md": "", "image.png": "asset",
-		"mdhop.yaml": "meta:\n  types:\n    status: string\n    labels: string\nquery:\n  hide:\n    paths: ['**']\n    tags: ['#parent']\nexclude:\n  tags: ['#parent']\n",
+		"mdhop.toml": "[exclude]\ntags = ['#parent']\n\n[meta]\n[meta.types]\nlabels = 'string'\nstatus = 'string'\n\n[query]\n[query.hide]\npaths = ['**']\ntags = ['#parent']\n",
 	} {
 		if err := os.WriteFile(filepath.Join(vault, path), []byte(body), 0o644); err != nil {
 			t.Fatal(err)

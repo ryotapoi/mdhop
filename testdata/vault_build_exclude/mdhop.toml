@@ -1,0 +1,2 @@
+[build]
+exclude_paths = ['daily/*', 'templates/*']

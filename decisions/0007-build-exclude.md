@@ -1,5 +1,6 @@
 ---
-status: current
+status: superseded
+superseded_by: 0033-toml-config-and-filter-policy.md
 ---
 
 # ADR 0007: Build exclude paths

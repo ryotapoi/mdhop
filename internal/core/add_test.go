@@ -1464,8 +1464,8 @@ func TestAddMetaNoFrontmatter(t *testing.T) {
 
 func TestAddMetaWarnings(t *testing.T) {
 	vault := t.TempDir()
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"),
-		[]byte("meta:\n  types:\n    date: date\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"),
+		[]byte("[meta]\n[meta.types]\ndate = 'date'\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("content\n"), 0o644); err != nil {
@@ -1497,7 +1497,7 @@ func TestAddInvalidConfig(t *testing.T) {
 	}
 	beforeNotes := countNotes(t, dbPath(vault))
 
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  types:\n    date: invalid_type\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[meta]\n[meta.types]\ndate = 'invalid_type'\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("content\n"), 0o644); err != nil {

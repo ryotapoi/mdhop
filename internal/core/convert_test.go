@@ -566,7 +566,7 @@ func TestConvertFileScopeBuildExcluded(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := os.WriteFile(filepath.Join(tmp, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - Note.md\n"), 0644)
+	err := os.WriteFile(filepath.Join(tmp, "mdhop.toml"), []byte("[build]\nexclude_paths = ['Note.md']\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -591,7 +591,7 @@ func TestConvertBuildExclude(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := os.WriteFile(filepath.Join(tmp, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - Note.md\n"), 0644)
+	err := os.WriteFile(filepath.Join(tmp, "mdhop.toml"), []byte("[build]\nexclude_paths = ['Note.md']\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}

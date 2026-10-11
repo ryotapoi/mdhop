@@ -581,8 +581,8 @@ func TestRunAdd_MissingFile(t *testing.T) {
 
 func TestRunAdd_Integration(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_add")
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"),
-		[]byte("meta:\n  types:\n    date: date\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"),
+		[]byte("[meta]\n[meta.types]\ndate = 'date'\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
@@ -2083,20 +2083,20 @@ func TestRunInitMeta_ScanStdout(t *testing.T) {
 		})
 	})
 
-	if !strings.Contains(out, "meta:") {
+	if !strings.Contains(out, "[meta.types]") {
 		t.Errorf("missing meta: section in output:\n%s", out)
 	}
-	if !strings.Contains(out, "types:") {
+	if !strings.Contains(out, "[meta.types]") {
 		t.Errorf("missing types: section in output:\n%s", out)
 	}
 	// priority is a number in all fixture notes → inferred as number.
-	if !strings.Contains(out, "priority: number") {
+	if !strings.Contains(out, "priority = 'number'") {
 		t.Errorf("missing inferred priority type in output:\n%s", out)
 	}
 
-	// Without --write, mdhop.yaml must not be created.
-	if _, err := os.Stat(filepath.Join(vault, "mdhop.yaml")); !os.IsNotExist(err) {
-		t.Errorf("mdhop.yaml should not be created without --write (stat err: %v)", err)
+	// Without --write, mdhop.toml must not be created.
+	if _, err := os.Stat(filepath.Join(vault, "mdhop.toml")); !os.IsNotExist(err) {
+		t.Errorf("mdhop.toml should not be created without --write (stat err: %v)", err)
 	}
 }
 
@@ -2115,26 +2115,17 @@ func TestRunInitMeta_Write(t *testing.T) {
 		t.Errorf("stderr = %q, want added report", stderr)
 	}
 
-	configPath := filepath.Join(vault, "mdhop.yaml")
+	configPath := filepath.Join(vault, "mdhop.toml")
 	config := readCLIFile(t, configPath)
-	if !strings.Contains(config, "meta:") || !strings.Contains(config, "priority: number") {
+	if !strings.Contains(config, "[meta.types]") || !strings.Contains(config, "priority = 'number'") {
 		t.Errorf("generated config missing scanned meta types:\n%s", config)
 	}
 }
 
 func TestRunInitMeta_WritePreservesConfigAndReportsSkipped(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_init_meta")
-	configPath := filepath.Join(vault, "mdhop.yaml")
-	existing := `build:
-  exclude_paths:
-    - "templates/*"
-exclude:
-  paths:
-    - "private/*"
-meta:
-  types:
-    priority: string
-`
+	configPath := filepath.Join(vault, "mdhop.toml")
+	existing := "[build]\nexclude_paths = ['templates/*']\n\n[exclude]\npaths = ['private/*']\n\n[meta]\n[meta.types]\npriority = 'string'\n"
 	if err := os.WriteFile(configPath, []byte(existing), 0o644); err != nil {
 		t.Fatalf("write existing config: %v", err)
 	}
@@ -2150,13 +2141,13 @@ meta:
 
 	merged := readCLIFile(t, configPath)
 	for _, want := range []string{
-		"exclude_paths:",
-		"- \"templates/*\"",
-		"exclude:",
-		"paths:",
-		"- \"private/*\"",
-		"priority: string",
-		"created: date",
+		"exclude_paths =",
+		"templates/*",
+		"[exclude]",
+		"paths =",
+		"private/*",
+		"priority = 'string'",
+		"created = 'date'",
 	} {
 		if !strings.Contains(merged, want) {
 			t.Errorf("merged config missing %q:\n%s", want, merged)
@@ -2505,14 +2496,10 @@ func TestRunMetaValidate_NothingToCheck(t *testing.T) {
 
 func TestRunMetaValidate_Profiles(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_meta_validate")
-	configPath := filepath.Join(vault, "mdhop.yaml")
-	config := `meta:
-  profiles:
-    - path: "media/*"
-      require: [isbn]
-`
+	configPath := filepath.Join(vault, "mdhop.toml")
+	config := "[meta]\n[[meta.profiles]]\npath = 'media/*'\nrequire = ['isbn']\n"
 	if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
-		t.Fatalf("write mdhop.yaml: %v", err)
+		t.Fatalf("write mdhop.toml: %v", err)
 	}
 	if _, err := core.Build(vault); err != nil {
 		t.Fatalf("rebuild: %v", err)

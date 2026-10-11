@@ -62,7 +62,7 @@ func TestRewriteMetadataIndexMatchesBuild(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			write("mdhop.yaml", "build:\n  exclude_paths: [mdhop.yaml]\nmeta:\n  types:\n    revision: number\n")
+			write("mdhop.toml", "[build]\nexclude_paths = ['mdhop.toml']\n\n[meta]\n[meta.types]\nrevision = 'number'\n")
 			write("sub/B.md", "---\nrelated: \"[[./C]]\"\nrevision: 4\n---\n[[./C]]\n")
 			write("A.md", "---\nrelated: \"[[B]]\"\nrevision: 2\n---\n[[B]]\n")
 			write("sub/C.md", "---\nrelated: \"[[./B]]\"\nrevision: 3\n---\n[[./B]]\n")

@@ -25,5 +25,5 @@
 - schema や index の永続形式を変えた場合は、既存 DB の in-place migration ではなく `build` による再生成を確認する。mutation の失敗系を変えた場合は、file と DB に部分更新や一時 file が残らないことも確認する。
 - JSON contract の変更では [要件](requirements.md)の出力契約に対し、stdout を単独で parse でき、付加情報が stderr に分離されることを確認する。
 - CLI test は process-wide の `os.Stdout` / `os.Stderr` を差し替えるものがあるため、それらを使う test は `t.Parallel()` にしない。
-- repository root の `mdhop.yaml` は `testdata/**` と `examples/**` を build 対象外にする。また root 全体には用途の異なる同名 file が多いため、mdhop 自身で文書を確認するときは `--path` で対象 subtree を限定し、root 全体の basename conflict を検証失敗として扱わない。
-- Go、SQLite、YAML の依存 API の仕様が実装判断や期待値に影響する変更では、その一次資料と実装・test を照合する。外部 API に依存しない変更では不要。
+- repository root の `mdhop.toml` は `testdata/**` と `examples/**` を build 対象外にする。また root 全体には用途の異なる同名 file が多いため、mdhop 自身で文書を確認するときは `--path` で対象 subtree を限定し、root 全体の basename conflict を検証失敗として扱わない。
+- Go、SQLite、TOML、YAML の依存 API の仕様が実装判断や期待値に影響する変更では、その一次資料と実装・test を照合する。外部 API に依存しない変更では不要。

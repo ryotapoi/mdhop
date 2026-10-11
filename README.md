@@ -67,7 +67,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `status` | Compare the disk with the current index without syncing |
 | `meta-check` | Check that frontmatter path/wikilink values resolve to real targets |
 | `meta-validate` | Check frontmatter against required keys, profiles, and declared `meta.types` |
-| `init-meta` | Generate frontmatter type declarations for `mdhop.yaml` |
+| `init-meta` | Generate frontmatter type declarations for `mdhop.toml` |
 
 `--vault <path>` (defaults to the current directory) is common to commands. Output and field flags vary by command.
 
@@ -86,33 +86,37 @@ mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
 mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 ```
 
-## Configuration (mdhop.yaml)
+## Configuration (mdhop.toml)
 
-Place `mdhop.yaml` at the vault root to configure build exclusions, query hide / via selection, search exclusions, and frontmatter handling.
+Place `mdhop.toml` at the vault root to configure build exclusions, query hide / via selection, search exclusions, and frontmatter handling.
 
-```yaml
-build:
-  exclude_paths:
-    - "daily/*"
-    - "templates/*"
+```toml
+[build]
+exclude_paths = ["daily/*", "templates/*"]
 
-exclude:
-  paths:
-    - "daily/*"
-  tags:
-    - "#daily"
+[exclude]
+paths = ["daily/*"]
+tags = ["#daily"]
 
-query:
-  hide:
-    paths: ["archive/*"]
-  via:
-    exclude: {paths: [], tags: []}
+[query.hide]
+paths = ["archive/*"]
 
-meta:
-  link_keys:        # frontmatter keys whose raw path values become link edges
-    - related
-    - sources
+[query.via]
+exclude = { paths = [], tags = [] }
+
+[meta]
+link_keys = ["related", "sources"]
+
+[meta.types]
+date = "date"
+priority = { ordered = ["low", "high"] }
+
+[[meta.profiles]]
+path = "notes/*"
+require = ["date"]
 ```
+
+Missing or empty configuration uses defaults. Normal commands ignore the old `mdhop.yaml` and leave it unchanged. Notes continue to use YAML frontmatter.
 
 ## Migrating to v0.21.0
 

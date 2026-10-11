@@ -40,7 +40,7 @@ func TestQueryLinkKeyFiltersOnlyDirectLinks(t *testing.T) {
 			t.Fatalf("write %s: %v", path, err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  link_keys:\n    - related\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[meta]\nlink_keys = ['related']\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	if _, err := Build(vault); err != nil {

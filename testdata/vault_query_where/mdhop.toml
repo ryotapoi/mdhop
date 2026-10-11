@@ -1,0 +1,7 @@
+[meta]
+[meta.types]
+created = 'date'
+priority = 'number'
+reviewed = 'date'
+status = 'string'
+updated = 'date'

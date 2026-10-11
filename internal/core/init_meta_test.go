@@ -3,11 +3,12 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
-	"gopkg.in/yaml.v3"
+	"github.com/pelletier/go-toml/v2"
 )
 
 func TestPresetMetaTypes(t *testing.T) {
@@ -301,22 +302,21 @@ func TestScanMetaTypes(t *testing.T) {
 	}
 }
 
-func TestBuildMetaYAMLNode(t *testing.T) {
+func TestGenerateMetaTOML(t *testing.T) {
 	t.Run("preset only with comments", func(t *testing.T) {
 		types := map[string]MetaTypeInfo{
 			"created":  {Name: MetaTypeDate},
 			"priority": {Name: MetaTypeNumber},
 		}
-		node := buildMetaYAMLNode(types, nil, false)
-		out, err := marshalYAMLNode(node)
+		out, err := generateMetaTOML(nil, types, nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
 		s := string(out)
-		if !strings.Contains(s, "created: date") {
+		if !strings.Contains(s, "created = 'date'") {
 			t.Errorf("missing created: date in:\n%s", s)
 		}
-		if !strings.Contains(s, "priority: number") {
+		if !strings.Contains(s, "priority = 'number'") {
 			t.Errorf("missing priority: number in:\n%s", s)
 		}
 		// Should have preset comment
@@ -336,8 +336,7 @@ func TestBuildMetaYAMLNode(t *testing.T) {
 				SampleValues: []string{"2024-01-15", "2024-03-20"},
 			},
 		}
-		node := buildMetaYAMLNode(types, inferred, false)
-		out, err := marshalYAMLNode(node)
+		out, err := generateMetaTOML(nil, types, inferred, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -363,8 +362,7 @@ func TestBuildMetaYAMLNode(t *testing.T) {
 				UniqueCount:  3,
 			},
 		}
-		node := buildMetaYAMLNode(types, inferred, false)
-		out, err := marshalYAMLNode(node)
+		out, err := generateMetaTOML(nil, types, inferred, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -372,7 +370,7 @@ func TestBuildMetaYAMLNode(t *testing.T) {
 		if !strings.Contains(s, "consider:") {
 			t.Errorf("missing ordered candidate comment in:\n%s", s)
 		}
-		if !strings.Contains(s, "ordered:") {
+		if !strings.Contains(s, "ordered =") {
 			t.Errorf("missing ordered suggestion in:\n%s", s)
 		}
 	})
@@ -388,8 +386,7 @@ func TestBuildMetaYAMLNode(t *testing.T) {
 				SampleValues: []string{"2024-01-15"},
 			},
 		}
-		node := buildMetaYAMLNode(types, inferred, true)
-		out, err := marshalYAMLNode(node)
+		out, err := generateMetaTOML(nil, types, inferred, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -401,19 +398,21 @@ func TestBuildMetaYAMLNode(t *testing.T) {
 
 	t.Run("round trip through LoadConfig", func(t *testing.T) {
 		types := map[string]MetaTypeInfo{
-			"created":  {Name: MetaTypeDate},
-			"priority": {Name: MetaTypeNumber},
-			"version":  {Name: MetaTypeSemver},
+			"created":    {Name: MetaTypeDate},
+			"priority":   {Name: MetaTypeNumber},
+			"version":    {Name: MetaTypeSemver},
+			"dot.key":    {Name: MetaTypeDate},
+			"space key":  {Name: MetaTypeOrdered, OrderedValues: []string{"low", "quote\"", "line\nbreak", "back\\slash"}},
+			"quote\"key": {Name: MetaTypeString},
 		}
-		node := buildMetaYAMLNode(types, nil, true)
-		out, err := marshalYAMLNode(node)
+		out, err := generateMetaTOML(nil, types, nil, true)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// Write to temp file and load
 		dir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), out, 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(out), 0644); err != nil {
 			t.Fatal(err)
 		}
 		cfg, err := LoadConfig(dir)
@@ -429,23 +428,19 @@ func TestBuildMetaYAMLNode(t *testing.T) {
 		if cfg.Meta.Types["version"].Name != MetaTypeSemver {
 			t.Errorf("version: %v", cfg.Meta.Types["version"])
 		}
+		if !reflect.DeepEqual(types, cfg.Meta.Types) {
+			t.Errorf("types changed: got %+v, want %+v", cfg.Meta.Types, types)
+		}
 	})
 }
 
-func TestMergeIntoExistingYAML(t *testing.T) {
+func TestMergeIntoExistingTOML(t *testing.T) {
 	t.Run("preserves build section", func(t *testing.T) {
-		existing := []byte(`build:
-  exclude_paths:
-    - "templates/*"
-meta:
-  types:
-    date: date
-`)
+		existing := []byte("[build]\nexclude_paths = ['templates/*']\n\n[meta]\n[meta.types]\ndate = 'date'\n")
 		newTypes := map[string]MetaTypeInfo{
 			"priority": {Name: MetaTypeNumber},
 		}
-		metaNode := buildMetaYAMLNode(newTypes, nil, true)
-		out, err := mergeIntoExistingYAML(existing, metaNode)
+		out, err := generateMetaTOML(existing, newTypes, nil, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -453,45 +448,35 @@ meta:
 		if !strings.Contains(s, "exclude_paths") {
 			t.Errorf("build section lost:\n%s", s)
 		}
-		if !strings.Contains(s, "priority: number") {
+		if !strings.Contains(s, "priority = 'number'") {
 			t.Errorf("new type not added:\n%s", s)
 		}
 	})
 
 	t.Run("creates meta section if absent", func(t *testing.T) {
-		existing := []byte(`build:
-  exclude_paths:
-    - "templates/*"
-`)
+		existing := []byte("[build]\nexclude_paths = ['templates/*']\n")
 		newTypes := map[string]MetaTypeInfo{
 			"created": {Name: MetaTypeDate},
 		}
-		metaNode := buildMetaYAMLNode(newTypes, nil, true)
-		out, err := mergeIntoExistingYAML(existing, metaNode)
+		out, err := generateMetaTOML(existing, newTypes, nil, true)
 		if err != nil {
 			t.Fatal(err)
 		}
 		s := string(out)
-		if !strings.Contains(s, "meta:") {
+		if !strings.Contains(s, "[meta.types]") {
 			t.Errorf("meta section missing:\n%s", s)
 		}
-		if !strings.Contains(s, "created: date") {
+		if !strings.Contains(s, "created = 'date'") {
 			t.Errorf("created not added:\n%s", s)
 		}
 	})
 }
 
-// marshalYAMLNode is a helper to serialize a yaml.Node to bytes.
-func marshalYAMLNode(node *yaml.Node) ([]byte, error) {
-	doc := &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{node}}
-	return marshalYAML(doc)
-}
-
 func TestInitMeta(t *testing.T) {
-	t.Run("round trip existing null types", func(t *testing.T) {
+	t.Run("round trip existing empty types", func(t *testing.T) {
 		dir := t.TempDir()
-		configPath := filepath.Join(dir, "mdhop.yaml")
-		existing := "build:\n  exclude_paths:\n    - templates/*\nmeta:\n  types: null\n"
+		configPath := filepath.Join(dir, "mdhop.toml")
+		existing := "[build]\nexclude_paths = ['templates/*']\n\n[meta]\n[meta.types]\n"
 		if err := os.WriteFile(configPath, []byte(existing), 0644); err != nil {
 			t.Fatal(err)
 		}
@@ -502,7 +487,7 @@ func TestInitMeta(t *testing.T) {
 		if len(result.Added) != 15 {
 			t.Fatalf("expected 15 added, got %d", len(result.Added))
 		}
-		if err := os.WriteFile(configPath, []byte(result.YAML), 0644); err != nil {
+		if err := os.WriteFile(configPath, []byte(result.TOML), 0644); err != nil {
 			t.Fatal(err)
 		}
 		cfg, err := LoadConfig(dir)
@@ -528,12 +513,12 @@ func TestInitMeta(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(result.YAML, "priority: number") {
-			t.Errorf("missing scanned key in:\n%s", result.YAML)
+		if !strings.Contains(result.TOML, "priority = 'number'") {
+			t.Errorf("missing scanned key in:\n%s", result.TOML)
 		}
 		// created: 3/4 = 75% < 80% → string
-		if !strings.Contains(result.YAML, "created: string") {
-			t.Errorf("created should be string (below threshold) in:\n%s", result.YAML)
+		if !strings.Contains(result.TOML, "created = 'string'") {
+			t.Errorf("created should be string (below threshold) in:\n%s", result.TOML)
 		}
 		if len(result.Inferred) == 0 {
 			t.Error("expected inferred results")
@@ -547,26 +532,20 @@ func TestInitMeta(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Scan result should be present
-		if !strings.Contains(result.YAML, "priority: number") {
-			t.Errorf("missing scanned key in:\n%s", result.YAML)
+		if !strings.Contains(result.TOML, "priority = 'number'") {
+			t.Errorf("missing scanned key in:\n%s", result.TOML)
 		}
 		// Preset-only keys (not in vault) should also be present
-		if !strings.Contains(result.YAML, "deadline: date") {
-			t.Errorf("missing preset-only key in:\n%s", result.YAML)
+		if !strings.Contains(result.TOML, "deadline = 'date'") {
+			t.Errorf("missing preset-only key in:\n%s", result.TOML)
 		}
 	})
 
 	t.Run("merge with existing config", func(t *testing.T) {
 		vault := copyVault(t, "vault_init_meta")
 		// Write existing config
-		existing := `build:
-  exclude_paths:
-    - "templates/*"
-meta:
-  types:
-    priority: string
-`
-		if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte(existing), 0644); err != nil {
+		existing := "[build]\nexclude_paths = ['templates/*']\n\n[meta]\n[meta.types]\npriority = 'string'\n"
+		if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte(existing), 0644); err != nil {
 			t.Fatal(err)
 		}
 		result, err := InitMeta(vault, InitMetaOptions{Preset: true})
@@ -585,8 +564,8 @@ meta:
 			t.Errorf("priority should be skipped, skipped=%v", result.Skipped)
 		}
 		// build section preserved
-		if !strings.Contains(result.YAML, "exclude_paths") {
-			t.Errorf("build section lost:\n%s", result.YAML)
+		if !strings.Contains(result.TOML, "exclude_paths") {
+			t.Errorf("build section lost:\n%s", result.TOML)
 		}
 	})
 
@@ -605,4 +584,75 @@ meta:
 		}
 	})
 
+}
+
+func TestInitMetaTOMLRoundTrip(t *testing.T) {
+	for _, via := range []string{"", "[query.via]\nexclude = {}\n", "[query.via.exclude]\n"} {
+		t.Run(via, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "mdhop.toml")
+			existing := `[build]
+exclude_paths = ['templates/*']
+[exclude]
+paths = ['archive/*']
+tags = ['private']
+[query.hide]
+paths = ['hidden/*']
+[query.via.include]
+tags = ['topic']
+` + via + `
+[meta]
+link_keys = ['related']
+[[meta.profiles]]
+path = 'notes/*'
+require = ['status']
+[meta.types]
+"date.key" = 'date'
+"space key" = { ordered = ['low', 'quote"', 'line\nbreak', 'back\slash'] }
+[meta.types.'quote"key']
+ordered = ['first', 'last']
+[custom]
+keep = 1979-05-27
+`
+			if err := os.WriteFile(path, []byte(existing), 0644); err != nil {
+				t.Fatal(err)
+			}
+			before, err := LoadConfig(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var original map[string]any
+			if err := toml.Unmarshal([]byte(existing), &original); err != nil {
+				t.Fatal(err)
+			}
+			for round := 0; round < 2; round++ {
+				result, err := InitMeta(dir, InitMetaOptions{Preset: true, NoComment: round == 1})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(result.TOML), 0644); err != nil {
+					t.Fatal(err)
+				}
+				after, err := LoadConfig(dir)
+				if err != nil {
+					t.Fatalf("generated TOML: %v\n%s", err, result.TOML)
+				}
+				for key, want := range before.Meta.Types {
+					if !reflect.DeepEqual(after.Meta.Types[key], want) {
+						t.Errorf("type %q changed: %+v", key, after.Meta.Types[key])
+					}
+				}
+				if !reflect.DeepEqual(before.Build, after.Build) || !reflect.DeepEqual(before.Exclude, after.Exclude) || !reflect.DeepEqual(before.Query, after.Query) || !reflect.DeepEqual(before.Meta.Profiles, after.Meta.Profiles) || !reflect.DeepEqual(before.Meta.LinkKeys, after.Meta.LinkKeys) {
+					t.Fatalf("settings changed: before=%+v after=%+v", before, after)
+				}
+				var generated map[string]any
+				if err := toml.Unmarshal([]byte(result.TOML), &generated); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(original["custom"], generated["custom"]) {
+					t.Fatal("unknown settings changed")
+				}
+			}
+		})
+	}
 }

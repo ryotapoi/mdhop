@@ -18,7 +18,7 @@ func setupMetaValidateVault(t *testing.T) string {
 func setupMetaValidateVaultWithConfig(t *testing.T, config string) string {
 	t.Helper()
 	vault := copyVaultForQuery(t, "vault_meta_validate")
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte(config), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	buildForQuery(t, vault)
@@ -157,7 +157,7 @@ func TestMetaValidate_InvalidListValues(t *testing.T) {
 	}{
 		{
 			name:   "flow enum",
-			config: "meta:\n  types:\n    priority:\n      ordered: [low, high]\n",
+			config: "[meta]\n[meta.types]\n[meta.types.priority]\nordered = ['low', 'high']\n",
 			note:   "---\npriority: [bad, worse]\n---\n",
 			want: []MetaViolation{
 				{SourcePath: "note.md", Key: "priority", Value: "bad", Line: 2, Reason: ReasonEnum},
@@ -166,7 +166,7 @@ func TestMetaValidate_InvalidListValues(t *testing.T) {
 		},
 		{
 			name:   "block type",
-			config: "meta:\n  types:\n    priority: number\n",
+			config: "[meta]\n[meta.types]\npriority = 'number'\n",
 			note:   "---\npriority:\n  - bad\n  - worse\n---\n",
 			want: []MetaViolation{
 				{SourcePath: "note.md", Key: "priority", Value: "bad", Line: 3, Reason: ReasonType},
@@ -177,7 +177,7 @@ func TestMetaValidate_InvalidListValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			vault := t.TempDir()
-			for path, content := range map[string]string{"mdhop.yaml": tt.config, "note.md": tt.note} {
+			for path, content := range map[string]string{"mdhop.toml": tt.config, "note.md": tt.note} {
 				if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
 					t.Fatal(err)
 				}
@@ -243,11 +243,7 @@ func TestMetaValidate_PathFilter(t *testing.T) {
 }
 
 func TestMetaValidate_ProfileRequirePath(t *testing.T) {
-	vault := setupMetaValidateVaultWithConfig(t, `meta:
-  profiles:
-    - path: "media/*"
-      require: [isbn]
-`)
+	vault := setupMetaValidateVaultWithConfig(t, "[meta]\n[[meta.profiles]]\npath = 'media/*'\nrequire = ['isbn']\n")
 
 	result, err := MetaValidate(vault, MetaValidateOptions{})
 	if err != nil {
@@ -267,11 +263,7 @@ func TestMetaValidate_ProfileRequirePath(t *testing.T) {
 }
 
 func TestMetaValidate_ProfileRequirePathCombinesWithCLIPathFilters(t *testing.T) {
-	vault := setupMetaValidateVaultWithConfig(t, `meta:
-  profiles:
-    - path: "media/*"
-      require: [isbn]
-`)
+	vault := setupMetaValidateVaultWithConfig(t, "[meta]\n[[meta.profiles]]\npath = 'media/*'\nrequire = ['isbn']\n")
 
 	tests := []struct {
 		name string
@@ -300,10 +292,7 @@ func TestMetaValidate_ProfileRequirePathCombinesWithCLIPathFilters(t *testing.T)
 }
 
 func TestMetaValidate_ProfileRequireAllNotes(t *testing.T) {
-	vault := setupMetaValidateVaultWithConfig(t, `meta:
-  profiles:
-    - require: [category]
-`)
+	vault := setupMetaValidateVaultWithConfig(t, "[meta]\n[[meta.profiles]]\nrequire = ['category']\n")
 
 	result, err := MetaValidate(vault, MetaValidateOptions{})
 	if err != nil {
@@ -330,11 +319,7 @@ func TestMetaValidate_ProfileRequireAllNotes(t *testing.T) {
 }
 
 func TestMetaValidate_ProfileOnlyIsCheckTarget(t *testing.T) {
-	vault := setupMetaValidateVaultWithConfig(t, `meta:
-  profiles:
-    - path: "media/*"
-      require: [isbn]
-`)
+	vault := setupMetaValidateVaultWithConfig(t, "[meta]\n[[meta.profiles]]\npath = 'media/*'\nrequire = ['isbn']\n")
 
 	if _, err := MetaValidate(vault, MetaValidateOptions{}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -342,12 +327,7 @@ func TestMetaValidate_ProfileOnlyIsCheckTarget(t *testing.T) {
 }
 
 func TestMetaValidate_CLIRequireOverridesProfileRequire(t *testing.T) {
-	vault := setupMetaValidateVaultWithConfig(t, `meta:
-  types:
-    updated: date
-  profiles:
-    - require: [category]
-`)
+	vault := setupMetaValidateVaultWithConfig(t, "[meta]\n[[meta.profiles]]\nrequire = ['category']\n\n[meta.types]\nupdated = 'date'\n")
 
 	result, err := MetaValidate(vault, MetaValidateOptions{Require: []string{"status"}})
 	if err != nil {

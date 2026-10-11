@@ -49,11 +49,11 @@ func TestGraphBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("graph: %v", err)
 	}
-	// Assets sort before notes (mdhop.yaml is indexed as an asset like any
+	// Assets sort before notes (mdhop.toml is indexed as an asset like any
 	// non-md file); no tag node for #t1, no phantom for Ghost.
 	wantNodes := []string{
 		"asset:img/pic.png",
-		"asset:mdhop.yaml",
+		"asset:mdhop.toml",
 		"note:docs/a.md",
 		"note:docs/b.md",
 		"note:docs/c.md",
@@ -109,7 +109,7 @@ func TestGraphIncludePhantoms(t *testing.T) {
 	}
 	wantNodes := []string{
 		"asset:img/pic.png",
-		"asset:mdhop.yaml",
+		"asset:mdhop.toml",
 		"note:docs/a.md",
 		"note:docs/b.md",
 		"note:docs/c.md",

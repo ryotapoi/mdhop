@@ -10,7 +10,7 @@ import (
 type DiagnoseOptions struct {
 	Fields []string // nil/empty = all
 	// Path / Exclude filter source notes by path glob (CLI-only; independent
-	// of mdhop.yaml exclude settings). When either is set, results are
+	// of mdhop.toml exclude settings). When either is set, results are
 	// restricted to problems in links written in the matching notes.
 	Path    []string // include globs (empty = all notes)
 	Exclude []string // exclude globs

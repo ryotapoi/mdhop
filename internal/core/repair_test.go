@@ -304,9 +304,9 @@ func TestRepairExcludedFileUntouched(t *testing.T) {
 		t.Fatalf("write E.md: %v", err)
 	}
 
-	// Create mdhop.yaml to exclude the directory.
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - \"excluded/*\"\n"), 0o644); err != nil {
-		t.Fatalf("write mdhop.yaml: %v", err)
+	// Create mdhop.toml to exclude the directory.
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[build]\nexclude_paths = ['excluded/*']\n"), 0o644); err != nil {
+		t.Fatalf("write mdhop.toml: %v", err)
 	}
 
 	result, err := Repair(vault, RepairOptions{})

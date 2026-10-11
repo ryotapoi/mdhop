@@ -1480,8 +1480,8 @@ func TestBuildExclude_TagsNotIndexed(t *testing.T) {
 
 func TestBuildExclude_EmptyPatterns(t *testing.T) {
 	vault := copyVault(t, "vault_build_exclude")
-	// Overwrite mdhop.yaml with empty patterns.
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths: []\n"), 0o644); err != nil {
+	// Overwrite mdhop.toml with empty patterns.
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[build]\nexclude_paths = []\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Build(vault); err != nil {
@@ -1496,7 +1496,7 @@ func TestBuildExclude_EmptyPatterns(t *testing.T) {
 
 func TestBuildExclude_InvalidPattern(t *testing.T) {
 	vault := copyVault(t, "vault_build_exclude")
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("build:\n  exclude_paths:\n    - \"[abc]/*\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[build]\nexclude_paths = ['[abc]/*']\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := Build(vault)
@@ -1651,9 +1651,9 @@ func TestBuildMeta_NoFrontmatter(t *testing.T) {
 }
 
 func TestBuildMeta_NoConfig(t *testing.T) {
-	// Use vault_build_meta but remove mdhop.yaml → all keys should default to string
+	// Use vault_build_meta but remove mdhop.toml → all keys should default to string
 	vault := copyVault(t, "vault_build_meta")
-	if err := os.Remove(filepath.Join(vault, "mdhop.yaml")); err != nil {
+	if err := os.Remove(filepath.Join(vault, "mdhop.toml")); err != nil {
 		t.Fatalf("remove config: %v", err)
 	}
 	if _, err := Build(vault); err != nil {
@@ -1731,7 +1731,7 @@ func TestBuildRelativeVaultPathCollectsAssets(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatalf("rows: %v", err)
 	}
-	want := []string{"img/pic.png", "mdhop.yaml"}
+	want := []string{"img/pic.png", "mdhop.toml"}
 	if !reflect.DeepEqual(paths, want) {
 		t.Errorf("asset paths = %v, want %v", paths, want)
 	}

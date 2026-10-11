@@ -39,7 +39,7 @@ type InitMetaOptions struct {
 
 // InitMetaResult holds the output of InitMeta.
 type InitMetaResult struct {
-	YAML     string
+	TOML     string
 	Added    []string
 	Skipped  []string
 	Inferred []InferredMeta
@@ -94,9 +94,9 @@ func InitMeta(vaultPath string, opts InitMetaOptions) (*InitMetaResult, error) {
 	}
 	merged, added, skipped := mergeMetaConfig(existing, proposed)
 
-	// Read existing config file for YAML merge (reuse raw bytes, not parsed config)
+	// Read existing config file for TOML merge (reuse raw bytes, not parsed config)
 	var existingData []byte
-	configPath := filepath.Join(vaultPath, "mdhop.yaml")
+	configPath := filepath.Join(vaultPath, "mdhop.toml")
 	data, readErr := os.ReadFile(configPath)
 	if readErr != nil && !os.IsNotExist(readErr) {
 		return nil, readErr
@@ -105,8 +105,8 @@ func InitMeta(vaultPath string, opts InitMetaOptions) (*InitMetaResult, error) {
 		existingData = data
 	}
 
-	// Generate YAML
-	yamlStr, err := generateMetaYAML(existingData, merged, inferredMap, opts.NoComment)
+	// Generate TOML
+	tomlStr, err := generateMetaTOML(existingData, merged, inferredMap, opts.NoComment)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func InitMeta(vaultPath string, opts InitMetaOptions) (*InitMetaResult, error) {
 	}
 
 	return &InitMetaResult{
-		YAML:     yamlStr,
+		TOML:     tomlStr,
 		Added:    added,
 		Skipped:  skipped,
 		Inferred: inferredList,

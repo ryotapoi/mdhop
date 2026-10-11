@@ -152,7 +152,7 @@ func TestBuildLinkKeysBacklinksReflected(t *testing.T) {
 func TestBuildLinkKeysUnsetKeepsBehavior(t *testing.T) {
 	vault := copyVault(t, "vault_build_link_keys")
 	// Remove the config: raw path values must not become edges.
-	if err := os.Remove(filepath.Join(vault, "mdhop.yaml")); err != nil {
+	if err := os.Remove(filepath.Join(vault, "mdhop.toml")); err != nil {
 		t.Fatalf("remove config: %v", err)
 	}
 	if _, err := Build(vault); err != nil {
@@ -487,7 +487,7 @@ func TestMoveDirLinkKeysNonBasenamePhantomNotPromoted(t *testing.T) {
 func TestMoveLinkKeysConfigAddedAfterBuildAmbiguousFails(t *testing.T) {
 	vault := copyVault(t, "vault_build_link_keys")
 	// Build without link_keys: raw values produce no frontmatter_path edges.
-	if err := os.Remove(filepath.Join(vault, "mdhop.yaml")); err != nil {
+	if err := os.Remove(filepath.Join(vault, "mdhop.toml")); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{"x/dup.md", "y/dup.md"} {
@@ -508,7 +508,7 @@ func TestMoveLinkKeysConfigAddedAfterBuildAmbiguousFails(t *testing.T) {
 	// Configure link_keys after build: the move re-parse now yields an
 	// ambiguous frontmatter_path basename with no DB edge to guard, so the
 	// re-parse validation must catch it.
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  link_keys:\n    - related\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[meta]\nlink_keys = ['related']\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := Move(vault, MoveOptions{From: "docs/amb.md", To: "docs/amb2.md"})
@@ -519,7 +519,7 @@ func TestMoveLinkKeysConfigAddedAfterBuildAmbiguousFails(t *testing.T) {
 
 func TestMoveDirLinkKeysConfigAddedAfterBuildAmbiguousFails(t *testing.T) {
 	vault := copyVault(t, "vault_build_link_keys")
-	if err := os.Remove(filepath.Join(vault, "mdhop.yaml")); err != nil {
+	if err := os.Remove(filepath.Join(vault, "mdhop.toml")); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range []string{"x/dup.md", "y/dup.md"} {
@@ -537,7 +537,7 @@ func TestMoveDirLinkKeysConfigAddedAfterBuildAmbiguousFails(t *testing.T) {
 	if _, err := Build(vault); err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  link_keys:\n    - related\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[meta]\nlink_keys = ['related']\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := MoveDir(vault, MoveDirOptions{FromDir: "docs", ToDir: "docs2"})
@@ -645,8 +645,8 @@ func TestMoveDirLinkKeysRelativeRawSurvives(t *testing.T) {
 
 func TestLoadConfigLinkKeysTagsRejected(t *testing.T) {
 	vault := t.TempDir()
-	cfgContent := "meta:\n  link_keys:\n    - tags\n"
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte(cfgContent), 0o644); err != nil {
+	cfgContent := "[meta]\nlink_keys = ['tags']\n"
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte(cfgContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(vault)

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
+	"github.com/pelletier/go-toml/v2"
 )
 
 // MetaTypeName represents a supported frontmatter value type.
@@ -25,46 +25,21 @@ type MetaTypeInfo struct {
 	OrderedValues []string // only for MetaTypeOrdered
 }
 
-// UnmarshalYAML handles heterogeneous meta type values:
-// scalar (e.g. "date") or mapping (e.g. {ordered: [low, high]}).
-func (m *MetaTypeInfo) UnmarshalYAML(value *yaml.Node) error {
-	switch value.Kind {
-	case yaml.ScalarNode:
-		m.Name = MetaTypeName(value.Value)
-		return nil
-	case yaml.MappingNode:
-		var raw map[string][]string
-		if err := value.Decode(&raw); err != nil {
-			return fmt.Errorf("meta type: %w", err)
-		}
-		if vals, ok := raw["ordered"]; ok {
-			if len(raw) != 1 {
-				return fmt.Errorf("meta type: unexpected extra keys alongside 'ordered'")
-			}
-			m.Name = MetaTypeOrdered
-			m.OrderedValues = vals
-			return nil
-		}
-		return fmt.Errorf("meta type: unknown mapping keys (expected 'ordered')")
-	default:
-		return fmt.Errorf("meta type: unsupported YAML node kind %d", value.Kind)
-	}
-}
-
 // MetaConfig holds frontmatter metadata type declarations.
 type MetaConfig struct {
-	Types map[string]MetaTypeInfo `yaml:"types"`
+	// Type declarations are decoded separately because their values have mixed shapes.
+	Types map[string]MetaTypeInfo `toml:"-"`
 	// Profiles lists required frontmatter keys by optional path glob.
-	Profiles []MetaRequireProfile `yaml:"profiles"`
+	Profiles []MetaRequireProfile `toml:"profiles"`
 	// LinkKeys lists frontmatter keys whose raw path values become graph
 	// edges with link type "frontmatter_path". URL values are skipped.
-	LinkKeys []string `yaml:"link_keys"`
+	LinkKeys []string `toml:"link_keys"`
 }
 
 // MetaRequireProfile declares required frontmatter keys for an optional path glob.
 type MetaRequireProfile struct {
-	Path    string   `yaml:"path"`
-	Require []string `yaml:"require"`
+	Path    string   `toml:"path"`
+	Require []string `toml:"require"`
 }
 
 // LookupType returns the MetaTypeInfo for a given frontmatter key.
@@ -77,60 +52,42 @@ func (mc MetaConfig) LookupType(key string) (MetaTypeInfo, bool) {
 	return info, true
 }
 
-// Config represents the mdhop.yaml configuration file.
+// Config represents the mdhop.toml configuration file.
 type Config struct {
-	Build   BuildConfig   `yaml:"build"`
-	Exclude ExcludeConfig `yaml:"exclude"`
-	Query   QueryConfig   `yaml:"query"`
-	Meta    MetaConfig    `yaml:"meta"`
+	Build   BuildConfig   `toml:"build"`
+	Exclude ExcludeConfig `toml:"exclude"`
+	Query   QueryConfig   `toml:"query"`
+	Meta    MetaConfig    `toml:"meta"`
 }
 
 // BuildConfig holds build-time settings.
 type BuildConfig struct {
-	ExcludePaths []string `yaml:"exclude_paths"`
+	ExcludePaths []string `toml:"exclude_paths"`
 }
 
 // ExcludeConfig holds exclusion patterns from the config file.
 type ExcludeConfig struct {
-	Paths []string `yaml:"paths"`
-	Tags  []string `yaml:"tags"`
+	Paths []string `toml:"paths"`
+	Tags  []string `toml:"tags"`
 }
 
 // QueryConfig separates display hiding from via selection.
 type QueryConfig struct {
-	Hide ExcludeConfig  `yaml:"hide"`
-	Via  QueryViaConfig `yaml:"via"`
+	Hide ExcludeConfig  `toml:"hide"`
+	Via  QueryViaConfig `toml:"via"`
 }
 
 // QueryViaConfig uses nil Exclude only when the key is absent, allowing the
 // top-level exclude config to supply the query via exclusion fallback.
 type QueryViaConfig struct {
-	Include ExcludeConfig  `yaml:"include"`
-	Exclude *ExcludeConfig `yaml:"exclude"`
+	Include ExcludeConfig  `toml:"include"`
+	Exclude *ExcludeConfig `toml:"exclude"`
 }
 
-// UnmarshalYAML rejects null exclusions rather than treating them as absent.
-func (q *QueryViaConfig) UnmarshalYAML(value *yaml.Node) error {
-	type plain QueryViaConfig
-	var decoded plain
-	if err := value.Decode(&decoded); err != nil {
-		return err
-	}
-	var fields map[string]yaml.Node
-	if err := value.Decode(&fields); err != nil {
-		return err
-	}
-	if _, present := fields["exclude"]; present && decoded.Exclude == nil {
-		return fmt.Errorf("query.via.exclude: expected mapping, got null")
-	}
-	*q = QueryViaConfig(decoded)
-	return nil
-}
-
-// LoadConfig reads mdhop.yaml from the vault root.
+// LoadConfig reads mdhop.toml from the vault root.
 // Returns zero Config and nil error if the file does not exist.
 func LoadConfig(vaultPath string) (Config, error) {
-	p := filepath.Join(vaultPath, "mdhop.yaml")
+	p := filepath.Join(vaultPath, "mdhop.toml")
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -139,11 +96,29 @@ func LoadConfig(vaultPath string) (Config, error) {
 		return Config{}, err
 	}
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return Config{}, fmt.Errorf("mdhop.yaml: %w", err)
+	if err := toml.Unmarshal(data, &cfg); err != nil {
+		return Config{}, fmt.Errorf("mdhop.toml: %w", err)
+	}
+	var raw struct {
+		Meta struct {
+			Types map[string]any `toml:"types"`
+		} `toml:"meta"`
+	}
+	if err := toml.Unmarshal(data, &raw); err != nil {
+		return Config{}, fmt.Errorf("mdhop.toml: %w", err)
+	}
+	if raw.Meta.Types != nil {
+		cfg.Meta.Types = make(map[string]MetaTypeInfo, len(raw.Meta.Types))
+		for key, value := range raw.Meta.Types {
+			info, err := decodeMetaType(value)
+			if err != nil {
+				return Config{}, fmt.Errorf("mdhop.toml: meta.types.%s: %w", key, err)
+			}
+			cfg.Meta.Types[key] = info
+		}
 	}
 	if err := validateMetaConfig(cfg.Meta); err != nil {
-		return Config{}, fmt.Errorf("mdhop.yaml: %w", err)
+		return Config{}, fmt.Errorf("mdhop.toml: %w", err)
 	}
 	return cfg, nil
 }
@@ -226,4 +201,34 @@ func filterBuildExcludes(files []string, patterns []string) []string {
 		}
 	}
 	return result
+}
+
+// decodeMetaType accepts a type name or an ordered-value table.
+func decodeMetaType(value any) (MetaTypeInfo, error) {
+	if name, ok := value.(string); ok {
+		return MetaTypeInfo{Name: MetaTypeName(name)}, nil
+	}
+	if table, ok := value.(map[string]any); ok {
+		values, present := table["ordered"]
+		if !present {
+			return MetaTypeInfo{}, fmt.Errorf("unknown mapping keys (expected 'ordered')")
+		}
+		if len(table) != 1 {
+			return MetaTypeInfo{}, fmt.Errorf("unexpected extra keys alongside 'ordered'")
+		}
+		array, ok := values.([]any)
+		if !ok {
+			return MetaTypeInfo{}, fmt.Errorf("ordered must be an array of strings")
+		}
+		info := MetaTypeInfo{Name: MetaTypeOrdered}
+		for _, value := range array {
+			text, ok := value.(string)
+			if !ok {
+				return MetaTypeInfo{}, fmt.Errorf("ordered must be an array of strings")
+			}
+			info.OrderedValues = append(info.OrderedValues, text)
+		}
+		return info, nil
+	}
+	return MetaTypeInfo{}, fmt.Errorf("expected type name or ordered table")
 }

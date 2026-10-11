@@ -19,15 +19,8 @@ func TestLoadConfig_NotFound(t *testing.T) {
 
 func TestLoadConfig_Valid(t *testing.T) {
 	dir := t.TempDir()
-	content := `exclude:
-  paths:
-    - "daily/*"
-    - "templates/*"
-  tags:
-    - "#daily"
-    - "#template"
-`
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[exclude]\npaths = ['daily/*', 'templates/*']\ntags = ['#daily', '#template']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(dir)
@@ -42,9 +35,9 @@ func TestLoadConfig_Valid(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_InvalidYAML(t *testing.T) {
+func TestLoadConfig_InvalidTOML(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(":::invalid"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(":::invalid"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -55,7 +48,7 @@ func TestLoadConfig_InvalidYAML(t *testing.T) {
 
 func TestLoadConfig_Empty(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(""), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(""), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(dir)
@@ -174,15 +167,8 @@ func TestIsViaExcluded_Nil(t *testing.T) {
 
 func TestLoadConfig_WithBuildSection(t *testing.T) {
 	dir := t.TempDir()
-	content := `build:
-  exclude_paths:
-    - "daily/*"
-    - "templates/*"
-exclude:
-  paths:
-    - "archive/*"
-`
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[build]\nexclude_paths = ['daily/*', 'templates/*']\n\n[exclude]\npaths = ['archive/*']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(dir)
@@ -225,8 +211,8 @@ func TestValidateGlobPatterns(t *testing.T) {
 func TestLoadConfig_MetaTypesEmpty(t *testing.T) {
 	dir := t.TempDir()
 	// No meta section at all
-	content := "exclude:\n  paths:\n    - \"daily/*\"\n"
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[exclude]\npaths = ['daily/*']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(dir)
@@ -240,8 +226,8 @@ func TestLoadConfig_MetaTypesEmpty(t *testing.T) {
 
 func TestLoadConfig_MetaTypesOrdered(t *testing.T) {
 	dir := t.TempDir()
-	content := "meta:\n  types:\n    severity:\n      ordered: [low, middle, high, critical]\n"
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[meta.types]\n[meta.types.severity]\nordered = ['low', 'middle', 'high', 'critical']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(dir)
@@ -265,8 +251,8 @@ func TestLoadConfig_MetaTypesOrdered(t *testing.T) {
 
 func TestLoadConfig_MetaTypesUnknown(t *testing.T) {
 	dir := t.TempDir()
-	content := "meta:\n  types:\n    foo: unknown_type\n"
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[meta.types]\nfoo = 'unknown_type'\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -277,8 +263,8 @@ func TestLoadConfig_MetaTypesUnknown(t *testing.T) {
 
 func TestLoadConfig_MetaTypesOrderedEmpty(t *testing.T) {
 	dir := t.TempDir()
-	content := "meta:\n  types:\n    severity:\n      ordered: []\n"
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[meta.types]\n[meta.types.severity]\nordered = []\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -289,8 +275,8 @@ func TestLoadConfig_MetaTypesOrderedEmpty(t *testing.T) {
 
 func TestLoadConfig_MetaTypesOrderedDuplicate(t *testing.T) {
 	dir := t.TempDir()
-	content := "meta:\n  types:\n    severity:\n      ordered: [low, high, low]\n"
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[meta.types]\n[meta.types.severity]\nordered = ['low', 'high', 'low']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -301,8 +287,8 @@ func TestLoadConfig_MetaTypesOrderedDuplicate(t *testing.T) {
 
 func TestLoadConfig_MetaTypesOrderedExtraKeys(t *testing.T) {
 	dir := t.TempDir()
-	content := "meta:\n  types:\n    severity:\n      ordered: [low, high]\n      extra: [a]\n"
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[meta.types]\n[meta.types.severity]\nextra = ['a']\nordered = ['low', 'high']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -313,16 +299,8 @@ func TestLoadConfig_MetaTypesOrderedExtraKeys(t *testing.T) {
 
 func TestLoadConfig_MetaTypesMixed(t *testing.T) {
 	dir := t.TempDir()
-	content := `meta:
-  types:
-    created: date
-    priority: number
-    version: semver
-    title: string
-    severity:
-      ordered: [low, middle, high, critical]
-`
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[meta.types]\ncreated = 'date'\npriority = 'number'\ntitle = 'string'\nversion = 'semver'\n\n[meta.types.severity]\nordered = ['low', 'middle', 'high', 'critical']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(dir)
@@ -356,13 +334,8 @@ func TestLoadConfig_MetaTypesMixed(t *testing.T) {
 
 func TestConfigMetaProfiles(t *testing.T) {
 	dir := t.TempDir()
-	content := `meta:
-  profiles:
-    - require: [type, status]
-    - path: "media/*"
-      require: [isbn]
-`
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[[meta.profiles]]\nrequire = ['type', 'status']\n\n[[meta.profiles]]\npath = 'media/*'\nrequire = ['isbn']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(dir)
@@ -388,12 +361,8 @@ func TestConfigMetaProfiles(t *testing.T) {
 
 func TestConfigMetaProfilesRequireEmpty(t *testing.T) {
 	dir := t.TempDir()
-	content := `meta:
-  profiles:
-    - path: "media/*"
-      require: []
-`
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[[meta.profiles]]\npath = 'media/*'\nrequire = []\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -407,12 +376,8 @@ func TestConfigMetaProfilesRequireEmpty(t *testing.T) {
 
 func TestConfigMetaProfilesPathBracket(t *testing.T) {
 	dir := t.TempDir()
-	content := `meta:
-  profiles:
-    - path: "[media]/*"
-      require: [isbn]
-`
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[[meta.profiles]]\npath = '[media]/*'\nrequire = ['isbn']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -426,11 +391,8 @@ func TestConfigMetaProfilesPathBracket(t *testing.T) {
 
 func TestConfigMetaProfilesRequireEmptyKey(t *testing.T) {
 	dir := t.TempDir()
-	content := `meta:
-  profiles:
-    - require: ["", isbn]
-`
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[[meta.profiles]]\nrequire = ['', 'isbn']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -444,11 +406,8 @@ func TestConfigMetaProfilesRequireEmptyKey(t *testing.T) {
 
 func TestConfigMetaProfilesRequireDuplicateKey(t *testing.T) {
 	dir := t.TempDir()
-	content := `meta:
-  profiles:
-    - require: [isbn, isbn]
-`
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.yaml"), []byte(content), 0o644); err != nil {
+	content := "[meta]\n[[meta.profiles]]\nrequire = ['isbn', 'isbn']\n"
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(dir)
@@ -518,6 +477,44 @@ func TestFilterBuildExcludes(t *testing.T) {
 				if f != tt.want[i] {
 					t.Errorf("filterBuildExcludes[%d] = %q, want %q", i, f, tt.want[i])
 				}
+			}
+		})
+	}
+}
+
+func TestLoadConfigIgnoresYAML(t *testing.T) {
+	dir := t.TempDir()
+	legacy := []byte("meta: [invalid legacy configuration\n")
+	path := filepath.Join(dir, "mdhop.yaml")
+	if err := os.WriteFile(path, legacy, 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(dir)
+	if err != nil || cfg.Meta.Types != nil {
+		t.Fatalf("YAML-only config: %+v, %v", cfg, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte("[meta.types]\ndate = 'date'\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = LoadConfig(dir)
+	if err != nil || cfg.Meta.Types["date"].Name != MetaTypeDate {
+		t.Fatalf("TOML config: %+v, %v", cfg, err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != string(legacy) {
+		t.Fatalf("legacy changed: %q, %v", got, err)
+	}
+}
+
+func TestLoadConfigMetaTypeStructures(t *testing.T) {
+	for _, value := range []string{"12", "[]", "{ordered = 12}", "{ordered = ['low', 2]}", "{other = []}", "{ordered = ['low'], other = []}"} {
+		t.Run(value, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte("[meta.types]\nstatus = "+value), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := LoadConfig(dir); err == nil {
+				t.Fatal("expected invalid type structure")
 			}
 		})
 	}

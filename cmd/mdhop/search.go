@@ -16,7 +16,7 @@ Options:
   --where <expr>       Optional, repeatable. Metadata filter using the same syntax as query. Multiple --where flags are ANDed; use " || " inside one expression for OR.
   --path <glob>        Optional, repeatable. Include note paths matching any glob.
   --exclude <glob>     Optional, repeatable. Exclude note paths matching the glob.
-  --no-exclude         Ignore mdhop.yaml exclude settings.
+  --no-exclude         Ignore mdhop.toml exclude settings.
   --sort <key|-key>    Sort by metadata key or computed field; prefix - for descending.
   --limit <N>          Limit result count.
   --offset <N>         Skip result rows before returning results.

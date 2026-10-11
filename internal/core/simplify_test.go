@@ -307,7 +307,7 @@ func TestSimplifyBuildExclude(t *testing.T) {
 
 	// Exclude deep notes and one of two same-named assets. Simplify should
 	// apply the same config to both file collections.
-	writeFile(t, tmp, "mdhop.yaml", "build:\n  exclude_paths:\n    - \"deep/**\"\n    - \"assets1/**\"\n")
+	writeFile(t, tmp, "mdhop.toml", "[build]\nexclude_paths = ['deep/**', 'assets1/**']\n")
 	aPath := filepath.Join(tmp, "A.md")
 	aContent, err := os.ReadFile(aPath)
 	if err != nil {

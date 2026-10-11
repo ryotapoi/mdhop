@@ -164,7 +164,7 @@ func TestRunQuery_ConfigControlsStayIndependent(t *testing.T) {
 		"B.md":       "[[V]]\n",
 		"C.md":       "[[V]]\n",
 		"V.md":       "# V\n",
-		"mdhop.yaml": "query:\n  hide:\n    paths: [B.md]\n  via:\n    exclude:\n      paths: [V.md]\n",
+		"mdhop.toml": "[query]\n[query.hide]\npaths = ['B.md']\n\n[query.via]\n[query.via.exclude]\npaths = ['V.md']\n",
 	} {
 		if err := os.WriteFile(filepath.Join(vault, path), []byte(contents), 0o644); err != nil {
 			t.Fatal(err)

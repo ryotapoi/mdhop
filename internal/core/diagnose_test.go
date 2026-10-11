@@ -295,7 +295,7 @@ func TestDiagnose_PathFilter_FrontmatterPathBasenameSource(t *testing.T) {
 	vault := copyVaultForQuery(t, "vault_diagnose_path")
 	// link_keys raw basename value referencing the Conflict group
 	// (root-priority resolves it to Conflict.md, so build succeeds).
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  link_keys:\n    - related\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[meta]\nlink_keys = ['related']\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	if err := os.Mkdir(filepath.Join(vault, "topics"), 0o755); err != nil {

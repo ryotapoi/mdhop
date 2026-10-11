@@ -259,9 +259,9 @@ func TestSearch_WhereRelativeDate_UndeclaredKey(t *testing.T) {
 
 	// Contrast: declaring checked as `date` (and rebuilding) makes the same
 	// query match, confirming the guard — not the syntax — is what gates it.
-	yaml := "meta:\n  types:\n    priority: number\n    status: string\n    created: date\n    checked: date\n"
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte(yaml), 0o644); err != nil {
-		t.Fatalf("write mdhop.yaml: %v", err)
+	yaml := "[meta]\n[meta.types]\nchecked = 'date'\ncreated = 'date'\npriority = 'number'\nstatus = 'string'\n"
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write mdhop.toml: %v", err)
 	}
 	buildForQuery(t, vault)
 	metaDate := searchVaultConfig(t, vault)
@@ -305,7 +305,7 @@ func TestSearch_SortAsc(t *testing.T) {
 
 func TestSearch_NumberPrecision(t *testing.T) {
 	vault := t.TempDir()
-	if err := os.WriteFile(filepath.Join(vault, "mdhop.yaml"), []byte("meta:\n  types:\n    priority: number\n    fallback: number\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("[meta]\n[meta.types]\nfallback = 'number'\npriority = 'number'\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for name, value := range map[string]string{"A": "-1.000000001", "B": "-1", "C": "1", "D": "1.000000000"} {

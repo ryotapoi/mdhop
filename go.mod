@@ -3,6 +3,7 @@ module github.com/ryotapoi/mdhop
 go 1.27.1
 
 require (
+	github.com/pelletier/go-toml/v2 v2.2.4
 	golang.org/x/text v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.29.0

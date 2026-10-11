@@ -66,7 +66,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `diagnose` | basename 衝突・phantom ノード・見出し anchor 切れの検出 |
 | `meta-check` | frontmatter の path / wikilink 値が実在する対象に解決するか検査 |
 | `meta-validate` | frontmatter を必須 key・profiles・`meta.types` 宣言に照らして検査 |
-| `init-meta` | `mdhop.yaml` の frontmatter 型定義を生成 |
+| `init-meta` | `mdhop.toml` の frontmatter 型定義を生成 |
 
 `--vault <path>`（省略時はカレントディレクトリ）は各コマンドに共通。出力・field 系のフラグはコマンドごとに異なる。
 
@@ -84,33 +84,37 @@ mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
 mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 ```
 
-## 設定（mdhop.yaml）
+## 設定（mdhop.toml）
 
-Vault 直下に `mdhop.yaml` を置くと、build 除外、query の表示・経由先選択、search 除外、frontmatter の扱いを指定できる。
+Vault 直下に `mdhop.toml` を置くと、build 除外、query の表示・経由先選択、search 除外、frontmatter の扱いを指定できる。
 
-```yaml
-build:
-  exclude_paths:
-    - "daily/*"
-    - "templates/*"
+```toml
+[build]
+exclude_paths = ["daily/*", "templates/*"]
 
-exclude:
-  paths:
-    - "daily/*"
-  tags:
-    - "#daily"
+[exclude]
+paths = ["daily/*"]
+tags = ["#daily"]
 
-query:
-  hide:
-    paths: ["archive/*"]
-  via:
-    exclude: {paths: [], tags: []}
+[query.hide]
+paths = ["archive/*"]
 
-meta:
-  link_keys:        # raw path 値をリンク edge にする frontmatter key
-    - related
-    - sources
+[query.via]
+exclude = { paths = [], tags = [] }
+
+[meta]
+link_keys = ["related", "sources"]
+
+[meta.types]
+date = "date"
+priority = { ordered = ["low", "high"] }
+
+[[meta.profiles]]
+path = "notes/*"
+require = ["date"]
 ```
+
+設定がない場合や空の場合は既定値を使う。通常のコマンドは旧 `mdhop.yaml` を読み込まず、変換・削除もしない。ノートの YAML frontmatter は引き続き扱う。
 
 ## v0.21.0 への移行
 

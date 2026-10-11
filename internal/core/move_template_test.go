@@ -33,7 +33,7 @@ func TestMoveTemplate_BacklogExample(t *testing.T) {
 
 func TestPlanMoveTemplate_DatePartsUseNormalizedSortValue(t *testing.T) {
 	vault := newMoveVault(t, map[string]string{
-		"mdhop.yaml": "meta:\n  types:\n    updated: date\n",
+		"mdhop.toml": "[meta]\n[meta.types]\nupdated = 'date'\n",
 		"Project.md": "---\nupdated: 2026/7/4\n---\n# Project\n",
 	})
 
