@@ -36,6 +36,10 @@ func scanAndRewrite(vaultPath string, opts scanRewriteOptions, locations ...Loca
 		return nil, err
 	}
 	files = filterBuildExcludes(files, excludePaths)
+	files, err = filterIndexFiles(vaultPath, files, locations)
+	if err != nil {
+		return nil, err
+	}
 	sort.Strings(files)
 
 	plan, err := opts.Prepare(files, excludePaths)
