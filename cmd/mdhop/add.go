@@ -21,6 +21,7 @@ Options:
   --format json|text         Optional. Output format. Default: text.
 
 Behavior notes:
+  The selected index DB and its direct auxiliary files cannot be added. The entire add fails before any changes.
   Registered files passed to --file fail.
   Files being added fail when they contain ambiguous basename links.
   When basename collisions occur, existing basename links are automatically rewritten to full paths where their meaning can be preserved; --no-auto-disambiguate disables this.

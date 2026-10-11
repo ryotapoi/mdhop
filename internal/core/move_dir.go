@@ -49,6 +49,9 @@ func MoveDir(vaultPath string, opts MoveDirOptions, locations ...Locations) (*Mo
 	if err != nil {
 		return nil, err
 	}
+	if err := checkMoveSourcesProtectIndex(vaultPath, moves, locations); err != nil {
+		return nil, err
+	}
 	if err := checkDestinationsFree(db, moves); err != nil {
 		return nil, err
 	}

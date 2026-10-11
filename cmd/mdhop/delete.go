@@ -21,6 +21,7 @@ Options:
   --format json|text  Optional. Output format. Default: text.
 
 Behavior notes:
+  If registered targets include the selected index DB or its direct auxiliary files, the entire operation fails before any changes. Unregistered index resources remain in place during directory operations.
   Without --rm, registered files must already be absent from disk.
   A directory must contain at least one registered file. With --rm, unregistered Markdown files and files in hidden directories remain.
 

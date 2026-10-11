@@ -100,7 +100,7 @@ mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/note
 mdhop query --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml --file Index.md
 ```
 
-外部 DB を使う build・参照系は Vault の書込権限を必要とせず、Vault 内に索引や一時ファイルを作らない。build は選択 DB と同じディレクトリで固有の一時 DB を完成させ、commit と close の成功後に置換する。失敗時は旧 DB を保持する。Vault 内の選択 DB は status の入力とノートの directory mutation 対象から除外し、ノートを削除・移動しても DB 保存先を維持する。対応する Ubuntu・macOS のローカルファイルシステムでは、接続済み reader は旧索引を保持し、置換後に接続する reader は新索引を見る。再生成に重なる参照も完成済みの索引を見る。複数 CLI 呼び出し間の同一世代や変更中の本文との同時点は保証せず、本文プレビューの stale 検査は維持する。build と update 等の同時書込は未サポートのため直列化する。DB を使わない scan・設定生成は `--db` を受け付けても DB を開かない。
+外部 DB を使う build・参照系は Vault の書込権限を必要とせず、Vault 内に索引や一時ファイルを作らない。build は選択 DB と同じディレクトリで固有の一時 DB を完成させ、commit と close の成功後に置換する。失敗時は旧 DB を保持する。Vault 内の選択 DB は status の入力とノートの directory mutation 対象から除外し、ノートを削除・移動しても DB 保存先を維持する。選択 DB と直接の補助ファイルは `add` で登録できない。旧版等で登録済みの場合、それらを対象に含む `delete`・`move`（template の実行・計画を含む）は副作用前に操作全体を拒否する。対応する Ubuntu・macOS のローカルファイルシステムでは、接続済み reader は旧索引を保持し、置換後に接続する reader は新索引を見る。再生成に重なる参照も完成済みの索引を見る。複数 CLI 呼び出し間の同一世代や変更中の本文との同時点は保証せず、本文プレビューの stale 検査は維持する。build と update 等の同時書込は未サポートのため直列化する。DB を使わない scan・設定生成は `--db` を受け付けても DB を開かない。
 
 ## 旧配置からの移行
 

@@ -261,3 +261,13 @@ func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
+
+// checkMoveSourcesProtectIndex validates the whole registered batch before mutation.
+func checkMoveSourcesProtectIndex(vaultPath string, moves []moveInfo, locations []Locations) error {
+	for _, move := range moves {
+		if err := rejectIndexResource(vaultPath, move.from, locations); err != nil {
+			return err
+		}
+	}
+	return nil
+}

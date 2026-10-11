@@ -55,6 +55,9 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 		if np == ".." || strings.HasPrefix(np, "../") {
 			return nil, fmt.Errorf("path escapes vault: %s", f)
 		}
+		if err := rejectIndexResource(vaultPath, np, locations); err != nil {
+			return nil, err
+		}
 		if seen[np] {
 			continue
 		}

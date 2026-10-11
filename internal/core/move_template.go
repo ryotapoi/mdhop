@@ -30,7 +30,7 @@ func PlanMoveTemplate(vaultPath string, opts MoveTemplateOptions, locations ...L
 	}
 	defer db.Close()
 
-	prepared, err := prepareMoveTemplate(vaultPath, db, opts)
+	prepared, err := prepareMoveTemplate(vaultPath, db, opts, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func MoveTemplate(vaultPath string, opts MoveTemplateOptions, locations ...Locat
 		return nil, err
 	}
 
-	prepared, err := prepareMoveTemplate(vaultPath, db, opts)
+	prepared, err := prepareMoveTemplate(vaultPath, db, opts, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,9 +69,12 @@ type preparedMoveTemplate struct {
 	needDiskMove bool
 }
 
-func prepareMoveTemplate(vaultPath string, db dbExecer, opts MoveTemplateOptions) (*preparedMoveTemplate, error) {
+func prepareMoveTemplate(vaultPath string, db dbExecer, opts MoveTemplateOptions, locations ...Locations) (*preparedMoveTemplate, error) {
 	moves, err := loadMoveTemplateMovesFromDB(db, opts)
 	if err != nil {
+		return nil, err
+	}
+	if err := checkMoveSourcesProtectIndex(vaultPath, moves, locations); err != nil {
 		return nil, err
 	}
 	if err := checkDuplicateMoveDestinations(moves); err != nil {

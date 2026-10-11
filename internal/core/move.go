@@ -39,6 +39,9 @@ func Move(vaultPath string, opts MoveOptions, locations ...Locations) (*MoveResu
 	if err != nil {
 		return nil, err
 	}
+	if err := checkMoveSourcesProtectIndex(vaultPath, []moveInfo{move}, locations); err != nil {
+		return nil, err
+	}
 	if err := checkDestinationsFree(db, []moveInfo{move}); err != nil {
 		return nil, err
 	}

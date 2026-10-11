@@ -69,6 +69,12 @@ func Delete(vaultPath string, opts DeleteOptions, locations ...Locations) (*Dele
 		return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, f)
 	}
 
+	for _, n := range nodes {
+		if err := rejectIndexResource(vaultPath, n.path, locations); err != nil {
+			return nil, err
+		}
+	}
+
 	// Phase 2: disk operations.
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 	var cleanupPaths []string
