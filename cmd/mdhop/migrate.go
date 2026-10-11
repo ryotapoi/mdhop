@@ -23,7 +23,6 @@ Conversion, save, or rebuild failure retains the old YAML and .mdhop/.
 A new TOML is rolled back on rebuild failure. Rollback or cleanup failure reports
 remaining paths; inspect them before retrying. After cleanup failure, the new
 cache index is already published. No stdout output on success; warnings use stderr.
-Use mdhop paths --vault <path> to inspect the new locations.
 Serialize migrate with build and other index writes.
 
 Examples:

@@ -12,7 +12,7 @@ const diagnoseHelp = `Usage: mdhop diagnose [--path <glob>...] [--exclude <glob>
 Report basename conflicts, asset basename conflicts, phantom references, and optional broken anchors.
 
 Options:
-  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.
   --exclude <glob>    Optional, repeatable. Exclude source notes whose paths match the glob.

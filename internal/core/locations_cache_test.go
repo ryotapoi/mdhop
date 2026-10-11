@@ -27,13 +27,13 @@ func TestDefaultCacheLocations(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			p, err := Paths(vault)
+			p, err := resolveDBPath(vault)
 			if err != nil {
 				t.Fatal(err)
 			}
-			rel, err := filepath.Rel(filepath.Join(tc.root, "mdhop", "vaults"), p.DB)
+			rel, err := filepath.Rel(filepath.Join(tc.root, "mdhop", "vaults"), p)
 			if err != nil || strings.HasPrefix(rel, "..") {
-				t.Fatalf("db=%s rel=%s error=%v", p.DB, rel, err)
+				t.Fatalf("db=%s rel=%s error=%v", p, rel, err)
 			}
 			parts := strings.Split(rel, string(filepath.Separator))
 			if len(parts) != 2 || len(parts[0]) != 64 || parts[1] != "index.sqlite" || strings.Trim(parts[0], "0123456789abcdef") != "" {
@@ -95,7 +95,7 @@ func TestCacheVaultIdentityAndExplicitLocations(t *testing.T) {
 	if _, err := resolveDBPath(moved); err == nil {
 		t.Fatal("missing home accepted")
 	}
-	if _, err := Paths(filepath.Join(root, "missing")); err == nil {
+	if _, err := resolveDBPath(filepath.Join(root, "missing")); err == nil {
 		t.Fatal("missing vault accepted")
 	}
 }

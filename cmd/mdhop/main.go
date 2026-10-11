@@ -19,8 +19,6 @@ func main() {
 
 	var err error
 	switch os.Args[1] {
-	case "paths":
-		err = runPaths(os.Args[2:])
 	case "migrate":
 		err = runMigrate(os.Args[2:])
 	case "build":
@@ -131,7 +129,6 @@ Query Commands:
 
 Setup Commands:
   migrate    Migrate legacy YAML and vault-local index to default locations
-  paths      Show effective vault, configuration, and index paths
   init-meta  Generate meta type definitions from preset and/or vault scan
 
 Run 'mdhop <command> --help' for command-specific help.

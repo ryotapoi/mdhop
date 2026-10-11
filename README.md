@@ -69,7 +69,6 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `status` | Compare the disk with the current index without syncing |
 | `meta-check` | Check that frontmatter path/wikilink values resolve to real targets |
 | `meta-validate` | Check frontmatter against required keys, profiles, and declared `meta.types` |
-| `paths` | Show effective vault, configuration, and index locations |
 | `migrate` | Migrate legacy YAML and vault-local index to default locations |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.toml` |
 
@@ -96,7 +95,7 @@ Except for the dedicated `migrate` command, all commands that use an index or co
 
 `<cache>` uses an absolute, nonempty `XDG_CACHE_HOME`; unset, empty, or relative values fall back to `~/.cache` on every supported OS. `<vault-hash>` is the full lowercase SHA-256 of the absolute vault root after resolving symlinks. Relative and symlink aliases of one vault share its index; moving the vault selects a new index. Configuration does not affect this hash: use separate `--db` paths to keep indexes for different configurations.
 
-Run `mdhop paths --vault <path>` (or add `--format json`) to see the effective absolute `vault`, `config`, and `db` paths, even before the config or DB exists. This command reads neither file and creates nothing. If the cache is deleted or the vault moves, run `mdhop build` again. Normal commands neither use nor migrate or delete the old `<vault>/.mdhop/` directory.
+If the cache is deleted or the vault moves, run `mdhop build` again. Normal commands neither use nor migrate or delete the old `<vault>/.mdhop/` directory.
 
 `--config` reads exactly the selected file, with any filename. Otherwise only `<vault>/mdhop.toml` is read; a missing default file means no configuration. Missing explicit files, read failures, and invalid configuration are errors, including when configuration filters are disabled. Files are neither discovered nor merged. `init-meta --write` updates the selected configuration file; an explicitly selected file must already exist.
 

@@ -30,13 +30,6 @@ func selectedLocations(locations []Locations) Locations {
 	return Locations{}
 }
 
-// EffectivePaths identifies the selected files without reading or creating them.
-type EffectivePaths struct {
-	Vault  string `json:"vault"`
-	Config string `json:"config"`
-	DB     string `json:"db"`
-}
-
 func canonicalVault(vault string) (string, error) {
 	absolute, err := filepath.Abs(vault)
 	if err != nil {
@@ -65,21 +58,4 @@ func resolveDBPath(vaultPath string, locations ...Locations) (string, error) {
 		}
 	}
 	return filepath.Join(cache, "mdhop", "vaults", fmt.Sprintf("%x", sha256.Sum256([]byte(vault))), dbFileName), nil
-}
-
-// Paths resolves effective absolute locations without requiring a config or DB.
-func Paths(vaultPath string, locations ...Locations) (*EffectivePaths, error) {
-	vault, err := canonicalVault(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	config, err := filepath.Abs(selectedLocations(locations).ConfigFile(vaultPath))
-	if err != nil {
-		return nil, err
-	}
-	db, err := resolveDBPath(vault, locations...)
-	if err != nil {
-		return nil, err
-	}
-	return &EffectivePaths{Vault: vault, Config: config, DB: db}, nil
 }

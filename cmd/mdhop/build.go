@@ -11,7 +11,7 @@ const buildHelp = `Usage: mdhop build [--vault <path>] [--db <path>] [--config <
 Build the SQLite index for an Obsidian-style Markdown vault.
 
 Options:
-  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --vault <path>  Optional. Vault root directory. Default: ".".
 
@@ -23,7 +23,7 @@ Location paths may be absolute or relative to the current directory.
 Note paths and configuration globs remain relative to the vault.
 An explicit config must exist; unreadable or invalid configs are errors.
 Legacy mdhop.yaml and .mdhop/ are not used or migrated; use mdhop migrate.
-Use mdhop paths to inspect effective locations. Rebuild after cache removal or
+Rebuild after cache removal or
 moving the vault; use --db for separate indexes of the same vault.
 
 The temporary DB is built beside the selected DB and published only on success;

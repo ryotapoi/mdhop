@@ -68,7 +68,6 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `diagnose` | basename 衝突・phantom ノード・見出し anchor 切れの検出 |
 | `meta-check` | frontmatter の path / wikilink 値が実在する対象に解決するか検査 |
 | `meta-validate` | frontmatter を必須 key・profiles・`meta.types` 宣言に照らして検査 |
-| `paths` | 実効的な Vault・設定・索引の配置を表示 |
 | `migrate` | 旧 YAML 設定と Vault 内索引を既定配置へ移行 |
 | `init-meta` | `mdhop.toml` の frontmatter 型定義を生成 |
 
@@ -94,7 +93,7 @@ mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year
 
 `<cache>` は空でない絶対パスの `XDG_CACHE_HOME` を使い、未設定・空・相対パスなら対応 OS によらず `~/.cache` を使う。`<vault-hash>` は絶対パス化・symlink 解決後の Vault root の SHA-256 全長・小文字 hex とする。同じ実体への相対パス・symlink は同じ索引を使い、Vault を移動すると別の索引になる。設定はハッシュに含めないため、異なる索引設定を併用する場合は `--db` で保存先を分ける。
 
-`mdhop paths --vault <path>`（JSON は `--format json`）で実効的な `vault`・`config`・`db` の絶対パスを確認できる。設定や DB が未作成でも表示でき、ファイルを読み込まず、何も作成しない。キャッシュを削除した場合や Vault を移動した場合は `mdhop build` で再生成する。通常操作は旧 `<vault>/.mdhop/` を利用・移行・削除しない。
+キャッシュを削除した場合や Vault を移動した場合は `mdhop build` で再生成する。通常操作は旧 `<vault>/.mdhop/` を利用・移行・削除しない。
 
 `--config` があれば任意名の指定ファイルだけを読む。未指定時は `<vault>/mdhop.toml` だけを読み、既定ファイルがなければ設定なしで動作する。明示ファイルの欠落、読み取り失敗、不正設定は、設定フィルタを無効化していてもエラー。自動検出・併読・マージはしない。`init-meta --write` は選択した設定先を更新し、明示指定ファイルは存在している必要がある。
 

@@ -23,8 +23,7 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 
 ## Start Here
 
-Use `mdhop paths --format json` to inspect effective vault, config, and DB locations
-without reading or creating config or DB files. The default config is
+The default config is
 `<vault>/mdhop.toml`; a missing default means no config. `--config` selects only
 that file, which must exist and contain valid TOML.
 

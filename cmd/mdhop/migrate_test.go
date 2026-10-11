@@ -11,7 +11,8 @@ import (
 )
 
 func TestMigrateCLI(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	cache := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cache)
 	vault := t.TempDir()
 	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("A"), 0600); err != nil {
 		t.Fatal(err)
@@ -21,12 +22,12 @@ func TestMigrateCLI(t *testing.T) {
 			t.Fatalf("accepted %v", args)
 		}
 	}
-	paths, err := core.Paths(vault)
+	entries, err := os.ReadDir(cache)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(paths.DB); !os.IsNotExist(err) {
-		t.Fatal("invalid flags created index")
+	if len(entries) != 0 {
+		t.Fatal("invalid flags created cache files")
 	}
 	if err := runMigrate([]string{"--help"}); !errors.Is(err, flag.ErrHelp) {
 		t.Fatalf("help: %v", err)
