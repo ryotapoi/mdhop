@@ -104,10 +104,10 @@ func TestRewriteMovedOutgoingLink(t *testing.T) {
 		},
 		{
 			name:      "path target moved preserves markdown extension and fragment",
-			link:      linkOccur{rawLink: "[label](old/B.md#heading)", target: "old/B.md", linkType: LinkTypeMarkdown},
+			link:      linkOccur{rawLink: "[label](/old/B.md#heading)", target: "/old/B.md", linkType: LinkTypeMarkdown},
 			preTarget: "old/B.md",
 			maps:      movedLinkMaps{movedFromTo: map[string]string{"old/B.md": "new/B.md"}},
-			want:      "[label](new/B.md#heading)", wantOK: true,
+			want:      "[label](/new/B.md#heading)", wantOK: true,
 		},
 		{
 			name:      "root relative target not moved skips",

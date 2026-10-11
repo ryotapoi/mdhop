@@ -120,8 +120,8 @@ func TestDisambiguateBasic(t *testing.T) {
 		"[[sub/A]]",
 		"[[sub/A|alias]]",
 		"[[sub/A#Heading]]",
-		"[link](sub/A.md)",
-		"[link2](sub/A.md#frag)",
+		"[link](/sub/A.md)",
+		"[link2](/sub/A.md#frag)",
 	}
 	for _, want := range wantLines {
 		if !strings.Contains(got, want) {
@@ -494,8 +494,8 @@ func TestDisambiguateScanBasic(t *testing.T) {
 		"[[sub/A]]",
 		"[[sub/A|alias]]",
 		"[[sub/A#Heading]]",
-		"[link](sub/A.md)",
-		"[link2](sub/A.md#frag)",
+		"[link](/sub/A.md)",
+		"[link2](/sub/A.md#frag)",
 	}
 	for _, want := range wantLines {
 		if !strings.Contains(got, want) {
@@ -536,7 +536,7 @@ func TestDisambiguateScanPreservesAssetLinks(t *testing.T) {
 			t.Errorf("asset link rewritten: %+v", rewrite)
 		}
 	}
-	want := assets + "[[sub/image]]\n[[sub/image]]\n[note](sub/image.md)\n"
+	want := assets + "[[sub/image]]\n[[sub/image]]\n[note](/sub/image.md)\n"
 	for path, expected := range map[string]string{
 		"notes/source.md":  want,
 		"assets/image.png": "asset bytes\n",
@@ -588,7 +588,7 @@ func TestDisambiguateScanDottedBasename(t *testing.T) {
 			t.Errorf("unexpected rewrite: %+v", rewrite)
 		}
 	}
-	files["notes/source.md"] = unchanged + "[[sub/Note.v1]]\n[[sub/Note.v1]]\n[[sub/Note.v1]]\n[note](sub/Note.v1.md)\n"
+	files["notes/source.md"] = unchanged + "[[sub/Note.v1]]\n[[sub/Note.v1]]\n[[sub/Note.v1]]\n[note](/sub/Note.v1.md)\n"
 	for path, expected := range files {
 		content, err := os.ReadFile(filepath.Join(vault, path))
 		if err != nil {
@@ -834,7 +834,7 @@ func TestDisambiguatePhantomPathLink(t *testing.T) {
 	if !strings.Contains(got, "[[dir1/X]]") {
 		t.Errorf("A.md should contain [[dir1/X]], got:\n%s", got)
 	}
-	if !strings.Contains(got, "[text](dir1/X.md)") {
+	if !strings.Contains(got, "[text](/dir1/X.md)") {
 		t.Errorf("A.md should contain [text](dir1/X.md), got:\n%s", got)
 	}
 
@@ -944,7 +944,7 @@ func TestDisambiguatePhantomPathLinkScan(t *testing.T) {
 	if !strings.Contains(got, "[[dir1/X]]") {
 		t.Errorf("A.md should contain [[dir1/X]], got:\n%s", got)
 	}
-	if !strings.Contains(got, "[text](dir1/X.md)") {
+	if !strings.Contains(got, "[text](/dir1/X.md)") {
 		t.Errorf("A.md should contain [text](dir1/X.md), got:\n%s", got)
 	}
 

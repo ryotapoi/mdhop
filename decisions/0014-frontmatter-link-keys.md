@@ -1,5 +1,6 @@
 ---
-status: current
+status: superseded
+superseded_by: 0037-markdown-source-relative-and-rewrites.md
 ---
 
 # ADR 0014: meta.link_keys による frontmatter raw path の edge 化

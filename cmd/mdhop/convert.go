@@ -11,6 +11,9 @@ import (
 const convertHelp = `Usage: mdhop convert --to <wikilink|markdown> [--dry-run] [--file <path>...] [--vault <path>] [--format json|text]
 
 Convert between wikilink and Markdown link syntax.
+Markdown paths are source-relative; a leading / starts at the vault root.
+Conversion preserves targets using explicit relative wikilinks and root Markdown paths.
+Ambiguous wikilinks are left unchanged.
 Reference links and their definitions are left unchanged. Markdown self-links
 with balanced parentheses in their fragments can be converted. Destinations are
 decoded before conversion; links that cannot preserve their meaning as wikilinks

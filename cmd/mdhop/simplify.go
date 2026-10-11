@@ -10,7 +10,8 @@ import (
 
 const simplifyHelp = `Usage: mdhop simplify [--dry-run] [--file <path>...] [--vault <path>] [--format json|text]
 
-Shorten path links to basename links when the shortened form remains unambiguous.
+Shorten paths while preserving their targets.
+Markdown uses shorter source-relative paths; wikilinks use unambiguous basenames.
 
 Options:
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.

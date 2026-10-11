@@ -464,7 +464,7 @@ func TestMoveAsset_MarkdownLink_BasenameChanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(content), "[doc](manual.pdf)") {
+	if !strings.Contains(string(content), "[doc](/manual.pdf)") {
 		t.Fatalf("expected rewritten markdown link in A.md, got: %s", content)
 	}
 }

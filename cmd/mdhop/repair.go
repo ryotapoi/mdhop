@@ -10,7 +10,9 @@ import (
 
 const repairHelp = `Usage: mdhop repair [--dry-run] [--path <glob>...] [--exclude <glob>...] [--vault <path>] [--format json|text]
 
-Rewrite broken path links and vault-escape links to basename links when safe.
+Repair broken path links and vault-escape links when safe.
+Wikilinks use basename form; Markdown uses explicit vault-root paths.
+Markdown candidate ambiguity is skipped; missing targets use a path inside the vault.
 
 Options:
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.

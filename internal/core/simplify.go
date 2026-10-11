@@ -19,7 +19,8 @@ type SimplifyResult struct {
 	Skipped   []SkippedLink
 }
 
-// Simplify rewrites path links to basename links when the basename is unique
+// Simplify shortens Markdown paths relative to their source and rewrites wiki
+// path links to basename links when the basename is unique
 // or can be resolved via root-priority. It works by scanning files directly
 // (no DB required). Shortening is explicit rather than automatic so recurring
 // basename collisions do not cause unrelated Git diffs to oscillate.
@@ -93,6 +94,25 @@ func Simplify(vaultPath string, opts SimplifyOptions, locations ...Locations) (*
 						isAsset = true
 					} else {
 						continue // broken link, skip
+					}
+
+					if lo.linkType == LinkTypeMarkdown {
+						rel, err := filepath.Rel(filepath.Dir(sourcePath), resolvedPath)
+						if err != nil {
+							return nil, err
+						}
+						rel = filepath.ToSlash(rel)
+						start := strings.Index(lo.rawLink, "](")
+						_, oldURL := extractMarkdownParts(lo.rawLink)
+						oldTarget, frag, _ := markdownDestination(oldURL)
+						if !strings.HasSuffix(strings.ToLower(oldTarget), ".md") {
+							rel = buildRewritePath(rel)
+						}
+						newRawLink := lo.rawLink[:start+2] + encodeMarkdownDestination(rel, frag) + ")"
+						if len(newRawLink) < len(lo.rawLink) {
+							entries = append(entries, rewriteEntry{rawLink: lo.rawLink, linkType: lo.linkType, lineStart: lo.lineStart, sourcePath: sourcePath, newRawLink: newRawLink})
+						}
+						continue
 					}
 
 					// Check if simplification is possible.

@@ -188,7 +188,7 @@ func TestMove_PathLinkAlwaysRewritten(t *testing.T) {
 	for _, rw := range result.Rewritten {
 		if rw.File == "sub/D.md" && rw.OldLink == "[path link](../A.md)" {
 			dRewritten = true
-			if rw.NewLink != "[path link](sub/A.md)" {
+			if rw.NewLink != "[path link](/sub/A.md)" {
 				t.Errorf("sub/D.md rewrite unexpected: %s", rw.NewLink)
 			}
 		}
@@ -623,7 +623,7 @@ func TestMove_MultipleIncomingRewrites(t *testing.T) {
 	// B.md: [b link](./A.md) → [b link](sub/A.md)
 	if got, ok := rewrittenFiles["B.md"]; !ok {
 		t.Error("B.md path link should be rewritten")
-	} else if got != "[b link](sub/A.md)" {
+	} else if got != "[b link](/sub/A.md)" {
 		t.Errorf("B.md new link = %q, want %q", got, "[b link](sub/A.md)")
 	}
 	// C.md: [[./A]] → [[sub/A]]
@@ -635,7 +635,7 @@ func TestMove_MultipleIncomingRewrites(t *testing.T) {
 	// D.md: [d link](./A.md) → [d link](sub/A.md)
 	if got, ok := rewrittenFiles["D.md"]; !ok {
 		t.Error("D.md path link should be rewritten")
-	} else if got != "[d link](sub/A.md)" {
+	} else if got != "[d link](/sub/A.md)" {
 		t.Errorf("D.md new link = %q, want %q", got, "[d link](sub/A.md)")
 	}
 
@@ -1496,7 +1496,7 @@ func TestMovePreservesMarkdownAliasBoundaries(t *testing.T) {
 	for _, outgoing := range []bool{false, true} {
 		t.Run(fmt.Sprintf("outgoing=%v", outgoing), func(t *testing.T) {
 			vault := t.TempDir()
-			raw, replacement, source, from, to := "[shown](Old.md)", "[shown](New.md)", "Source.md", "Old.md", "New.md"
+			raw, replacement, source, from, to := "[shown](Old.md)", "[shown](/New.md)", "Source.md", "Old.md", "New.md"
 			if outgoing {
 				raw, replacement, source, from, to = "[shown](./Old.md)", "[shown](../Old.md)", "sub/Source.md", "Source.md", "sub/Source.md"
 			}

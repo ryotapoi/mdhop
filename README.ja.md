@@ -25,6 +25,10 @@ v0.22.0 では `mdhop migrate` で旧設定・索引を新しい配置へ移行�
 
 既存の Vault を v0.20.0 または v0.21.0 にアップグレードした場合は、`mdhop build` を実行してください。v0.20.0 では参照リンクの定義先を保存し、v0.19.5 で変更された number 型 frontmatter metadata の sort 形式も再生成します。v0.21.0 では表内のリンク文脈と index の解釈 version を保存するため、旧 index の再生成が必要です。
 
+Markdown link の `to.md` と `./to.md` は元ノートと同じディレクトリを指します。`path/to.md`・`./path/to.md`・`../to.md` も元ノート相対、先頭 `/` の `/path/to.md` は Vault ルート基準です。参照リンクの定義と画像・asset も同じ規則で解決し、Vault 全体の basename 探索やルートへのフォールバックは行いません。wikilink と frontmatter の raw path 値は従来どおりです。
+
+従来の Markdown basename / Vault 相対リンクは解釈が変わります。意図する参照先に合わせてリンクを直し、`mdhop build` で索引を全量再生成してください。旧索引は参照・差分更新に利用できません。自動変換や互換モードはありません。
+
 ## クイックスタート
 
 ```bash
@@ -59,9 +63,9 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `delete` | ファイルをインデックスから削除 |
 | `move` | ファイル移動を反映しリンクを更新（frontmatter 由来の移動先テンプレートにも対応） |
 | `disambiguate` | 曖昧な basename リンクをフルパスに書き換え |
-| `simplify` | 冗長なパスリンクを basename 形式に短縮（disambiguate の逆） |
+| `simplify` | 参照先を保ってパスを短縮（Markdown は元ノート相対） |
 | `convert` | リンク形式を wikilink ↔ markdown で変換 |
-| `repair` | 壊れた・vault 外を指すパスリンクを basename 形式に修復 |
+| `repair` | 壊れた・vault 外を指すパスリンクを安全な Vault 内リンクに修復 |
 | `resolve` | リンクの解決先を返す |
 | `query` | 一つの入口の backlinks / outgoing / twohop を返す |
 | `inspect` | 索引済み note 一件の tags / meta と任意 head を返す |

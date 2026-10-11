@@ -138,7 +138,7 @@ func rewriteRawLink(rawLink string, linkType LinkType, targetPath string, table 
 		if hasMdExt {
 			newPath += ".md"
 		}
-		return textPart + encodeMarkdownDestination(newPath, frag) + ")"
+		return textPart + encodeMarkdownDestination("/"+strings.TrimPrefix(newPath, "/"), frag) + ")"
 	}
 	return rawLink
 }
@@ -403,16 +403,6 @@ func isBasenameRawLink(rawLink string, linkType LinkType, table ...bool) bool {
 			return false
 		}
 		return !strings.Contains(inner, "/")
-	case LinkTypeMarkdown:
-		// raw_link is like "[text](url)" or "[text](url#heading)"
-		start := strings.Index(rawLink, "](")
-		if start < 0 {
-			return false
-		}
-		url := rawLink[start+2:]
-		url = strings.TrimSuffix(url, ")")
-		target, _, external := markdownDestination(url)
-		return target != "" && !external && isBasenameLink(target)
 	case LinkTypeFrontmatterPath:
 		// raw_link is the raw frontmatter value; reuse the parser's
 		// classification so both stay in sync. Only diagnose reaches this

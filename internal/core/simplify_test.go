@@ -30,14 +30,14 @@ func TestSimplifyBasic(t *testing.T) {
 	}
 	for _, tc := range []struct{ name, file, old, want string }{
 		{"note wikilink", "A.md", "[[sub/B]]", "[[B]]"},
-		{"note Markdown", "A.md", "[text](sub/C.md)", "[text](C.md)"},
+		{"note Markdown", "A.md", "[text](/sub/C.md)", "[text](sub/C.md)"},
 		{"asset", "A.md", "[[images/photo.png]]", "[[photo.png]]"},
 		{"relative parent", "deep/D.md", "[[../sub/B]]", "[[B]]"},
 		{"relative current", "deep/D.md", "[[./E]]", "[[E]]"},
 		{"subpath", "A.md", "[[sub/B#Heading]]", "[[B#Heading]]"},
 		{"alias", "A.md", "[[sub/B|alias]]", "[[B|alias]]"},
-		{"Markdown fragment", "A.md", "[text](sub/B.md#section)", "[text](B.md#section)"},
-		{"Markdown without extension", "A.md", "[noext](sub/B)", "[noext](B)"},
+		{"Markdown fragment", "A.md", "[text](/sub/B.md#section)", "[text](sub/B.md#section)"},
+		{"Markdown without extension", "A.md", "[noext](/sub/B)", "[noext](sub/B)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, ok := found[tc.file+"\x00"+tc.old]
@@ -537,7 +537,7 @@ func TestSimplifyMultipleBacktickSameLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "[[B]] ``[[sub/B]] [B](sub/B.md) #hidden`` [B](B.md)\n"
+	want := "[[B]] ``[[sub/B]] [B](sub/B.md) #hidden`` [B](sub/B.md)\n"
 	if string(got) != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

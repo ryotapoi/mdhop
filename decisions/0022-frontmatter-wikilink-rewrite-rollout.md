@@ -1,5 +1,6 @@
 ---
-status: current
+status: superseded
+superseded_by: 0037-markdown-source-relative-and-rewrites.md
 ---
 
 # ADR 0022: frontmatter wikilink を書き換え系コマンドへ展開する

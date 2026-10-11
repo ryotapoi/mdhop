@@ -20,7 +20,7 @@ func TestScanExcludesSelectedMarkdownIndex(t *testing.T) {
 			source, want := "[[index]]\n", "[[notes/index]]\n"
 			switch operation {
 			case "convert":
-				source, want = "[index](notes/index.md)\n", "[[notes/index]]\n"
+				source, want = "[index](notes/index.md)\n", "[[./notes/index]]\n"
 			case "repair":
 				source, want = "[[missing/index]]\n", "[[index]]\n"
 			case "simplify":

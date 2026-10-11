@@ -127,13 +127,13 @@ func TestReferencePhantomPromotionAndMoveGuard(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(v, "Renamed.md")); !os.IsNotExist(err) {
 		t.Fatalf("failed move created target: %v", err)
 	}
-	// A basename destination remains valid when its source moves.
-	if _, err := Move(v, MoveOptions{From: "A.md", To: "sub/A.md"}); err != nil {
-		t.Fatal(err)
+	// Bare Markdown destinations are source-relative and cannot survive this source move.
+	if _, err := Move(v, MoveOptions{From: "A.md", To: "sub/A.md"}); err == nil {
+		t.Fatal("source move must fail")
 	}
-	r, err = Resolve(v, "sub/A.md", "[guide]")
+	r, err = Resolve(v, "A.md", "[guide]")
 	if err != nil || r.Path != "B.md" {
-		t.Fatalf("moved reference: %+v %v", r, err)
+		t.Fatalf("unchanged reference: %+v %v", r, err)
 	}
 }
 
@@ -144,11 +144,12 @@ func TestReferenceMutationMeaningGuard(t *testing.T) {
 		from, to, add string
 		wantError     bool
 	}{
+		{"source bare", map[string]string{"sub/A.md": "[g]\n[g]: B.md", "sub/B.md": ""}, "sub/A.md", "other/A.md", "", true},
 		{"source relative", map[string]string{"sub/A.md": "[g]\n[g]: ./B.md", "sub/B.md": ""}, "sub/A.md", "other/A.md", "", true},
 		{"directory relative preserved", map[string]string{"sub/A.md": "[g]\n[g]: ./B.md", "sub/B.md": ""}, "sub", "other", "", false},
 		{"directory vault path changes", map[string]string{"A.md": "[g]\n[g]: sub/B.md", "sub/B.md": ""}, "sub", "other", "", true},
-		{"add root changes target", map[string]string{"A.md": "[g]\n[g]: B.md", "sub/B.md": ""}, "", "", "B.md", true},
-		{"add ambiguous basename", map[string]string{"A.md": "[g]\n[g]: B.md", "sub/B.md": ""}, "", "", "other/B.md", true},
+		{"add root promotes exact path", map[string]string{"A.md": "[g]\n[g]: B.md", "sub/B.md": ""}, "", "", "B.md", false},
+		{"add other directory does not affect path", map[string]string{"A.md": "[g]\n[g]: B.md", "sub/B.md": ""}, "", "", "other/B.md", false},
 		{"add unrelated", map[string]string{"A.md": "[g]\n[g]: B.md", "B.md": ""}, "", "", "D.md", false},
 	}
 	for _, tt := range tests {
@@ -237,7 +238,7 @@ func TestReferenceGraphAndConvertPreservation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "[g] [[B|normal]] [[#Heading|self]]\n[g]: B.md\n"
+	want := "[g] [[./B|normal]] [[#Heading|self]]\n[g]: B.md\n"
 	if string(got) != want {
 		t.Fatalf("convert changed reference: %s", got)
 	}

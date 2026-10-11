@@ -47,24 +47,24 @@ func TestConvertMarkdownToWikilink(t *testing.T) {
 		rawLink string
 		want    string
 	}{
-		{"basic", "[Name](Name.md)", "[[Name]]"},
-		{"with subpath", "[Name](Name.md#H)", "[[Name#H]]"},
-		{"alias", "[alias](Name.md)", "[[Name|alias]]"},
-		{"path", "[Name](path/to/Name.md)", "[[path/to/Name]]"},
-		{"path with alias", "[custom](path/to/Name.md)", "[[path/to/Name|custom]]"},
+		{"basic", "[Name](Name.md)", "[[./Name]]"},
+		{"with subpath", "[Name](Name.md#H)", "[[./Name#H]]"},
+		{"alias", "[alias](Name.md)", "[[./Name|alias]]"},
+		{"path", "[Name](path/to/Name.md)", "[[./path/to/Name]]"},
+		{"path with alias", "[custom](path/to/Name.md)", "[[./path/to/Name|custom]]"},
 		{"relative", "[Name](./Name.md)", "[[./Name]]"},
-		{"asset png", "[img](photo.png)", "[[photo.png|img]]"},
-		{"asset with path", "[img](assets/photo.png)", "[[assets/photo.png|img]]"},
+		{"asset png", "[img](photo.png)", "[[./photo.png|img]]"},
+		{"asset with path", "[img](assets/photo.png)", "[[./assets/photo.png|img]]"},
 		{"self-link", "[#Section](#Section)", "[[#Section]]"},
 		{"self-link with alias", "[custom](#Section)", "[[#Section|custom]]"},
 		{"URL excluded", "[Google](https://google.com)", "[Google](https://google.com)"},
 		{"mailto excluded", "[Email](mailto:user@example.com)", "[Email](mailto:user@example.com)"},
 		{"FTP excluded", "[FTP](FTP://example.com/file)", "[FTP](FTP://example.com/file)"},
 		{"hierarchical URI excluded", "[Repo](git+ssh://example.com/repo)", "[Repo](git+ssh://example.com/repo)"},
-		{"text matches basename with subpath", "[Name#H](Name.md#H)", "[[Name#H]]"},
-		{"subpath alias needed", "[custom](Name.md#H)", "[[Name#H|custom]]"},
-		{"asset basename text match", "[photo.png](photo.png)", "[[photo.png]]"},
-		{"asset basename in subdir", "[photo.png](assets/photo.png)", "[[assets/photo.png]]"},
+		{"text matches basename with subpath", "[Name#H](Name.md#H)", "[[./Name#H]]"},
+		{"subpath alias needed", "[custom](Name.md#H)", "[[./Name#H|custom]]"},
+		{"asset basename text match", "[photo.png](photo.png)", "[[./photo.png]]"},
+		{"asset basename in subdir", "[photo.png](assets/photo.png)", "[[./assets/photo.png]]"},
 	}
 
 	for _, tt := range tests {
@@ -242,10 +242,10 @@ func TestConvertToWikilink(t *testing.T) {
 
 	// Check specific conversion pairs.
 	wantPairs := map[string]string{
-		"[Target](Target.md)":         "[[Target]]",
-		"[Target](Target.md#Heading)": "[[Target#Heading]]",
-		"[custom alias](Target.md)":   "[[Target|custom alias]]",
-		"[Deep](sub/Deep.md)":         "[[sub/Deep]]",
+		"[Target](Target.md)":         "[[./Target]]",
+		"[Target](Target.md#Heading)": "[[./Target#Heading]]",
+		"[custom alias](Target.md)":   "[[./Target|custom alias]]",
+		"[Deep](sub/Deep.md)":         "[[./sub/Deep]]",
 		"[Sibling](./Sibling.md)":     "[[./Sibling]]",
 	}
 	for old, want := range wantPairs {
@@ -301,7 +301,7 @@ func TestConvertResolvesNFCPathToNFDPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read NFD note: %v", err)
 	}
-	if got := string(content); got != "[[Target]]\n" {
+	if got := string(content); got != "[[./Target]]\n" {
 		t.Fatalf("content = %q, want converted wikilink", got)
 	}
 }
@@ -335,12 +335,12 @@ func TestConvertToMarkdown(t *testing.T) {
 
 	// Check specific conversion pairs.
 	wantPairs := map[string]string{
-		"[[Target]]":              "[Target](Target.md)",
-		"[[Target#Heading]]":      "[Target#Heading](Target.md#Heading)",
-		"[[Target|custom alias]]": "[custom alias](Target.md)",
-		"[[sub/Deep]]":            "[Deep](sub/Deep.md)",
-		"[[./Sibling]]":           "[Sibling](./Sibling.md)",
-		"[[photo.png]]":           "[photo.png](photo.png)",
+		"[[Target]]":              "[Target](/Target.md)",
+		"[[Target#Heading]]":      "[Target#Heading](/Target.md#Heading)",
+		"[[Target|custom alias]]": "[custom alias](/Target.md)",
+		"[[sub/Deep]]":            "[Deep](/sub/Deep.md)",
+		"[[./Sibling]]":           "[Sibling](/Sibling.md)",
+		"[[photo.png]]":           "[photo.png](/assets/photo.png)",
 		"[[#Section]]":            "[#Section](#Section)",
 	}
 	for old, want := range wantPairs {
@@ -630,8 +630,8 @@ func TestConvertDottedBasename(t *testing.T) {
 	for _, r := range result.Rewritten {
 		if r.OldLink == "[[Note.v1]]" {
 			found = true
-			if r.NewLink != "[Note.v1](Note.v1.md)" {
-				t.Errorf("dotted basename: got %q, want %q", r.NewLink, "[Note.v1](Note.v1.md)")
+			if r.NewLink != "[Note.v1](/Note.v1.md)" {
+				t.Errorf("dotted basename: got %q, want %q", r.NewLink, "[Note.v1](/Note.v1.md)")
 			}
 		}
 	}
@@ -660,9 +660,9 @@ func TestConvertExplicitAssetPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"[[assets/photo.png]]":          "[photo.png](assets/photo.png)",
-		"[[../assets/photo.png|image]]": "[image](../assets/photo.png)",
-		"[[./photo.png]]":               "[photo.png](./photo.png.md)",
+		"[[assets/photo.png]]":          "[photo.png](/assets/photo.png)",
+		"[[../assets/photo.png|image]]": "[image](/assets/photo.png)",
+		"[[./photo.png]]":               "[photo.png](/notes/photo.png.md)",
 		"[[/notes/photo.png]]":          "[photo.png](/notes/photo.png.md)",
 	}
 	if len(result.Rewritten) != len(want) {
@@ -695,15 +695,15 @@ func TestConvertEmbedPreserved(t *testing.T) {
 	}
 	s := string(content)
 
-	// ![[photo.png]] should become ![photo.png](photo.png).
-	if !strings.Contains(s, "![photo.png](photo.png)") {
+	// The embed points explicitly to the resolved asset path.
+	if !strings.Contains(s, "![photo.png](/assets/photo.png)") {
 		t.Errorf("embed wikilink should become markdown embed, got:\n%s", s)
 	}
 }
 
 func TestConvertParenthesesThenBuild(t *testing.T) {
 	vault := t.TempDir()
-	original := "[[Meeting (weekly)]]\n"
+	original := "[[/Meeting (weekly)]]\n"
 	for name, content := range map[string]string{"Source.md": original, "Meeting (weekly).md": "# Meeting\n"} {
 		if err := os.WriteFile(filepath.Join(vault, name), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
@@ -712,7 +712,7 @@ func TestConvertParenthesesThenBuild(t *testing.T) {
 	if _, err := Convert(vault, ConvertOptions{ToFormat: "markdown"}); err != nil {
 		t.Fatal(err)
 	}
-	wantRaw := "[Meeting (weekly)](Meeting%20%28weekly%29.md)"
+	wantRaw := "[Meeting (weekly)](/Meeting%20%28weekly%29.md)"
 	content, err := os.ReadFile(filepath.Join(vault, "Source.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -745,14 +745,14 @@ func TestConvertParenthesesThenBuild(t *testing.T) {
 
 func TestConvertMarkdownSelfLinkParenthesesRoundTrip(t *testing.T) {
 	vault := t.TempDir()
-	original := "Before [section](#Heading (detail)) after [nested](#Heading (detail (nested))) and [Next](Next.md).\nUnclosed [section](#Heading (detail)\n"
-	converted := "Before [[#Heading (detail)|section]] after [[#Heading (detail (nested))|nested]] and [[Next]].\nUnclosed [section](#Heading (detail)\n"
+	original := "Before [section](#Heading (detail)) after [nested](#Heading (detail (nested))) and [Next](/Next.md).\nUnclosed [section](#Heading (detail)\n"
+	converted := "Before [[#Heading (detail)|section]] after [[#Heading (detail (nested))|nested]] and [[/Next]].\nUnclosed [section](#Heading (detail)\n"
 	for name, content := range map[string]string{"Source.md": original, "Next.md": "Next\n"} {
 		if err := os.WriteFile(filepath.Join(vault, name), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	for _, step := range []struct{ format, want string }{{"wikilink", converted}, {"markdown", "Before [section](#Heading%20%28detail%29) after [nested](#Heading%20%28detail%20%28nested%29%29) and [Next](Next.md).\nUnclosed [section](#Heading (detail)\n"}} {
+	for _, step := range []struct{ format, want string }{{"wikilink", converted}, {"markdown", "Before [section](#Heading%20%28detail%29) after [nested](#Heading%20%28detail%20%28nested%29%29) and [Next](/Next.md).\nUnclosed [section](#Heading (detail)\n"}} {
 		if _, err := Convert(vault, ConvertOptions{ToFormat: step.format}); err != nil {
 			t.Fatal(err)
 		}
@@ -799,10 +799,10 @@ func TestConvertSelfLinksOutsideWikiAliases(t *testing.T) {
 func TestConvertClosingBracketBoundary(t *testing.T) {
 	for _, tt := range []struct{ raw, want, target, subpath string }{
 		{`[B]](B%5D.md)`, `[B]](B%5D.md)`, "", ""},
-		{`[shown](B%5D.md)`, `[[B]|shown]]`, "B]", ""},
-		{`[B]](B%5D.md#H)`, `[[B]#H]]`, "B]", "#H"},
+		{`[shown](B%5D.md)`, `[[./B]|shown]]`, "./B]", ""},
+		{`[B]](B%5D.md#H)`, `[[./B]#H]]`, "./B]", "#H"},
 		{`[B](B.md#H%5D)`, `[B](B.md#H%5D)`, "", ""},
-		{`[shown](B.md#H%5D)`, `[[B#H]|shown]]`, "B", "#H]"},
+		{`[shown](B.md#H%5D)`, `[[./B#H]|shown]]`, "./B", "#H]"},
 		{`[#H]](#H%5D)`, `[#H]](#H%5D)`, "", ""},
 		{`[shown](#H%5D)`, `[[#H]|shown]]`, "", "#H]"},
 	} {

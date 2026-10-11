@@ -27,6 +27,9 @@ source or index between obtaining positions and resolving. Unsaved buffers,
 renderers without source mapping, and old indexes after line moves cannot ensure
 the clicked target. Matching raw text and line does not prove the same generation;
 resolve does not check source hashes or guarantee snapshots across concurrent edits.
+Markdown destinations are source-relative, including bare names; leading /
+starts at the vault root. No basename lookup or root fallback is used.
+Reference definitions, images, and assets follow the same rule.
 Markdown destinations decode backslash escapes, HTML entities, and percent escapes.
 
 Options:

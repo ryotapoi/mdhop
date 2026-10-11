@@ -233,7 +233,7 @@ func TestEncodedVaultEscapeAndOldIndexGate(t *testing.T) {
 	writeInterpretationFiles(t, vault, map[string]string{"Source.md": "[space](A%20B.md)", "A B.md": "a"})
 	buildVault(t, vault)
 	db := openTestDB(t, dbPath(vault))
-	if _, err := db.Exec("PRAGMA user_version = 0"); err != nil {
+	if _, err := db.Exec("PRAGMA user_version = 1"); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
@@ -287,7 +287,7 @@ func TestInterpretedMutationRoundTrips(t *testing.T) {
 		}
 		var movedRaw string
 		for _, l := range parseLinks(string(content)).Links {
-			if l.linkType == LinkTypeMarkdown && l.target == "renamed/A#B(&)" {
+			if l.linkType == LinkTypeMarkdown && l.target == "/renamed/A#B(&)" {
 				movedRaw = l.rawLink
 				if l.subpath != "#H%20I" {
 					t.Fatal(l)
@@ -386,25 +386,25 @@ func TestInterpretedConvertAndScanRewrites(t *testing.T) {
 			t.Fatal(err)
 		}
 		content, _ := os.ReadFile(filepath.Join(vault, "Source.md"))
-		if !strings.Contains(string(content), "![[A%20B#H I|shown]]") || !strings.Contains(string(content), "[hash](A%23B.md)") || !strings.Contains(string(content), "[pipe](A%7CB.md)") {
+		if !strings.Contains(string(content), "![[./A%20B#H I|shown]]") || !strings.Contains(string(content), "[hash](A%23B.md)") || !strings.Contains(string(content), "[pipe](A%7CB.md)") {
 			t.Fatalf("convert %q", content)
 		}
 		if _, err := Convert(vault, ConvertOptions{ToFormat: "markdown"}); err != nil {
 			t.Fatal(err)
 		}
 		content, _ = os.ReadFile(filepath.Join(vault, "Source.md"))
-		if !strings.Contains(string(content), "![shown](A%2520B.md#H%20I)") || !strings.Contains(string(content), "[shown](X.md)") {
+		if !strings.Contains(string(content), "![shown](/A%2520B.md#H%20I)") || !strings.Contains(string(content), "[shown](/X.md)") {
 			t.Fatalf("markdown %q", content)
 		}
 		if _, err := Convert(vault, ConvertOptions{ToFormat: "wikilink"}); err != nil {
 			t.Fatal(err)
 		}
 		content, _ = os.ReadFile(filepath.Join(vault, "Source.md"))
-		if !strings.Contains(string(content), `[[X\|shown]]`) {
+		if !strings.Contains(string(content), `[[/X\|shown]]`) {
 			t.Fatalf("table convert %q", content)
 		}
 		buildVault(t, vault)
-		if got, err := Resolve(vault, "Source.md", `[[X\|shown]]`); err != nil || got.Path != "X.md" {
+		if got, err := Resolve(vault, "Source.md", `[[/X\|shown]]`); err != nil || got.Path != "X.md" {
 			t.Fatalf("table %+v %v", got, err)
 		}
 	})
@@ -418,11 +418,11 @@ func TestInterpretedConvertAndScanRewrites(t *testing.T) {
 			t.Fatal(err)
 		}
 		content, _ := os.ReadFile(filepath.Join(vault, "Source.md"))
-		if string(content) != "[broken](A%2520B.md)\n[long](A%2520B.md)" {
+		if string(content) != "[broken](sub/A%2520B.md)\n[long](sub/A%2520B.md)" {
 			t.Fatalf("scan %q", content)
 		}
 		buildVault(t, vault)
-		if got, err := Resolve(vault, "Source.md", "[broken](A%2520B.md)"); err != nil || got.Path != "sub/A%20B.md" {
+		if got, err := Resolve(vault, "Source.md", "[broken](sub/A%2520B.md)"); err != nil || got.Path != "sub/A%20B.md" {
 			t.Fatalf("scan %+v %v", got, err)
 		}
 	})
@@ -465,7 +465,7 @@ func TestTableWikiConversionRepresentability(t *testing.T) {
 
 func TestInterpretedAddCollateralDisambiguation(t *testing.T) {
 	vault := t.TempDir()
-	writeInterpretationFiles(t, vault, map[string]string{"Source.md": "[shown](A%2520B.md)\n| column |\n| --- |\n| [[X\\|shown]] |\n", "old/A%20B.md": "a", "old/X.md": "x"})
+	writeInterpretationFiles(t, vault, map[string]string{"Source.md": "[shown](old/A%2520B.md)\n| column |\n| --- |\n| [[X\\|shown]] |\n", "old/A%20B.md": "a", "old/X.md": "x"})
 	buildVault(t, vault)
 	writeInterpretationFiles(t, vault, map[string]string{"new/A%20B.md": "b", "new/X.md": "y"})
 	if _, err := Add(vault, AddOptions{Files: []string{"new/A%20B.md", "new/X.md"}, AutoDisambiguate: true}); err != nil {
@@ -513,7 +513,7 @@ func TestBacktickDestinationRewritePreservesRelations(t *testing.T) {
 			t.Fatal(err)
 		}
 		content, err := os.ReadFile(filepath.Join(vault, "Source.md"))
-		raw := "[shown](Z%60Q.md#H%60I)"
+		raw := "[shown](/Z%60Q.md#H%60I)"
 		if err != nil || string(content) != raw {
 			t.Fatalf("move output %q, %v", content, err)
 		}

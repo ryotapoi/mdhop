@@ -1,5 +1,6 @@
 ---
-status: current
+status: superseded
+superseded_by: 0037-markdown-source-relative-and-rewrites.md
 ---
 
 # ADR 0025: basename の root 優先と相対リンクの書き換え

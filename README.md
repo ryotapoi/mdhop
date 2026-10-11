@@ -25,6 +25,10 @@ For v0.22.0, run `mdhop migrate` to move legacy configuration and indexes to the
 
 After upgrading an existing vault to v0.20.0 or v0.21.0, run `mdhop build`. v0.20.0 added stored reference link destinations and refreshed the number sort format changed in v0.19.5. v0.21.0 adds stored table context and an index interpretation version; older indexes require a rebuild.
 
+Markdown destinations `to.md` and `./to.md` point to the source note's directory. `path/to.md`, `./path/to.md`, and `../to.md` are also source-relative; `/path/to.md` starts at the vault root. Reference definitions, images, and assets follow the same rule, without vault-wide basename lookup or a root fallback. Wikilinks and raw frontmatter paths keep their existing interpretation.
+
+Existing Markdown basename and vault-relative links change meaning. Adjust destinations to preserve your intended targets, then run `mdhop build` to rebuild the entire index. Old indexes cannot be queried or incrementally updated. No automatic conversion or compatibility mode is provided.
+
 ## Quick Start
 
 ```bash
@@ -59,9 +63,9 @@ Use the same vault/DB and the saved source used to create the index to obtain th
 | `delete` | Remove files from the index |
 | `move` | Reflect file moves and update links, including frontmatter-based destination templates |
 | `disambiguate` | Rewrite ambiguous basename links to full paths |
-| `simplify` | Shorten redundant path links to basename form (inverse of disambiguate) |
+| `simplify` | Shorten paths while preserving targets (source-relative for Markdown) |
 | `convert` | Convert link format between wikilink and markdown |
-| `repair` | Rewrite broken or vault-escaping path links to basename form |
+| `repair` | Repair broken or vault-escaping paths to safe links inside the vault |
 | `resolve` | Resolve a link to its target |
 | `query` | Return backlinks / outgoing / twohop for one node |
 | `inspect` | Read indexed tags / metadata and optional head for one note |

@@ -6,7 +6,7 @@
 
 ### v0.24.0
 
-- [ ] Markdown link を元ノート相対、先頭 `/` を Vault ルート基準で解決する
+- [x] Markdown link を元ノート相対、先頭 `/` を Vault ルート基準で解決する
 
   目的: 一般的な Markdown 文書と GitHub のリポジトリ内 Markdown に合わせ、ディレクトリを省略したリンクも元ノートと同じディレクトリを指すようにする。後続の差分更新で Markdown link の依存先をパスで扱えるようにする。wikilink の Vault 内探索・basename 解決・ルート優先・曖昧性拒否は現行のままとする。
 

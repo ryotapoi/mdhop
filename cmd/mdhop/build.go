@@ -10,6 +10,8 @@ import (
 const buildHelp = `Usage: mdhop build [--vault <path>] [--db <path>] [--config <path>]
 
 Build the SQLite index for an Obsidian-style Markdown vault.
+Markdown destinations are source-relative; a leading / starts at the vault root.
+Run build to replace indexes created with older link interpretation rules.
 
 Options:
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.

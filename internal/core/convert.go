@@ -28,7 +28,12 @@ func Convert(vaultPath string, opts ConvertOptions, locations ...Locations) (*Co
 	result := &ConvertResult{}
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		DryRun: opts.DryRun,
-		Prepare: func(files, _ []string) (scanRewritePlan, error) {
+		Prepare: func(files, excludePaths []string) (scanRewritePlan, error) {
+			assetFiles, err := collectAssetFiles(vaultPath)
+			if err != nil {
+				return scanRewritePlan{}, err
+			}
+			rm := newResolveMaps(files, filterBuildExcludes(assetFiles, excludePaths))
 			fileSet := make(map[string]bool, len(files))
 			for _, f := range files {
 				fileSet[f] = true
@@ -81,12 +86,31 @@ func Convert(vaultPath string, opts ConvertOptions, locations ...Locations) (*Co
 						if lo.linkType != LinkTypeMarkdown {
 							continue
 						}
+						if isLinkEscaping(sourcePath, lo) {
+							continue
+						}
 						newRawLink = convertMarkdownToWikilink(lo.rawLink, lo.inTable)
 					case "markdown":
 						if lo.linkType != LinkTypeWikilink {
 							continue
 						}
+						if isLinkEscaping(sourcePath, lo) || lo.isBasename && isAmbiguousBasenameLink(lo.target, rm) {
+							continue
+						}
 						newRawLink = convertWikilinkToMarkdown(lo.rawLink, isAssetTarget, lo.inTable)
+						if lo.target != "" {
+							targetPath, _, err := resolveLinkWithBackend(sourcePath, lo, dryLinkResolver{rm: rm})
+							if err != nil {
+								return nil, err
+							}
+							if targetPath == "" {
+								targetPath = resolveToVaultRelative(sourcePath, lo)
+								if isNoteTarget(lo.target, sourcePath, noteNameSet, notePathSet) && !strings.HasSuffix(strings.ToLower(targetPath), ".md") {
+									targetPath += ".md"
+								}
+							}
+							newRawLink = rewriteRawLink(newRawLink, LinkTypeMarkdown, targetPath, lo.inTable)
+						}
 					}
 
 					if newRawLink == lo.rawLink || newRawLink == "" {
@@ -164,6 +188,9 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 
 	// Build wikilink target: strip .md for notes.
 	wikiTarget := buildRewritePath(target)
+	if !strings.HasPrefix(wikiTarget, "/") && !isRelativePath(wikiTarget) {
+		wikiTarget = "./" + wikiTarget
+	}
 
 	// Determine if alias is needed.
 	// Wikilink [[path/to/Name]] displays as "Name" (basename).

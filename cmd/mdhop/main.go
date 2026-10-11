@@ -113,8 +113,8 @@ Index Commands:
   delete        Remove files from the index
   move          Move a file or directory and update links
   disambiguate  Rewrite basename links to full paths
-  simplify      Shorten path links to basename when unambiguous
-  repair        Fix broken path links by rewriting to basename
+  simplify      Shorten paths while preserving targets
+  repair        Repair broken paths to safe vault links
   convert       Convert between wikilink and markdown link formats
 
 Query Commands:

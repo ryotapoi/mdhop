@@ -4,8 +4,8 @@ tags: [mytag]
 
 Path links to unique notes:
 - [[sub/B]]
-- [text](sub/C.md)
-- [noext](sub/B)
+- [text](/sub/C.md)
+- [noext](/sub/B)
 
 Path links to ambiguous notes:
 - [[dir1/M]]
@@ -23,7 +23,7 @@ Alias link:
 - [[sub/B|alias]]
 
 Markdown with fragment:
-- [text](sub/B.md#section)
+- [text](/sub/B.md#section)
 
 Self link:
 - [[#Heading]]

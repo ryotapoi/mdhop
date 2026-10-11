@@ -145,7 +145,7 @@ func TestRootSymlinkScanAndMeta(t *testing.T) {
 	if _, err := Convert(alias, ConvertOptions{ToFormat: "markdown"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := readTestFile(t, filepath.Join(vault, "Cafe\u0301.md")); got != "---\ncreated: 2024-01-15\nref: Target.md\n---\n[Target](Target.md)\n" {
+	if got := readTestFile(t, filepath.Join(vault, "Cafe\u0301.md")); got != "---\ncreated: 2024-01-15\nref: Target.md\n---\n[Target](/Target.md)\n" {
 		t.Errorf("converted = %q", got)
 	}
 	if _, err := Build(alias); err != nil {

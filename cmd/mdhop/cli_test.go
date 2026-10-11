@@ -1892,8 +1892,8 @@ func TestRunConvert_ToWikilinkDryRunJSON(t *testing.T) {
 			if rwMap["file"] != "Note.md" {
 				t.Errorf("file = %v, want Note.md", rwMap["file"])
 			}
-			if rwMap["new"] != "[[Target]]" {
-				t.Errorf("new = %v, want [[Target]]", rwMap["new"])
+			if rwMap["new"] != "[[./Target]]" {
+				t.Errorf("new = %v, want [[./Target]]", rwMap["new"])
 			}
 		}
 	}

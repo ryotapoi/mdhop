@@ -27,10 +27,11 @@ type SkippedLink struct {
 	Candidates []string
 }
 
-// Repair rewrites broken path links and vault-escape links to basename links.
+// Repair repairs broken and escaping body links. Markdown repairs name an
+// explicit vault-root path; wikilink repairs use basename form.
 // It works by scanning files directly (no DB required).
-// Vault-escape links are always converted to basename (escape resolution is top priority).
-// Broken path links are converted when 0-1 candidates exist; 2+ candidates are skipped.
+// Escaping wikilinks retain the existing unconditional basename repair policy.
+// Markdown and non-escaping broken links skip ambiguous repair candidates.
 func Repair(vaultPath string, opts RepairOptions, locations ...Locations) (*RepairResult, error) {
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func Repair(vaultPath string, opts RepairOptions, locations ...Locations) (*Repa
 	result := &RepairResult{}
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		DryRun: opts.DryRun,
-		Prepare: func(files, _ []string) (scanRewritePlan, error) {
+		Prepare: func(files, excludePaths []string) (scanRewritePlan, error) {
 			diskPaths := newVaultDiskPathResolver(vaultPath)
 			pathSetLower := make(map[string]bool, len(files))
 			basenameMap := make(map[string][]string)
@@ -50,6 +51,15 @@ func Repair(vaultPath string, opts RepairOptions, locations ...Locations) (*Repa
 				pathSetLower[strings.ToLower(f)] = true
 				key := strings.TrimSuffix(strings.ToLower(filepath.Base(f)), ".md")
 				basenameMap[key] = append(basenameMap[key], f)
+			}
+			assetFiles, err := collectAssetFiles(vaultPath)
+			if err != nil {
+				return scanRewritePlan{}, err
+			}
+			assetBasenames := make(map[string][]string)
+			for _, f := range filterBuildExcludes(assetFiles, excludePaths) {
+				key := strings.ToLower(filepath.Base(f))
+				assetBasenames[key] = append(assetBasenames[key], f)
 			}
 			var scanFiles []string
 			for _, f := range files {
@@ -93,8 +103,11 @@ func Repair(vaultPath string, opts RepairOptions, locations ...Locations) (*Repa
 					bn := filepath.Base(lo.target)
 					bk := strings.ToLower(bn) // lookup key (don't use basenameKey — it strips all extensions)
 					candidates := basenameMap[bk]
+					if lo.linkType == LinkTypeMarkdown && len(candidates) == 0 {
+						candidates = assetBasenames[bk]
+					}
 
-					if !escaping && len(candidates) >= 2 {
+					if (!escaping || lo.linkType == LinkTypeMarkdown) && len(candidates) >= 2 {
 						// Broken path link + 2+ candidates → skip, report with dedup
 						key := sourcePath + "\x00" + lo.rawLink
 						if !skippedSet[key] {
@@ -112,9 +125,15 @@ func Repair(vaultPath string, opts RepairOptions, locations ...Locations) (*Repa
 						continue
 					}
 
-					// vault-escape: always basename-ify regardless of candidate count
-					// broken path link: 0-1 candidates → basename-ify
-					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, bn+".md", lo.inTable)
+					// Markdown names the chosen path; wikilinks retain basename repair.
+					targetPath := bn + ".md"
+					if lo.linkType == LinkTypeMarkdown && filepath.Ext(bn) != "" {
+						targetPath = bn
+					}
+					if lo.linkType == LinkTypeMarkdown && len(candidates) == 1 {
+						targetPath = candidates[0]
+					}
+					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, targetPath, lo.inTable)
 					if newRawLink == lo.rawLink {
 						continue
 					}

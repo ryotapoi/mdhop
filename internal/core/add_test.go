@@ -694,8 +694,8 @@ func TestAddAutoDisambiguateBasic(t *testing.T) {
 		t.Errorf("Added = %v, want [B.md]", result.Added)
 	}
 
-	if len(result.Rewritten) != 5 {
-		t.Fatalf("Rewritten = %d, want 5", len(result.Rewritten))
+	if len(result.Rewritten) != 3 {
+		t.Fatalf("Rewritten = %d, want 3", len(result.Rewritten))
 	}
 
 	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
@@ -715,13 +715,13 @@ func TestAddAutoDisambiguateBasic(t *testing.T) {
 	if lines[2] != "[[sub/B#Heading]]" {
 		t.Errorf("line 3 = %q, want [[sub/B#Heading]]", lines[2])
 	}
-	// [link](B.md) → [link](sub/B.md)
-	if lines[3] != "[link](sub/B.md)" {
-		t.Errorf("line 4 = %q, want [link](sub/B.md)", lines[3])
+	// Markdown paths stay source-relative and are not collateral basename rewrites.
+	if lines[3] != "[link](B.md)" {
+		t.Errorf("line 4 = %q, want [link](B.md)", lines[3])
 	}
-	// [link2](B.md#frag) → [link2](sub/B.md#frag)
-	if lines[4] != "[link2](sub/B.md#frag)" {
-		t.Errorf("line 5 = %q, want [link2](sub/B.md#frag)", lines[4])
+	// The unchanged destination retains its fragment.
+	if lines[4] != "[link2](B.md#frag)" {
+		t.Errorf("line 5 = %q, want [link2](B.md#frag)", lines[4])
 	}
 }
 
@@ -1189,13 +1189,13 @@ func TestAddAutoDisambiguateExtensionPreserved(t *testing.T) {
 	if lines[0] != "[[sub/B]]" {
 		t.Errorf("line 1 = %q, want [[sub/B]]", lines[0])
 	}
-	// [text](B) → [text](sub/B) (no extension preserved)
-	if lines[1] != "[text](sub/B)" {
-		t.Errorf("line 2 = %q, want [text](sub/B)", lines[1])
+	// Markdown paths are unchanged, including their extension policy.
+	if lines[1] != "[text](B)" {
+		t.Errorf("line 2 = %q, want [text](B)", lines[1])
 	}
-	// [text2](B.md) → [text2](sub/B.md) (extension preserved)
-	if lines[2] != "[text2](sub/B.md)" {
-		t.Errorf("line 3 = %q, want [text2](sub/B.md)", lines[2])
+	// Explicit .md stays explicit.
+	if lines[2] != "[text2](B.md)" {
+		t.Errorf("line 3 = %q, want [text2](B.md)", lines[2])
 	}
 }
 

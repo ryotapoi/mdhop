@@ -42,9 +42,9 @@ func TestRepairBasic(t *testing.T) {
 	if !strings.Contains(got, "[[X]]") {
 		t.Errorf("A.md should contain [[X]], got:\n%s", got)
 	}
-	// [text](old/path/X.md) → [text](X.md)
-	if !strings.Contains(got, "[text](X.md)") {
-		t.Errorf("A.md should contain [text](X.md), got:\n%s", got)
+	// Markdown repair names the chosen real target explicitly.
+	if !strings.Contains(got, "[text](/existing/X.md)") {
+		t.Errorf("A.md should contain [text](/existing/X.md), got:\n%s", got)
 	}
 	// [[missing/Y]] → [[Y]]
 	if !strings.Contains(got, "[[Y]]") {
@@ -400,8 +400,8 @@ func TestRepairVaultEscapeAbsolutePrefix(t *testing.T) {
 	}
 	r := result.Rewritten[0]
 	// normalizeBasename strips .md, filepath.Base("../../outside") = "outside", rewriteRawLink("outside.md") → "outside.md"
-	if r.NewLink != "[text](outside.md)" {
-		t.Errorf("got new = %s, want [text](outside.md)", r.NewLink)
+	if r.NewLink != "[text](/outside.md)" {
+		t.Errorf("got new = %s, want [text](/outside.md)", r.NewLink)
 	}
 }
 

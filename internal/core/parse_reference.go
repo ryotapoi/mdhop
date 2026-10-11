@@ -127,7 +127,7 @@ func markdownDestinationOccur(destination, raw string, typ LinkType, line int) (
 	if target == "" || external {
 		return linkOccur{}, false
 	}
-	occ := linkOccur{target: normalizeBasename(target), isBasename: isBasenameLink(target), isRelative: isRelativePath(target), linkType: typ, rawLink: raw, subpath: subpath, lineStart: line, lineEnd: line}
+	occ := linkOccur{target: normalizeBasename(target), isBasename: false, isRelative: !strings.HasPrefix(target, "/"), linkType: typ, rawLink: raw, subpath: subpath, lineStart: line, lineEnd: line}
 	if typ == LinkTypeMarkdownReference {
 		occ.referenceTarget = destination
 	}
