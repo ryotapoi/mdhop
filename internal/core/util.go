@@ -112,21 +112,27 @@ func validateVaultWritePath(vaultPath, path string) error {
 }
 
 func collectNormalizedDiskPaths(vaultPath string) (map[string]string, error) {
+	// WalkDir does not follow symlinks, so resolve the root before walking.
+	walkRoot, err := canonicalVault(vaultPath)
+	if err != nil {
+		return nil, err
+	}
 	paths := make(map[string]string)
-	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() && d.Name() == dataDirName {
 			return filepath.SkipDir
 		}
-		actualRel, err := filepath.Rel(vaultPath, path)
+		actualRel, err := filepath.Rel(walkRoot, path)
 		if err != nil {
 			return err
 		}
 		normalized := NormalizePath(actualRel)
 		if _, ok := paths[normalized]; !ok {
-			paths[normalized] = path
+			// Keep the caller's root spelling for consumers using lexical paths.
+			paths[normalized] = filepath.Join(vaultPath, actualRel)
 		}
 		return nil
 	})

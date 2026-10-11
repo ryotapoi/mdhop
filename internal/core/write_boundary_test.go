@@ -99,7 +99,7 @@ func TestSetSymlinkBoundary(t *testing.T) {
 }
 
 func TestRewriteCommandsRejectExternalSymlinkBeforeAnyWrite(t *testing.T) {
-	for _, command := range []string{"add", "convert"} {
+	for _, command := range []string{"add", "convert", "convert-root-link"} {
 		t.Run(command, func(t *testing.T) {
 			vault := t.TempDir()
 			outside := filepath.Join(t.TempDir(), "Outside.md")
@@ -129,7 +129,14 @@ func TestRewriteCommandsRejectExternalSymlinkBeforeAnyWrite(t *testing.T) {
 				}
 				_, err = Add(vault, AddOptions{Files: []string{"B.md"}, AutoDisambiguate: true})
 			} else {
-				_, err = Convert(vault, ConvertOptions{ToFormat: "markdown"})
+				root := vault
+				if command == "convert-root-link" {
+					root = filepath.Join(t.TempDir(), "vault")
+					if err := os.Symlink(vault, root); err != nil {
+						t.Fatal(err)
+					}
+				}
+				_, err = Convert(root, ConvertOptions{ToFormat: "markdown"})
 			}
 			if err == nil {
 				t.Fatal("accepted external rewrite candidate")

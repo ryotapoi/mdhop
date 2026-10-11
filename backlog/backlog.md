@@ -6,7 +6,7 @@
 
 ### v0.22.1
 
-- [ ] symlink の Vault root からの走査で実体と同じ入力を収集する（FR-001）
+- [x] symlink の Vault root からの走査で実体と同じ入力を収集する（FR-001）
 
   目的: 許可された root symlink 経由の `build` が不完全な索引で既存 DB を置換し、`status` が実在ノートを削除済みと判断する既存不具合を修正する。
 

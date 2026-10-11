@@ -223,8 +223,13 @@ func formatBuildErrors(errs []error) error {
 }
 
 func collectMarkdownFiles(vaultPath string) ([]string, error) {
+	// WalkDir does not follow symlinks, so resolve the root before walking.
+	vaultPath, err := canonicalVault(vaultPath)
+	if err != nil {
+		return nil, err
+	}
 	var files []string
-	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -265,8 +270,13 @@ func countAssetBasenames(files []string) map[string]int {
 // collectAssetFiles collects all non-.md files in the vault, skipping hidden
 // files/directories and the .mdhop directory.
 func collectAssetFiles(vaultPath string) ([]string, error) {
+	// WalkDir does not follow symlinks, so resolve the root before walking.
+	vaultPath, err := canonicalVault(vaultPath)
+	if err != nil {
+		return nil, err
+	}
 	var files []string
-	err := filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(vaultPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
