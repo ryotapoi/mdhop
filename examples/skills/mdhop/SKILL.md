@@ -11,7 +11,7 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 
 - Use `--format json` for agent-facing output.
 - Use `--relations` on `query` and `--fields` on `inspect`, `search`, `resolve`, `reachable`, `stats`, and `diagnose` to select only the data you need.
-- Run commands from the vault root, or pass `--vault <path>`.
+- Run vault commands from the vault root, or pass `--vault <path>`. `cache-list` needs no vault and accepts no `--vault`, `--db`, or `--config`.
 - Treat note paths and configuration globs as vault-relative. `--vault`, `--db`, and `--config` accept absolute paths or paths relative to the current directory.
 - Keep the same vault, DB, and config selection across related commands. Use `--db` to separate indexes built with different configurations of the same vault.
 - Serialize index writes such as `build`, `update`, and `migrate`; concurrent reads during a build can use the completed index.
@@ -45,6 +45,18 @@ For independent locations, pass the same selection to each command:
 mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml
 mdhop query --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml --file Index.md --format json
 ```
+
+### Inspect Default Caches
+
+Use `mdhop cache-list --format json` to compare default cache folders, current
+allocated disk usage, and original vaults without specifying a vault. It reads
+only the current cache root; external DBs and past cache roots are not tracked.
+Default builds and migrations record the original vault; older caches without
+that record report `vault: null` until rebuilt without `--db`.
+
+Cache folders can be removed as a whole while mdhop is not using them, then
+regenerated with `mdhop build` when needed. Run `mdhop cache-list --help` for
+the output fields and measurement rules.
 
 ### Migrate Legacy Configuration and Index
 
@@ -111,7 +123,21 @@ refresh the whole index. After upgrading from an older index schema, run
 
 ```bash
 mdhop resolve --from Notes/Design.md --link '[[Spec]]' --format json
+mdhop resolve --from Notes/Design.md --link '[[Spec]]' --line 12 --format json
 ```
+
+Use `--line` when the same raw link text has different meanings at different
+occurrences, such as inside and outside a table. Pass the exact indexed raw text
+and its positive, one-based physical source line, including frontmatter lines.
+Reference links use the usage line, not the definition line. Line-qualified
+resolution never falls back to another line or normalized matching.
+
+Use the same vault/DB and saved source as the index. After saving edits, complete
+`build` or the appropriate `update`/`add`, then obtain positions again; edits to
+reference definitions and table boundaries also require updating the index.
+After configuration or parsing-rule changes, run `build`. Keep source and index
+unchanged between obtaining positions and resolving; raw text and line alone do
+not prove that they belong to the same generation.
 
 Run `mdhop resolve --help` for supported output fields and examples.
 

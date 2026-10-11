@@ -6,7 +6,7 @@ status: current
 
 ## 判断
 
-クリックした本文リンクの出現文脈を指定するため、resolve に任意の `--line` を追加する方針を採用する。列位置・文字オフセットは追加しない。判断は有効であり、`--line` は実装済みである。詳細契約・実装範囲・受入条件の正本は [backlog の実装タスク](../backlog/backlog.md#今後の検討)とする。
+クリックした本文リンクの出現文脈を指定するため、resolve に任意の `--line` を追加する方針を採用する。列位置・文字オフセットは追加しない。利用者向けの引数と利用条件は `mdhop resolve --help`、出現選択の契約は [core のテスト](../internal/core/resolve_test.go)と [CLI のテスト](../cmd/mdhop/resolve_test.go)が持つ。
 
 位置を指定する経路は、元ノート・索引の原文・元ファイルの物理行が一致する索引出現だけを選ぶ。同じ行で異なる解決先や subpath が残れば拒否し、一致しない場合も別行や原文再解釈へフォールバックしない。位置を省略する既存の解決契約と出力形は維持する。行指定は任意の出現を一意に識別する API ではなく、既存索引の文脈を選択するための条件である。
 
@@ -20,10 +20,10 @@ status: current
 
 ## 責任境界と限界
 
-CLI は行指定の解析・検証・help、core は索引の出現選択と feature SQL を所有する（[ADR 0032](0032-module-and-sql-ownership.md)）。schema・parser・[既存 dispatcher](0031-typed-link-resolver-backends.md)の変更は予定しない。未指定時の再解析経路はそのまま維持する。
+CLI は行指定の解析・検証・help、core は索引の出現選択と feature SQL を所有する（[ADR 0032](0032-module-and-sql-ownership.md)）。schema・parser・[既存 dispatcher](0031-typed-link-resolver-backends.md)は変更しない。未指定時の再解析経路はそのまま維持する。
 
 呼び出し元は同じ Vault / DB と索引作成時の保存済み本文から原文・物理行を取得し、位置取得から解決まで本文と索引を変更しない。保存・索引更新後は位置を取得し直す。参照定義や表境界の編集も原文が同じまま意味を変え得る。未保存 buffer、原文へ逆対応できない renderer、古い索引との組み合わせに正しいクリック先を保証しない。
 
-行と原文の一致は同一世代の証明にならない。resolve に本文再読・mtime/hash 検査・世代 token・自動更新・排他制御を追加せず、並行編集・更新をまたぐ snapshot 保証は付けない（[要件](../docs/requirements.md)、[ADR 0034](0034-cache-index-and-location-policy.md)）。呼び出し元の UI / renderer の実装はこの判断に含まない。
+行と原文の一致は同一世代の証明にならない。resolve に本文再読・mtime/hash 検査・世代 token・自動更新・排他制御を追加せず、並行編集・更新をまたぐ snapshot 保証は付けない（[要件](../docs/requirements.md)、[ADR 0036](0036-cache-management-and-location-policy.md)）。呼び出し元の UI / renderer の実装はこの判断に含まない。
 
 主対象は現在対応する単一行の本文リンクである。参照リンクの位置は定義行でなく使用箇所とする。frontmatter の座標は YAML scalar に由来し、タグの raw_link には生成された prefix もあるため、すべての edge の raw_link が本文の逐語的切り出しであるとは保証しない。既存の raw_link 表現を変えず、frontmatter や未対応の複数行文法の保証を広げない。
