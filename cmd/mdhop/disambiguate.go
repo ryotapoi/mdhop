@@ -13,7 +13,7 @@ const disambiguateHelp = `Usage: mdhop disambiguate --name <basename> [--target 
 Rewrite ambiguous basename links to full paths.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --name <basename>   Required. Basename link name to rewrite.
   --target <path>     Optional. Required when the basename has multiple candidates.

@@ -29,7 +29,7 @@ go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 # Vault ディレクトリに移動
 cd /path/to/vault
 
-# インデックスを作成（.mdhop/index.sqlite が生成される）
+# インデックスを作成（ユーザーのキャッシュ領域に生成される）
 mdhop build
 
 # ノートの関連情報を取得
@@ -86,7 +86,11 @@ mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year
 
 ## Vault・DB・設定の配置
 
-DB または設定を扱う全コマンドで `--vault`・`--db`・`--config` を使える。`--vault` はカレントディレクトリ、`--db` は `<vault>/.mdhop/index.sqlite` が既定。配置引数は絶対パスとカレントディレクトリ基準の相対パスを受け付ける。ノートのパス・リンク解釈・本文プレビュー・出力パス・設定内 glob の基準は常に Vault とし、DB や設定の場所から推定しない。
+DB または設定を扱う全コマンドで `--vault`・`--db`・`--config` を使える。`--vault` はカレントディレクトリ、`--db` は `<cache>/mdhop/vaults/<vault-hash>/index.sqlite` が既定。配置引数は絶対パスとカレントディレクトリ基準の相対パスを受け付ける。ノートのパス・リンク解釈・本文プレビュー・出力パス・設定内 glob の基準は常に Vault とし、DB や設定の場所から推定しない。
+
+`<cache>` は空でない絶対パスの `XDG_CACHE_HOME` を使い、未設定・空・相対パスなら対応 OS によらず `~/.cache` を使う。`<vault-hash>` は絶対パス化・symlink 解決後の Vault root の SHA-256 全長・小文字 hex とする。同じ実体への相対パス・symlink は同じ索引を使い、Vault を移動すると別の索引になる。設定はハッシュに含めないため、異なる索引設定を併用する場合は `--db` で保存先を分ける。
+
+`mdhop paths --vault <path>`（JSON は `--format json`）で実効的な `vault`・`config`・`db` の絶対パスを確認できる。設定や DB が未作成でも表示でき、ファイルを読み込まず、何も作成しない。キャッシュを削除した場合や Vault を移動した場合は `mdhop build` で再生成する。通常操作は旧 `<vault>/.mdhop/` を利用・移行・削除しない。
 
 `--config` があれば任意名の指定ファイルだけを読む。未指定時は `<vault>/mdhop.toml` だけを読み、既定ファイルがなければ設定なしで動作する。明示ファイルの欠落、読み取り失敗、不正設定は、設定フィルタを無効化していてもエラー。自動検出・併読・マージはしない。`init-meta --write` は選択した設定先を更新し、明示指定ファイルは存在している必要がある。
 

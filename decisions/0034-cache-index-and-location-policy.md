@@ -1,13 +1,12 @@
 ---
-status: superseded
-superseded_by: 0034-cache-index-and-location-policy.md
+status: current
 ---
 
-# ADR 0033: TOML 設定と build / query / search のフィルタ方針
+# ADR 0034: TOML 設定・索引配置と build / query / search のフィルタ方針
 
 ## 背景
 
-設定の生成・編集に使う形式を TOML に統一する。build の登録除外と探索時のフィルタは用途が異なり、query では表示を隠す条件と two-hop の経由点を選ぶ条件も分ける。ADR 0007 と 0026 の形式以外の判断を引き継ぐ。
+設定の生成・編集に使う形式を TOML に統一する。build の登録除外と探索時のフィルタは用途が異なり、query では表示を隠す条件と two-hop の経由点を選ぶ条件も分ける。ADR 0033 の設定・フィルタ・独立配置・原子的公開の有効な判断を引き継ぎ、Vault に書き込まない既定索引と実効パスの確認を追加する。
 
 ## 判断と理由
 
@@ -27,10 +26,18 @@ superseded_by: 0034-cache-index-and-location-policy.md
 
 ## 索引・設定の独立配置と公開
 
-`--vault`・`--db`・`--config` は独立した配置引数とする。Vault は未指定時 cwd、DB は未指定時 `<vault>/.mdhop/index.sqlite`。core へ配置値を明示的に渡し、Vault を DB・設定から推定しない。DB を使わない scan・設定生成では指定 DB を開かない。`init-meta` の設定読込・raw TOML 読込・`--write` は同じ設定先を使い、書出しの一時ファイルもそのディレクトリに置く。
+`--vault`・`--db`・`--config` は独立した配置引数とする。Vault は未指定時 cwd、DB は未指定時 `<cache>/mdhop/vaults/<vault-hash>/index.sqlite`。core へ配置値を明示的に渡し、Vault を DB・設定から推定しない。DB を使わない scan・設定生成では指定 DB を開かない。`init-meta` の設定読込・raw TOML 読込・`--write` は同じ設定先を使い、書出しの一時ファイルもそのディレクトリに置く。
 
 build は指定 DB の親ディレクトリで固有の一時 DB を作り、transaction の commit と接続 close の成功後に同一ディレクトリの rename で公開する。旧 DB は失敗時に保持し、外部 DB の利用では Vault 内へ書き込まない。選択 DB・SQLite 補助ファイル・build 一時 DB は索引入力・status の走査候補・directory delete/move のディスク走査対象から除く。ノート操作で DB 保存先を削除・移動しない。
 
 Ubuntu・macOS のローカル filesystem の rename では、置換前から接続済みの reader は旧ファイルを、置換後の新規 reader は新ファイルを参照する。一つの操作中に追加接続が別世代を開かないよう、DB pool は最大一接続・一 idle 接続を保持し、接続の有効期限を設けない。SQLite URI の予約文字は filesystem path として escape する。並行参照と build を実 SQLite integration test で確認する。複数 CLI 呼出し間の同一世代、DB と編集中本文の同時点は保証せず、既存 preview stale 検査を維持する。build と update 等の同時書込は未サポートであり、利用側で直列化する。ネットワーク filesystem・非 Unix OS の原子的置換は保証しない。
 
 判断は [SQLite URI filename](https://www.sqlite.org/uri.html)、[Go database/sql connection pool](https://pkg.go.dev/database/sql#DB.SetMaxOpenConns)、[Go os.Rename](https://pkg.go.dev/os#Rename) の仕様と実装・test に照合した。
+
+## 既定キャッシュと実効パス
+
+Vault へ内部ファイルを書き込まず使えるよう、既定索引はユーザーのキャッシュへ置く。`<cache>` は空でない絶対パスの `XDG_CACHE_HOME` を使い、未設定・空・相対パスなら `~/.cache` を使う。macOS でも同じ規則とし、OS 固有の cache directory は使わない。Vault root を絶対パス化し symlink を解決した実体パスの SHA-256（全長・小文字 hex）を識別子とする。同じ実体の別表記は同じ索引、移動した Vault は別の索引とする。設定内容・設定先は識別子に含めず、異なる索引設定の併用は `--db` で分ける。
+
+明示 DB の相対パスは従来どおり cwd 基準で、既定 cache や home の取得には依存しない。Vault 実体パスや home の解決失敗は error として返し、旧保存先へ fallback しない。キャッシュ欠落は `build` による再生成を案内し、通常操作は旧 `.mdhop/` を利用・移行・削除しない。旧配置からの移行は別の明示操作で扱う。
+
+`paths` は実効的な Vault・設定・DB の絶対パスを text または JSON（`vault` / `config` / `db`）で返す。設定・DB の読み込みや作成は要求せず、未作成の選択先も確認できる。core が path 解決、CLI が parse・出力を所有し、設定 parse / validation の代わりにはしない。

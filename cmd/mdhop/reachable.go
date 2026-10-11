@@ -12,7 +12,7 @@ const reachableHelp = `Usage: mdhop reachable --from <path> [--path <glob>...] [
 Split notes into reachable and unreachable sets from an entry note by following links.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --from <path>       Required. Vault-relative entry note path.
   --path <glob>       Optional, repeatable. Include target note paths matching any glob.

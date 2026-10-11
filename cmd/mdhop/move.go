@@ -15,7 +15,7 @@ const moveHelp = `Usage: mdhop move --from <path> (--to <path>|--to-template <te
 Move a registered file or directory and rewrite links needed to preserve meaning.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --from <path>       Required. Vault-relative source file or directory. A trailing / or disk directory enables directory mode.
   --to <path>         Vault-relative destination file or directory. Mutually exclusive with --to-template.

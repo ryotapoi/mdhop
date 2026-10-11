@@ -19,6 +19,8 @@ func main() {
 
 	var err error
 	switch os.Args[1] {
+	case "paths":
+		err = runPaths(os.Args[2:])
 	case "build":
 		err = runBuild(os.Args[2:])
 	case "resolve":
@@ -126,6 +128,7 @@ Query Commands:
   meta-validate Check frontmatter against required keys and declared types
 
 Setup Commands:
+  paths      Show effective vault, configuration, and index paths
   init-meta  Generate meta type definitions from preset and/or vault scan
 
 Run 'mdhop <command> --help' for command-specific help.

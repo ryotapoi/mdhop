@@ -13,7 +13,7 @@ const inspectHelp = `Usage: mdhop inspect --file <path> [options]
 Return indexed attributes and an optional body preview for one note.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --file <path>       Indexed note by vault-relative path (required).
   --fields <list>     Comma-separated tags,meta. Default: both.

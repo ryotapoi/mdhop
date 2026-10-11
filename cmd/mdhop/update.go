@@ -13,7 +13,7 @@ const updateHelp = `Usage: mdhop update --file <path> [--file <path>...] [--vaul
 Re-index registered files after editing them. If a registered file is missing on disk, it is handled like delete.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --file <path>       Required, repeatable. Vault-relative registered file path to update.
   --vault <path>      Optional. Vault root directory. Default: ".".

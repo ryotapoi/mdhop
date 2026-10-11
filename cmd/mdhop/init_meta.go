@@ -14,7 +14,7 @@ const initMetaHelp = `Usage: mdhop init-meta (--preset|--scan) [--write] [--no-c
 Generate mdhop.toml meta type definitions from presets, a vault scan, or both.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --preset        Required unless --scan is set. Include recommended preset type definitions.
   --scan          Required unless --preset is set. Infer type definitions from vault frontmatter.

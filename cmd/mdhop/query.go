@@ -19,7 +19,7 @@ Entry options:
   --name <name>             Auto-detect note, phantom, or tag. Ambiguous names fail.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --relations <list>        Comma-separated backlinks,outgoing,twohop. Default: all three.
   --limit <N>               Return at most N targets (N > 0); requires one explicit relation.

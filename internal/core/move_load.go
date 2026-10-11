@@ -170,7 +170,11 @@ func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo, lo
 		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 			return nil
 		}
-		if isIndexFile(vaultPath, path, locations) {
+		excluded, err := isIndexFile(vaultPath, path, locations)
+		if err != nil {
+			return err
+		}
+		if excluded {
 			return nil
 		}
 		rel, _ := filepath.Rel(vaultPath, path)

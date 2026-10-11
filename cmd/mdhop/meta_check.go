@@ -12,7 +12,7 @@ const metaCheckHelp = `Usage: mdhop meta-check --key <name> [--key <name>...] [-
 Check whether frontmatter values resolve to real vault paths or wikilinks.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --key <name>               Required, repeatable. Frontmatter key to inspect.
   --kind path|wikilink|auto  Optional. Interpret values as raw paths, wikilinks, or auto-detect per value. Default: path.

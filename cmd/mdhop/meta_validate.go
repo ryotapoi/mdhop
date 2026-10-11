@@ -12,7 +12,7 @@ const metaValidateHelp = `Usage: mdhop meta-validate [--require <key>...] [--pat
 Validate frontmatter against required keys and mdhop.toml meta type declarations.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --require <key>     Optional, repeatable. Require a non-empty value for this key; overrides mdhop.toml meta.profiles for this run only.
   --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.

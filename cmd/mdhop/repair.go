@@ -13,7 +13,7 @@ const repairHelp = `Usage: mdhop repair [--dry-run] [--path <glob>...] [--exclud
 Rewrite broken path links and vault-escape links to basename links when safe.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --dry-run           Optional. Report changes without writing files.
   --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.

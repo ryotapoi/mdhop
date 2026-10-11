@@ -1,10 +1,15 @@
 package core
 
-import "path/filepath"
+import (
+	"crypto/sha256"
+	"fmt"
+	"os"
+	"path/filepath"
+)
 
 // Locations selects index and configuration files independently of the vault.
 // Relative paths are relative to the process working directory.
-// Empty paths retain the default vault-local locations.
+// Empty paths select the default cache index and vault-local configuration.
 type Locations struct {
 	DBPath     string
 	ConfigPath string
@@ -23,4 +28,58 @@ func selectedLocations(locations []Locations) Locations {
 		return locations[0]
 	}
 	return Locations{}
+}
+
+// EffectivePaths identifies the selected files without reading or creating them.
+type EffectivePaths struct {
+	Vault  string `json:"vault"`
+	Config string `json:"config"`
+	DB     string `json:"db"`
+}
+
+func canonicalVault(vault string) (string, error) {
+	absolute, err := filepath.Abs(vault)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(absolute)
+}
+
+func resolveDBPath(vaultPath string, locations ...Locations) (string, error) {
+	if p := selectedLocations(locations).DBPath; p != "" {
+		return filepath.Abs(p)
+	}
+	vault, err := canonicalVault(vaultPath)
+	if err != nil {
+		return "", err
+	}
+	cache := os.Getenv("XDG_CACHE_HOME")
+	if !filepath.IsAbs(cache) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		cache, err = filepath.Abs(filepath.Join(home, ".cache"))
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(cache, "mdhop", "vaults", fmt.Sprintf("%x", sha256.Sum256([]byte(vault))), dbFileName), nil
+}
+
+// Paths resolves effective absolute locations without requiring a config or DB.
+func Paths(vaultPath string, locations ...Locations) (*EffectivePaths, error) {
+	vault, err := canonicalVault(vaultPath)
+	if err != nil {
+		return nil, err
+	}
+	config, err := filepath.Abs(selectedLocations(locations).ConfigFile(vaultPath))
+	if err != nil {
+		return nil, err
+	}
+	db, err := resolveDBPath(vault, locations...)
+	if err != nil {
+		return nil, err
+	}
+	return &EffectivePaths{Vault: vault, Config: config, DB: db}, nil
 }

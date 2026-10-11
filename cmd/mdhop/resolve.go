@@ -18,7 +18,7 @@ to normalized matching. Rebuild or update the index after editing source notes.
 Markdown destinations decode backslash escapes, HTML entities, and percent escapes.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --from <path>       Required. Vault-relative source note path.
   --link <link text>  Required. Link text, such as '[[Spec]]', '[Spec](Spec.md)', or '[Spec][guide]'.

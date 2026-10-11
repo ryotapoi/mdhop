@@ -77,21 +77,6 @@ func linkTypeSQLIn(alias string, linkTypes []LinkType) (string, []any) {
 	return alias + " IN (" + strings.Join(placeholders, ", ") + ")", args
 }
 
-func dbPath(vaultPath string, locations ...Locations) string {
-	if p := selectedLocations(locations).DBPath; p != "" {
-		return p
-	}
-	return filepath.Join(vaultPath, dataDirName, dbFileName)
-}
-
-func ensureDataDir(vaultPath string) (string, error) {
-	dir := filepath.Join(vaultPath, dataDirName)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return dir, nil
-}
-
 // openDBAt opens a literal filesystem path, escaping SQLite URI syntax.
 func openDBAt(path string) (*sql.DB, error) {
 	absolute, err := filepath.Abs(path)
@@ -111,7 +96,10 @@ func openDBAt(path string) (*sql.DB, error) {
 }
 
 func openDBChecked(vaultPath string, locations ...Locations) (*sql.DB, error) {
-	dbp := dbPath(vaultPath, locations...)
+	dbp, err := resolveDBPath(vaultPath, locations...)
+	if err != nil {
+		return nil, err
+	}
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
 		return nil, fmt.Errorf("%w: run 'mdhop build' first", ErrIndexNotFound)
 	}

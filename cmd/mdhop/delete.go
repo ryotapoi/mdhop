@@ -13,7 +13,7 @@ const deleteHelp = `Usage: mdhop delete --file <path> [--file <path>...] [--rm] 
 Remove registered files from the index. With --rm, remove them from disk as well.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --file <path>       Required, repeatable. Vault-relative file or directory. A trailing / or disk directory enables directory mode.
   --rm                Optional. Remove registered files from disk. In directory mode, also remove remaining non-Markdown files.

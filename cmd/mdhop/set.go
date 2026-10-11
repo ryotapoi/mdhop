@@ -15,7 +15,7 @@ const setHelp = `Usage: mdhop set --file <path> --key <name> (--value <value>|--
 Set one frontmatter document key and update the index.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --file <path>       Required. Vault-relative Markdown file to edit.
   --key <name>        Required. Frontmatter key to set.

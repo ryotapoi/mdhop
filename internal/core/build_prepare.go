@@ -41,7 +41,10 @@ func prepareBuild(vaultPath string, locations ...Locations) (*preparedBuild, err
 	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
 		return nil, err
 	}
-	files = filterIndexFiles(vaultPath, files, locations)
+	files, err = filterIndexFiles(vaultPath, files, locations)
+	if err != nil {
+		return nil, err
+	}
 	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
 
 	// Pass 0.5: collect asset files.
@@ -49,7 +52,10 @@ func prepareBuild(vaultPath string, locations ...Locations) (*preparedBuild, err
 	if err != nil {
 		return nil, err
 	}
-	assetFiles = filterIndexFiles(vaultPath, assetFiles, locations)
+	assetFiles, err = filterIndexFiles(vaultPath, assetFiles, locations)
+	if err != nil {
+		return nil, err
+	}
 	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
 
 	// Build resolve maps for notes and assets.
@@ -124,23 +130,31 @@ func prepareBuild(vaultPath string, locations ...Locations) (*preparedBuild, err
 }
 
 // Exclude only the selected index and its directly associated SQLite/build files.
-func filterIndexFiles(vaultPath string, files []string, locations []Locations) []string {
+func filterIndexFiles(vaultPath string, files []string, locations []Locations) ([]string, error) {
 	result := make([]string, 0, len(files))
 	for _, file := range files {
-		if isIndexFile(vaultPath, filepath.Join(vaultPath, file), locations) {
+		excluded, err := isIndexFile(vaultPath, filepath.Join(vaultPath, file), locations)
+		if err != nil {
+			return nil, err
+		}
+		if excluded {
 			continue
 		}
 		result = append(result, file)
 	}
-	return result
+	return result, nil
 }
 
 // isIndexFile identifies only the selected DB and its direct auxiliary files.
 // path is a filesystem path, rather than a vault-relative note identifier.
-func isIndexFile(vaultPath, path string, locations []Locations) bool {
-	index := indexResourcePath(dbPath(vaultPath, locations...))
+func isIndexFile(vaultPath, path string, locations []Locations) (bool, error) {
+	dbp, err := resolveDBPath(vaultPath, locations...)
+	if err != nil {
+		return false, err
+	}
+	index := indexResourcePath(dbp)
 	absolute := indexResourcePath(path)
-	return absolute == index || absolute == index+"-journal" || absolute == index+"-wal" || absolute == index+"-shm" || strings.HasPrefix(absolute, index+".tmp-")
+	return absolute == index || absolute == index+"-journal" || absolute == index+"-wal" || absolute == index+"-shm" || strings.HasPrefix(absolute, index+".tmp-"), nil
 }
 
 // Resolve parent aliases (including a symlink vault root) without following the

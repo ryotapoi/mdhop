@@ -29,7 +29,7 @@ After upgrading an existing vault to v0.20.0 or v0.21.0, run `mdhop build`. v0.2
 # Navigate to your vault directory
 cd /path/to/vault
 
-# Build the index (.mdhop/index.sqlite is created)
+# Build the index (the index is created in the user cache)
 mdhop build
 
 # Get related information for a note
@@ -88,7 +88,11 @@ mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year
 
 ## Vault, index, and configuration paths
 
-All commands that use an index or configuration accept `--vault`, `--db`, and `--config`. `--vault` defaults to the current directory; `--db` defaults to `<vault>/.mdhop/index.sqlite`. Absolute paths and paths relative to the current directory are accepted. Vault is always the base for note paths, link interpretation, previews, output paths, and configuration globs; it is never inferred from the DB or configuration location.
+All commands that use an index or configuration accept `--vault`, `--db`, and `--config`. `--vault` defaults to the current directory; `--db` defaults to `<cache>/mdhop/vaults/<vault-hash>/index.sqlite`. Absolute paths and paths relative to the current directory are accepted. Vault is always the base for note paths, link interpretation, previews, output paths, and configuration globs; it is never inferred from the DB or configuration location.
+
+`<cache>` uses an absolute, nonempty `XDG_CACHE_HOME`; unset, empty, or relative values fall back to `~/.cache` on every supported OS. `<vault-hash>` is the full lowercase SHA-256 of the absolute vault root after resolving symlinks. Relative and symlink aliases of one vault share its index; moving the vault selects a new index. Configuration does not affect this hash: use separate `--db` paths to keep indexes for different configurations.
+
+Run `mdhop paths --vault <path>` (or add `--format json`) to see the effective absolute `vault`, `config`, and `db` paths, even before the config or DB exists. This command reads neither file and creates nothing. If the cache is deleted or the vault moves, run `mdhop build` again. Normal commands neither use nor migrate or delete the old `<vault>/.mdhop/` directory.
 
 `--config` reads exactly the selected file, with any filename. Otherwise only `<vault>/mdhop.toml` is read; a missing default file means no configuration. Missing explicit files, read failures, and invalid configuration are errors, including when configuration filters are disabled. Files are neither discovered nor merged. `init-meta --write` updates the selected configuration file; an explicitly selected file must already exist.
 

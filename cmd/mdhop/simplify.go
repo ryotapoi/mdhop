@@ -13,7 +13,7 @@ const simplifyHelp = `Usage: mdhop simplify [--dry-run] [--file <path>...] [--va
 Shorten path links to basename links when the shortened form remains unambiguous.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --dry-run           Optional. Report changes without writing files.
   --file <path>       Optional, repeatable. Limit rewriting to specific vault-relative files.

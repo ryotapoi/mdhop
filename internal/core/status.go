@@ -57,8 +57,14 @@ func Status(vaultPath string, locations ...Locations) (*StatusResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	noteFiles = filterIndexFiles(vaultPath, noteFiles, locations)
-	assetFiles = filterIndexFiles(vaultPath, assetFiles, locations)
+	noteFiles, err = filterIndexFiles(vaultPath, noteFiles, locations)
+	if err != nil {
+		return nil, err
+	}
+	assetFiles, err = filterIndexFiles(vaultPath, assetFiles, locations)
+	if err != nil {
+		return nil, err
+	}
 	allDiskFiles := append(noteFiles, assetFiles...)
 	diskFiles := append(filterBuildExcludes(noteFiles, cfg.Build.ExcludePaths), filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)...)
 	diskPathSet := make(map[string]bool, len(allDiskFiles))

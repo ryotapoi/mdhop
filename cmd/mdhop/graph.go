@@ -13,7 +13,7 @@ const graphHelp = `Usage: mdhop graph [--path <glob>...] [--exclude <glob>...] [
 Export an induced link graph for existing notes and assets.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --path <glob>       Optional, repeatable. Include node paths matching any glob.
   --exclude <glob>    Optional, repeatable. Exclude node paths matching the glob.

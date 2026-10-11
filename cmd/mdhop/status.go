@@ -14,7 +14,7 @@ Modified compares the indexed and disk mtimes at whole-second precision; content
 changes within the same second are not detected.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --vault <path>      Optional. Vault root directory. Default: ".".
   --format json|text  Optional. Output format. Default: text.

@@ -13,7 +13,7 @@ const addHelp = `Usage: mdhop add --file <path> [--file <path>...] [--no-auto-di
 Add newly created files to the index. Use this after writing the files.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --file <path>              Required, repeatable. Vault-relative file path to add.
   --no-auto-disambiguate     Optional. Disable automatic rewriting when a new basename collision would otherwise be made safe.

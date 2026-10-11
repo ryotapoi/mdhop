@@ -17,7 +17,7 @@ decoded before conversion; links that cannot preserve their meaning as wikilinks
 are left unchanged. Table wikilink aliases keep their escaped pipe separator.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --to <wikilink|markdown>  Required. Target link syntax.
   --dry-run                 Optional. Report changes without writing files.

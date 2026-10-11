@@ -239,7 +239,11 @@ func cleanupDeletedDirectories(vaultPath string, directories, cleanupPaths []str
 			if strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
 				return nil
 			}
-			if isIndexFile(vaultPath, path, locations) {
+			excluded, err := isIndexFile(vaultPath, path, locations)
+			if err != nil {
+				return err
+			}
+			if excluded {
 				return nil
 			}
 			if err := deleteAssetRemove(path); err != nil && !os.IsNotExist(err) {

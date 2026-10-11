@@ -13,7 +13,7 @@ const searchHelp = `Usage: mdhop search [--where <expr>...] [--path <glob>...] [
 Search existing notes without an entry node.
 
 Options:
-  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite (see paths).
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --where <expr>       Optional, repeatable. Metadata filter using the same syntax as query. Multiple --where flags are ANDed; use " || " inside one expression for OR.
   --path <glob>        Optional, repeatable. Include note paths matching any glob.
