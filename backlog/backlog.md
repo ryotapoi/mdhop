@@ -38,7 +38,7 @@
 
   範囲外: 自動更新、DB の世代管理・保持数・自動削除、管理 UI、DB なしのリンク解決。既定領域の DB 一覧は v0.23.0 の別タスクで扱う。
 
-- [ ] `migrate` で既存の YAML 設定と Vault 内 DB を新しい既定配置へ移行する
+- [x] `migrate` で既存の YAML 設定と Vault 内 DB を新しい既定配置へ移行する
 
   操作: `mdhop migrate [--vault <path>]` とし、未指定時はカレントディレクトリを対象にする。`--db`・`--config` は受け付けない。対象は `<vault>/mdhop.yaml`、`<vault>/mdhop.toml`、`<vault>/.mdhop/` と、その Vault に対応する既定キャッシュ DB に固定する。
 

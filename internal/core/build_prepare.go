@@ -28,6 +28,11 @@ type preparedAsset struct {
 
 // prepareBuild collects and validates all Build inputs before database work begins.
 func prepareBuild(vaultPath string, locations ...Locations) (*preparedBuild, error) {
+	return prepareBuildWithout(vaultPath, "", locations...)
+}
+
+// prepareBuildWithout omits the legacy config that migration will remove.
+func prepareBuildWithout(vaultPath, omittedAsset string, locations ...Locations) (*preparedBuild, error) {
 	// Pass 0: collect .md files.
 	files, err := collectMarkdownFiles(vaultPath)
 	if err != nil {
@@ -57,6 +62,15 @@ func prepareBuild(vaultPath string, locations ...Locations) (*preparedBuild, err
 		return nil, err
 	}
 	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
+	if omittedAsset != "" {
+		kept := assetFiles[:0]
+		for _, path := range assetFiles {
+			if path != omittedAsset {
+				kept = append(kept, path)
+			}
+		}
+		assetFiles = kept
+	}
 
 	// Build resolve maps for notes and assets.
 	rm := newResolveMaps(files, assetFiles)

@@ -95,6 +95,10 @@ func LoadConfig(vaultPath string, locations ...Locations) (Config, error) {
 		}
 		return Config{}, err
 	}
+	return decodeConfig(data, p)
+}
+
+func decodeConfig(data []byte, p string) (Config, error) {
 	var cfg Config
 	if err := toml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", p, err)

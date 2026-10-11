@@ -67,6 +67,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `status` | Compare the disk with the current index without syncing |
 | `meta-check` | Check that frontmatter path/wikilink values resolve to real targets |
 | `meta-validate` | Check frontmatter against required keys, profiles, and declared `meta.types` |
+| `migrate` | Migrate legacy YAML and vault-local index to default locations |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.toml` |
 
 `--vault <path>` (defaults to the current directory) is common to commands. Output and field flags vary by command.
@@ -88,7 +89,7 @@ mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year
 
 ## Vault, index, and configuration paths
 
-All commands that use an index or configuration accept `--vault`, `--db`, and `--config`. `--vault` defaults to the current directory; `--db` defaults to `<cache>/mdhop/vaults/<vault-hash>/index.sqlite`. Absolute paths and paths relative to the current directory are accepted. Vault is always the base for note paths, link interpretation, previews, output paths, and configuration globs; it is never inferred from the DB or configuration location.
+Except for the dedicated `migrate` command, all commands that use an index or configuration accept `--vault`, `--db`, and `--config`. `--vault` defaults to the current directory; `--db` defaults to `<cache>/mdhop/vaults/<vault-hash>/index.sqlite`. Absolute paths and paths relative to the current directory are accepted. Vault is always the base for note paths, link interpretation, previews, output paths, and configuration globs; it is never inferred from the DB or configuration location.
 
 `<cache>` uses an absolute, nonempty `XDG_CACHE_HOME`; unset, empty, or relative values fall back to `~/.cache` on every supported OS. `<vault-hash>` is the full lowercase SHA-256 of the absolute vault root after resolving symlinks. Relative and symlink aliases of one vault share its index; moving the vault selects a new index. Configuration does not affect this hash: use separate `--db` paths to keep indexes for different configurations.
 
@@ -102,6 +103,16 @@ mdhop query --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/note
 ```
 
 With an external DB, build and reference commands require no write permission on the vault and create no index or temporary files there. Builds complete a private DB beside the selected DB and publish it only after commit and close. A failed rebuild preserves the previous index. A selected DB inside the vault is excluded from status inputs and directory note mutations; its path is retained when those notes are deleted or moved. On supported Ubuntu and macOS local filesystems, readers already connected retain the old completed index; readers starting after replacement see the new one. Read operations overlapping rebuild see completed generations. This does not promise one generation across separate CLI calls or a snapshot shared with changing note text; preview stale checks still apply. Serialize build with update and other index mutations: concurrent writers are unsupported. DB-free scan and configuration generation commands accept `--db` without opening it.
+
+## Migrating legacy locations
+
+Run `mdhop migrate` inside the vault, or `mdhop migrate --vault ./Notes`. Targets are fixed to the vault-root `mdhop.yaml`, `mdhop.toml`, `.mdhop/`, and that vault's default cache DB. `--db`, `--config`, and positional arguments are rejected.
+
+With YAML, migrate converts and validates all settings, saves TOML, and fully rebuilds the index using it. With TOML only, it uses that file unchanged; with neither file, it uses defaults. Only after a successful rebuild does it delete legacy YAML and `.mdhop/`. The new index excludes the YAML asset and resolves links against the final file set. Success produces no stdout; warnings use stderr.
+
+If YAML and TOML both exist, migration fails without changes. Preserve both, decide which configuration to use, and move one outside the vault before retrying. Unknown fields, invalid values, multiple YAML documents, and YAML merge keys are errors. Symlinks at the fixed targets and cache locations inside the directory scheduled for deletion are also rejected.
+
+Conversion, save, or rebuild failures retain the old YAML, `.mdhop/`, and existing cache index; newly generated TOML is removed on failure. If rollback fails, the error reports the remaining TOML path: preserve the YAML, inspect and move the generated TOML aside, then retry. Cleanup failure is an error with the new cache already published and some old files possibly remaining. Inspect reported paths and fix permissions; if both configuration files remain, preserve and move the old YAML aside before retrying. Normal reference commands can use the new TOML and cache. Serialize migration with build, update, and other writes.
 
 ## Configuration (mdhop.toml)
 

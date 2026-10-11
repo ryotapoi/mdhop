@@ -66,6 +66,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `diagnose` | basename 衝突・phantom ノード・見出し anchor 切れの検出 |
 | `meta-check` | frontmatter の path / wikilink 値が実在する対象に解決するか検査 |
 | `meta-validate` | frontmatter を必須 key・profiles・`meta.types` 宣言に照らして検査 |
+| `migrate` | 旧 YAML 設定と Vault 内索引を既定配置へ移行 |
 | `init-meta` | `mdhop.toml` の frontmatter 型定義を生成 |
 
 `--vault <path>`（省略時はカレントディレクトリ）は各コマンドに共通。出力・field 系のフラグはコマンドごとに異なる。
@@ -86,7 +87,7 @@ mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year
 
 ## Vault・DB・設定の配置
 
-DB または設定を扱う全コマンドで `--vault`・`--db`・`--config` を使える。`--vault` はカレントディレクトリ、`--db` は `<cache>/mdhop/vaults/<vault-hash>/index.sqlite` が既定。配置引数は絶対パスとカレントディレクトリ基準の相対パスを受け付ける。ノートのパス・リンク解釈・本文プレビュー・出力パス・設定内 glob の基準は常に Vault とし、DB や設定の場所から推定しない。
+専用の `migrate` を除き、DB または設定を扱う全コマンドで `--vault`・`--db`・`--config` を使える。`--vault` はカレントディレクトリ、`--db` は `<cache>/mdhop/vaults/<vault-hash>/index.sqlite` が既定。配置引数は絶対パスとカレントディレクトリ基準の相対パスを受け付ける。ノートのパス・リンク解釈・本文プレビュー・出力パス・設定内 glob の基準は常に Vault とし、DB や設定の場所から推定しない。
 
 `<cache>` は空でない絶対パスの `XDG_CACHE_HOME` を使い、未設定・空・相対パスなら対応 OS によらず `~/.cache` を使う。`<vault-hash>` は絶対パス化・symlink 解決後の Vault root の SHA-256 全長・小文字 hex とする。同じ実体への相対パス・symlink は同じ索引を使い、Vault を移動すると別の索引になる。設定はハッシュに含めないため、異なる索引設定を併用する場合は `--db` で保存先を分ける。
 
@@ -100,6 +101,16 @@ mdhop query --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/note
 ```
 
 外部 DB を使う build・参照系は Vault の書込権限を必要とせず、Vault 内に索引や一時ファイルを作らない。build は選択 DB と同じディレクトリで固有の一時 DB を完成させ、commit と close の成功後に置換する。失敗時は旧 DB を保持する。Vault 内の選択 DB は status の入力とノートの directory mutation 対象から除外し、ノートを削除・移動しても DB 保存先を維持する。対応する Ubuntu・macOS のローカルファイルシステムでは、接続済み reader は旧索引を保持し、置換後に接続する reader は新索引を見る。再生成に重なる参照も完成済みの索引を見る。複数 CLI 呼び出し間の同一世代や変更中の本文との同時点は保証せず、本文プレビューの stale 検査は維持する。build と update 等の同時書込は未サポートのため直列化する。DB を使わない scan・設定生成は `--db` を受け付けても DB を開かない。
+
+## 旧配置からの移行
+
+`mdhop migrate` を Vault 内で実行するか、`mdhop migrate --vault ./Notes` で対象を指定する。対象は Vault 直下の `mdhop.yaml`・`mdhop.toml`・`.mdhop/` と、その Vault の既定キャッシュ DB に固定され、`--db`・`--config`・位置引数は受け付けない。
+
+YAML があれば全設定を TOML に変換・検証・保存し、その設定で索引を全量再生成する。TOML だけがある場合は内容を変更せず使用し、両方なければ既定設定で再生成する。再生成成功後だけ旧 YAML と `.mdhop/` を削除する。削除予定の YAML は新索引の asset に含めず、リンク先は削除後の状態で解決する。成功時の stdout は空で、警告は stderr に出る。
+
+YAML と TOML が共存する場合は無変更でエラーになる。先に両方を保管して使用する設定を確認し、片方を Vault 外へ移してから再実行する。未知の項目・不正値・複数 YAML 文書・YAML merge key は黙って捨てずエラーにする。固定対象の symlink や、既定キャッシュが削除対象内に入る配置も拒否する。
+
+変換・保存・再生成に失敗した場合は旧 YAML・`.mdhop/`・既存キャッシュ DB を保持し、新しく作成した TOML は削除して戻す。復元に失敗すると残った TOML のパスを報告するため、旧 YAML を保管したうえで生成 TOML を確認・退避して再実行する。後始末に失敗した場合はエラーとなり、新キャッシュは公開済みで、旧ファイルの一部が残る可能性がある。報告された残パスを確認して権限等を直し、TOML と YAML が共存していれば旧 YAML を保管・退避してから再実行する。通常参照は新 TOML と既定キャッシュを使える。build・update・migrate 等の書き込み操作は直列に実行する。
 
 ## 設定（mdhop.toml）
 
