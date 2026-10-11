@@ -6,6 +6,22 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.23.0] - 2026-10-11
+
+### Added
+
+- Added `cache-list` to list existing default cache folders, their allocated disk usage, and their original vault paths without selecting a vault. Text and JSON output are available; listing does not create or update caches.
+- Default-cache builds and migrations now record the original vault in `origin.json`. Explicit `--db` builds do not record it; older caches remain listed with an unknown origin until rebuilt with the default DB location.
+- Added optional `resolve --line` to select an exact indexed raw-link occurrence by its one-based physical source line, including frontmatter. Reference links use the usage line; unmatched text or lines fail without fallback, and conflicting targets or fragments remain ambiguous. Callers must use saved source positions consistent with the selected index.
+
+### Changed
+
+- Removed the `paths` command. Independent `--vault`, `--db`, and `--config` location options remain available.
+
+### Documentation
+
+- Updated both READMEs, CLI help, the example agent skill, and current ADRs for cache management and line-qualified resolution.
+
 ## [v0.22.1] - 2026-10-11
 
 ### Fixed
