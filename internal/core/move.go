@@ -19,14 +19,14 @@ type MoveResult struct {
 // Move moves a file from one path to another, updating the index and rewriting links.
 // If the file has already been moved on disk (from absent, to present), the disk move
 // is skipped and only link rewrites + DB updates are performed.
-func Move(vaultPath string, opts MoveOptions) (*MoveResult, error) {
-	db, err := openDBChecked(vaultPath)
+func Move(vaultPath string, opts MoveOptions, locations ...Locations) (*MoveResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

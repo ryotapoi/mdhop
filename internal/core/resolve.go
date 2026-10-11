@@ -27,8 +27,8 @@ type ResolveResult struct {
 }
 
 // Resolve resolves a link from a source file and returns the target node info.
-func Resolve(vaultPath, fromPath, link string) (*ResolveResult, error) {
-	db, err := openDBChecked(vaultPath)
+func Resolve(vaultPath, fromPath, link string, locations ...Locations) (*ResolveResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -84,20 +83,21 @@ type QueryViaConfig struct {
 	Exclude *ExcludeConfig `toml:"exclude"`
 }
 
-// LoadConfig reads mdhop.toml from the vault root.
-// Returns zero Config and nil error if the file does not exist.
-func LoadConfig(vaultPath string) (Config, error) {
-	p := filepath.Join(vaultPath, "mdhop.toml")
+// LoadConfig reads the selected file, or mdhop.toml at the vault root.
+// Only a missing default file is treated as an empty configuration.
+func LoadConfig(vaultPath string, locations ...Locations) (Config, error) {
+	location := selectedLocations(locations)
+	p := location.ConfigFile(vaultPath)
 	data, err := os.ReadFile(p)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if os.IsNotExist(err) && location.ConfigPath == "" {
 			return Config{}, nil
 		}
 		return Config{}, err
 	}
 	var cfg Config
 	if err := toml.Unmarshal(data, &cfg); err != nil {
-		return Config{}, fmt.Errorf("mdhop.toml: %w", err)
+		return Config{}, fmt.Errorf("%s: %w", p, err)
 	}
 	var raw struct {
 		Meta struct {
@@ -105,20 +105,20 @@ func LoadConfig(vaultPath string) (Config, error) {
 		} `toml:"meta"`
 	}
 	if err := toml.Unmarshal(data, &raw); err != nil {
-		return Config{}, fmt.Errorf("mdhop.toml: %w", err)
+		return Config{}, fmt.Errorf("%s: %w", p, err)
 	}
 	if raw.Meta.Types != nil {
 		cfg.Meta.Types = make(map[string]MetaTypeInfo, len(raw.Meta.Types))
 		for key, value := range raw.Meta.Types {
 			info, err := decodeMetaType(value)
 			if err != nil {
-				return Config{}, fmt.Errorf("mdhop.toml: meta.types.%s: %w", key, err)
+				return Config{}, fmt.Errorf("%s: meta.types.%s: %w", p, key, err)
 			}
 			cfg.Meta.Types[key] = info
 		}
 	}
 	if err := validateMetaConfig(cfg.Meta); err != nil {
-		return Config{}, fmt.Errorf("mdhop.toml: %w", err)
+		return Config{}, fmt.Errorf("%s: %w", p, err)
 	}
 	return cfg, nil
 }

@@ -13,6 +13,8 @@ const graphHelp = `Usage: mdhop graph [--path <glob>...] [--exclude <glob>...] [
 Export an induced link graph for existing notes and assets.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --path <glob>       Optional, repeatable. Include node paths matching any glob.
   --exclude <glob>    Optional, repeatable. Exclude node paths matching the glob.
   --include-phantoms  Optional. Include phantom nodes referenced from included notes.
@@ -22,6 +24,9 @@ Options:
 Output:
   json  Object with nodes[] and edges[] for machine processing.
   dot   Graphviz digraph for visualization.
+
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
 
 Examples:
   mdhop graph --path "docs/*" --format json
@@ -33,6 +38,8 @@ func runGraph(args []string) error {
 	fs := flag.NewFlagSet("graph", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, graphHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "json", "output format (json or dot)")
 	includePhantoms := fs.Bool("include-phantoms", false, "include phantom nodes referenced from in-set notes")
 	var pathPatterns multiString
@@ -40,6 +47,10 @@ func runGraph(args []string) error {
 	fs.Var(&pathPatterns, "path", "restrict nodes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude nodes matching glob (repeatable)")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 
@@ -52,7 +63,7 @@ func runGraph(args []string) error {
 		Path:            pathPatterns,
 		Exclude:         excludePaths,
 		IncludePhantoms: *includePhantoms,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

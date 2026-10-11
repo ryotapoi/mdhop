@@ -15,14 +15,14 @@ type StatusResult struct {
 
 // Status compares the current build inputs with the indexed note and asset
 // records. It does not update the index or the vault.
-func Status(vaultPath string) (*StatusResult, error) {
-	db, err := openDBChecked(vaultPath)
+func Status(vaultPath string, locations ...Locations) (*StatusResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +57,8 @@ func Status(vaultPath string) (*StatusResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	noteFiles = filterIndexFiles(vaultPath, noteFiles, locations)
+	assetFiles = filterIndexFiles(vaultPath, assetFiles, locations)
 	allDiskFiles := append(noteFiles, assetFiles...)
 	diskFiles := append(filterBuildExcludes(noteFiles, cfg.Build.ExcludePaths), filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)...)
 	diskPathSet := make(map[string]bool, len(allDiskFiles))

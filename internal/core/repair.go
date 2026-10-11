@@ -31,7 +31,7 @@ type SkippedLink struct {
 // It works by scanning files directly (no DB required).
 // Vault-escape links are always converted to basename (escape resolution is top priority).
 // Broken path links are converted when 0-1 candidates exist; 2+ candidates are skipped.
-func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
+func Repair(vaultPath string, opts RepairOptions, locations ...Locations) (*RepairResult, error) {
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func Repair(vaultPath string, opts RepairOptions) (*RepairResult, error) {
 				return entries, nil
 			}}, nil
 		},
-	})
+	}, locations...)
 	if err != nil {
 		return nil, err
 	}

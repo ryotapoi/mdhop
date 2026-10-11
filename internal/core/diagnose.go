@@ -267,7 +267,7 @@ func readNoteHeadingSet(vaultPath, notePath string) (map[string]bool, error) {
 }
 
 // Diagnose returns diagnostic information for the indexed vault.
-func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
+func Diagnose(vaultPath string, opts DiagnoseOptions, locations ...Locations) (*DiagnoseResult, error) {
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func Diagnose(vaultPath string, opts DiagnoseOptions) (*DiagnoseResult, error) {
 		return nil, err
 	}
 
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

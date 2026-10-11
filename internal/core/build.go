@@ -16,22 +16,22 @@ type BuildResult struct {
 }
 
 // Build parses the vault and creates the index DB.
-func Build(vaultPath string) (*BuildResult, error) {
-	if _, err := ensureDataDir(vaultPath); err != nil {
+func Build(vaultPath string, locations ...Locations) (*BuildResult, error) {
+	if err := os.MkdirAll(filepath.Dir(dbPath(vaultPath, locations...)), 0o755); err != nil {
 		return nil, err
 	}
 
-	prepared, err := prepareBuild(vaultPath)
+	prepared, err := prepareBuild(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
-	return buildPrepared(vaultPath, prepared)
+	return buildPrepared(vaultPath, prepared, locations...)
 }
 
-func buildPrepared(vaultPath string, prepared *preparedBuild) (*BuildResult, error) {
+func buildPrepared(vaultPath string, prepared *preparedBuild, locations ...Locations) (*BuildResult, error) {
 
 	// Reserve a private DB path without releasing its file to another build.
-	tmpFile, err := os.CreateTemp(filepath.Dir(dbPath(vaultPath)), dbFileName+".tmp-*")
+	tmpFile, err := os.CreateTemp(filepath.Dir(dbPath(vaultPath, locations...)), filepath.Base(dbPath(vaultPath, locations...))+".tmp-*")
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func buildPrepared(vaultPath string, prepared *preparedBuild) (*BuildResult, err
 		return nil, err
 	}
 
-	if err := os.Rename(tmpPath, dbPath(vaultPath)); err != nil {
+	if err := os.Rename(tmpPath, dbPath(vaultPath, locations...)); err != nil {
 		return nil, err
 	}
 	return &BuildResult{Warnings: metaWarnings}, nil

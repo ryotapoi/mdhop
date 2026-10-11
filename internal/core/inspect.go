@@ -18,7 +18,7 @@ type InspectResult struct {
 }
 
 // Inspect returns information for one indexed note without relation traversal.
-func Inspect(vaultPath, file string, opts InspectOptions) (*InspectResult, error) {
+func Inspect(vaultPath, file string, opts InspectOptions, locations ...Locations) (*InspectResult, error) {
 	if file == "" {
 		return nil, fmt.Errorf("--file is required")
 	}
@@ -42,7 +42,7 @@ func Inspect(vaultPath, file string, opts InspectOptions) (*InspectResult, error
 	if opts.IncludeHead != nil && *opts.IncludeHead <= 0 {
 		return nil, fmt.Errorf("include-head must be positive")
 	}
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,8 @@ const disambiguateHelp = `Usage: mdhop disambiguate --name <basename> [--target 
 Rewrite ambiguous basename links to full paths.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --name <basename>   Required. Basename link name to rewrite.
   --target <path>     Optional. Required when the basename has multiple candidates.
   --file <path>       Optional. Limit rewriting to one vault-relative file.
@@ -22,6 +24,9 @@ Options:
 
 Output fields:
   rewritten  Files whose links were rewritten.
+
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
 
 Examples:
   mdhop disambiguate --name a --target Notes/a.md --format json
@@ -34,6 +39,8 @@ func runDisambiguate(args []string) error {
 	fs := flag.NewFlagSet("disambiguate", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, disambiguateHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	name := fs.String("name", "", "basename to disambiguate")
 	target := fs.String("target", "", "target file path (required if multiple candidates)")
@@ -41,6 +48,10 @@ func runDisambiguate(args []string) error {
 	var files multiString
 	fs.Var(&files, "file", "limit rewriting to these source files")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {
@@ -56,13 +67,13 @@ func runDisambiguate(args []string) error {
 			Name:   *name,
 			Target: *target,
 			Files:  files,
-		})
+		}, locations)
 	} else {
 		result, err = core.Disambiguate(*vault, core.DisambiguateOptions{
 			Name:   *name,
 			Target: *target,
 			Files:  files,
-		})
+		}, locations)
 	}
 	if err != nil {
 		return err

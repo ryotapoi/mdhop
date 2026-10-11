@@ -2,6 +2,8 @@ package core
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 type preparedBuild struct {
@@ -25,20 +27,21 @@ type preparedAsset struct {
 }
 
 // prepareBuild collects and validates all Build inputs before database work begins.
-func prepareBuild(vaultPath string) (*preparedBuild, error) {
+func prepareBuild(vaultPath string, locations ...Locations) (*preparedBuild, error) {
 	// Pass 0: collect .md files.
 	files, err := collectMarkdownFiles(vaultPath)
 	if err != nil {
 		return nil, err
 	}
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
 	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
 		return nil, err
 	}
+	files = filterIndexFiles(vaultPath, files, locations)
 	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
 
 	// Pass 0.5: collect asset files.
@@ -46,6 +49,7 @@ func prepareBuild(vaultPath string) (*preparedBuild, error) {
 	if err != nil {
 		return nil, err
 	}
+	assetFiles = filterIndexFiles(vaultPath, assetFiles, locations)
 	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
 
 	// Build resolve maps for notes and assets.
@@ -117,4 +121,34 @@ func prepareBuild(vaultPath string) (*preparedBuild, error) {
 		resolveMaps: rm,
 		metaTypes:   cfg.Meta.Types,
 	}, nil
+}
+
+// Exclude only the selected index and its directly associated SQLite/build files.
+func filterIndexFiles(vaultPath string, files []string, locations []Locations) []string {
+	result := make([]string, 0, len(files))
+	for _, file := range files {
+		if isIndexFile(vaultPath, filepath.Join(vaultPath, file), locations) {
+			continue
+		}
+		result = append(result, file)
+	}
+	return result
+}
+
+// isIndexFile identifies only the selected DB and its direct auxiliary files.
+// path is a filesystem path, rather than a vault-relative note identifier.
+func isIndexFile(vaultPath, path string, locations []Locations) bool {
+	index := indexResourcePath(dbPath(vaultPath, locations...))
+	absolute := indexResourcePath(path)
+	return absolute == index || absolute == index+"-journal" || absolute == index+"-wal" || absolute == index+"-shm" || strings.HasPrefix(absolute, index+".tmp-")
+}
+
+// Resolve parent aliases (including a symlink vault root) without following the
+// final entry, which build replaces and directory mutations must preserve.
+func indexResourcePath(path string) string {
+	absolute, _ := filepath.Abs(path)
+	if parent, err := filepath.EvalSymlinks(filepath.Dir(absolute)); err == nil {
+		absolute = filepath.Join(parent, filepath.Base(absolute))
+	}
+	return NormalizePath(absolute)
 }

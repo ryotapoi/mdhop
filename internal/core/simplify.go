@@ -23,7 +23,7 @@ type SimplifyResult struct {
 // or can be resolved via root-priority. It works by scanning files directly
 // (no DB required). Shortening is explicit rather than automatic so recurring
 // basename collisions do not cause unrelated Git diffs to oscillate.
-func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
+func Simplify(vaultPath string, opts SimplifyOptions, locations ...Locations) (*SimplifyResult, error) {
 	result := &SimplifyResult{}
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		DryRun: opts.DryRun,
@@ -154,7 +154,7 @@ func Simplify(vaultPath string, opts SimplifyOptions) (*SimplifyResult, error) {
 				return entries, nil
 			}}, nil
 		},
-	})
+	}, locations...)
 	if err != nil {
 		return nil, err
 	}

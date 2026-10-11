@@ -20,7 +20,7 @@ type ConvertResult struct {
 
 // Convert converts wikilinks and inline Markdown links by scanning files
 // directly (no DB required). Reference links and definitions are unchanged.
-func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
+func Convert(vaultPath string, opts ConvertOptions, locations ...Locations) (*ConvertResult, error) {
 	if opts.ToFormat != "wikilink" && opts.ToFormat != "markdown" {
 		return nil, fmt.Errorf("invalid ToFormat: %q (must be wikilink or markdown)", opts.ToFormat)
 	}
@@ -104,7 +104,7 @@ func Convert(vaultPath string, opts ConvertOptions) (*ConvertResult, error) {
 				return entries, nil
 			}}, nil
 		},
-	})
+	}, locations...)
 	if err != nil {
 		return nil, err
 	}

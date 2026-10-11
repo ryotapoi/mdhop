@@ -12,6 +12,8 @@ const metaCheckHelp = `Usage: mdhop meta-check --key <name> [--key <name>...] [-
 Check whether frontmatter values resolve to real vault paths or wikilinks.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --key <name>               Required, repeatable. Frontmatter key to inspect.
   --kind path|wikilink|auto  Optional. Interpret values as raw paths, wikilinks, or auto-detect per value. Default: path.
   --path <glob>         Optional, repeatable. Include source notes whose paths match any glob.
@@ -30,6 +32,9 @@ Output fields:
 Text output also includes location: <source_path>:<line>. Rebuild with
 mdhop build after upgrading an existing index to store line information.
 
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
+
 Examples:
   mdhop meta-check --key sources --kind path --format json
   mdhop meta-check --key related --kind wikilink --format json
@@ -42,6 +47,8 @@ func runMetaCheck(args []string) error {
 	fs := flag.NewFlagSet("meta-check", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, metaCheckHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	kind := fs.String("kind", "path", "value interpretation (path, wikilink, or auto)")
 	var keys multiString
@@ -51,6 +58,10 @@ func runMetaCheck(args []string) error {
 	fs.Var(&pathPatterns, "path", "restrict source notes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude source notes matching glob (repeatable)")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 
@@ -63,7 +74,7 @@ func runMetaCheck(args []string) error {
 		Kind:    core.MetaValueKind(*kind),
 		Path:    pathPatterns,
 		Exclude: excludePaths,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

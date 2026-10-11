@@ -23,8 +23,8 @@ type MoveTemplatePlanResult struct {
 
 // PlanMoveTemplate expands and validates move --to-template destinations without
 // changing disk or DB state.
-func PlanMoveTemplate(vaultPath string, opts MoveTemplateOptions) (*MoveTemplatePlanResult, error) {
-	db, err := openDBChecked(vaultPath)
+func PlanMoveTemplate(vaultPath string, opts MoveTemplateOptions, locations ...Locations) (*MoveTemplatePlanResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,14 +45,14 @@ func PlanMoveTemplate(vaultPath string, opts MoveTemplateOptions) (*MoveTemplate
 
 // MoveTemplate expands move --to-template destinations and executes the planned
 // note moves as a single all-or-nothing batch.
-func MoveTemplate(vaultPath string, opts MoveTemplateOptions) (*MoveDirResult, error) {
-	db, err := openDBChecked(vaultPath)
+func MoveTemplate(vaultPath string, opts MoveTemplateOptions, locations ...Locations) (*MoveDirResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,8 @@ const searchHelp = `Usage: mdhop search [--where <expr>...] [--path <glob>...] [
 Search existing notes without an entry node.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --where <expr>       Optional, repeatable. Metadata filter using the same syntax as query. Multiple --where flags are ANDed; use " || " inside one expression for OR.
   --path <glob>        Optional, repeatable. Include note paths matching any glob.
   --exclude <glob>     Optional, repeatable. Exclude note paths matching the glob.
@@ -37,6 +39,9 @@ Fields:
   outgoing_count  Count of outgoing edges, including tag edges.
   incoming_count  Count of incoming edges.
 
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
+
 Examples:
   mdhop search --where "status=active" --sort "-priority" --fields meta --format json
   mdhop search --where "status=active || status=review" --format json
@@ -49,6 +54,8 @@ func runSearch(args []string) error {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, searchHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output (meta, meta.<key>, lines, outgoing_count, incoming_count)")
 	sortKey := fs.String("sort", "", "sort by meta key or computed field (lines, outgoing_count, incoming_count; prefix with - for desc)")
@@ -70,6 +77,11 @@ func runSearch(args []string) error {
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	cfg, err := core.LoadConfig(*vault, locations)
+	if err != nil {
+		return err
+	}
 
 	if err := validateFormat(*format); err != nil {
 		return err
@@ -89,14 +101,6 @@ func runSearch(args []string) error {
 		return err
 	}
 
-	var cfg core.Config
-	if !*noExclude || len(whereExprs) > 0 {
-		var err error
-		cfg, err = core.LoadConfig(*vault)
-		if err != nil {
-			return err
-		}
-	}
 	var cfgExclude core.ExcludeConfig
 	if !*noExclude {
 		cfgExclude = cfg.Exclude
@@ -127,7 +131,7 @@ func runSearch(args []string) error {
 		NoIncoming:  *noIncoming,
 	}
 
-	result, err := core.Search(*vault, opts)
+	result, err := core.Search(*vault, opts, locations)
 	if err != nil {
 		return err
 	}

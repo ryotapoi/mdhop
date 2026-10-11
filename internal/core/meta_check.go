@@ -58,7 +58,7 @@ type MetaCheckResult struct {
 
 // MetaCheck verifies that the values of the given frontmatter keys resolve to
 // existing vault paths. URL values (containing "://") are allowed and skipped.
-func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error) {
+func MetaCheck(vaultPath string, opts MetaCheckOptions, locations ...Locations) (*MetaCheckResult, error) {
 	if len(opts.Keys) == 0 {
 		return nil, fmt.Errorf("at least one --key is required")
 	}
@@ -79,7 +79,7 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 	// Keep loading the config so meta-check retains its existing config
 	// validation behavior. Build exclusions restrict index sources, not the
 	// existing filesystem paths that frontmatter values may reference.
-	if _, err := LoadConfig(vaultPath); err != nil {
+	if _, err := LoadConfig(vaultPath, locations...); err != nil {
 		return nil, err
 	}
 	assetFiles, err := collectAssetFiles(vaultPath)
@@ -88,7 +88,7 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions) (*MetaCheckResult, error
 	}
 	rm := newResolveMaps(files, assetFiles)
 
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

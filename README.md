@@ -86,6 +86,19 @@ mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
 mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 ```
 
+## Vault, index, and configuration paths
+
+All commands that use an index or configuration accept `--vault`, `--db`, and `--config`. `--vault` defaults to the current directory; `--db` defaults to `<vault>/.mdhop/index.sqlite`. Absolute paths and paths relative to the current directory are accepted. Vault is always the base for note paths, link interpretation, previews, output paths, and configuration globs; it is never inferred from the DB or configuration location.
+
+`--config` reads exactly the selected file, with any filename. Otherwise only `<vault>/mdhop.toml` is read; a missing default file means no configuration. Missing explicit files, read failures, and invalid configuration are errors, including when configuration filters are disabled. Files are neither discovered nor merged. `init-meta --write` updates the selected configuration file; an explicitly selected file must already exist.
+
+```sh
+mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml
+mdhop query --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml --file Index.md
+```
+
+With an external DB, build and reference commands require no write permission on the vault and create no index or temporary files there. Builds complete a private DB beside the selected DB and publish it only after commit and close. A failed rebuild preserves the previous index. A selected DB inside the vault is excluded from status inputs and directory note mutations; its path is retained when those notes are deleted or moved. On supported Ubuntu and macOS local filesystems, readers already connected retain the old completed index; readers starting after replacement see the new one. Read operations overlapping rebuild see completed generations. This does not promise one generation across separate CLI calls or a snapshot shared with changing note text; preview stale checks still apply. Serialize build with update and other index mutations: concurrent writers are unsupported. DB-free scan and configuration generation commands accept `--db` without opening it.
+
 ## Configuration (mdhop.toml)
 
 Place `mdhop.toml` at the vault root to configure build exclusions, query hide / via selection, search exclusions, and frontmatter handling.

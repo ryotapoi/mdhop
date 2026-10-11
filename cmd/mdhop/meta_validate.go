@@ -12,6 +12,8 @@ const metaValidateHelp = `Usage: mdhop meta-validate [--require <key>...] [--pat
 Validate frontmatter against required keys and mdhop.toml meta type declarations.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --require <key>     Optional, repeatable. Require a non-empty value for this key; overrides mdhop.toml meta.profiles for this run only.
   --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.
   --exclude <glob>    Optional, repeatable. Exclude source notes whose paths match the glob.
@@ -33,6 +35,9 @@ Missing values use line 1 as the note editing start point. Text output also incl
 location: <source_path>:<line>. Rebuild with mdhop build after upgrading an existing
 index to store line information.
 
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
+
 Examples:
   mdhop meta-validate --require type --require status --format json
   mdhop meta-validate --format json
@@ -43,6 +48,8 @@ func runMetaValidate(args []string) error {
 	fs := flag.NewFlagSet("meta-validate", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, metaValidateHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	var require multiString
 	var pathPatterns multiString
@@ -51,6 +58,10 @@ func runMetaValidate(args []string) error {
 	fs.Var(&pathPatterns, "path", "restrict source notes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude source notes matching glob (repeatable)")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 
@@ -62,7 +73,7 @@ func runMetaValidate(args []string) error {
 		Require: require,
 		Path:    pathPatterns,
 		Exclude: excludePaths,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

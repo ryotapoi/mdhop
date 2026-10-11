@@ -94,7 +94,7 @@ func parseSortKey(sort string) (string, bool, error) {
 }
 
 // Search returns notes matching the given conditions.
-func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
+func Search(vaultPath string, opts SearchOptions, locations ...Locations) (*SearchResult, error) {
 	if opts.Limit < 0 {
 		return nil, fmt.Errorf("limit must be >= 0")
 	}
@@ -136,7 +136,7 @@ func Search(vaultPath string, opts SearchOptions) (*SearchResult, error) {
 		return nil, err
 	}
 
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

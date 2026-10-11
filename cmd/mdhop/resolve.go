@@ -18,6 +18,8 @@ to normalized matching. Rebuild or update the index after editing source notes.
 Markdown destinations decode backslash escapes, HTML entities, and percent escapes.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --from <path>       Required. Vault-relative source note path.
   --link <link text>  Required. Link text, such as '[[Spec]]', '[Spec](Spec.md)', or '[Spec][guide]'.
   --fields <list>     Optional. Comma-separated output fields.
@@ -31,6 +33,9 @@ Fields:
   exists   Existence flag for note and asset targets.
   subpath  Heading or block fragment such as #Heading or #^block.
 
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
+
 Examples:
   mdhop resolve --from Notes/Design.md --link '[[Spec]]' --format json
   mdhop resolve --from Notes/Design.md --link '[Spec](Spec.md)' --fields type,path --format json
@@ -43,11 +48,17 @@ func runResolve(args []string) error {
 	fs := flag.NewFlagSet("resolve", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, resolveHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	from := fs.String("from", "", "source file (vault-relative path)")
 	link := fs.String("link", "", "link text to resolve")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 
@@ -66,7 +77,7 @@ func runResolve(args []string) error {
 		return err
 	}
 
-	result, err := core.Resolve(*vault, *from, *link)
+	result, err := core.Resolve(*vault, *from, *link, locations)
 	if err != nil {
 		return err
 	}

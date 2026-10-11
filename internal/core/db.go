@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -76,7 +77,10 @@ func linkTypeSQLIn(alias string, linkTypes []LinkType) (string, []any) {
 	return alias + " IN (" + strings.Join(placeholders, ", ") + ")", args
 }
 
-func dbPath(vaultPath string) string {
+func dbPath(vaultPath string, locations ...Locations) string {
+	if p := selectedLocations(locations).DBPath; p != "" {
+		return p
+	}
 	return filepath.Join(vaultPath, dataDirName, dbFileName)
 }
 
@@ -88,16 +92,26 @@ func ensureDataDir(vaultPath string) (string, error) {
 	return dir, nil
 }
 
-// openDBAt opens the SQLite database at path. Do not append URI query
-// parameters (e.g. "?mode=ro") to path: the "file:%s" format embeds path
-// verbatim, so query parameters are treated as part of the filename rather
-// than SQLite URI options, silently opening (or creating) the wrong file.
+// openDBAt opens a literal filesystem path, escaping SQLite URI syntax.
 func openDBAt(path string) (*sql.DB, error) {
-	return sql.Open("sqlite", fmt.Sprintf("file:%s", path))
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	uri := url.URL{Scheme: "file", Path: absolute}
+	db, err := sql.Open("sqlite", uri.String())
+	if err != nil {
+		return nil, err
+	}
+	// Retain the same physical connection across build's atomic replacement.
+	// Idle connections never expire; opening more would mix index generations.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	return db, nil
 }
 
-func openDBChecked(vaultPath string) (*sql.DB, error) {
-	dbp := dbPath(vaultPath)
+func openDBChecked(vaultPath string, locations ...Locations) (*sql.DB, error) {
+	dbp := dbPath(vaultPath, locations...)
 	if _, err := os.Stat(dbp); os.IsNotExist(err) {
 		return nil, fmt.Errorf("%w: run 'mdhop build' first", ErrIndexNotFound)
 	}

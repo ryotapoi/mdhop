@@ -22,12 +22,12 @@ type scanRewritePlan struct {
 
 // scanAndRewrite collects eligible markdown files, applies build exclusions,
 // gathers command-specific rewrites, and applies them unless dry-run is set.
-func scanAndRewrite(vaultPath string, opts scanRewriteOptions) ([]rewriteEntry, error) {
+func scanAndRewrite(vaultPath string, opts scanRewriteOptions, locations ...Locations) ([]rewriteEntry, error) {
 	files, err := collectMarkdownFiles(vaultPath)
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

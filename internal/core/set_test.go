@@ -300,7 +300,7 @@ func TestSetRestoresContentPermissionAndMtimeWhenUpdateFails(t *testing.T) {
 
 	primaryErr := errors.New("update blocked")
 	oldSetUpdate := setUpdate
-	setUpdate = func(_ string, _ UpdateOptions) (*UpdateResult, error) {
+	setUpdate = func(_ string, _ UpdateOptions, _ ...Locations) (*UpdateResult, error) {
 		got := readTestFile(t, path)
 		if !strings.Contains(got, "reviewed: done") {
 			t.Fatalf("Update reached before Set wrote new content:\n%s", got)
@@ -340,7 +340,7 @@ func TestSetReportsRestoreContentOrPermissionFailure(t *testing.T) {
 
 	primaryErr := errors.New("update blocked")
 	oldSetUpdate := setUpdate
-	setUpdate = func(_ string, _ UpdateOptions) (*UpdateResult, error) {
+	setUpdate = func(_ string, _ UpdateOptions, _ ...Locations) (*UpdateResult, error) {
 		if got := readTestFile(t, path); !strings.Contains(got, "reviewed: done") {
 			t.Fatalf("Update reached before Set wrote new content:\n%s", got)
 		}
@@ -381,7 +381,7 @@ func TestSetReportsRestoreMtimeFailure(t *testing.T) {
 
 	primaryErr := errors.New("update blocked")
 	oldSetUpdate := setUpdate
-	setUpdate = func(_ string, _ UpdateOptions) (*UpdateResult, error) {
+	setUpdate = func(_ string, _ UpdateOptions, _ ...Locations) (*UpdateResult, error) {
 		if got := readTestFile(t, path); !strings.Contains(got, "reviewed: done") {
 			t.Fatalf("Update reached before Set wrote new content:\n%s", got)
 		}

@@ -144,7 +144,7 @@ func checkDestinationsFree(db dbExecer, moves []moveInfo) error {
 // collectDiskOnlyFiles walks fromDir on disk and returns non-.md files that are not
 // registered in the DB. They will be moved verbatim alongside the registered files.
 // Returns an empty slice when fromDir does not exist on disk (already-moved mode).
-func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo) ([]diskOnlyMove, error) {
+func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo, locations ...Locations) ([]diskOnlyMove, error) {
 	var diskOnlyFiles []diskOnlyMove
 	absDir := filepath.Join(vaultPath, fromDir)
 	registeredPaths := make(map[string]bool, len(moves))
@@ -168,6 +168,9 @@ func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo) ([
 			return nil
 		}
 		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
+			return nil
+		}
+		if isIndexFile(vaultPath, path, locations) {
 			return nil
 		}
 		rel, _ := filepath.Rel(vaultPath, path)

@@ -41,7 +41,7 @@ var traversalLinkTypes = []LinkType{
 
 // Reachable walks outgoing links from the entry note (BFS over the edges
 // table) and partitions the target note set into reachable / unreachable.
-func Reachable(vaultPath string, opts ReachableOptions) (*ReachableResult, error) {
+func Reachable(vaultPath string, opts ReachableOptions, locations ...Locations) (*ReachableResult, error) {
 	if opts.From == "" {
 		return nil, errors.New("no entry specified: provide --from")
 	}
@@ -52,7 +52,7 @@ func Reachable(vaultPath string, opts ReachableOptions) (*ReachableResult, error
 		return nil, err
 	}
 
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

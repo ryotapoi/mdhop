@@ -15,6 +15,8 @@ const setHelp = `Usage: mdhop set --file <path> --key <name> (--value <value>|--
 Set one frontmatter document key and update the index.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --file <path>       Required. Vault-relative Markdown file to edit.
   --key <name>        Required. Frontmatter key to set.
   --value <value>     YAML scalar value to write exactly as provided.
@@ -38,6 +40,9 @@ Output fields:
   value    JSON string for --value/--date; JSON string array for --list (including []). Text output prints lists as compact JSON arrays.
   created  Whether the key was newly inserted.
 
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
+
 Examples:
   mdhop set --file Notes/Design.md --key reviewed --value 2026-07-04 --format json
   mdhop set --file Notes/Design.md --key reviewed --date today-90d
@@ -50,6 +55,8 @@ func runSet(args []string) error {
 	fs := flag.NewFlagSet("set", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, setHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	file := fs.String("file", "", "file to update")
 	key := fs.String("key", "", "frontmatter key to set")
@@ -57,6 +64,10 @@ func runSet(args []string) error {
 	date := fs.String("date", "", "relative date expression to write as YYYY-MM-DD")
 	list := fs.String("list", "", "JSON string array to write as a YAML sequence")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {
@@ -118,7 +129,7 @@ func runSet(args []string) error {
 		Key:   *key,
 		Value: writeValue,
 		List:  writeList,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

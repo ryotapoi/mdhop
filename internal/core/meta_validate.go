@@ -54,7 +54,7 @@ type MetaValidateResult struct {
 // without rebuilding makes a newly typed key report every value as a type/enum
 // violation. This follows mdhop's "rebuild the DB on change" model
 // (docs/requirements.md), the same assumption every read command relies on.
-func MetaValidate(vaultPath string, opts MetaValidateOptions) (*MetaValidateResult, error) {
+func MetaValidate(vaultPath string, opts MetaValidateOptions, locations ...Locations) (*MetaValidateResult, error) {
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func MetaValidate(vaultPath string, opts MetaValidateOptions) (*MetaValidateResu
 		return nil, err
 	}
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func MetaValidate(vaultPath string, opts MetaValidateOptions) (*MetaValidateResu
 		return nil, fmt.Errorf("nothing to check (give --require, declare meta.profiles, or declare meta.types)")
 	}
 
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

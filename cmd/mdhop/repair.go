@@ -13,6 +13,8 @@ const repairHelp = `Usage: mdhop repair [--dry-run] [--path <glob>...] [--exclud
 Rewrite broken path links and vault-escape links to basename links when safe.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --dry-run           Optional. Report changes without writing files.
   --path <glob>       Optional, repeatable. Include source notes whose paths match any glob.
   --exclude <glob>    Optional, repeatable. Exclude source notes whose paths match the glob.
@@ -22,6 +24,9 @@ Options:
 Output fields:
   rewritten  Files whose links were rewritten.
   skipped    Links skipped because no safe repair target was available.
+
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
 
 Examples:
   mdhop repair --dry-run --format json
@@ -34,6 +39,8 @@ func runRepair(args []string) error {
 	fs := flag.NewFlagSet("repair", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, repairHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	dryRun := fs.Bool("dry-run", false, "show what would be repaired without making changes")
 	var pathPatterns multiString
@@ -41,6 +48,10 @@ func runRepair(args []string) error {
 	fs.Var(&pathPatterns, "path", "restrict source notes to paths matching glob (repeatable)")
 	fs.Var(&excludePaths, "exclude", "exclude source notes matching glob (repeatable)")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {
@@ -51,7 +62,7 @@ func runRepair(args []string) error {
 		DryRun:  *dryRun,
 		Path:    pathPatterns,
 		Exclude: excludePaths,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

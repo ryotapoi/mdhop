@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 )
 
@@ -46,7 +45,7 @@ type InitMetaResult struct {
 }
 
 // InitMeta generates meta type definitions for a vault.
-func InitMeta(vaultPath string, opts InitMetaOptions) (*InitMetaResult, error) {
+func InitMeta(vaultPath string, opts InitMetaOptions, locations ...Locations) (*InitMetaResult, error) {
 	if !opts.Preset && !opts.Scan {
 		return nil, fmt.Errorf("at least one of --preset or --scan is required")
 	}
@@ -60,7 +59,7 @@ func InitMeta(vaultPath string, opts InitMetaOptions) (*InitMetaResult, error) {
 		return nil, fmt.Errorf("vault path is not a directory: %s", vaultPath)
 	}
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +95,9 @@ func InitMeta(vaultPath string, opts InitMetaOptions) (*InitMetaResult, error) {
 
 	// Read existing config file for TOML merge (reuse raw bytes, not parsed config)
 	var existingData []byte
-	configPath := filepath.Join(vaultPath, "mdhop.toml")
+	configPath := selectedLocations(locations).ConfigFile(vaultPath)
 	data, readErr := os.ReadFile(configPath)
-	if readErr != nil && !os.IsNotExist(readErr) {
+	if readErr != nil && (!os.IsNotExist(readErr) || selectedLocations(locations).ConfigPath != "") {
 		return nil, readErr
 	}
 	if readErr == nil {

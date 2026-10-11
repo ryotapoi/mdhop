@@ -19,6 +19,8 @@ Entry options:
   --name <name>             Auto-detect note, phantom, or tag. Ambiguous names fail.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --relations <list>        Comma-separated backlinks,outgoing,twohop. Default: all three.
   --limit <N>               Return at most N targets (N > 0); requires one explicit relation.
   --offset <N>              Skip N targets (N >= 0); requires one explicit relation.
@@ -57,6 +59,9 @@ next_offset is null at the end. A missing limit returns all remaining targets.
 the link line; outgoing snippets come from the entry, backlinks from the target,
 and two-hop snippets from the target's link to each visible via node.
 
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
+
 Examples:
   mdhop query --file Plan.md --format json
   mdhop query --file Plan.md --relations twohop --via note:topics/Design.md
@@ -69,6 +74,8 @@ func runQuery(args []string) error {
 	fs := flag.NewFlagSet("query", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, queryHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	file := fs.String("file", "", "note entry (vault-relative path)")
 	tag := fs.String("tag", "", "tag entry")
 	phantom := fs.String("phantom", "", "phantom entry")
@@ -94,6 +101,11 @@ func runQuery(args []string) error {
 	fs.Var(&pathPatterns, "path", "include result path glob (repeatable)")
 	fs.Var(&whereExprs, "where", "frontmatter filter (repeatable)")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	cfg, err := core.LoadConfig(*vault, locations)
+	if err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {
@@ -123,14 +135,6 @@ func runQuery(args []string) error {
 		}
 	})
 
-	var cfg core.Config
-	if !*noConfigHide || !*noConfigVia || len(whereExprs) > 0 {
-		var err error
-		cfg, err = core.LoadConfig(*vault)
-		if err != nil {
-			return err
-		}
-	}
 	filter, err := core.NewQueryFilter(cfg, core.QueryFilterOptions{
 		Hide:         core.ExcludeConfig{Paths: hidePaths, Tags: hideTags},
 		ViaInclude:   core.ExcludeConfig{Paths: viaPaths, Tags: viaTags},
@@ -159,7 +163,7 @@ func runQuery(args []string) error {
 		Where:          wc,
 		LinkKey:        *linkKey,
 		Path:           pathPatterns,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

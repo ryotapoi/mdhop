@@ -25,8 +25,8 @@ type DeleteResult struct {
 
 // Delete removes registered files from the index and can expand directory paths.
 // Files with incoming references are converted to phantom nodes; other files are removed.
-func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
-	db, err := openDBChecked(vaultPath)
+func Delete(vaultPath string, opts DeleteOptions, locations ...Locations) (*DeleteResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func Delete(vaultPath string, opts DeleteOptions) (*DeleteResult, error) {
 		return nil, err
 	}
 	if opts.RemoveFiles && len(directories) > 0 {
-		if err := cleanupDeletedDirectories(vaultPath, directories, cleanupPaths, diskPaths); err != nil {
+		if err := cleanupDeletedDirectories(vaultPath, directories, cleanupPaths, diskPaths, locations...); err != nil {
 			return nil, fmt.Errorf("post-delete cleanup failed after registered files and database updates completed: %w", err)
 		}
 	}
@@ -217,7 +217,7 @@ func isDeleteDirectoryArg(vaultPath, path string) bool {
 	return err == nil && info.IsDir()
 }
 
-func cleanupDeletedDirectories(vaultPath string, directories, cleanupPaths []string, diskPaths *vaultDiskPathResolver) error {
+func cleanupDeletedDirectories(vaultPath string, directories, cleanupPaths []string, diskPaths *vaultDiskPathResolver, locations ...Locations) error {
 	for _, dir := range directories {
 		absDir, err := deleteDiskPath(diskPaths, dir)
 		if err != nil {
@@ -237,6 +237,9 @@ func cleanupDeletedDirectories(vaultPath string, directories, cleanupPaths []str
 				return nil
 			}
 			if strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+				return nil
+			}
+			if isIndexFile(vaultPath, path, locations) {
 				return nil
 			}
 			if err := deleteAssetRemove(path); err != nil && !os.IsNotExist(err) {

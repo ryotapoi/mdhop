@@ -34,13 +34,13 @@ var setChtimes = os.Chtimes
 
 // Set rewrites one frontmatter key in a registered note and refreshes
 // the index entry for that note.
-func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
+func Set(vaultPath string, opts SetOptions, locations ...Locations) (*SetResult, error) {
 	file := NormalizePath(opts.File)
 	if filepath.IsAbs(opts.File) || pathEscapesVault(file) {
 		return nil, fmt.Errorf("%w: %s", ErrFileNotFound, opts.File)
 	}
 
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func Set(vaultPath string, opts SetOptions) (*SetResult, error) {
 		return nil, wrapRollbackFailures(err, restoreSetBackup(vaultPath, fullPath, file, backup))
 	}
 
-	updateResult, err := setUpdate(vaultPath, UpdateOptions{Files: []string{file}})
+	updateResult, err := setUpdate(vaultPath, UpdateOptions{Files: []string{file}}, locations...)
 	if err != nil {
 		return nil, wrapRollbackFailures(err, restoreSetBackup(vaultPath, fullPath, file, backup))
 	}

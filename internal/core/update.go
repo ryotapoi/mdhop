@@ -21,8 +21,8 @@ type UpdateResult struct {
 // Update re-parses the specified files and updates the existing index DB in-place.
 // Files that no longer exist on disk are treated like delete (phantom conversion
 // or complete removal depending on incoming references).
-func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
-	db, err := openDBChecked(vaultPath)
+func Update(vaultPath string, opts UpdateOptions, locations ...Locations) (*UpdateResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func Update(vaultPath string, opts UpdateOptions) (*UpdateResult, error) {
 	rm.rebuildBasenameToPath(nil)
 
 	// Load config for meta normalization.
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,8 @@ decoded before conversion; links that cannot preserve their meaning as wikilinks
 are left unchanged. Table wikilink aliases keep their escaped pipe separator.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --to <wikilink|markdown>  Required. Target link syntax.
   --dry-run                 Optional. Report changes without writing files.
   --file <path>             Optional, repeatable. Limit conversion to specific vault-relative files.
@@ -25,6 +27,9 @@ Options:
 
 Output fields:
   rewritten  Files whose links were converted.
+
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
 
 Examples:
   mdhop convert --to wikilink --dry-run --format json
@@ -37,12 +42,18 @@ func runConvert(args []string) error {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, convertHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	toFormat := fs.String("to", "", "target format: wikilink or markdown (required)")
 	dryRun := fs.Bool("dry-run", false, "show what would be converted without making changes")
 	var files multiString
 	fs.Var(&files, "file", "file to convert (can be specified multiple times)")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {
@@ -56,7 +67,7 @@ func runConvert(args []string) error {
 		ToFormat: *toFormat,
 		DryRun:   *dryRun,
 		Files:    files,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

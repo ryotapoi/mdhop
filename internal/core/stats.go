@@ -27,8 +27,8 @@ type StatsResult struct {
 }
 
 // Stats returns aggregate statistics for the indexed vault.
-func Stats(vaultPath string, opts StatsOptions) (*StatsResult, error) {
-	db, err := openDBChecked(vaultPath)
+func Stats(vaultPath string, opts StatsOptions, locations ...Locations) (*StatsResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

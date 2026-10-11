@@ -94,11 +94,11 @@ type QueryResult struct {
 }
 
 // Query reads previews only for returned relations when requested.
-func Query(vaultPath string, entry EntrySpec, opts QueryOptions) (*QueryResult, error) {
+func Query(vaultPath string, entry EntrySpec, opts QueryOptions, locations ...Locations) (*QueryResult, error) {
 	if err := validateQueryOptions(opts); err != nil {
 		return nil, err
 	}
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

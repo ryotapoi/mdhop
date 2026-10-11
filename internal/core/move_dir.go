@@ -28,14 +28,14 @@ type MovedFile struct {
 
 // MoveDir moves registered files and visible disk-only non-Markdown files
 // under a directory, updating the index and rewriting links in a single batch.
-func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
-	db, err := openDBChecked(vaultPath)
+func MoveDir(vaultPath string, opts MoveDirOptions, locations ...Locations) (*MoveDirResult, error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func MoveDir(vaultPath string, opts MoveDirOptions) (*MoveDirResult, error) {
 	if err := checkDestinationsFree(db, moves); err != nil {
 		return nil, err
 	}
-	diskOnlyFiles, err := collectDiskOnlyFiles(vaultPath, fromDir, toDir, moves)
+	diskOnlyFiles, err := collectDiskOnlyFiles(vaultPath, fromDir, toDir, moves, locations...)
 	if err != nil {
 		return nil, err
 	}

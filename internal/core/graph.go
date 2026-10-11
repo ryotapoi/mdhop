@@ -45,7 +45,7 @@ type GraphResult struct {
 // the path filters. Tag nodes are never exported, so tag edges drop out
 // naturally. Interpretation (similarity, clustering, ...) is left to the
 // caller by design.
-func Graph(vaultPath string, opts GraphOptions) (*GraphResult, error) {
+func Graph(vaultPath string, opts GraphOptions, locations ...Locations) (*GraphResult, error) {
 	if err := validateGlobPatterns(opts.Path); err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func Graph(vaultPath string, opts GraphOptions) (*GraphResult, error) {
 		return nil, err
 	}
 
-	db, err := openDBChecked(vaultPath)
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

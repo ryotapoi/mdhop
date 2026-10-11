@@ -10,7 +10,7 @@ status: current
 
 ## 判断と理由
 
-- 任意の設定ファイル `mdhop.toml` を vault root に置く。設定を発見しやすくし、生成データの `.mdhop/` と区別する。`github.com/pelletier/go-toml/v2` を使い、CLI は標準 `flag` のままにする。設定なしでも使える状態を保つ。通常操作は旧 `mdhop.yaml` を読まず、変換・削除もしない。ノートの YAML frontmatter は `yaml.v3` で引き続き扱う。
+- 既定の設定ファイルは Vault root の `mdhop.toml` とし、`--config` があれば指定した一ファイルだけを読む。任意名の明示指定を許可し、既定との併読・マージ・自動検出はしない。既定欠落のみ設定なしとし、明示欠落・読取失敗・不正内容はエラー。配置引数の相対パスは cwd 基準、設定内 glob は設定場所によらず Vault 基準とする。`github.com/pelletier/go-toml/v2` を使い、CLI は標準 `flag` のままにする。設定なしでも使える状態を保つ。通常操作は旧 `mdhop.yaml` を読まず、変換・削除もしない。ノートの YAML frontmatter は `yaml.v3` で引き続き扱う。
 - `init-meta` は TOML を生成・更新し、既存の設定値と明示的な型宣言を優先する。通常の table / inline table と quoted key は同じ値として扱い、再生成時の書式や任意のコメントの完全保存は約束しない。型宣言は文字列、ordered は `ordered` 配列を持つ table、profiles は table array とする。設定に Vault / DB のパス指定は設けない。
 - path 条件の glob は `*` が `/` を含む任意の文字に一致する規則を使い、`[` を含む pattern はエラーとする。SQLite GLOB と Go の比較を揃え、利用上の利益が小さい character class の二重実装を避ける。tag 条件は大小文字を区別しない完全一致とする。
 - build は設定の `build.exclude_paths` に従い、索引登録前にファイルを除外する。探索用の `exclude.paths` と独立して指定する。build の除外を呼び出しごとの CLI flag や別の ignore 形式には分散させない。除外先へのリンクは phantom にし、除外ノートの tag を登録しない。`DisambiguateScan` も同じ除外を適用する。mutation commands (`add` / `update` / `delete` / `move`) は DB state を操作し、build 除外による不整合は次の build で解消する。
@@ -23,3 +23,13 @@ status: current
 ## 帰結
 
 設定の parse に失敗すれば build を含む利用コマンドは失敗する。build の除外先を含む basename collision は診断の対象外になる。表示だけ隠す操作と探索自体から外す操作を独立して指定できる。character class の拡張や旧設定の移行操作はこの判断に含めない。
+
+## 索引・設定の独立配置と公開
+
+`--vault`・`--db`・`--config` は独立した配置引数とする。Vault は未指定時 cwd、DB は未指定時 `<vault>/.mdhop/index.sqlite`。core へ配置値を明示的に渡し、Vault を DB・設定から推定しない。DB を使わない scan・設定生成では指定 DB を開かない。`init-meta` の設定読込・raw TOML 読込・`--write` は同じ設定先を使い、書出しの一時ファイルもそのディレクトリに置く。
+
+build は指定 DB の親ディレクトリで固有の一時 DB を作り、transaction の commit と接続 close の成功後に同一ディレクトリの rename で公開する。旧 DB は失敗時に保持し、外部 DB の利用では Vault 内へ書き込まない。選択 DB・SQLite 補助ファイル・build 一時 DB は索引入力・status の走査候補・directory delete/move のディスク走査対象から除く。ノート操作で DB 保存先を削除・移動しない。
+
+Ubuntu・macOS のローカル filesystem の rename では、置換前から接続済みの reader は旧ファイルを、置換後の新規 reader は新ファイルを参照する。一つの操作中に追加接続が別世代を開かないよう、DB pool は最大一接続・一 idle 接続を保持し、接続の有効期限を設けない。SQLite URI の予約文字は filesystem path として escape する。並行参照と build を実 SQLite integration test で確認する。複数 CLI 呼出し間の同一世代、DB と編集中本文の同時点は保証せず、既存 preview stale 検査を維持する。build と update 等の同時書込は未サポートであり、利用側で直列化する。ネットワーク filesystem・非 Unix OS の原子的置換は保証しない。
+
+判断は [SQLite URI filename](https://www.sqlite.org/uri.html)、[Go database/sql connection pool](https://pkg.go.dev/database/sql#DB.SetMaxOpenConns)、[Go os.Rename](https://pkg.go.dev/os#Rename) の仕様と実装・test に照合した。

@@ -30,15 +30,15 @@ type AddResult struct {
 }
 
 // Add inserts new files into the existing index DB.
-func Add(vaultPath string, opts AddOptions) (result *AddResult, resultErr error) {
-	db, err := openDBChecked(vaultPath)
+func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *AddResult, resultErr error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}

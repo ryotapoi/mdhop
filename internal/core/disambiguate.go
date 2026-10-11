@@ -21,14 +21,14 @@ type DisambiguateResult struct {
 }
 
 // Disambiguate rewrites basename links to full paths for the given basename.
-func Disambiguate(vaultPath string, opts DisambiguateOptions) (result *DisambiguateResult, resultErr error) {
-	db, err := openDBChecked(vaultPath)
+func Disambiguate(vaultPath string, opts DisambiguateOptions, locations ...Locations) (result *DisambiguateResult, resultErr error) {
+	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	cfg, err := LoadConfig(vaultPath)
+	cfg, err := LoadConfig(vaultPath, locations...)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func resolveDisambiguateTarget(name string, candidates []string, target string) 
 
 // DisambiguateScan rewrites basename links to full paths without using the DB.
 // It scans all .md files in the vault directly.
-func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*DisambiguateResult, error) {
+func DisambiguateScan(vaultPath string, opts DisambiguateOptions, locations ...Locations) (*DisambiguateResult, error) {
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		Prepare: func(files, _ []string) (scanRewritePlan, error) {
@@ -335,7 +335,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions) (*Disambiguate
 				return entries, nil
 			}}, nil
 		},
-	})
+	}, locations...)
 	if err != nil {
 		return nil, err
 	}

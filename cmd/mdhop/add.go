@@ -13,6 +13,8 @@ const addHelp = `Usage: mdhop add --file <path> [--file <path>...] [--no-auto-di
 Add newly created files to the index. Use this after writing the files.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --file <path>              Required, repeatable. Vault-relative file path to add.
   --no-auto-disambiguate     Optional. Disable automatic rewriting when a new basename collision would otherwise be made safe.
   --vault <path>             Optional. Vault root directory. Default: ".".
@@ -31,6 +33,9 @@ Output fields:
   promoted   Phantom nodes promoted to real files.
   rewritten  Files whose links were rewritten during automatic disambiguation.
 
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
+
 Examples:
   mdhop add --file Notes/NewNote.md --format json
   mdhop add --file Notes/A.md --file Notes/B.md --format json
@@ -42,12 +47,18 @@ func runAdd(args []string) error {
 	fs := flag.NewFlagSet("add", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, addHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	var files multiString
 	fs.Var(&files, "file", "file to add (can be specified multiple times)")
 	noAutoDisambiguate := fs.Bool("no-auto-disambiguate", false,
 		"disable automatic link rewriting when basename collision occurs")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {
@@ -59,7 +70,7 @@ func runAdd(args []string) error {
 	result, err := core.Add(*vault, core.AddOptions{
 		Files:            files,
 		AutoDisambiguate: !*noAutoDisambiguate,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

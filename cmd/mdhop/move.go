@@ -15,6 +15,8 @@ const moveHelp = `Usage: mdhop move --from <path> (--to <path>|--to-template <te
 Move a registered file or directory and rewrite links needed to preserve meaning.
 
 Options:
+  --db <path>      Index DB path. Default: <vault>/.mdhop/index.sqlite.
+  --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --from <path>       Required. Vault-relative source file or directory. A trailing / or disk directory enables directory mode.
   --to <path>         Vault-relative destination file or directory. Mutually exclusive with --to-template.
   --to-template <template>
@@ -40,6 +42,9 @@ Output fields:
   moved      Directory-mode moves as an array of from/to pairs.
   rewritten  Files whose links were rewritten.
 
+Location paths may be absolute or relative to the current directory.
+Note paths and configuration globs remain relative to the vault.
+
 Examples:
   mdhop move --from Notes/Old.md --to Notes/New.md --format json
   mdhop move --from Notes/Project.md --to-template "99-Archive/02-Projects/{client|others}/{updated:year}/{basename}" --format json
@@ -60,12 +65,18 @@ func runMove(args []string) error {
 	fs := flag.NewFlagSet("move", flag.ContinueOnError)
 	fs.Usage = commandUsage(fs, moveHelp)
 	vault := fs.String("vault", ".", "vault root directory")
+	db := fs.String("db", "", "index database path (relative to current directory)")
+	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	from := fs.String("from", "", "source file path (vault-relative)")
 	to := fs.String("to", "", "destination file path (vault-relative)")
 	toTemplate := fs.String("to-template", "", "destination template expanded from source frontmatter")
 	dryRun := fs.Bool("dry-run", false, "show the --to-template move plan without making changes")
 	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	locations := core.Locations{DBPath: *db, ConfigPath: *config}
+	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
 	if err := validateFormat(*format); err != nil {
@@ -92,14 +103,14 @@ func runMove(args []string) error {
 			Template:  *toTemplate,
 			Directory: fromIsDir,
 		}
-		plan, err := core.PlanMoveTemplate(*vault, opts)
+		plan, err := core.PlanMoveTemplate(*vault, opts, locations)
 		if err != nil {
 			return err
 		}
 		if *dryRun {
 			return printMoveTemplatePlan(*format, fromIsDir, plan, nil)
 		}
-		result, err := core.MoveTemplate(*vault, opts)
+		result, err := core.MoveTemplate(*vault, opts, locations)
 		if err != nil {
 			return err
 		}
@@ -116,7 +127,7 @@ func runMove(args []string) error {
 		result, err := core.MoveDir(*vault, core.MoveDirOptions{
 			FromDir: fromDir,
 			ToDir:   toDir,
-		})
+		}, locations)
 		if err != nil {
 			return err
 		}
@@ -136,7 +147,7 @@ func runMove(args []string) error {
 	result, err := core.Move(*vault, core.MoveOptions{
 		From: *from,
 		To:   *to,
-	})
+	}, locations)
 	if err != nil {
 		return err
 	}

@@ -84,6 +84,19 @@ mdhop set --file Notes/Design.md --key reviewed --date today-90d --format json
 mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year}/{basename}" --dry-run --format json
 ```
 
+## Vault・DB・設定の配置
+
+DB または設定を扱う全コマンドで `--vault`・`--db`・`--config` を使える。`--vault` はカレントディレクトリ、`--db` は `<vault>/.mdhop/index.sqlite` が既定。配置引数は絶対パスとカレントディレクトリ基準の相対パスを受け付ける。ノートのパス・リンク解釈・本文プレビュー・出力パス・設定内 glob の基準は常に Vault とし、DB や設定の場所から推定しない。
+
+`--config` があれば任意名の指定ファイルだけを読む。未指定時は `<vault>/mdhop.toml` だけを読み、既定ファイルがなければ設定なしで動作する。明示ファイルの欠落、読み取り失敗、不正設定は、設定フィルタを無効化していてもエラー。自動検出・併読・マージはしない。`init-meta --write` は選択した設定先を更新し、明示指定ファイルは存在している必要がある。
+
+```sh
+mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml
+mdhop query --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml --file Index.md
+```
+
+外部 DB を使う build・参照系は Vault の書込権限を必要とせず、Vault 内に索引や一時ファイルを作らない。build は選択 DB と同じディレクトリで固有の一時 DB を完成させ、commit と close の成功後に置換する。失敗時は旧 DB を保持する。Vault 内の選択 DB は status の入力とノートの directory mutation 対象から除外し、ノートを削除・移動しても DB 保存先を維持する。対応する Ubuntu・macOS のローカルファイルシステムでは、接続済み reader は旧索引を保持し、置換後に接続する reader は新索引を見る。再生成に重なる参照も完成済みの索引を見る。複数 CLI 呼び出し間の同一世代や変更中の本文との同時点は保証せず、本文プレビューの stale 検査は維持する。build と update 等の同時書込は未サポートのため直列化する。DB を使わない scan・設定生成は `--db` を受け付けても DB を開かない。
+
 ## 設定（mdhop.toml）
 
 Vault 直下に `mdhop.toml` を置くと、build 除外、query の表示・経由先選択、search 除外、frontmatter の扱いを指定できる。
