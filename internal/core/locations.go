@@ -46,6 +46,14 @@ func resolveDBPath(vaultPath string, locations ...Locations) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	cache, err := cacheVaultsRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cache, fmt.Sprintf("%x", sha256.Sum256([]byte(vault))), dbFileName), nil
+}
+
+func cacheVaultsRoot() (string, error) {
 	cache := os.Getenv("XDG_CACHE_HOME")
 	if !filepath.IsAbs(cache) {
 		home, err := os.UserHomeDir()
@@ -57,5 +65,5 @@ func resolveDBPath(vaultPath string, locations ...Locations) (string, error) {
 			return "", err
 		}
 	}
-	return filepath.Join(cache, "mdhop", "vaults", fmt.Sprintf("%x", sha256.Sum256([]byte(vault))), dbFileName), nil
+	return filepath.Join(cache, "mdhop", "vaults"), nil
 }

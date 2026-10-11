@@ -12,6 +12,7 @@ type indexFileMatcher struct {
 	vaultPath string
 	locations []Locations
 	index     string
+	origin    string
 	parents   map[string]string
 }
 
@@ -44,8 +45,14 @@ func (m *indexFileMatcher) matches(path string) (bool, error) {
 			return false, err
 		}
 		m.index = m.resourcePath(dbp)
+		if selectedLocations(m.locations).DBPath == "" {
+			m.origin = m.resourcePath(filepath.Join(filepath.Dir(dbp), cacheOriginName))
+		}
 	}
 	absolute := m.resourcePath(path)
+	if m.origin != "" && (absolute == m.origin || strings.HasPrefix(absolute, m.origin+".tmp-")) {
+		return true, nil
+	}
 	return absolute == m.index || absolute == m.index+"-journal" || absolute == m.index+"-wal" || absolute == m.index+"-shm" || strings.HasPrefix(absolute, m.index+".tmp-"), nil
 }
 

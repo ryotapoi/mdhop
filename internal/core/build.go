@@ -121,6 +121,12 @@ func buildPrepared(vaultPath string, prepared *preparedBuild, locations ...Locat
 		return nil, err
 	}
 
+	// Finish origin I/O before publishing the DB so failures retain the old index.
+	if selectedLocations(locations).DBPath == "" {
+		if err := writeCacheOrigin(vaultPath, filepath.Dir(dbp)); err != nil {
+			return nil, err
+		}
+	}
 	if err := os.Rename(tmpPath, dbp); err != nil {
 		return nil, err
 	}

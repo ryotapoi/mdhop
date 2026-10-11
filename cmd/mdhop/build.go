@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
@@ -23,6 +24,8 @@ Location paths may be absolute or relative to the current directory.
 Note paths and configuration globs remain relative to the vault.
 An explicit config must exist; unreadable or invalid configs are errors.
 Legacy mdhop.yaml and .mdhop/ are not used or migrated; use mdhop migrate.
+Default builds record the canonical vault root in origin.json beside the DB.
+An explicit --db never creates or updates this record. Use cache-list to compare caches.
 Rebuild after cache removal or
 moving the vault; use --db for separate indexes of the same vault.
 
@@ -48,6 +51,15 @@ func runBuild(args []string) error {
 	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
+	}
+	var emptyDB bool
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "db" && *db == "" {
+			emptyDB = true
+		}
+	})
+	if emptyDB {
+		return fmt.Errorf("--db requires a nonempty path")
 	}
 	locations := core.Locations{DBPath: *db, ConfigPath: *config}
 	if _, err := core.LoadConfig(*vault, locations); err != nil {

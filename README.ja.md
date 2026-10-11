@@ -93,6 +93,12 @@ mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year
 
 `<cache>` は空でない絶対パスの `XDG_CACHE_HOME` を使い、未設定・空・相対パスなら対応 OS によらず `~/.cache` を使う。`<vault-hash>` は絶対パス化・symlink 解決後の Vault root の SHA-256 全長・小文字 hex とする。同じ実体への相対パス・symlink は同じ索引を使い、Vault を移動すると別の索引になる。設定はハッシュに含めないため、異なる索引設定を併用する場合は `--db` で保存先を分ける。
 
+`mdhop cache-list`（JSON は `mdhop cache-list --format json`）は Vault の指定なしで、現在の `<cache>/mdhop/vaults/` 直下にある全長 64 桁・小文字 hex の実ディレクトリを、キャッシュの絶対パス昇順で一覧する。各項目はフォルダの絶対パス・現在のディスク使用量・生成元 Vault を返す。text は IEC 単位と、生成元不明の場合は `unknown` を使う。JSON は `cache_path`・丸め前の `size_bytes`・`vault`（不明は null）の配列とし、空一覧は空 text または `[]`。一覧操作はディレクトリ・DB・記録を作成・更新せず、不正・読取不能な記録はエラーにする。
+
+使用量はフォルダ自身と全子孫の file・directory・symlink entry の割当ブロック数 × 512 bytes の合計で、SQLite 補助ファイル・一時ファイル・生成元記録も含む。symlink の参照先は辿らず、hardlink は entry ごとに数える。現在内容を測定するが同時点の snapshot は保証せず、共有 extent や圧縮によって削除時の回収容量とは異なる場合がある。
+
+`--db` を省略した build は、hash に使う canonical Vault root を `{"vault":"/absolute/vault/path"}` として既定索引と同じフォルダの `origin.json` に保存する。`migrate` も記録する。明示 `--db` は既定位置を指定した場合も記録を作成・更新しない。記録のない旧キャッシュは既定再 build まで生成元不明とし、Vault の移動・削除後も生成時のパスを保持する。外部 DB や過去の cache root は追跡しない。キャッシュは再生成可能なので、mdhop が使用していないときにフォルダごと削除し、必要時に build で再生成できる。
+
 キャッシュを削除した場合や Vault を移動した場合は `mdhop build` で再生成する。通常操作は旧 `<vault>/.mdhop/` を利用・移行・削除しない。
 
 `--config` があれば任意名の指定ファイルだけを読む。未指定時は `<vault>/mdhop.toml` だけを読み、既定ファイルがなければ設定なしで動作する。明示ファイルの欠落、読み取り失敗、不正設定は、設定フィルタを無効化していてもエラー。自動検出・併読・マージはしない。`init-meta --write` は選択した設定先を更新し、明示指定ファイルは存在している必要がある。

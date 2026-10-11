@@ -147,6 +147,11 @@ func TestMigrateFinalIndex(t *testing.T) {
 			if _, err := Migrate(vault); err != nil {
 				t.Fatal(err)
 			}
+			origin, err := readCacheOrigin(filepath.Dir(dbPath(vault)))
+			canonical, canonicalErr := canonicalVault(vault)
+			if err != nil || canonicalErr != nil || origin == nil || *origin != canonical {
+				t.Fatalf("migration origin=%v error=%v canonical error=%v", origin, err, canonicalErr)
+			}
 			for _, name := range []string{"mdhop.yaml", ".mdhop"} {
 				if _, err := os.Lstat(filepath.Join(vault, name)); !os.IsNotExist(err) {
 					t.Fatalf("%s remains: %v", name, err)

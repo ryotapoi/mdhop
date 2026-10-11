@@ -21,6 +21,8 @@ func main() {
 	switch os.Args[1] {
 	case "migrate":
 		err = runMigrate(os.Args[2:])
+	case "cache-list":
+		err = runCacheList(os.Args[2:])
 	case "build":
 		err = runBuild(os.Args[2:])
 	case "resolve":
@@ -103,6 +105,7 @@ func printUsage() {
 	fmt.Fprint(os.Stderr, `Usage: mdhop <command> [options]
 
 Index Commands:
+  cache-list    List default cache folders, sizes, and original vaults
   build         Build the index from the vault
   add           Add new files to the index
   update        Update specified files in the index
