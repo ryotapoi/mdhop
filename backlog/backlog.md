@@ -64,7 +64,7 @@
 
   受入条件: 選択 DB 自身の `add` を拒否し、既に登録されている場合もノート操作で DB を削除・移動しない。`generated/index.sqlite` を選択 DB とする `delete --file generated/ --rm` の再現経路を確認し、登録済み対象と disk-only 対象の両経路で索引保護を維持する。
 
-- [ ] `migrate` の公開前に探索用 path glob も検証する（FR-004）
+- [x] `migrate` の公開前に探索用 path glob も検証する（FR-004）
 
   目的: 不正な探索条件を含む移行を成功扱いにして、旧設定・旧索引を削除することを防ぐ。
 

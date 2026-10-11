@@ -166,8 +166,15 @@ func convertLegacyConfig(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
-		return nil, err
+	for _, patterns := range [][]string{cfg.Build.ExcludePaths, cfg.Exclude.Paths, cfg.Query.Hide.Paths, cfg.Query.Via.Include.Paths} {
+		if err := validateGlobPatterns(patterns); err != nil {
+			return nil, err
+		}
+	}
+	if cfg.Query.Via.Exclude != nil {
+		if err := validateGlobPatterns(cfg.Query.Via.Exclude.Paths); err != nil {
+			return nil, err
+		}
 	}
 	return converted, nil
 }

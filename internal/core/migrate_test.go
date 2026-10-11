@@ -88,6 +88,11 @@ func TestConvertLegacyConfigRejectsLoss(t *testing.T) {
 		"meta: {types: {x: boolean}}", "meta: {types: {x: {ordered: [low, low]}}}",
 		"meta: {link_keys: [tags]}", "meta: {profiles: [{require: []}]}",
 		"build: {exclude_paths: '['}",
+		"exclude: {paths: ['[a]']}",
+		"query: {hide: {paths: ['[a]']}}",
+		"query: {via: {include: {paths: ['[a]']}}}",
+		"query: {via: {exclude: {paths: ['[a]']}}}",
+		"exclude: {paths: ['[a]']}\nquery: {via: {exclude: {}}}",
 		"---\n{}\n---\n{}", "meta: {types: {x: 3}}",
 		"query: {hide: {<<: {tags: [a]}}}", "exclude: {}\nexclude: {}", "x: &x {x: *x}",
 	} {
@@ -208,13 +213,23 @@ func TestMigrateFinalIndex(t *testing.T) {
 }
 
 func TestMigrateFailuresRetainLegacy(t *testing.T) {
-	for _, mode := range []string{"conflict", "invalid", "save", "build", "cache", "cache-alias", "config-symlink"} {
+	invalidGlobs := map[string]string{
+		"exclude-glob":        "exclude: {paths: ['[a]']}\n",
+		"hide-glob":           "query: {hide: {paths: ['[a]']}}\n",
+		"include-glob":        "query: {via: {include: {paths: ['[a]']}}}\n",
+		"via-exclude-glob":    "query: {via: {exclude: {paths: ['[a]']}}}\n",
+		"unused-exclude-glob": "exclude: {paths: ['[a]']}\nquery: {via: {exclude: {}}}\n",
+	}
+	for _, mode := range []string{"conflict", "invalid", "save", "build", "cache", "cache-alias", "config-symlink", "exclude-glob", "hide-glob", "include-glob", "via-exclude-glob", "unused-exclude-glob"} {
 		t.Run(mode, func(t *testing.T) {
 			vault := migrationVault(t)
 			yamlPath := filepath.Join(vault, "mdhop.yaml")
 			original := "exclude: {tags: [hidden]}\n"
 			if mode == "invalid" {
 				original = "unsupported: true\n"
+			}
+			if input, ok := invalidGlobs[mode]; ok {
+				original = input
 			}
 			mustMigrationWrite(t, yamlPath, original)
 			dbp, err := resolveDBPath(vault)
@@ -260,7 +275,7 @@ func TestMigrateFailuresRetainLegacy(t *testing.T) {
 			assertMigrationFile(t, yamlPath, original)
 			assertMigrationFile(t, filepath.Join(vault, ".mdhop", "index.sqlite"), "old index")
 			assertMigrationFile(t, dbp, "existing cache")
-			if mode == "build" {
+			if mode == "build" || invalidGlobs[mode] != "" {
 				if _, err := os.Lstat(filepath.Join(vault, "mdhop.toml")); !os.IsNotExist(err) {
 					t.Fatal("generated TOML not rolled back")
 				}
