@@ -83,14 +83,7 @@ func TestGraphBasic(t *testing.T) {
 			}
 		}
 	}
-}
 
-func TestGraphEdgeSortDeterministic(t *testing.T) {
-	vault := buildGraphVault(t)
-	res, err := Graph(vault, GraphOptions{})
-	if err != nil {
-		t.Fatalf("graph: %v", err)
-	}
 	for i := 1; i < len(res.Edges); i++ {
 		a, b := res.Edges[i-1], res.Edges[i]
 		if a.Source > b.Source ||

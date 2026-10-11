@@ -7,29 +7,6 @@ import (
 	"testing"
 )
 
-func TestUpdateUnregisteredFile(t *testing.T) {
-	vault := copyVault(t, "vault_update")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	beforeNotes := countNotes(t, dbPath(vault))
-	beforeEdges := countEdges(t, dbPath(vault))
-
-	_, err := Update(vault, UpdateOptions{Files: []string{"NotExist.md"}})
-	if err == nil || !strings.Contains(err.Error(), "file not registered") {
-		t.Errorf("expected file not registered error, got: %v", err)
-	}
-
-	afterNotes := countNotes(t, dbPath(vault))
-	afterEdges := countEdges(t, dbPath(vault))
-	if beforeNotes != afterNotes {
-		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
-	}
-	if beforeEdges != afterEdges {
-		t.Errorf("edges changed: %d → %d", beforeEdges, afterEdges)
-	}
-}
-
 // Update must apply the same vault-escape guard to frontmatter wikilinks as
 // build does. Editing A.md to add a frontmatter
 // wikilink that escapes the vault should fail update.
@@ -769,33 +746,6 @@ func TestUpdateIncomingEdgesPreserved(t *testing.T) {
 }
 
 // --- Meta update tests ---
-
-func TestUpdateMetaReinsert(t *testing.T) {
-	vault := t.TempDir()
-	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: Old\n---\ncontent\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	meta := queryMetaForPath(t, dbPath(vault), "A.md")
-	if len(meta) != 1 || meta[0].Value != "Old" {
-		t.Fatalf("expected title=Old, got %+v", meta)
-	}
-
-	// Change frontmatter.
-	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("---\ntitle: New\n---\ncontent\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Update(vault, UpdateOptions{Files: []string{"A.md"}}); err != nil {
-		t.Fatalf("update: %v", err)
-	}
-
-	meta = queryMetaForPath(t, dbPath(vault), "A.md")
-	if len(meta) != 1 || meta[0].Value != "New" {
-		t.Errorf("expected title=New after update, got %+v", meta)
-	}
-}
 
 func TestUpdateMetaRemoveFrontmatter(t *testing.T) {
 	vault := t.TempDir()

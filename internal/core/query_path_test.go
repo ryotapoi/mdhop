@@ -75,7 +75,7 @@ func TestQueryIncludePathWithHide(t *testing.T) {
 }
 
 func TestQueryIncludePathInvalidGlob(t *testing.T) {
-	vault := setupExcludeVault(t)
+	vault := t.TempDir()
 	_, err := Query(vault, EntrySpec{File: "A.md"}, QueryOptions{
 		Path: []string{"[abc]/*"},
 	})

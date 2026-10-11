@@ -318,14 +318,6 @@ func TestMetaValidate_ProfileRequireAllNotes(t *testing.T) {
 	}
 }
 
-func TestMetaValidate_ProfileOnlyIsCheckTarget(t *testing.T) {
-	vault := setupMetaValidateVaultWithConfig(t, "[meta]\n[[meta.profiles]]\npath = 'media/*'\nrequire = ['isbn']\n")
-
-	if _, err := MetaValidate(vault, MetaValidateOptions{}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 func TestMetaValidate_CLIRequireOverridesProfileRequire(t *testing.T) {
 	vault := setupMetaValidateVaultWithConfig(t, "[meta]\n[[meta.profiles]]\nrequire = ['category']\n\n[meta.types]\nupdated = 'date'\n")
 

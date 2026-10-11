@@ -286,15 +286,6 @@ func TestParseCodeFenceDelimiters(t *testing.T) {
 	}
 }
 
-func TestParseTagInlineCodeExcluded(t *testing.T) {
-	content := "`#not-a-tag`\n"
-	links := parseLinksSlice(content)
-	tags := filterByType(links, "tag")
-	if len(tags) != 0 {
-		t.Errorf("expected no tags in inline code, got %d: %+v", len(tags), tags)
-	}
-}
-
 func TestParseTagHeadingNotTag(t *testing.T) {
 	content := "# Heading\n"
 	links := parseLinksSlice(content)
@@ -334,15 +325,6 @@ func TestParseFrontmatterTags(t *testing.T) {
 	}
 	if fmTags[1].target != "#bar" {
 		t.Errorf("tag[1] = %q, want #bar", fmTags[1].target)
-	}
-}
-
-func TestParseFrontmatterTagLineNumbers(t *testing.T) {
-	content := "---\ntags:\n  - foo\n  - bar\n---\n"
-	links := parseLinksSlice(content)
-	fmTags := filterByType(links, "frontmatter")
-	if len(fmTags) != 2 {
-		t.Fatalf("expected 2 frontmatter tags, got %d: %+v", len(fmTags), fmTags)
 	}
 	// "---" is line 1, "tags:" is line 2, "  - foo" is line 3, "  - bar" is line 4
 	if fmTags[0].lineStart != 3 {
@@ -436,7 +418,7 @@ func TestParseFrontmatterScalarEmptySegment(t *testing.T) {
 }
 
 func TestParseFrontmatterWikilinkQuoted(t *testing.T) {
-	content := "---\nrelated: \"[[B]]\"\n---\n# A\n"
+	content := "---\ntags:\n  - \"foo\"\nrelated: \"[[B]]\"\n---\n# A\n"
 	links := parseLinksSlice(content)
 	fmw := filterByType(links, "frontmatter_wikilink")
 	if len(fmw) != 1 {
@@ -451,9 +433,9 @@ func TestParseFrontmatterWikilinkQuoted(t *testing.T) {
 	if !fmw[0].isBasename {
 		t.Error("expected isBasename=true")
 	}
-	// "---" line 1, "related: ..." line 2
-	if fmw[0].lineStart != 2 {
-		t.Errorf("lineStart = %d, want 2", fmw[0].lineStart)
+	// The plain tag precedes the quoted wikilink on line 4.
+	if fmw[0].lineStart != 4 {
+		t.Errorf("lineStart = %d, want 4", fmw[0].lineStart)
 	}
 }
 
@@ -560,21 +542,6 @@ func TestParseFrontmatterWikilinkVaultRelative(t *testing.T) {
 	}
 	if fmw[0].isBasename {
 		t.Error("Sub/C should not be basename")
-	}
-}
-
-func TestParseFrontmatterTagsKeyExcludedFromWikilinks(t *testing.T) {
-	// The "tags" key must not be processed as wikilink even if it contains [[...]]
-	// shapes. (Realistic input: tags should always be plain words; we just guard
-	// against accidental cross-processing.)
-	content := "---\ntags:\n  - \"foo\"\nrelated: \"[[B]]\"\n---\n"
-	links := parseLinksSlice(content)
-	fmw := filterByType(links, "frontmatter_wikilink")
-	if len(fmw) != 1 {
-		t.Fatalf("expected 1 frontmatter wikilink (related only), got %d: %+v", len(fmw), fmw)
-	}
-	if fmw[0].target != "B" {
-		t.Errorf("target = %q, want B", fmw[0].target)
 	}
 }
 

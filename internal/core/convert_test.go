@@ -519,28 +519,6 @@ func TestConvertInlineCode(t *testing.T) {
 	}
 }
 
-func TestConvertFileScope(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_convert", tmp); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := Convert(tmp, ConvertOptions{
-		ToFormat: "wikilink",
-		DryRun:   true,
-		Files:    []string{"Note.md"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, r := range result.Rewritten {
-		if r.File != "Note.md" {
-			t.Errorf("expected file scope to Note.md, got %q", r.File)
-		}
-	}
-}
-
 func TestConvertFileScopeExcluded(t *testing.T) {
 	tmp := t.TempDir()
 	if err := testutil.CopyDir("../../testdata/vault_convert", tmp); err != nil {

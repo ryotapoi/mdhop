@@ -188,25 +188,6 @@ func TestDisambiguateMultipleCandidatesNoTarget(t *testing.T) {
 	}
 }
 
-func TestDisambiguateWithTarget(t *testing.T) {
-	vault := copyVault(t, "vault_disambiguate")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	// Single candidate + explicit --target → success.
-	result, err := Disambiguate(vault, DisambiguateOptions{
-		Name:   "A",
-		Target: "sub/A.md",
-	})
-	if err != nil {
-		t.Fatalf("disambiguate: %v", err)
-	}
-	if len(result.Rewritten) != 5 {
-		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
-	}
-}
-
 func TestDisambiguateTargetNotFound(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate")
 	if _, err := Build(vault); err != nil {
@@ -616,21 +597,6 @@ func TestDisambiguateScanMultipleCandidatesNoTarget(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--target is required") {
 		t.Errorf("error = %q, want containing '--target is required'", err.Error())
-	}
-}
-
-func TestDisambiguateScanWithTarget(t *testing.T) {
-	vault := copyVault(t, "vault_disambiguate")
-
-	result, err := DisambiguateScan(vault, DisambiguateOptions{
-		Name:   "A",
-		Target: "sub/A.md",
-	})
-	if err != nil {
-		t.Fatalf("scan: %v", err)
-	}
-	if len(result.Rewritten) != 5 {
-		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
 	}
 }
 

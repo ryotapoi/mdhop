@@ -25,9 +25,26 @@ func TestRepairBasic(t *testing.T) {
 		}
 	}
 	if len(result.Skipped) != 1 {
-		t.Errorf("Skipped count = %d, want 1", len(result.Skipped))
-		for _, s := range result.Skipped {
-			t.Logf("  %s: %s (basename=%s, candidates=%v)", s.File, s.RawLink, s.Basename, s.Candidates)
+		t.Fatalf("Skipped count = %d, want 1", len(result.Skipped))
+	}
+
+	s := result.Skipped[0]
+	if s.File != "A.md" {
+		t.Errorf("Skipped file = %q, want A.md", s.File)
+	}
+	if s.RawLink != "[[old/M]]" {
+		t.Errorf("Skipped rawLink = %q, want [[old/M]]", s.RawLink)
+	}
+	if s.Basename != "M" {
+		t.Errorf("Skipped basename = %q, want M", s.Basename)
+	}
+	if len(s.Candidates) != 2 {
+		t.Errorf("Skipped candidates count = %d, want 2", len(s.Candidates))
+	}
+	// Candidates should be sorted.
+	if len(s.Candidates) >= 2 {
+		if s.Candidates[0] != "dir1/M.md" || s.Candidates[1] != "dir2/M.md" {
+			t.Errorf("Skipped candidates = %v, want [dir1/M.md dir2/M.md]", s.Candidates)
 		}
 	}
 
@@ -192,39 +209,6 @@ func TestRepairFrontmatterWikilinkUntouched(t *testing.T) {
 	want := "---\nrelated: \"[[missing/Target]]\"\n---\n\n[[Target]]\n"
 	if got != want {
 		t.Fatalf("repaired content = %q, want %q", got, want)
-	}
-}
-
-func TestRepairSkippedCandidates(t *testing.T) {
-	vault := copyVault(t, "vault_repair")
-
-	result, err := Repair(vault, RepairOptions{})
-	if err != nil {
-		t.Fatalf("repair: %v", err)
-	}
-
-	if len(result.Skipped) != 1 {
-		t.Fatalf("Skipped count = %d, want 1", len(result.Skipped))
-	}
-
-	s := result.Skipped[0]
-	if s.File != "A.md" {
-		t.Errorf("Skipped file = %q, want A.md", s.File)
-	}
-	if s.RawLink != "[[old/M]]" {
-		t.Errorf("Skipped rawLink = %q, want [[old/M]]", s.RawLink)
-	}
-	if s.Basename != "M" {
-		t.Errorf("Skipped basename = %q, want M", s.Basename)
-	}
-	if len(s.Candidates) != 2 {
-		t.Errorf("Skipped candidates count = %d, want 2", len(s.Candidates))
-	}
-	// Candidates should be sorted.
-	if len(s.Candidates) >= 2 {
-		if s.Candidates[0] != "dir1/M.md" || s.Candidates[1] != "dir2/M.md" {
-			t.Errorf("Skipped candidates = %v, want [dir1/M.md dir2/M.md]", s.Candidates)
-		}
 	}
 }
 

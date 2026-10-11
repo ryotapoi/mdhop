@@ -119,7 +119,7 @@ func TestReachableRouteConnectorOutsidePathFilter(t *testing.T) {
 }
 
 func TestReachableFromMissing(t *testing.T) {
-	vault := buildReachableVault(t)
+	vault := t.TempDir()
 	_, err := Reachable(vault, ReachableOptions{})
 	if err == nil || !strings.Contains(err.Error(), "--from") {
 		t.Errorf("error = %v, want missing --from error", err)

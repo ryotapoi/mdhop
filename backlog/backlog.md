@@ -9,5 +9,5 @@
 #### コード整理とレビュー
 
 - [x] simplify-code を実行する
-- [ ] simplify-tests を実行する
+- [x] simplify-tests を実行する
 - [ ] コードレビューを実行する

@@ -1125,11 +1125,9 @@ func TestRunDiagnose_InvalidGlob(t *testing.T) {
 }
 
 func TestPrintDiagnoseText_FieldsFilter(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_build_full")
-
-	result, err := core.Diagnose(vault, core.DiagnoseOptions{})
-	if err != nil {
-		t.Fatalf("diagnose: %v", err)
+	result := &core.DiagnoseResult{
+		BasenameConflicts: []core.BasenameConflict{{Name: "A", Paths: []string{"sub1/A.md", "sub2/A.md"}}},
+		Phantoms:          []string{"Missing"},
 	}
 
 	var buf bytes.Buffer
@@ -1147,11 +1145,9 @@ func TestPrintDiagnoseText_FieldsFilter(t *testing.T) {
 }
 
 func TestPrintDiagnoseJSON_FieldsFilter(t *testing.T) {
-	vault := setupVaultForCLI(t, "vault_build_full")
-
-	result, err := core.Diagnose(vault, core.DiagnoseOptions{})
-	if err != nil {
-		t.Fatalf("diagnose: %v", err)
+	result := &core.DiagnoseResult{
+		BasenameConflicts: []core.BasenameConflict{{Name: "A", Paths: []string{"sub1/A.md", "sub2/A.md"}}},
+		Phantoms:          []string{"Missing"},
 	}
 
 	var buf bytes.Buffer
@@ -2085,9 +2081,6 @@ func TestRunInitMeta_ScanStdout(t *testing.T) {
 
 	if !strings.Contains(out, "[meta.types]") {
 		t.Errorf("missing meta: section in output:\n%s", out)
-	}
-	if !strings.Contains(out, "[meta.types]") {
-		t.Errorf("missing types: section in output:\n%s", out)
 	}
 	// priority is a number in all fixture notes → inferred as number.
 	if !strings.Contains(out, "priority = 'number'") {

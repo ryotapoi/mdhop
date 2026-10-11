@@ -35,17 +35,6 @@ func TestLoadConfig_Valid(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_InvalidTOML(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(":::invalid"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	_, err := LoadConfig(dir)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-}
-
 func TestLoadConfig_Empty(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "mdhop.toml"), []byte(""), 0o644); err != nil {

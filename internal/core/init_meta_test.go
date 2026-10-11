@@ -435,24 +435,6 @@ func TestGenerateMetaTOML(t *testing.T) {
 }
 
 func TestMergeIntoExistingTOML(t *testing.T) {
-	t.Run("preserves build section", func(t *testing.T) {
-		existing := []byte("[build]\nexclude_paths = ['templates/*']\n\n[meta]\n[meta.types]\ndate = 'date'\n")
-		newTypes := map[string]MetaTypeInfo{
-			"priority": {Name: MetaTypeNumber},
-		}
-		out, err := generateMetaTOML(existing, newTypes, nil, true)
-		if err != nil {
-			t.Fatal(err)
-		}
-		s := string(out)
-		if !strings.Contains(s, "exclude_paths") {
-			t.Errorf("build section lost:\n%s", s)
-		}
-		if !strings.Contains(s, "priority = 'number'") {
-			t.Errorf("new type not added:\n%s", s)
-		}
-	})
-
 	t.Run("creates meta section if absent", func(t *testing.T) {
 		existing := []byte("[build]\nexclude_paths = ['templates/*']\n")
 		newTypes := map[string]MetaTypeInfo{

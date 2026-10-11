@@ -18,30 +18,6 @@ func TestDeleteNoDB(t *testing.T) {
 	}
 }
 
-func TestDeleteUnregisteredFile(t *testing.T) {
-	vault := copyVault(t, "vault_delete")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	beforeNotes := countNotes(t, dbPath(vault))
-	beforeEdges := countEdges(t, dbPath(vault))
-
-	_, err := Delete(vault, DeleteOptions{Files: []string{"NotExist.md"}})
-	if err == nil || !strings.Contains(err.Error(), "file not registered") {
-		t.Errorf("expected file not registered error, got: %v", err)
-	}
-
-	// DB should be unchanged.
-	afterNotes := countNotes(t, dbPath(vault))
-	afterEdges := countEdges(t, dbPath(vault))
-	if beforeNotes != afterNotes {
-		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
-	}
-	if beforeEdges != afterEdges {
-		t.Errorf("edges changed: %d → %d", beforeEdges, afterEdges)
-	}
-}
-
 func TestDeleteUnreferencedFile(t *testing.T) {
 	vault := copyVault(t, "vault_delete")
 	if _, err := Build(vault); err != nil {

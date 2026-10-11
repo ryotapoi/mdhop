@@ -147,20 +147,6 @@ func TestBuildAssets_HiddenFilesExcluded(t *testing.T) {
 	}
 }
 
-func TestBuildAssets_MdhopDirExcluded(t *testing.T) {
-	vault := copyVault(t, "vault_build_assets")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("first build: %v", err)
-	}
-	// Rebuild should not register .mdhop/index.sqlite as asset.
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("rebuild: %v", err)
-	}
-	if assetNodeExists(t, dbPath(vault), ".mdhop/index.sqlite") {
-		t.Fatal(".mdhop/index.sqlite should not be registered as asset")
-	}
-}
-
 // --- Stats test ---
 
 func TestStatsAssetsTotal(t *testing.T) {

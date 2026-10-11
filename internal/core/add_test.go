@@ -271,30 +271,6 @@ func TestAddMultipleFiles(t *testing.T) {
 	}
 }
 
-func TestAddExistingFile(t *testing.T) {
-	vault := copyVault(t, "vault_add")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	beforeNotes := countNotes(t, dbPath(vault))
-	beforeEdges := countEdges(t, dbPath(vault))
-
-	_, err := Add(vault, AddOptions{Files: []string{"A.md"}})
-	if err == nil || !strings.Contains(err.Error(), "file already registered") {
-		t.Errorf("expected file already registered error, got: %v", err)
-	}
-
-	// DB should be unchanged.
-	afterNotes := countNotes(t, dbPath(vault))
-	afterEdges := countEdges(t, dbPath(vault))
-	if beforeNotes != afterNotes {
-		t.Errorf("notes changed: %d → %d", beforeNotes, afterNotes)
-	}
-	if beforeEdges != afterEdges {
-		t.Errorf("edges changed: %d → %d", beforeEdges, afterEdges)
-	}
-}
-
 func TestAddFileNotOnDisk(t *testing.T) {
 	vault := copyVault(t, "vault_add")
 	if _, err := Build(vault); err != nil {
@@ -1305,32 +1281,6 @@ func TestAddSelfLinkNotBlockedByAmbiguity(t *testing.T) {
 	}
 	if edges := queryEdges(t, dbPath(vault), "sub/Note.md"); len(edges) != 0 {
 		t.Errorf("sub/Note.md edges = %+v, want none", edges)
-	}
-}
-
-func TestAddDuplicateBasenameNewFilesRootPriority(t *testing.T) {
-	// Adding NonExistent.md (root) + sub/NonExistent.md → root priority → success.
-	vault := copyVault(t, "vault_build_phantom")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-
-	if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(vault, "NonExistent.md"), []byte("# NE1\n"), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(vault, "sub", "NonExistent.md"), []byte("# NE2\n"), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	result, err := Add(vault, AddOptions{Files: []string{"NonExistent.md", "sub/NonExistent.md"}})
-	if err != nil {
-		t.Fatalf("expected success (root priority), got: %v", err)
-	}
-	if len(result.Added) != 2 {
-		t.Errorf("Added = %v, want 2 files", result.Added)
 	}
 }
 

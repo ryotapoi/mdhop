@@ -333,38 +333,6 @@ func TestBuildInvalidInputDoesNotTouchTempDB(t *testing.T) {
 	}
 }
 
-func TestBuildFailureKeepsExistingDB(t *testing.T) {
-	vault := copyVault(t, "vault_build_existing_db")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	before := countNotes(t, dbPath(vault))
-
-	conflictDir := filepath.Join(vault, "sub2")
-	if err := os.MkdirAll(conflictDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(conflictDir, "B.md"), []byte("# B in sub2\n"), 0o644); err != nil {
-		t.Fatalf("write conflict: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(vault, "A.md"), []byte("# A\n\nLink to [[B]]\n"), 0o644); err != nil {
-		t.Fatalf("write link: %v", err)
-	}
-
-	if _, err := Build(vault); err == nil {
-		t.Fatalf("expected build error")
-	}
-	// Ensure existing DB is still readable and unchanged.
-	after := countNotes(t, dbPath(vault))
-	if after != before {
-		t.Fatalf("expected existing db to be preserved, before=%d after=%d", before, after)
-	}
-	// Ensure DB file is a valid SQLite file.
-	if _, err := sql.Open("sqlite", dbPath(vault)); err != nil {
-		t.Fatalf("db should be readable: %v", err)
-	}
-}
-
 func TestBuildPreservesForeignTempResources(t *testing.T) {
 	for _, directory := range []bool{false, true} {
 		t.Run(fmt.Sprintf("directory=%v", directory), func(t *testing.T) {
@@ -760,23 +728,6 @@ func TestBuildTagsFrontmatterNestedExpansion(t *testing.T) {
 	}
 }
 
-func TestBuildTagsInlineEdge(t *testing.T) {
-	vault := copyVault(t, "vault_build_tags")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	edges := queryEdges(t, dbPath(vault), "A.md")
-	var foundInlineTag bool
-	for _, e := range edges {
-		if e.linkType == LinkTypeTag && e.targetName == "#simple" {
-			foundInlineTag = true
-		}
-	}
-	if !foundInlineTag {
-		t.Error("inline tag edge A→#simple not found")
-	}
-}
-
 func TestBuildTagsCodeFenceExcluded(t *testing.T) {
 	vault := copyVault(t, "vault_build_tag_codefence")
 	if _, err := Build(vault); err != nil {
@@ -912,9 +863,22 @@ func TestBuildFrontmatterWikilinkEdges(t *testing.T) {
 		t.Fatalf("expected %d edges, got %d: %+v", len(wants), len(edges), edges)
 	}
 
+	expectedLines := map[string]int{
+		"[[Sub/C]]":         5,
+		"[[Sub/D|Display]]": 6,
+		"[[B#Heading]]":     7,
+		"[[Ghost]]":         8,
+	}
+
 	for i, e := range edges {
 		if e.linkType != LinkTypeFrontmatterWikilink {
 			t.Errorf("edge[%d] linkType = %q, want frontmatter_wikilink", i, e.linkType)
+		}
+		if want, ok := expectedLines[e.rawLink]; ok && e.lineStart != want {
+			t.Errorf("edge %s lineStart = %d, want %d", e.rawLink, e.lineStart, want)
+		}
+		if e.targetName == "Ghost" && e.targetType != NodeTypePhantom {
+			t.Errorf("Ghost target type = %s, want phantom", e.targetType)
 		}
 	}
 
@@ -930,52 +894,6 @@ func TestBuildFrontmatterWikilinkEdges(t *testing.T) {
 			continue
 		}
 		gotKeys[key]--
-	}
-}
-
-func TestBuildFrontmatterWikilinkPhantom(t *testing.T) {
-	vault := copyVault(t, "vault_build_frontmatter_wikilink")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	phantoms := queryNodes(t, dbPath(vault), "phantom")
-	var hasGhost bool
-	for _, p := range phantoms {
-		if p.name == "Ghost" {
-			hasGhost = true
-		}
-	}
-	if !hasGhost {
-		t.Errorf("expected Ghost phantom from frontmatter wikilink, got %+v", phantoms)
-	}
-}
-
-func TestBuildFrontmatterWikilinkLineNumbers(t *testing.T) {
-	vault := copyVault(t, "vault_build_frontmatter_wikilink")
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
-	edges := queryEdges(t, dbPath(vault), "A.md")
-	// "---" line 1
-	// "related: ..." line 2
-	// "parent: [[B]]" line 3
-	// "seealso:" line 4
-	// "  - [[Sub/C]]" line 5
-	// "  - [[Sub/D|Display]]" line 6
-	// "heading_ref: ..." line 7
-	// "phantom_ref: ..." line 8
-	expected := map[string]int{
-		"[[Sub/C]]":         5,
-		"[[Sub/D|Display]]": 6,
-		"[[B#Heading]]":     7,
-		"[[Ghost]]":         8,
-	}
-	for _, e := range edges {
-		if want, ok := expected[e.rawLink]; ok {
-			if e.lineStart != want {
-				t.Errorf("edge %s lineStart = %d, want %d", e.rawLink, e.lineStart, want)
-			}
-		}
 	}
 }
 

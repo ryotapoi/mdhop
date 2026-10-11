@@ -211,7 +211,7 @@ func TestQueryErrorFileNotFound(t *testing.T) {
 }
 
 func TestQueryErrorNoDB(t *testing.T) {
-	vault := copyVaultForQuery(t, "vault_build_full") // no build
+	vault := t.TempDir()
 	_, err := Query(vault, EntrySpec{File: "Index.md"}, QueryOptions{})
 	if err == nil {
 		t.Fatal("expected error, got nil")

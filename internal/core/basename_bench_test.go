@@ -9,7 +9,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// CHANGE-VERIFY: Retain the original full-row lookup for reproducible before/after measurements.
+// Retain the original full-row lookup for reproducible before/after measurements.
 func benchmarkBasenameFullScan(db dbExecer, typ NodeType, key string) ([]basenameMatch, error) {
 	rows, err := db.Query(`SELECT id, name, path FROM nodes WHERE type=?`, typ)
 	if err != nil {

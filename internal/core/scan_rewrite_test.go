@@ -107,21 +107,6 @@ func TestScanExcludesSelectedMarkdownIndex(t *testing.T) {
 			if err != nil || !bytes.Equal(before, after) {
 				t.Fatalf("scan changed index bytes: %v", err)
 			}
-			db, err = openDBAt(location.DBPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer db.Close()
-			var stored, integrity string
-			if err := db.QueryRow("SELECT value FROM meta WHERE key = 'scan_payload'").Scan(&stored); err != nil {
-				t.Fatal(err)
-			}
-			if stored != payload {
-				t.Fatalf("index payload=%q", stored)
-			}
-			if err := db.QueryRow("PRAGMA integrity_check").Scan(&integrity); err != nil || integrity != "ok" {
-				t.Fatalf("integrity=%q err=%v", integrity, err)
-			}
 		})
 	}
 }

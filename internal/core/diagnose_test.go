@@ -248,7 +248,7 @@ func TestDiagnose_PathFilter_IncludeAndExclude(t *testing.T) {
 }
 
 func TestDiagnose_PathFilter_InvalidGlob(t *testing.T) {
-	vault := setupVaultForDiagnose(t, "vault_diagnose_path")
+	vault := t.TempDir()
 
 	_, err := Diagnose(vault, DiagnoseOptions{Path: []string{"[abc]/*"}})
 	if err == nil || !strings.Contains(err.Error(), "unsupported glob pattern") {

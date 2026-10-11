@@ -497,7 +497,7 @@ func TestSearch_SampleGreaterThanTotal(t *testing.T) {
 }
 
 func TestSearch_SampleInvalid(t *testing.T) {
-	vault := setupSearchVault(t)
+	vault := t.TempDir()
 	_, err := Search(vault, SearchOptions{Sample: -1})
 	if err == nil || !strings.Contains(err.Error(), "sample must be >= 0") {
 		t.Fatalf("expected sample validation error, got: %v", err)
@@ -505,7 +505,7 @@ func TestSearch_SampleInvalid(t *testing.T) {
 }
 
 func TestSearch_SampleWithLimitError(t *testing.T) {
-	vault := setupSearchVault(t)
+	vault := t.TempDir()
 	_, err := Search(vault, SearchOptions{Sample: 2, Limit: 1})
 	if err == nil || !strings.Contains(err.Error(), "sample cannot be used with limit or offset") {
 		t.Fatalf("expected sample/limit conflict error, got: %v", err)
@@ -518,7 +518,7 @@ func TestSearch_SampleWithLimitError(t *testing.T) {
 }
 
 func TestSearch_SampleWithSortError(t *testing.T) {
-	vault := setupSearchVault(t)
+	vault := t.TempDir()
 	_, err := Search(vault, SearchOptions{Sample: 2, Sort: "priority"})
 	if err == nil || !strings.Contains(err.Error(), "sample cannot be used with sort") {
 		t.Fatalf("expected sample/sort conflict error, got: %v", err)
@@ -782,7 +782,7 @@ func TestSearch_Count(t *testing.T) {
 }
 
 func TestSearch_CountWithOutputOptionsError(t *testing.T) {
-	vault := setupSearchVault(t)
+	vault := t.TempDir()
 
 	tests := []struct {
 		name string

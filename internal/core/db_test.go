@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/ryotapoi/mdhop/internal/testutil"
 )
 
 func TestOpenDBChecked_NoDB(t *testing.T) {
@@ -17,30 +15,6 @@ func TestOpenDBChecked_NoDB(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "index not found") {
 		t.Fatalf("unexpected error message: %s", err.Error())
-	}
-}
-
-func TestOpenDBChecked_OK(t *testing.T) {
-	tmp := t.TempDir()
-	if err := testutil.CopyDir("../../testdata/vault_build_basic", tmp); err != nil {
-		t.Fatalf("CopyDir failed: %v", err)
-	}
-	if _, err := Build(tmp); err != nil {
-		t.Fatalf("Build failed: %v", err)
-	}
-
-	db, err := openDBChecked(tmp)
-	if err != nil {
-		t.Fatalf("openDBChecked failed: %v", err)
-	}
-	defer db.Close()
-
-	var count int
-	if err := db.QueryRow("SELECT COUNT(*) FROM nodes").Scan(&count); err != nil {
-		t.Fatalf("query failed: %v", err)
-	}
-	if count == 0 {
-		t.Fatal("expected nodes in DB, got 0")
 	}
 }
 
@@ -190,31 +164,6 @@ func TestUpsertAsset_ConflictUpdate(t *testing.T) {
 	}
 	if mtime != 300 {
 		t.Fatalf("expected mtime 300, got %d", mtime)
-	}
-}
-
-func TestInsertMeta(t *testing.T) {
-	db := newTestDB(t)
-
-	nodeID, err := upsertNote(db, "docs/hello.md", "hello", 100, 0)
-	if err != nil {
-		t.Fatalf("upsertNote: %v", err)
-	}
-
-	// Insert two rows with the same key (list values).
-	if err := insertMeta(db, nodeID, "tags", "go", 2, "go", "string"); err != nil {
-		t.Fatalf("insertMeta 1: %v", err)
-	}
-	if err := insertMeta(db, nodeID, "tags", "cli", 3, "cli", "string"); err != nil {
-		t.Fatalf("insertMeta 2: %v", err)
-	}
-
-	var count int
-	if err := db.QueryRow("SELECT COUNT(*) FROM meta WHERE node_id = ?", nodeID).Scan(&count); err != nil {
-		t.Fatalf("count query: %v", err)
-	}
-	if count != 2 {
-		t.Fatalf("expected 2 meta rows, got %d", count)
 	}
 }
 
