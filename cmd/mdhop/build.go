@@ -53,6 +53,7 @@ Separate CLI calls and edited note contents are not guaranteed the same snapshot
 Examples:
   mdhop build
   mdhop build --vault ~/Notes
+  mdhop build --vault ~/Notes --full
   mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml
 
 `

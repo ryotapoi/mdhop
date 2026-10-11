@@ -12,6 +12,8 @@ const statusHelp = `Usage: mdhop status [--vault <path>] [--format json|text]
 List untracked, modified, and deleted files without changing the vault or index.
 Modified compares the indexed and disk mtimes at whole-second precision; content
 changes within the same second are not detected.
+This differs from build's nanosecond mtime and size detection. Run build directly
+to detect and index changes; status is not a preview of its update set.
 
 Options:
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.

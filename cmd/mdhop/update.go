@@ -11,6 +11,8 @@ import (
 const updateHelp = `Usage: mdhop update --file <path> [--file <path>...] [--vault <path>] [--format json|text]
 
 Re-index registered files after editing them. If a registered file is missing on disk, it is handled like delete.
+Use build to automatically detect additions, changes, and deletions across the vault.
+After update, the next build regenerates the full index.
 
 Options:
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.

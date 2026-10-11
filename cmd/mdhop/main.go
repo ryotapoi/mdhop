@@ -106,7 +106,7 @@ func printUsage() {
 
 Index Commands:
   cache-list    List default cache folders, sizes, and original vaults
-  build         Build the index from the vault
+  build         Automatically detect vault changes and update the index
   add           Add new files to the index
   update        Update specified files in the index
   set           Set a single frontmatter key and update the index

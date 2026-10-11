@@ -13,6 +13,7 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 - Use `--relations` on `query` and `--fields` on `inspect`, `search`, `resolve`, `reachable`, `stats`, and `diagnose` to select only the data you need.
 - Run vault commands from the vault root, or pass `--vault <path>`. `cache-list` needs no vault and accepts no `--vault`, `--db`, or `--config`.
 - Treat note paths and configuration globs as vault-relative. `--vault`, `--db`, and `--config` accept absolute paths or paths relative to the current directory.
+- In Markdown links, resolve destinations relative to the source note; a leading `/` starts at the vault root. Wikilinks keep their own basename lookup rules.
 - Keep the same vault, DB, and config selection across related commands. Use `--db` to separate indexes built with different configurations of the same vault.
 - Serialize index writes such as `build`, `update`, and `migrate`; concurrent reads during a build can use the completed index.
 - Do not use raw `mv`, `rm`, or `cp` for indexed vault files. Use `mdhop move`, `mdhop delete --rm`, and write-then-`mdhop add`.
@@ -31,6 +32,9 @@ The default index is stored in `<cache>/mdhop/vaults/<vault-hash>/index.sqlite`.
 Cache uses absolute `XDG_CACHE_HOME`, otherwise `~/.cache`; the hash identifies
 the symlink-resolved absolute vault root. Run `mdhop build` if the index is
 missing, the cache was removed, or the vault moved.
+`build` detects added, changed, and deleted files automatically and skips reading
+unchanged notes. Use `mdhop build --full` when edits may have kept the same mtime
+and size, including on filesystems with coarse timestamps.
 
 ```bash
 mdhop stats --format json
@@ -168,7 +172,7 @@ Run `mdhop meta-check --help` or `mdhop meta-validate --help` for issue/violatio
 
 ### Maintain the Index and Files
 
-Use `mdhop build` to create the index, `add` after creating files, `update` after editing files, `set` for one scalar or one whole string list, `move` for link-safe moves, and `delete` for index/disk removal.
+Use `mdhop build` to create or refresh the index from the vault, `add` after creating files, `update` after editing files, `set` for one scalar or one whole string list, `move` for link-safe moves, and `delete` for index/disk removal.
 
 ```bash
 mdhop build
