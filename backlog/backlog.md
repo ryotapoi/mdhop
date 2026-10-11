@@ -70,7 +70,7 @@
 
   受入条件: 旧 YAML の `exclude.paths`、`query.hide.paths`、`query.via.include.paths`、`query.via.exclude.paths` の不正 glob を移行時に拒否し、旧 YAML と `.mdhop/` を保持する。有効な設定の移行後は通常の探索が動作する。通常コマンドが無効化された探索条件を検証しない既存の契約は維持する。
 
-- [ ] 設定更新・移行で既存設定のファイル権限を保持する（FR-006）
+- [x] 設定更新・移行で既存設定のファイル権限を保持する（FR-006）
 
   目的: `init-meta --write` と `migrate` が、非公開設定を他ユーザーから読み取り可能にすることを防ぐ。
 

@@ -66,12 +66,27 @@ func runInitMeta(args []string) error {
 
 	if *write {
 		configPath := locations.ConfigFile(*vault)
+		mode := os.FileMode(0644)
+		info, err := os.Stat(configPath)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("stat configuration: %w", err)
+		}
+		if info != nil {
+			mode = info.Mode().Perm()
+		}
 		tmpPath := configPath + ".tmp-" + rand.Text()
-		tmp, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		tmp, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 		if err != nil {
 			return fmt.Errorf("create temp file: %w", err)
 		}
 		defer os.Remove(tmpPath)
+		if info != nil {
+			// Restore existing permissions independently of the current umask.
+			if err := tmp.Chmod(mode); err != nil {
+				tmp.Close()
+				return fmt.Errorf("set temp file permissions: %w", err)
+			}
+		}
 		if _, err := tmp.WriteString(result.TOML); err != nil {
 			tmp.Close()
 			return fmt.Errorf("write temp file: %w", err)

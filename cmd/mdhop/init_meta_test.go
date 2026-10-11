@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
@@ -131,4 +133,50 @@ func TestRunInitMetaPreservesLegacyAndInvalidConfig(t *testing.T) {
 		t.Fatal("legacy YAML changed on failure")
 	}
 	assertNoInitMetaTemps(t, vault)
+}
+
+func TestRunInitMeta_WritePreservesPermissions(t *testing.T) {
+	for _, explicit := range []bool{false, true} {
+		for _, mode := range []os.FileMode{0600, 0640} {
+			t.Run(fmt.Sprintf("explicit=%t/mode=%o", explicit, mode), func(t *testing.T) {
+				vault := t.TempDir()
+				path := filepath.Join(vault, "mdhop.toml")
+				args := []string{"--vault", vault, "--preset", "--write"}
+				if explicit {
+					path = filepath.Join(t.TempDir(), "private.toml")
+					args = append(args, "--config", path)
+				}
+				const original = "[meta.types]\ncreated = 'string'\n[custom]\nsecret = 'keep'\n"
+				if err := os.WriteFile(path, []byte(original), mode); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(path, mode); err != nil {
+					t.Fatal(err)
+				}
+				captureStderr(t, func() error { return runInitMeta(args) })
+				info, err := os.Stat(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := info.Mode().Perm(); got != mode {
+					t.Fatalf("permissions = %o, want %o", got, mode)
+				}
+				cfg, err := core.LoadConfig(vault, core.Locations{ConfigPath: path})
+				if err != nil || cfg.Meta.Types["created"].Name != core.MetaTypeString || cfg.Meta.Types["updated"].Name != core.MetaTypeDate {
+					t.Fatalf("generated types: %+v, %v", cfg, err)
+				}
+				var raw map[string]any
+				if err := toml.Unmarshal([]byte(readCLIFile(t, path)), &raw); err != nil {
+					t.Fatal(err)
+				}
+				if raw["custom"].(map[string]any)["secret"] != "keep" {
+					t.Fatal("unknown setting changed")
+				}
+				temps, err := filepath.Glob(path + ".tmp-*")
+				if err != nil || len(temps) != 0 {
+					t.Fatalf("owned temp files remain: %v (glob error: %v)", temps, err)
+				}
+			})
+		}
+	}
 }

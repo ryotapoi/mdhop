@@ -134,7 +134,11 @@ func TestMigrateFinalIndex(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			vault := migrationVault(t)
 			if mode == "yaml" {
-				mustMigrationWrite(t, filepath.Join(vault, "mdhop.yaml"), "query: {via: {exclude: {}}}\n")
+				legacy := filepath.Join(vault, "mdhop.yaml")
+				mustMigrationWrite(t, legacy, "query: {via: {exclude: {}}}\n")
+				if err := os.Chmod(legacy, 0600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			original := "# preserved formatting\n[query.via.exclude]\n"
 			if mode == "toml" {
@@ -146,6 +150,19 @@ func TestMigrateFinalIndex(t *testing.T) {
 			for _, name := range []string{"mdhop.yaml", ".mdhop"} {
 				if _, err := os.Lstat(filepath.Join(vault, name)); !os.IsNotExist(err) {
 					t.Fatalf("%s remains: %v", name, err)
+				}
+			}
+			if mode == "yaml" {
+				info, err := os.Stat(filepath.Join(vault, "mdhop.toml"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := info.Mode().Perm(); got != 0600 {
+					t.Fatalf("permissions = %o, want 600", got)
+				}
+				cfg, err := LoadConfig(vault)
+				if err != nil || cfg.Query.Via.Exclude == nil {
+					t.Fatalf("migrated configuration: %+v, %v", cfg, err)
 				}
 			}
 			if mode == "toml" {

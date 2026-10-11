@@ -23,6 +23,7 @@ func Migrate(vaultPath string) (*BuildResult, error) {
 	legacy := filepath.Join(vault, "mdhop.yaml")
 	config := filepath.Join(vault, "mdhop.toml")
 	oldDir := filepath.Join(vault, dataDirName)
+	var legacyMode os.FileMode
 	exists := make(map[string]bool)
 	for _, path := range []string{legacy, config, oldDir} {
 		info, err := os.Lstat(path)
@@ -33,6 +34,9 @@ func Migrate(vaultPath string) (*BuildResult, error) {
 			return nil, err
 		}
 		exists[path] = true
+		if path == legacy {
+			legacyMode = info.Mode().Perm()
+		}
 		if info.Mode()&os.ModeSymlink != 0 {
 			return nil, fmt.Errorf("migration target is a symlink: %s", path)
 		}
@@ -67,11 +71,16 @@ func Migrate(vaultPath string) (*BuildResult, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", legacy, err)
 		}
-		file, err := os.OpenFile(config, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		file, err := os.OpenFile(config, os.O_WRONLY|os.O_CREATE|os.O_EXCL, legacyMode)
 		if err != nil {
 			return nil, fmt.Errorf("save %s: %w", config, err)
 		}
 		created = true
+		// Set the final permissions before writing any configuration content.
+		if err := file.Chmod(legacyMode); err != nil {
+			err = errors.Join(err, file.Close())
+			return nil, rollbackMigrationConfig(config, fmt.Errorf("save %s: %w", config, err))
+		}
 		_, writeErr := file.Write(converted)
 		err = errors.Join(writeErr, file.Close())
 		if err != nil {
