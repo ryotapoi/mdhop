@@ -28,6 +28,19 @@ type ResolveResult struct {
 
 // Resolve resolves a link from a source file and returns the target node info.
 func Resolve(vaultPath, fromPath, link string, locations ...Locations) (*ResolveResult, error) {
+	return resolve(vaultPath, fromPath, link, 0, locations...)
+}
+
+// ResolveAtLine selects an exact indexed raw link at a one-based physical line.
+// It does not reparse the link or fall back to another indexed occurrence.
+func ResolveAtLine(vaultPath, fromPath, link string, line int, locations ...Locations) (*ResolveResult, error) {
+	if line < 1 {
+		return nil, fmt.Errorf("line must be >= 1")
+	}
+	return resolve(vaultPath, fromPath, link, line, locations...)
+}
+
+func resolve(vaultPath, fromPath, link string, line int, locations ...Locations) (*ResolveResult, error) {
 	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
@@ -47,8 +60,14 @@ func Resolve(vaultPath, fromPath, link string, locations ...Locations) (*Resolve
 
 	// Exact raw occurrences carry their index-time context, including table
 	// aliases and reference definitions. Never choose an arbitrary occurrence.
-	rows, err := db.Query(`SELECT DISTINCT target_id, COALESCE(subpath, '') FROM edges
-  WHERE source_id = ? AND raw_link = ? LIMIT 2`, sourceID, link)
+	query := `SELECT DISTINCT target_id, COALESCE(subpath, '') FROM edges
+  WHERE source_id = ? AND raw_link = ?`
+	args := []any{sourceID, link}
+	if line > 0 {
+		query += " AND line_start = ?"
+		args = append(args, line)
+	}
+	rows, err := db.Query(query+" LIMIT 2", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +90,10 @@ func Resolve(vaultPath, fromPath, link string, locations ...Locations) (*Resolve
 	}
 	if found {
 		return fetchNodeResult(db, exactID, exactSubpath)
+	}
+
+	if line > 0 {
+		return nil, fmt.Errorf("%w in source %s at line %d: %s", ErrLinkNotFound, fromPath, line, link)
 	}
 
 	// Parse the link string to get linkOccur.

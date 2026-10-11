@@ -44,6 +44,10 @@ mdhop query --tag '#project'
 mdhop resolve --from Notes/A.md --link '[[B]]'
 ```
 
+To select a clicked indexed occurrence, use `mdhop resolve --from Notes/A.md --link '[[B]]' --line 12`. Optional `--line` accepts only positive integers and matches `line_start` exactly: physical lines start at 1 and include frontmatter, rather than display or wrapped lines. Reference links use the usage line, not the definition line. Keep the indexed raw text unchanged, including escapes, aliases, embeds, fragments, and spaces. With a line, missing matches fail without reparsing or looking at other lines; distinct targets or fragments on the same line are ambiguous. Without a line, existing exact-text-first resolution and fallback behavior remain unchanged.
+
+Use the same vault/DB and the saved source used to create the index to obtain the source path, raw text, and physical line. After saving, complete `build` or an appropriate `update`/`add` and obtain positions again. Reference-definition and table-boundary edits also require an index update; configuration or parsing-rule changes require `build`. Do not change the source or index between obtaining positions and resolving. Unsaved buffers, renderers without mapping back to source, and old indexes after line moves cannot guarantee the clicked target. Matching raw text and line does not prove the same source/index generation: resolve does not reread source, check mtime/hash, automatically update, lock, or guarantee snapshots across concurrent edits or index updates. This selection supports currently indexed single-line body links; it does not expand frontmatter coordinate or multiline syntax guarantees, or change indexed raw representations (including tags).
+
 ## Commands
 
 | Command | Description |

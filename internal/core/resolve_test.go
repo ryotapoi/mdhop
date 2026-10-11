@@ -697,3 +697,119 @@ func TestResolvePhantomAssetExtension(t *testing.T) {
 		t.Errorf("subpath = %q, want empty", res.Subpath)
 	}
 }
+
+func TestResolveAtLinePhysicalContextAndSnapshot(t *testing.T) {
+	vault := t.TempDir()
+	raw := `[[X\|shown]]`
+	content := "---\ntitle: Source\n---\n" + raw + "\n\n| column |\n| --- |\n| " + raw + " |\n[ref][guide]\n[guide]: X.md#Heading\n[[X]] [[X]]\n"
+	writeInterpretationFiles(t, vault, map[string]string{"Source.md": content, "X.md": "x"})
+	buildVault(t, vault)
+	for _, tc := range []struct {
+		raw                 string
+		line                int
+		path, name, subpath string
+	}{
+		{raw, 4, "", `X\`, ""},
+		{raw, 8, "X.md", "X", ""},
+		{"[ref][guide]", 9, "X.md", "X", "#Heading"},
+		{"[[X]]", 11, "X.md", "X", ""},
+	} {
+		got, err := ResolveAtLine(vault, "./Source.md", tc.raw, tc.line)
+		if err != nil || got.Path != tc.path || got.Name != tc.name || got.Subpath != tc.subpath {
+			t.Fatalf("line %d: %+v, %v; want %s %s %s", tc.line, got, err, tc.path, tc.name, tc.subpath)
+		}
+	}
+	if _, err := Resolve(vault, "Source.md", raw); !errors.Is(err, ErrAmbiguousLink) {
+		t.Fatalf("omitted line: %v", err)
+	}
+	for _, tc := range []struct {
+		raw  string
+		line int
+	}{
+		{raw, 7}, {raw, 12}, {"[[x]]", 11}, {"[[X|alias]]", 11}, {" [[X]]", 11}, {"[ref][guide]", 10},
+	} {
+		if _, err := ResolveAtLine(vault, "Source.md", tc.raw, tc.line); !errors.Is(err, ErrLinkNotFound) {
+			t.Fatalf("no fallback %q/%d: %v", tc.raw, tc.line, err)
+		}
+	}
+	// Matching an old position is intentionally based only on the index snapshot.
+	writeInterpretationFiles(t, vault, map[string]string{"Source.md": "\n" + content})
+	if got, err := ResolveAtLine(vault, "Source.md", raw, 8); err != nil || got.Path != "X.md" {
+		t.Fatalf("old snapshot: %+v %v", got, err)
+	}
+	if _, err := Update(vault, UpdateOptions{Files: []string{"Source.md"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ResolveAtLine(vault, "Source.md", raw, 8); !errors.Is(err, ErrLinkNotFound) {
+		t.Fatalf("old line after update: %v", err)
+	}
+	if got, err := ResolveAtLine(vault, "Source.md", raw, 9); err != nil || got.Path != "X.md" {
+		t.Fatalf("new line: %+v %v", got, err)
+	}
+	if _, err := ResolveAtLine(vault, "Missing.md", raw, 9); !errors.Is(err, ErrFileNotRegistered) {
+		t.Fatalf("source error: %v", err)
+	}
+	for _, line := range []int{0, -1} {
+		if _, err := ResolveAtLine(vault, "Source.md", raw, line); err == nil {
+			t.Fatalf("accepted %d", line)
+		}
+	}
+	if _, err := ResolveAtLine(t.TempDir(), "Source.md", raw, 9); !errors.Is(err, ErrIndexNotFound) {
+		t.Fatalf("missing DB: %v", err)
+	}
+}
+
+func TestResolveAtLineDistinctIndexedMeanings(t *testing.T) {
+	// Same-line conflicting meanings are an index fixture, not new parser syntax.
+	for _, kind := range []string{"same", "target", "subpath", "null and empty", "line end"} {
+		t.Run(kind, func(t *testing.T) {
+			vault := t.TempDir()
+			writeInterpretationFiles(t, vault, map[string]string{"Source.md": "[[X]]\n", "X.md": "x", "Y.md": "y"})
+			buildVault(t, vault)
+			db := openTestDB(t, dbPath(vault))
+			subpath := "''"
+			target := "target_id"
+			if kind == "target" {
+				target = "(SELECT id FROM nodes WHERE path = 'Y.md')"
+			}
+			if kind == "subpath" {
+				subpath = "'#Other'"
+			}
+			if kind == "null and empty" {
+				if _, err := db.Exec("UPDATE edges SET subpath = NULL"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if kind == "line end" {
+				if _, err := db.Exec("UPDATE edges SET line_end = 3"); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				_, err := db.Exec("INSERT INTO edges (source_id,target_id,raw_link,link_type,subpath,line_start,line_end) SELECT source_id," + target + ",raw_link,link_type," + subpath + ",line_start,line_end FROM edges")
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			db.Close()
+			line := 1
+			if kind == "line end" {
+				line = 2
+			}
+			got, err := ResolveAtLine(vault, "Source.md", "[[X]]", line)
+			switch kind {
+			case "target", "subpath":
+				if !errors.Is(err, ErrAmbiguousLink) {
+					t.Fatalf("got %+v %v", got, err)
+				}
+			case "line end":
+				if !errors.Is(err, ErrLinkNotFound) {
+					t.Fatalf("range match: %+v %v", got, err)
+				}
+			default:
+				if err != nil || got.Path != "X.md" || got.Subpath != "" {
+					t.Fatalf("got %+v %v", got, err)
+				}
+			}
+		})
+	}
+}
