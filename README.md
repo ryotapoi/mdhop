@@ -56,7 +56,7 @@ Use the same vault/DB and the saved source used to create the index to obtain th
 
 | Command | Description |
 |---------|-------------|
-| `build` | Parse the entire vault and create the index |
+| `build` | Detect additions, changes, and deletions; use `--full` to regenerate everything |
 | `add` | Add new files to the index |
 | `update` | Update existing files in the index |
 | `set` | Set one frontmatter key or relative date and update the index |
@@ -129,6 +129,16 @@ With YAML, migrate converts and validates all settings, saves TOML, and fully re
 If YAML and TOML both exist, migration fails without changes. Preserve both, decide which configuration to use, and move one outside the vault before retrying. Unknown fields, invalid values, multiple YAML documents, and YAML merge keys are errors. Symlinks at the fixed targets and cache locations inside the directory scheduled for deletion are also rejected.
 
 Conversion, save, or rebuild failures retain the old YAML, `.mdhop/`, and existing cache index; newly generated TOML is removed on failure. If rollback fails, the error reports the remaining TOML path: preserve the YAML, inspect and move the generated TOML aside, then retry. Cleanup failure is an error with the new cache already published and some old files possibly remaining. Inspect reported paths and fix permissions; if both configuration files remain, preserve and move the old YAML aside before retrying. Normal reference commands can use the new TOML and cache. Serialize migration with build, update, and other writes.
+
+## Automatic incremental builds
+
+`mdhop build` compares the current file list and each file's saved nanosecond mtime and size for equality. It applies additions, changes, and deletions, treating moves as deletion plus addition, without reading or parsing unchanged notes. Existing links are also re-resolved when target existence, wikilink/frontmatter raw basename collisions, or root priority changes. Ambiguous links fail as they do in a full build.
+
+`mdhop build --full` reads and parses every note without reusing the existing index. Full regeneration also happens automatically for a missing/old/incomplete index, a changed canonical vault root, changed index-effective settings (`build.exclude_paths`, `meta.link_keys`, metadata types), or after a successful index mutation (`update`, `add`, `delete`, `move`, `set`, `disambiguate`, etc.). Comments, key order, a config path change alone, and query/search-only settings do not trigger regeneration. Invalid configuration fails while preserving the old DB.
+
+Changes within one second are detected when nanosecond mtime or size changes; preserving mtime still allows a size change to be detected. Edits/restores preserving both mtime and size, or same-size changes below filesystem timestamp resolution, require `--full`. `status` retains its separate whole-second mtime comparison and may disagree with build detection.
+
+Detected input changes between pre/post-read checks or the final file-list/signature check fail and preserve the old index. There is no filesystem snapshot or lock: edits after the final check and restoration to an identical signature may go undetected. Unchanged builds preserve warnings and default origin behavior. See the [performance record](cache/build-incremental-performance.md) for comparison conditions and results.
 
 ## Configuration (mdhop.toml)
 

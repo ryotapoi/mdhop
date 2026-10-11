@@ -22,7 +22,7 @@ type dbExecer interface {
 const (
 	dataDirName                = ".mdhop"
 	dbFileName                 = "index.sqlite"
-	indexInterpretationVersion = 2
+	indexInterpretationVersion = 3
 )
 
 // NodeType is the value set of the `nodes.type` column. Go code uses these
@@ -121,6 +121,10 @@ func openDBChecked(vaultPath string, locations ...Locations) (*sql.DB, error) {
 
 func initSchema(db *sql.DB) error {
 	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS build_state (id INTEGER PRIMARY KEY CHECK(id=1), fingerprint TEXT NOT NULL);`,
+		`CREATE TABLE IF NOT EXISTS build_files (path TEXT PRIMARY KEY, kind TEXT NOT NULL, mtime_ns INTEGER NOT NULL, size INTEGER NOT NULL, link_count INTEGER NOT NULL, warnings TEXT NOT NULL);`,
+		`CREATE TABLE IF NOT EXISTS build_links (source_path TEXT NOT NULL, ordinal INTEGER NOT NULL, dependency TEXT NOT NULL, link TEXT NOT NULL, PRIMARY KEY(source_path, ordinal));`,
+		`CREATE INDEX IF NOT EXISTS idx_build_links_dependency ON build_links(dependency);`,
 		fmt.Sprintf("PRAGMA user_version = %d", indexInterpretationVersion),
 		`CREATE TABLE IF NOT EXISTS nodes (
 			id          INTEGER PRIMARY KEY,

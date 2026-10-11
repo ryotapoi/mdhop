@@ -15,21 +15,9 @@ type BuildResult struct {
 	Warnings []string
 }
 
-// Build parses the vault and creates the index DB.
+// Build automatically detects changed inputs and atomically publishes the index.
 func Build(vaultPath string, locations ...Locations) (*BuildResult, error) {
-	dbp, err := resolveDBPath(vaultPath, locations...)
-	if err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(filepath.Dir(dbp), 0o755); err != nil {
-		return nil, err
-	}
-
-	prepared, err := prepareBuild(vaultPath, locations...)
-	if err != nil {
-		return nil, err
-	}
-	return buildPrepared(vaultPath, prepared, locations...)
+	return build(vaultPath, false, locations...)
 }
 
 func buildPrepared(vaultPath string, prepared *preparedBuild, locations ...Locations) (*BuildResult, error) {
@@ -104,6 +92,7 @@ func buildPrepared(vaultPath string, prepared *preparedBuild, locations ...Locat
 
 	// Pass 3: insert frontmatter metadata.
 	var metaWarnings []string
+	warningsByPath := make(map[string][]string)
 	for _, pf := range prepared.notes {
 		nodeID := prepared.resolveMaps.pathToID[pf.path]
 		ws, err := insertMetaEntries(tx, nodeID, pf.path, pf.meta, MetaConfig{Types: prepared.metaTypes})
@@ -111,14 +100,26 @@ func buildPrepared(vaultPath string, prepared *preparedBuild, locations ...Locat
 			return nil, err
 		}
 		metaWarnings = append(metaWarnings, ws...)
+		warningsByPath[pf.path] = ws
 	}
 
+	if prepared.inputs != nil && prepared.inputs.omitted == "" {
+		if err := saveFullBuildState(tx, prepared, warningsByPath); err != nil {
+			return nil, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
 	if err := db.Close(); err != nil {
 		return nil, err
+	}
+
+	if prepared.inputs != nil {
+		if err := verifyBuildInputs(prepared.inputs, locations...); err != nil {
+			return nil, err
+		}
 	}
 
 	// Finish origin I/O before publishing the DB so failures retain the old index.
@@ -184,16 +185,21 @@ func resolvePathTarget(db dbExecer, resolved string, link linkOccur, rm *resolve
 		}
 		return rm.assetPathToID[actualPath], link.subpath, nil
 	}
-	// D10: only strip .md extension from unresolved path names.
-	name := filepath.Base(normalized)
-	if strings.HasSuffix(strings.ToLower(name), ".md") {
-		name = name[:len(name)-3]
-	}
+	name := unresolvedPathName(normalized)
 	id, err := upsertPhantom(db, name)
 	if err != nil {
 		return 0, "", err
 	}
 	return id, link.subpath, nil
+}
+
+// D10: only strip .md from unresolved path names.
+func unresolvedPathName(path string) string {
+	name := filepath.Base(NormalizePath(path))
+	if strings.HasSuffix(strings.ToLower(name), ".md") {
+		name = name[:len(name)-3]
+	}
+	return name
 }
 
 func formatBuildErrors(errs []error) error {

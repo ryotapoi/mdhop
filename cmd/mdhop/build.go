@@ -7,20 +7,32 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
-const buildHelp = `Usage: mdhop build [--vault <path>] [--db <path>] [--config <path>]
+const buildHelp = `Usage: mdhop build [--vault <path>] [--db <path>] [--config <path>] [--full]
 
-Build the SQLite index for an Obsidian-style Markdown vault.
+Build the SQLite index, automatically detecting added, changed, and deleted files.
+Unchanged notes are not read or parsed. Use --full to read and regenerate everything.
 Markdown destinations are source-relative; a leading / starts at the vault root.
 Run build to replace indexes created with older link interpretation rules.
 
 Options:
+  --full          Read and parse every note; ignore the existing index.
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --vault <path>  Optional. Vault root directory. Default: ".".
 
 Output:
-  No stdout output on success. Creates or replaces the selected index DB after completing the build.
+  No stdout output on success. Creates or updates the selected index DB after completing the build.
   Warnings, if any, are written to stderr.
+
+Detection compares each file's nanosecond mtime and size with saved values. Moves
+are deletion plus addition. Same mtime and size edits/restores are not detected;
+use --full, including on filesystems with coarse timestamps. status retains its
+separate whole-second mtime rule.
+A missing/old/incomplete index, changed canonical root or index-effective
+build/meta settings, or a completed index mutation causes full regeneration.
+Query/search-only settings do not. Detected input changes during build fail and
+preserve the old index. This is not a filesystem snapshot or lock; edits after
+the final check and changes restored to the same signature may go undetected.
 
 Location paths may be absolute or relative to the current directory.
 Note paths and configuration globs remain relative to the vault.
@@ -50,6 +62,7 @@ func runBuild(args []string) error {
 	fs.Usage = commandUsage(fs, buildHelp)
 	vault := fs.String("vault", ".", "vault root directory")
 	db := fs.String("db", "", "index database path (relative to current directory)")
+	full := fs.Bool("full", false, "regenerate the full index")
 	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
@@ -67,7 +80,13 @@ func runBuild(args []string) error {
 	if _, err := core.LoadConfig(*vault, locations); err != nil {
 		return err
 	}
-	result, err := core.Build(*vault, locations)
+	var result *core.BuildResult
+	var err error
+	if *full {
+		result, err = core.BuildFull(*vault, locations)
+	} else {
+		result, err = core.Build(*vault, locations)
+	}
 	if err != nil {
 		return err
 	}

@@ -37,4 +37,7 @@ mdhop は、Obsidian Vault 相当の Markdown リポジトリを事前解析し�
 - stdout の JSON は agent 向けの安定インターフェースとして扱い、単独で parse できるようにする。警告等の付加情報は stderr に出す。text は利用者や LLM が読みやすい出力とする。
 - 内部 index は再生成可能な派生物として扱い、通常はコミットしない。生成物を手編集せず、生成ロジックを変更する。
 - 永続形式・リンク解釈を変える場合、既存 index の in-place migration は行わず build で再生成する。旧新の解釈を partial update で混在させない。
-- build は全量解析、update は指定ファイルの差分更新とし、query / resolve は index と必要時の限定的なファイル読み取りで完結させる。
+- build は追加・変更・削除を自動検出し、未変更ノートの本文読み取り・解析を省く。静止した Vault では全量再生成と意味的に同じ索引を公開する。`build --full` は全量読み取り・解析・再生成を明示する。update は指定ファイルの差分更新とし、query / resolve は index と必要時の限定的なファイル読み取りで完結させる。
+- build はファイル別 nanosecond mtime と size の等値比較を使い、前回 build 時刻との大小で判定しない。同一 mtime・size の編集・復元と filesystem の時刻分解能以下の同サイズ変更は保証せず、全量再生成で復旧する。
+- 初回・旧形式・保存情報欠落・索引に影響する実効設定または canonical Vault root の変更・既存 index mutation 後は全量再生成する。追加・削除に影響される既存リンクは本文を解析し直さず再解決する。
+- 差分・全量とも完成した索引を原子的に公開し、失敗時は旧 DB を保持する。読み取り前後と公開前の一覧・署名で検知した入力変動は失敗にする。filesystem snapshot / lock は保証せず、最終確認後の編集や同一署名への復元を完全検知しない。

@@ -1,5 +1,6 @@
 ---
-status: current
+status: superseded
+superseded_by: 0038-incremental-build-and-location-policy.md
 ---
 
 # ADR 0036: TOML 設定・索引配置と build / query / search のフィルタ方針

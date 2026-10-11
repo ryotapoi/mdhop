@@ -339,6 +339,9 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 	}
 
 	// Commit.
+	if err := invalidateBuildState(tx); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}

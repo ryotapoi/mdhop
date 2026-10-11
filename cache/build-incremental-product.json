@@ -1,0 +1,1958 @@
+{
+  "environment": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "go": "go version go1.27.1 darwin/arm64",
+    "cpu": "arm",
+    "sqlite_module": "modernc.org/sqlite v1.29.0",
+    "cache": "warm OS cache; no flush; distinct explicit external DBs",
+    "baseline": "/Users/ryota/Sources/ryotapoi/mdhop/bin/mdhop-baseline",
+    "candidate": "/Users/ryota/Sources/ryotapoi/mdhop/bin/mdhop",
+    "trace": "/Users/ryota/Sources/ryotapoi/mdhop/bin/mdhop-instrumented"
+  },
+  "duration_seconds": 61.66598991700448,
+  "results": [
+    {
+      "case": "representative-docs",
+      "notes": 45,
+      "body_bytes": 189725,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          16.393083,
+          17.642333,
+          18.144167
+        ],
+        "full": [
+          19.178084,
+          19.360625,
+          19.960333
+        ],
+        "auto": [
+          8.477459,
+          8.961292,
+          10.158792
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 17.642333,
+          "min": 16.393083,
+          "max": 18.144167
+        },
+        "full": {
+          "median": 19.360625,
+          "min": 19.178084,
+          "max": 19.960333
+        },
+        "auto": {
+          "median": 8.961292,
+          "min": 8.477459,
+          "max": 10.158792
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 90112,
+        "auto": 90112
+      },
+      "trace": [
+        {
+          "InventoryNS": 1452083,
+          "StateNS": 1186666,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 2740167,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ],
+      "full_trace": [
+        {
+          "InventoryNS": 2735459,
+          "StateNS": 0,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 21580000,
+          "ReadParseNotes": 45,
+          "ResolvedLinks": 23,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b768-path-body-0",
+      "notes": 64,
+      "body_bytes": 40374,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          17.587541,
+          17.996167,
+          17.985542
+        ],
+        "full": [
+          21.884625,
+          23.571375,
+          22.324
+        ],
+        "auto": [
+          10.155708,
+          10.220625,
+          10.23875
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 17.985542,
+          "min": 17.587541,
+          "max": 17.996167
+        },
+        "full": {
+          "median": 22.324,
+          "min": 21.884625,
+          "max": 23.571375
+        },
+        "auto": {
+          "median": 10.220625,
+          "min": 10.155708,
+          "max": 10.23875
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 126976,
+        "auto": 126976
+      },
+      "trace": [
+        {
+          "InventoryNS": 3102166,
+          "StateNS": 675209,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 3846167,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b768-path-body-0.01",
+      "notes": 64,
+      "body_bytes": 40374,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          17.58725,
+          16.758,
+          16.559542
+        ],
+        "full": [
+          20.949792,
+          20.593167,
+          22.577167
+        ],
+        "auto": [
+          11.542208,
+          11.718708,
+          12.4815
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 16.758,
+          "min": 16.559542,
+          "max": 17.58725
+        },
+        "full": {
+          "median": 20.949792,
+          "min": 20.593167,
+          "max": 22.577167
+        },
+        "auto": {
+          "median": 11.718708,
+          "min": 11.542208,
+          "max": 12.4815
+        }
+      },
+      "db_bytes": {
+        "baseline": 61440,
+        "full": 131072,
+        "auto": 131072
+      },
+      "trace": [
+        {
+          "InventoryNS": 3500751,
+          "StateNS": 737458,
+          "CopyNS": 153667,
+          "DependencyNS": 0,
+          "NamesNS": 152958,
+          "TotalNS": 6728208,
+          "ReadParseNotes": 1,
+          "ResolvedLinks": 4,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b768-path-body-0.5",
+      "notes": 64,
+      "body_bytes": 40374,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 32,
+      "rate": 0.5,
+      "samples_ms": {
+        "baseline": [
+          17.393834,
+          16.751875,
+          16.651708
+        ],
+        "full": [
+          21.47525,
+          21.194958,
+          21.771375
+        ],
+        "auto": [
+          17.360625,
+          17.179167,
+          17.741083
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 16.751875,
+          "min": 16.651708,
+          "max": 17.393834
+        },
+        "full": {
+          "median": 21.47525,
+          "min": 21.194958,
+          "max": 21.771375
+        },
+        "auto": {
+          "median": 17.360625,
+          "min": 17.179167,
+          "max": 17.741083
+        }
+      },
+      "db_bytes": {
+        "baseline": 61440,
+        "full": 143360,
+        "auto": 151552
+      },
+      "trace": [
+        {
+          "InventoryNS": 3011458,
+          "StateNS": 648167,
+          "CopyNS": 106500,
+          "DependencyNS": 0,
+          "NamesNS": 154959,
+          "TotalNS": 10931167,
+          "ReadParseNotes": 32,
+          "ResolvedLinks": 128,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b768-wiki-body-0",
+      "notes": 64,
+      "body_bytes": 47990,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          17.3335,
+          16.897791,
+          16.514
+        ],
+        "full": [
+          21.649,
+          22.978834,
+          21.083334
+        ],
+        "auto": [
+          10.011,
+          10.909292,
+          9.933917
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 16.897791,
+          "min": 16.514,
+          "max": 17.3335
+        },
+        "full": {
+          "median": 21.649,
+          "min": 21.083334,
+          "max": 22.978834
+        },
+        "auto": {
+          "median": 10.011,
+          "min": 9.933917,
+          "max": 10.909292
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 126976,
+        "auto": 126976
+      },
+      "trace": [
+        {
+          "InventoryNS": 2946459,
+          "StateNS": 672042,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 3683458,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b768-wiki-body-0.01",
+      "notes": 64,
+      "body_bytes": 47990,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          16.395333,
+          16.552167,
+          16.882958
+        ],
+        "full": [
+          20.298625,
+          20.599208,
+          21.386667
+        ],
+        "auto": [
+          11.067667,
+          11.145583,
+          11.357833
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 16.552167,
+          "min": 16.395333,
+          "max": 16.882958
+        },
+        "full": {
+          "median": 20.599208,
+          "min": 20.298625,
+          "max": 21.386667
+        },
+        "auto": {
+          "median": 11.145583,
+          "min": 11.067667,
+          "max": 11.357833
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 126976,
+        "auto": 126976
+      },
+      "trace": [
+        {
+          "InventoryNS": 2959458,
+          "StateNS": 670583,
+          "CopyNS": 102000,
+          "DependencyNS": 0,
+          "NamesNS": 143000,
+          "TotalNS": 5279667,
+          "ReadParseNotes": 1,
+          "ResolvedLinks": 4,
+          "BasenameEvaluations": 6
+        }
+      ]
+    },
+    {
+      "case": "n64-b768-wiki-body-0.5",
+      "notes": 64,
+      "body_bytes": 47990,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 32,
+      "rate": 0.5,
+      "samples_ms": {
+        "baseline": [
+          27.201625,
+          17.359417,
+          18.561125
+        ],
+        "full": [
+          21.883583,
+          21.760458,
+          20.961917
+        ],
+        "auto": [
+          17.0445,
+          17.262709,
+          16.92525
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 18.561125,
+          "min": 17.359417,
+          "max": 27.201625
+        },
+        "full": {
+          "median": 21.760458,
+          "min": 20.961917,
+          "max": 21.883583
+        },
+        "auto": {
+          "median": 17.0445,
+          "min": 16.92525,
+          "max": 17.262709
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 139264,
+        "auto": 147456
+      },
+      "trace": [
+        {
+          "InventoryNS": 3053917,
+          "StateNS": 659875,
+          "CopyNS": 120833,
+          "DependencyNS": 0,
+          "NamesNS": 154667,
+          "TotalNS": 11099000,
+          "ReadParseNotes": 32,
+          "ResolvedLinks": 128,
+          "BasenameEvaluations": 6
+        }
+      ]
+    },
+    {
+      "case": "n64-b8192-path-body-0",
+      "notes": 64,
+      "body_bytes": 518646,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          22.577125,
+          34.320334,
+          24.328792
+        ],
+        "full": [
+          27.314542,
+          27.41025,
+          27.178042
+        ],
+        "auto": [
+          9.837208,
+          9.587709,
+          10.284584
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 24.328792,
+          "min": 22.577125,
+          "max": 34.320334
+        },
+        "full": {
+          "median": 27.314542,
+          "min": 27.178042,
+          "max": 27.41025
+        },
+        "auto": {
+          "median": 9.837208,
+          "min": 9.587709,
+          "max": 10.284584
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 126976,
+        "auto": 126976
+      },
+      "trace": [
+        {
+          "InventoryNS": 3126375,
+          "StateNS": 676083,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 3871791,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b8192-path-body-0.01",
+      "notes": 64,
+      "body_bytes": 518646,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          24.672,
+          25.086833,
+          24.29325
+        ],
+        "full": [
+          28.919333,
+          28.160125,
+          29.333209
+        ],
+        "auto": [
+          12.533666,
+          12.19775,
+          12.195833
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 24.672,
+          "min": 24.29325,
+          "max": 25.086833
+        },
+        "full": {
+          "median": 28.919333,
+          "min": 28.160125,
+          "max": 29.333209
+        },
+        "auto": {
+          "median": 12.19775,
+          "min": 12.195833,
+          "max": 12.533666
+        }
+      },
+      "db_bytes": {
+        "baseline": 61440,
+        "full": 131072,
+        "auto": 131072
+      },
+      "trace": [
+        {
+          "InventoryNS": 3385334,
+          "StateNS": 685625,
+          "CopyNS": 107125,
+          "DependencyNS": 0,
+          "NamesNS": 146583,
+          "TotalNS": 5922750,
+          "ReadParseNotes": 1,
+          "ResolvedLinks": 4,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b8192-path-body-0.5",
+      "notes": 64,
+      "body_bytes": 518646,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 32,
+      "rate": 0.5,
+      "samples_ms": {
+        "baseline": [
+          24.188917,
+          23.536542,
+          22.818041
+        ],
+        "full": [
+          28.0865,
+          28.696792,
+          27.6275
+        ],
+        "auto": [
+          19.608875,
+          20.39225,
+          20.249458
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 23.536542,
+          "min": 22.818041,
+          "max": 24.188917
+        },
+        "full": {
+          "median": 28.0865,
+          "min": 27.6275,
+          "max": 28.696792
+        },
+        "auto": {
+          "median": 20.249458,
+          "min": 19.608875,
+          "max": 20.39225
+        }
+      },
+      "db_bytes": {
+        "baseline": 61440,
+        "full": 143360,
+        "auto": 151552
+      },
+      "trace": [
+        {
+          "InventoryNS": 3058208,
+          "StateNS": 664167,
+          "CopyNS": 117333,
+          "DependencyNS": 0,
+          "NamesNS": 155375,
+          "TotalNS": 13901416,
+          "ReadParseNotes": 32,
+          "ResolvedLinks": 128,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b8192-wiki-body-0",
+      "notes": 64,
+      "body_bytes": 517238,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          23.388833,
+          24.091542,
+          22.781625
+        ],
+        "full": [
+          27.399125,
+          28.492541,
+          27.374833
+        ],
+        "auto": [
+          10.094666,
+          9.640958,
+          9.84675
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 23.388833,
+          "min": 22.781625,
+          "max": 24.091542
+        },
+        "full": {
+          "median": 27.399125,
+          "min": 27.374833,
+          "max": 28.492541
+        },
+        "auto": {
+          "median": 9.84675,
+          "min": 9.640958,
+          "max": 10.094666
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 126976,
+        "auto": 126976
+      },
+      "trace": [
+        {
+          "InventoryNS": 2938458,
+          "StateNS": 658959,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 3669167,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n64-b8192-wiki-body-0.01",
+      "notes": 64,
+      "body_bytes": 517238,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          22.853375,
+          23.629375,
+          24.818292
+        ],
+        "full": [
+          27.52,
+          28.467875,
+          27.712875
+        ],
+        "auto": [
+          12.267375,
+          11.897292,
+          12.03275
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 23.629375,
+          "min": 22.853375,
+          "max": 24.818292
+        },
+        "full": {
+          "median": 27.712875,
+          "min": 27.52,
+          "max": 28.467875
+        },
+        "auto": {
+          "median": 12.03275,
+          "min": 11.897292,
+          "max": 12.267375
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 126976,
+        "auto": 126976
+      },
+      "trace": [
+        {
+          "InventoryNS": 3045791,
+          "StateNS": 684542,
+          "CopyNS": 123709,
+          "DependencyNS": 0,
+          "NamesNS": 145292,
+          "TotalNS": 5575042,
+          "ReadParseNotes": 1,
+          "ResolvedLinks": 4,
+          "BasenameEvaluations": 6
+        }
+      ]
+    },
+    {
+      "case": "n64-b8192-wiki-body-0.5",
+      "notes": 64,
+      "body_bytes": 517238,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 32,
+      "rate": 0.5,
+      "samples_ms": {
+        "baseline": [
+          24.098666,
+          24.502292,
+          23.344833
+        ],
+        "full": [
+          29.471791,
+          30.537916,
+          28.258709
+        ],
+        "auto": [
+          20.706625,
+          21.21075,
+          23.054458
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 24.098666,
+          "min": 23.344833,
+          "max": 24.502292
+        },
+        "full": {
+          "median": 29.471791,
+          "min": 28.258709,
+          "max": 30.537916
+        },
+        "auto": {
+          "median": 21.21075,
+          "min": 20.706625,
+          "max": 23.054458
+        }
+      },
+      "db_bytes": {
+        "baseline": 57344,
+        "full": 139264,
+        "auto": 147456
+      },
+      "trace": [
+        {
+          "InventoryNS": 3304417,
+          "StateNS": 682083,
+          "CopyNS": 122000,
+          "DependencyNS": 0,
+          "NamesNS": 158834,
+          "TotalNS": 14485333,
+          "ReadParseNotes": 32,
+          "ResolvedLinks": 128,
+          "BasenameEvaluations": 6
+        }
+      ]
+    },
+    {
+      "case": "n1500-b768-path-body-0",
+      "notes": 1500,
+      "body_bytes": 948390,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          150.179875,
+          145.113667,
+          141.392041
+        ],
+        "full": [
+          194.671583,
+          195.849458,
+          192.4525
+        ],
+        "auto": [
+          34.656292,
+          34.90275,
+          35.188042
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 145.113667,
+          "min": 141.392041,
+          "max": 150.179875
+        },
+        "full": {
+          "median": 194.671583,
+          "min": 192.4525,
+          "max": 195.849458
+        },
+        "auto": {
+          "median": 34.90275,
+          "min": 34.656292,
+          "max": 35.188042
+        }
+      },
+      "db_bytes": {
+        "baseline": 724992,
+        "full": 2064384,
+        "auto": 2064384
+      },
+      "trace": [
+        {
+          "InventoryNS": 22051667,
+          "StateNS": 5198167,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 28391791,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b768-path-body-0.01",
+      "notes": 1500,
+      "body_bytes": 948390,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          146.626708,
+          144.743542,
+          143.247958
+        ],
+        "full": [
+          199.839542,
+          199.324333,
+          198.793833
+        ],
+        "auto": [
+          50.771958,
+          49.259167,
+          49.030625
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 144.743542,
+          "min": 143.247958,
+          "max": 146.626708
+        },
+        "full": {
+          "median": 199.324333,
+          "min": 198.793833,
+          "max": 199.839542
+        },
+        "auto": {
+          "median": 49.259167,
+          "min": 49.030625,
+          "max": 50.771958
+        }
+      },
+      "db_bytes": {
+        "baseline": 733184,
+        "full": 2076672,
+        "auto": 2080768
+      },
+      "trace": [
+        {
+          "InventoryNS": 23548458,
+          "StateNS": 5311375,
+          "CopyNS": 603208,
+          "DependencyNS": 0,
+          "NamesNS": 2228084,
+          "TotalNS": 42617584,
+          "ReadParseNotes": 15,
+          "ResolvedLinks": 60,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b768-path-body-0.5",
+      "notes": 1500,
+      "body_bytes": 948390,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 750,
+      "rate": 0.5,
+      "samples_ms": {
+        "baseline": [
+          154.54875,
+          160.206042,
+          154.661375
+        ],
+        "full": [
+          209.567209,
+          231.083083,
+          207.440542
+        ],
+        "auto": [
+          183.988625,
+          185.484208,
+          182.583833
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 154.661375,
+          "min": 154.54875,
+          "max": 160.206042
+        },
+        "full": {
+          "median": 209.567209,
+          "min": 207.440542,
+          "max": 231.083083
+        },
+        "auto": {
+          "median": 183.988625,
+          "min": 182.583833,
+          "max": 185.484208
+        }
+      },
+      "db_bytes": {
+        "baseline": 786432,
+        "full": 2289664,
+        "auto": 2301952
+      },
+      "trace": [
+        {
+          "InventoryNS": 23995125,
+          "StateNS": 5152666,
+          "CopyNS": 637208,
+          "DependencyNS": 0,
+          "NamesNS": 3817250,
+          "TotalNS": 176673084,
+          "ReadParseNotes": 750,
+          "ResolvedLinks": 3000,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b768-wiki-body-0",
+      "notes": 1500,
+      "body_bytes": 1126890,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          142.843375,
+          145.071292,
+          142.925291
+        ],
+        "full": [
+          195.941541,
+          195.048875,
+          197.346667
+        ],
+        "auto": [
+          35.0435,
+          35.546666,
+          36.960792
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 142.925291,
+          "min": 142.843375,
+          "max": 145.071292
+        },
+        "full": {
+          "median": 195.941541,
+          "min": 195.048875,
+          "max": 197.346667
+        },
+        "auto": {
+          "median": 35.546666,
+          "min": 35.0435,
+          "max": 36.960792
+        }
+      },
+      "db_bytes": {
+        "baseline": 692224,
+        "full": 1990656,
+        "auto": 1990656
+      },
+      "trace": [
+        {
+          "InventoryNS": 23170042,
+          "StateNS": 5448209,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 29776500,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b768-wiki-body-0.01",
+      "notes": 1500,
+      "body_bytes": 1126890,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          143.073167,
+          144.455083,
+          145.937
+        ],
+        "full": [
+          191.231709,
+          199.521875,
+          201.742542
+        ],
+        "auto": [
+          49.427041,
+          50.420375,
+          80.948084
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 144.455083,
+          "min": 143.073167,
+          "max": 145.937
+        },
+        "full": {
+          "median": 199.521875,
+          "min": 191.231709,
+          "max": 201.742542
+        },
+        "auto": {
+          "median": 50.420375,
+          "min": 49.427041,
+          "max": 80.948084
+        }
+      },
+      "db_bytes": {
+        "baseline": 700416,
+        "full": 1998848,
+        "auto": 2007040
+      },
+      "trace": [
+        {
+          "InventoryNS": 31169958,
+          "StateNS": 10616917,
+          "CopyNS": 1862042,
+          "DependencyNS": 0,
+          "NamesNS": 6640334,
+          "TotalNS": 72492666,
+          "ReadParseNotes": 15,
+          "ResolvedLinks": 60,
+          "BasenameEvaluations": 6
+        }
+      ]
+    },
+    {
+      "case": "n1500-b768-wiki-body-0.5",
+      "notes": 1500,
+      "body_bytes": 1126890,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 750,
+      "rate": 0.5,
+      "samples_ms": {
+        "baseline": [
+          158.021708,
+          162.671708,
+          158.623791
+        ],
+        "full": [
+          213.739167,
+          214.932333,
+          211.007625
+        ],
+        "auto": [
+          189.91675,
+          189.313584,
+          184.825333
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 158.623791,
+          "min": 158.021708,
+          "max": 162.671708
+        },
+        "full": {
+          "median": 213.739167,
+          "min": 211.007625,
+          "max": 214.932333
+        },
+        "auto": {
+          "median": 189.313584,
+          "min": 184.825333,
+          "max": 189.91675
+        }
+      },
+      "db_bytes": {
+        "baseline": 753664,
+        "full": 2232320,
+        "auto": 2256896
+      },
+      "trace": [
+        {
+          "InventoryNS": 23751333,
+          "StateNS": 5208291,
+          "CopyNS": 590084,
+          "DependencyNS": 0,
+          "NamesNS": 3630542,
+          "TotalNS": 179926709,
+          "ReadParseNotes": 750,
+          "ResolvedLinks": 3000,
+          "BasenameEvaluations": 6
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-path-body-0",
+      "notes": 1500,
+      "body_bytes": 12157890,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          295.542458,
+          277.3365,
+          277.488667
+        ],
+        "full": [
+          373.905667,
+          330.532792,
+          329.14575
+        ],
+        "auto": [
+          35.587875,
+          37.003875,
+          37.585042
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 277.488667,
+          "min": 277.3365,
+          "max": 295.542458
+        },
+        "full": {
+          "median": 330.532792,
+          "min": 329.14575,
+          "max": 373.905667
+        },
+        "auto": {
+          "median": 37.003875,
+          "min": 35.587875,
+          "max": 37.585042
+        }
+      },
+      "db_bytes": {
+        "baseline": 724992,
+        "full": 2064384,
+        "auto": 2064384
+      },
+      "trace": [
+        {
+          "InventoryNS": 22933251,
+          "StateNS": 5059500,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 29320875,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ],
+      "full_trace": [
+        {
+          "InventoryNS": 24158207,
+          "StateNS": 0,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 530778000,
+          "ReadParseNotes": 1500,
+          "ResolvedLinks": 4500,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-path-body-0.01",
+      "notes": 1500,
+      "body_bytes": 12157890,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          308.924791,
+          287.162042,
+          282.25125
+        ],
+        "full": [
+          353.255833,
+          356.340375,
+          336.101667
+        ],
+        "auto": [
+          52.862375,
+          51.849167,
+          51.387333
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 287.162042,
+          "min": 282.25125,
+          "max": 308.924791
+        },
+        "full": {
+          "median": 353.255833,
+          "min": 336.101667,
+          "max": 356.340375
+        },
+        "auto": {
+          "median": 51.849167,
+          "min": 51.387333,
+          "max": 52.862375
+        }
+      },
+      "db_bytes": {
+        "baseline": 733184,
+        "full": 2076672,
+        "auto": 2080768
+      },
+      "trace": [
+        {
+          "InventoryNS": 24041750,
+          "StateNS": 4960917,
+          "CopyNS": 600750,
+          "DependencyNS": 0,
+          "NamesNS": 2288000,
+          "TotalNS": 44818834,
+          "ReadParseNotes": 15,
+          "ResolvedLinks": 60,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-path-body-0.5",
+      "notes": 1500,
+      "body_bytes": 12157890,
+      "basename_dependencies": false,
+      "change": "body",
+      "changed": 750,
+      "rate": 0.5,
+      "samples_ms": {
+        "baseline": [
+          288.636875,
+          290.911292,
+          294.100083
+        ],
+        "full": [
+          341.909208,
+          342.077916,
+          349.707459
+        ],
+        "auto": [
+          254.833959,
+          256.875667,
+          252.099916
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 290.911292,
+          "min": 288.636875,
+          "max": 294.100083
+        },
+        "full": {
+          "median": 342.077916,
+          "min": 341.909208,
+          "max": 349.707459
+        },
+        "auto": {
+          "median": 254.833959,
+          "min": 252.099916,
+          "max": 256.875667
+        }
+      },
+      "db_bytes": {
+        "baseline": 786432,
+        "full": 2289664,
+        "auto": 2301952
+      },
+      "trace": [
+        {
+          "InventoryNS": 23014834,
+          "StateNS": 5031125,
+          "CopyNS": 687042,
+          "DependencyNS": 0,
+          "NamesNS": 3689000,
+          "TotalNS": 244753209,
+          "ReadParseNotes": 750,
+          "ResolvedLinks": 3000,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-wiki-body-0",
+      "notes": 1500,
+      "body_bytes": 12124890,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "baseline": [
+          275.704584,
+          275.216875,
+          283.06875
+        ],
+        "full": [
+          325.866875,
+          329.122042,
+          328.00775
+        ],
+        "auto": [
+          35.402791,
+          35.235584,
+          35.602417
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 275.704584,
+          "min": 275.216875,
+          "max": 283.06875
+        },
+        "full": {
+          "median": 328.00775,
+          "min": 325.866875,
+          "max": 329.122042
+        },
+        "auto": {
+          "median": 35.402791,
+          "min": 35.235584,
+          "max": 35.602417
+        }
+      },
+      "db_bytes": {
+        "baseline": 692224,
+        "full": 1990656,
+        "auto": 1990656
+      },
+      "trace": [
+        {
+          "InventoryNS": 22313376,
+          "StateNS": 5135708,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 28538000,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 0,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-wiki-body-0.01",
+      "notes": 1500,
+      "body_bytes": 12124890,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          275.617875,
+          310.521917,
+          418.16075
+        ],
+        "full": [
+          325.894292,
+          387.129958,
+          337.217042
+        ],
+        "auto": [
+          50.633125,
+          51.8215,
+          51.063
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 310.521917,
+          "min": 275.617875,
+          "max": 418.16075
+        },
+        "full": {
+          "median": 337.217042,
+          "min": 325.894292,
+          "max": 387.129958
+        },
+        "auto": {
+          "median": 51.063,
+          "min": 50.633125,
+          "max": 51.8215
+        }
+      },
+      "db_bytes": {
+        "baseline": 700416,
+        "full": 1998848,
+        "auto": 2007040
+      },
+      "trace": [
+        {
+          "InventoryNS": 22998416,
+          "StateNS": 5156625,
+          "CopyNS": 665125,
+          "DependencyNS": 0,
+          "NamesNS": 2204792,
+          "TotalNS": 43430916,
+          "ReadParseNotes": 15,
+          "ResolvedLinks": 60,
+          "BasenameEvaluations": 6
+        }
+      ],
+      "full_trace": [
+        {
+          "InventoryNS": 26311042,
+          "StateNS": 0,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 533137042,
+          "ReadParseNotes": 1500,
+          "ResolvedLinks": 4515,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-wiki-body-0.5",
+      "notes": 1500,
+      "body_bytes": 12124890,
+      "basename_dependencies": true,
+      "change": "body",
+      "changed": 750,
+      "rate": 0.5,
+      "samples_ms": {
+        "baseline": [
+          299.395291,
+          289.791125,
+          286.544667
+        ],
+        "full": [
+          361.1315,
+          349.313125,
+          364.141416
+        ],
+        "auto": [
+          257.696125,
+          255.847583,
+          308.620625
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 289.791125,
+          "min": 286.544667,
+          "max": 299.395291
+        },
+        "full": {
+          "median": 361.1315,
+          "min": 349.313125,
+          "max": 364.141416
+        },
+        "auto": {
+          "median": 257.696125,
+          "min": 255.847583,
+          "max": 308.620625
+        }
+      },
+      "db_bytes": {
+        "baseline": 753664,
+        "full": 2232320,
+        "auto": 2256896
+      },
+      "trace": [
+        {
+          "InventoryNS": 23980042,
+          "StateNS": 5052875,
+          "CopyNS": 662584,
+          "DependencyNS": 0,
+          "NamesNS": 3720666,
+          "TotalNS": 256279500,
+          "ReadParseNotes": 750,
+          "ResolvedLinks": 3000,
+          "BasenameEvaluations": 6
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-path-add",
+      "notes": 1500,
+      "body_bytes": 12157890,
+      "basename_dependencies": false,
+      "change": "add",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          267.303458,
+          273.716,
+          273.347292
+        ],
+        "full": [
+          327.019167,
+          320.497708,
+          353.513292
+        ],
+        "auto": [
+          169.866958,
+          169.487417,
+          171.79475
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 273.347292,
+          "min": 267.303458,
+          "max": 273.716
+        },
+        "full": {
+          "median": 327.019167,
+          "min": 320.497708,
+          "max": 353.513292
+        },
+        "auto": {
+          "median": 169.866958,
+          "min": 169.487417,
+          "max": 171.79475
+        }
+      },
+      "db_bytes": {
+        "baseline": 733184,
+        "full": 2072576,
+        "auto": 2080768
+      },
+      "trace": [
+        {
+          "InventoryNS": 23707584,
+          "StateNS": 4959000,
+          "CopyNS": 653875,
+          "DependencyNS": 2235041,
+          "NamesNS": 1095833,
+          "TotalNS": 162459167,
+          "ReadParseNotes": 15,
+          "ResolvedLinks": 4500,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-path-delete",
+      "notes": 1500,
+      "body_bytes": 12157890,
+      "basename_dependencies": false,
+      "change": "delete",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          334.889458,
+          269.977,
+          276.888375
+        ],
+        "full": [
+          339.296625,
+          327.134,
+          338.376041
+        ],
+        "auto": [
+          51.983958,
+          50.876791,
+          50.324709
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 276.888375,
+          "min": 269.977,
+          "max": 334.889458
+        },
+        "full": {
+          "median": 338.376041,
+          "min": 327.134,
+          "max": 339.296625
+        },
+        "auto": {
+          "median": 50.876791,
+          "min": 50.324709,
+          "max": 51.983958
+        }
+      },
+      "db_bytes": {
+        "baseline": 720896,
+        "full": 2048000,
+        "auto": 2064384
+      },
+      "trace": [
+        {
+          "InventoryNS": 24325375,
+          "StateNS": 5378125,
+          "CopyNS": 736958,
+          "DependencyNS": 1227500,
+          "NamesNS": 2726917,
+          "TotalNS": 44922708,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 45,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-path-move",
+      "notes": 1500,
+      "body_bytes": 12157890,
+      "basename_dependencies": false,
+      "change": "move",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          278.678,
+          278.064959,
+          314.136792
+        ],
+        "full": [
+          344.088209,
+          343.320667,
+          330.668208
+        ],
+        "auto": [
+          54.238875,
+          53.596875,
+          53.609042
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 278.678,
+          "min": 278.064959,
+          "max": 314.136792
+        },
+        "full": {
+          "median": 343.320667,
+          "min": 330.668208,
+          "max": 344.088209
+        },
+        "auto": {
+          "median": 53.609042,
+          "min": 53.596875,
+          "max": 54.238875
+        }
+      },
+      "db_bytes": {
+        "baseline": 729088,
+        "full": 2068480,
+        "auto": 2080768
+      },
+      "trace": [
+        {
+          "InventoryNS": 23472541,
+          "StateNS": 4945959,
+          "CopyNS": 604709,
+          "DependencyNS": 1399542,
+          "NamesNS": 2525250,
+          "TotalNS": 47126750,
+          "ReadParseNotes": 15,
+          "ResolvedLinks": 90,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-wiki-add",
+      "notes": 1500,
+      "body_bytes": 12124890,
+      "basename_dependencies": true,
+      "change": "add",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          263.355542,
+          272.672875,
+          265.01375
+        ],
+        "full": [
+          315.92025,
+          322.154833,
+          323.751667
+        ],
+        "auto": [
+          165.844667,
+          168.704542,
+          165.618709
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 265.01375,
+          "min": 263.355542,
+          "max": 272.672875
+        },
+        "full": {
+          "median": 322.154833,
+          "min": 315.92025,
+          "max": 323.751667
+        },
+        "auto": {
+          "median": 165.844667,
+          "min": 165.618709,
+          "max": 168.704542
+        }
+      },
+      "db_bytes": {
+        "baseline": 700416,
+        "full": 1998848,
+        "auto": 2002944
+      },
+      "trace": [
+        {
+          "InventoryNS": 23392749,
+          "StateNS": 5408875,
+          "CopyNS": 650208,
+          "DependencyNS": 2361875,
+          "NamesNS": 1108000,
+          "TotalNS": 161974875,
+          "ReadParseNotes": 15,
+          "ResolvedLinks": 4500,
+          "BasenameEvaluations": 3004
+        }
+      ],
+      "full_trace": [
+        {
+          "InventoryNS": 25193041,
+          "StateNS": 0,
+          "CopyNS": 0,
+          "DependencyNS": 0,
+          "NamesNS": 0,
+          "TotalNS": 852214333,
+          "ReadParseNotes": 1515,
+          "ResolvedLinks": 4500,
+          "BasenameEvaluations": 0
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-wiki-delete",
+      "notes": 1500,
+      "body_bytes": 12124890,
+      "basename_dependencies": true,
+      "change": "delete",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          286.155958,
+          272.294209,
+          272.256167
+        ],
+        "full": [
+          323.551,
+          330.520292,
+          329.007083
+        ],
+        "auto": [
+          48.328917,
+          50.108416,
+          52.912583
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 272.294209,
+          "min": 272.256167,
+          "max": 286.155958
+        },
+        "full": {
+          "median": 329.007083,
+          "min": 323.551,
+          "max": 330.520292
+        },
+        "auto": {
+          "median": 50.108416,
+          "min": 48.328917,
+          "max": 52.912583
+        }
+      },
+      "db_bytes": {
+        "baseline": 688128,
+        "full": 1974272,
+        "auto": 1990656
+      },
+      "trace": [
+        {
+          "InventoryNS": 24101167,
+          "StateNS": 5262417,
+          "CopyNS": 1015833,
+          "DependencyNS": 1359333,
+          "NamesNS": 2632541,
+          "TotalNS": 44592875,
+          "ReadParseNotes": 0,
+          "ResolvedLinks": 45,
+          "BasenameEvaluations": 3021
+        }
+      ]
+    },
+    {
+      "case": "n1500-b8192-wiki-move",
+      "notes": 1500,
+      "body_bytes": 12124890,
+      "basename_dependencies": true,
+      "change": "move",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "baseline": [
+          278.11575,
+          313.240083,
+          285.830084
+        ],
+        "full": [
+          332.0005,
+          325.799125,
+          330.85975
+        ],
+        "auto": [
+          54.482625,
+          54.021792,
+          52.6465
+        ]
+      },
+      "summary_ms": {
+        "baseline": {
+          "median": 285.830084,
+          "min": 278.11575,
+          "max": 313.240083
+        },
+        "full": {
+          "median": 330.85975,
+          "min": 325.799125,
+          "max": 332.0005
+        },
+        "auto": {
+          "median": 54.021792,
+          "min": 52.6465,
+          "max": 54.482625
+        }
+      },
+      "db_bytes": {
+        "baseline": 692224,
+        "full": 1990656,
+        "auto": 2011136
+      },
+      "trace": [
+        {
+          "InventoryNS": 22718834,
+          "StateNS": 5316167,
+          "CopyNS": 1022000,
+          "DependencyNS": 1275333,
+          "NamesNS": 2212208,
+          "TotalNS": 46840209,
+          "ReadParseNotes": 15,
+          "ResolvedLinks": 90,
+          "BasenameEvaluations": 3006
+        }
+      ]
+    }
+  ]
+}

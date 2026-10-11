@@ -213,6 +213,9 @@ func Update(vaultPath string, opts UpdateOptions, locations ...Locations) (*Upda
 		return nil, err
 	}
 
+	if err := invalidateBuildState(tx); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}

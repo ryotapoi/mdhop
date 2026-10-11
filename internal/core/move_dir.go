@@ -274,6 +274,9 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 		return nil, err
 	}
 
+	if err := invalidateBuildState(tx); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}

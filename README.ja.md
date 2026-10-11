@@ -56,7 +56,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 
 | コマンド | 説明 |
 |---------|------|
-| `build` | Vault 全体を解析しインデックスを作成 |
+| `build` | 追加・変更・削除を自動検出して索引を更新（`--full` で全量再生成） |
 | `add` | 新規ファイルをインデックスに追加 |
 | `update` | 既存ファイルのインデックスを更新 |
 | `set` | frontmatter の単一 key または相対日付を設定しインデックスを更新 |
@@ -127,6 +127,16 @@ YAML があれば全設定を TOML に変換・検証・保存し、その設定
 YAML と TOML が共存する場合は無変更でエラーになる。先に両方を保管して使用する設定を確認し、片方を Vault 外へ移してから再実行する。未知の項目・不正値・複数 YAML 文書・YAML merge key は黙って捨てずエラーにする。固定対象の symlink や、既定キャッシュが削除対象内に入る配置も拒否する。
 
 変換・保存・再生成に失敗した場合は旧 YAML・`.mdhop/`・既存キャッシュ DB を保持し、新しく作成した TOML は削除して戻す。復元に失敗すると残った TOML のパスを報告するため、旧 YAML を保管したうえで生成 TOML を確認・退避して再実行する。後始末に失敗した場合はエラーとなり、新キャッシュは公開済みで、旧ファイルの一部が残る可能性がある。報告された残パスを確認して権限等を直し、TOML と YAML が共存していれば旧 YAML を保管・退避してから再実行する。通常参照は新 TOML と既定キャッシュを使える。build・update・migrate 等の書き込み操作は直列に実行する。
+
+## build の自動差分更新
+
+`mdhop build` は対象一覧と保存済みのファイル別 nanosecond mtime・size を等値比較し、追加・変更・削除を反映する。移動は削除＋追加として扱い、未変更ノートの本文は読み取り・解析しない。参照先の実在化・削除や wikilink / frontmatter raw basename の衝突・root 優先の変化に影響される既存リンクも再解決する。曖昧リンクは全量方式と同様に失敗する。
+
+`mdhop build --full` は既存索引を再利用せず全ノートを読み取り・解析して再生成する。初回、旧形式、必要保存情報の欠落、canonical Vault root または索引に影響する実効設定（`build.exclude_paths`、`meta.link_keys`、metadata 型）の変更、成功した index mutation (`update` / `add` / `delete` / `move` / `set` / `disambiguate` 等) 後は自動的に全量方式へ戻る。設定のコメント・キー順・設定ファイルの場所だけの変更と query / search 専用設定は再生成条件にしない。設定 parse error は旧 DB を残して失敗する。
+
+同一秒でも nanosecond mtime または size が変われば検出し、mtime を保持しても size の変更を検出する。同じ mtime・size に保った編集・復元や、filesystem の時刻分解能以下の同サイズ変更は検出しないため `--full` を使う。`status` は従来の秒精度 mtime 比較を維持し、build の変更検出と一致するとは限らない。
+
+build 中に読み取り前後や最終一覧・署名の確認で検知した入力変動はエラーとなり、旧 DB を保持する。filesystem snapshot や lock は使わず、最終確認後の編集や同一署名への復元の完全検知は保証しない。無変更時も警告と既定 origin の契約を保つ。差分更新の性能比較と条件は [計測記録](cache/build-incremental-performance.md) を参照。
 
 ## 設定（mdhop.toml）
 

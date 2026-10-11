@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -9,6 +10,7 @@ type preparedBuild struct {
 	assets      []preparedAsset
 	resolveMaps *resolveMaps
 	metaTypes   map[string]MetaTypeInfo
+	inputs      *buildInputs
 }
 
 type preparedNote struct {
@@ -24,120 +26,73 @@ type preparedAsset struct {
 	mtime int64
 }
 
-// prepareBuild collects and validates all Build inputs before database work begins.
 func prepareBuild(vaultPath string, locations ...Locations) (*preparedBuild, error) {
 	return prepareBuildWithout(vaultPath, "", locations...)
 }
 
-// prepareBuildWithout omits the legacy config that migration will remove.
+// Migration deliberately leaves reuse state invalid, since it removes an input
+// after publication. The next ordinary build takes the full path.
 func prepareBuildWithout(vaultPath, omittedAsset string, locations ...Locations) (*preparedBuild, error) {
-	// Pass 0: collect .md files.
-	files, err := collectMarkdownFiles(vaultPath)
+	inputs, err := collectBuildInputs(vaultPath, omittedAsset, locations...)
 	if err != nil {
 		return nil, err
 	}
-
-	cfg, err := LoadConfig(vaultPath, locations...)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateGlobPatterns(cfg.Build.ExcludePaths); err != nil {
-		return nil, err
-	}
-	indexFiles := newIndexFileMatcher(vaultPath, locations)
-	files, err = indexFiles.filter(files)
-	if err != nil {
-		return nil, err
-	}
-	files = filterBuildExcludes(files, cfg.Build.ExcludePaths)
-
-	// Pass 0.5: collect asset files.
-	assetFiles, err := collectAssetFiles(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	assetFiles, err = indexFiles.filter(assetFiles)
-	if err != nil {
-		return nil, err
-	}
-	assetFiles = filterBuildExcludes(assetFiles, cfg.Build.ExcludePaths)
-	if omittedAsset != "" {
-		kept := assetFiles[:0]
-		for _, path := range assetFiles {
-			if path != omittedAsset {
-				kept = append(kept, path)
-			}
-		}
-		assetFiles = kept
-	}
-
-	// Build resolve maps for notes and assets.
-	rm := newResolveMaps(files, assetFiles)
-	diskPaths := newVaultDiskPathResolver(vaultPath)
-
-	// Read all files, parse links, stat for mtime, and validate.
-	parsed := make([]preparedNote, 0, len(files))
+	prepared := &preparedBuild{resolveMaps: newResolveMaps(inputs.notes, inputs.assets), metaTypes: inputs.cfg.Meta.Types, inputs: inputs}
 	var userErrors []error
-	for _, rel := range files {
-		fullPath, err := diskPaths.existingPath(rel)
+	for _, rel := range inputs.notes {
+		note, err := readBuildNote(inputs, rel)
 		if err != nil {
 			return nil, err
 		}
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		pr := parseLinksWithLinkKeys(string(content), cfg.Meta.LinkKeys)
-
-		// Collect link validation errors up to maxBuildErrors.
-		for _, link := range pr.Links {
-			if err := validateParsedLink(rel, link, rm); err != nil {
+		for _, link := range note.links {
+			if err := validateParsedLink(rel, link, prepared.resolveMaps); err != nil {
 				userErrors = append(userErrors, err)
-			} else {
-				continue
 			}
 			if len(userErrors) >= maxBuildErrors {
 				break
 			}
 		}
+		prepared.notes = append(prepared.notes, note)
 		if len(userErrors) >= maxBuildErrors {
 			break
 		}
-
-		parsed = append(parsed, preparedNote{
-			path:  rel,
-			mtime: info.ModTime().Unix(),
-			lines: countLines(string(content)),
-			links: pr.Links,
-			meta:  pr.Meta,
-		})
 	}
 	if len(userErrors) > 0 {
 		return nil, formatBuildErrors(userErrors)
 	}
-
-	// Stat asset files for mtime.
-	assetInfos := make([]preparedAsset, 0, len(assetFiles))
-	for _, rel := range assetFiles {
-		fullPath, err := diskPaths.existingPath(rel)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(fullPath)
-		if err != nil {
-			return nil, err
-		}
-		assetInfos = append(assetInfos, preparedAsset{path: rel, mtime: info.ModTime().Unix()})
+	for _, rel := range inputs.assets {
+		prepared.assets = append(prepared.assets, preparedAsset{rel, inputs.files[rel].seconds()})
 	}
+	return prepared, nil
+}
 
-	return &preparedBuild{
-		notes:       parsed,
-		assets:      assetInfos,
-		resolveMaps: rm,
-		metaTypes:   cfg.Meta.Types,
-	}, nil
+func readBuildNote(inputs *buildInputs, rel string) (preparedNote, error) {
+	fullPath, err := newVaultDiskPathResolver(inputs.root).existingPath(rel)
+	if err != nil {
+		return preparedNote{}, err
+	}
+	before, err := os.Stat(fullPath)
+	if err != nil {
+		return preparedNote{}, err
+	}
+	if signatureOf(before) != inputs.files[rel] {
+		return preparedNote{}, buildInputChanged(rel)
+	}
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return preparedNote{}, err
+	}
+	after, err := os.Stat(fullPath)
+	if err != nil {
+		return preparedNote{}, err
+	}
+	if signatureOf(after) != signatureOf(before) {
+		return preparedNote{}, buildInputChanged(rel)
+	}
+	pr := parseLinksWithLinkKeys(string(content), inputs.cfg.Meta.LinkKeys)
+	return preparedNote{path: rel, mtime: before.ModTime().Unix(), lines: countLines(string(content)), links: pr.Links, meta: pr.Meta}, nil
+}
+
+func buildInputChanged(path string) error {
+	return fmt.Errorf("build input changed during build: %s; run build again", path)
 }

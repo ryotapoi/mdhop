@@ -211,6 +211,9 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions, locations ...Locat
 		}
 	}
 
+	if err := invalidateBuildState(tx); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
