@@ -1,0 +1,2753 @@
+{
+  "environment": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "go": "go version go1.27.1 darwin/arm64",
+    "cpu": "arm",
+    "cache": "warm OS cache; no flush; serial alternating pairs; initial DB restored outside timer",
+    "source_commit": "97b76612410d78fa8f5e8ceb379fe6dff8dacc20",
+    "repetitions": 5,
+    "binaries": {
+      "wikilink-enabled": "1271e98f7034af414d7e0adbe83b907c634b52b9c1abb070822d8f0c5ff8c500",
+      "wikilink-disabled": "892d4bbf3f66abaf6d83afe6e98ddc9be647585bf012cd26f47180d4a10251c1",
+      "wikilink-enabled-trace": "9ce820be9c9e78d9e24caf6e6821ce3903b59add9f69dc03d2a65b965af4dacb",
+      "wikilink-disabled-trace": "d3fcb947dccec2e86760d6139161943c94f104945b559fa25b603b22c877eac2"
+    }
+  },
+  "duration_seconds": 55.2534710829932,
+  "results": [
+    {
+      "case": "representative-body-0",
+      "notes": 35,
+      "assets": 0,
+      "body_bytes": 138497,
+      "selected": [
+        "docs/development.md",
+        "docs/information-management.md",
+        "docs/licensing.md",
+        "docs/release.md",
+        "docs/requirements.md",
+        "docs/verification.md",
+        "decisions/0001-tech-stack.md",
+        "decisions/0002-resolve-uses-db-queries.md",
+        "decisions/0003-move-auto-detects-disk-state.md",
+        "decisions/0005-delete-rm-flag.md",
+        "decisions/0006-config-file-and-query-exclude-filter.md",
+        "decisions/0007-build-exclude.md",
+        "decisions/0009-directory-move-batch-design.md",
+        "decisions/0010-repair-file-scan-based.md",
+        "decisions/0012-remove-external-rewrite-stale-check.md",
+        "decisions/0015-reachable-traversal.md",
+        "decisions/0016-graph-export-schema.md",
+        "decisions/0017-search-computed-fields.md",
+        "decisions/0019-meta-check-validate-separate-commands.md",
+        "decisions/0020-nfc-path-normalization.md",
+        "decisions/0021-shared-link-resolver-backend.md",
+        "decisions/0024-basename-sql-prefilter.md",
+        "decisions/0025-root-priority-and-relative-rewrites.md",
+        "decisions/0026-query-and-search-filter-policy.md",
+        "decisions/0027-move-collateral-rewrite-policy.md",
+        "decisions/0028-shared-batch-move-and-delete.md",
+        "decisions/0029-reachable-navigation-traversal.md",
+        "decisions/0030-metadata-command-boundaries.md",
+        "decisions/0031-typed-link-resolver-backends.md",
+        "decisions/0032-module-and-sql-ownership.md",
+        "decisions/0033-toml-config-and-filter-policy.md",
+        "decisions/0034-cache-index-and-location-policy.md",
+        "decisions/0036-cache-management-and-location-policy.md",
+        "decisions/0037-markdown-source-relative-and-rewrites.md",
+        "decisions/0038-incremental-build-and-location-policy.md"
+      ],
+      "excluded_wiki_literal": [
+        "decisions/0004-root-priority-for-ambiguous-basename.md",
+        "decisions/0008-move-collateral-rewrite.md",
+        "decisions/0011-asset-node-management.md",
+        "decisions/0013-frontmatter-wikilink-detection.md",
+        "decisions/0014-frontmatter-link-keys.md",
+        "decisions/0018-anchor-check-headings-on-demand.md",
+        "decisions/0022-frontmatter-wikilink-rewrite-rollout.md",
+        "decisions/0023-frontmatter-wikilink-quoted-only.md",
+        "decisions/0035-line-qualified-resolve.md"
+      ],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "full": [
+          18.399959,
+          17.767625,
+          17.759334,
+          16.078875,
+          16.694
+        ],
+        "enabled": [
+          9.742083,
+          8.751042,
+          8.235333,
+          7.597208,
+          8.282625
+        ],
+        "disabled": [
+          8.883833,
+          8.497125,
+          7.957583,
+          8.079959,
+          7.968958
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 17.759334,
+          "min": 16.078875,
+          "max": 18.399959
+        },
+        "enabled": {
+          "median": 8.282625,
+          "min": 7.597208,
+          "max": 9.742083
+        },
+        "disabled": {
+          "median": 8.079959,
+          "min": 7.957583,
+          "max": 8.883833
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 1844124,
+            "StateNS": 2936708,
+            "CopyNS": 0,
+            "DependencyNS": 0,
+            "NamesNS": 0,
+            "TotalNS": 4986958,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 1558042,
+            "StateNS": 2617291,
+            "CopyNS": 0,
+            "DependencyNS": 0,
+            "NamesNS": 0,
+            "TotalNS": 4603750,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "representative-body-0.01",
+      "notes": 35,
+      "assets": 0,
+      "body_bytes": 138497,
+      "selected": [
+        "docs/development.md",
+        "docs/information-management.md",
+        "docs/licensing.md",
+        "docs/release.md",
+        "docs/requirements.md",
+        "docs/verification.md",
+        "decisions/0001-tech-stack.md",
+        "decisions/0002-resolve-uses-db-queries.md",
+        "decisions/0003-move-auto-detects-disk-state.md",
+        "decisions/0005-delete-rm-flag.md",
+        "decisions/0006-config-file-and-query-exclude-filter.md",
+        "decisions/0007-build-exclude.md",
+        "decisions/0009-directory-move-batch-design.md",
+        "decisions/0010-repair-file-scan-based.md",
+        "decisions/0012-remove-external-rewrite-stale-check.md",
+        "decisions/0015-reachable-traversal.md",
+        "decisions/0016-graph-export-schema.md",
+        "decisions/0017-search-computed-fields.md",
+        "decisions/0019-meta-check-validate-separate-commands.md",
+        "decisions/0020-nfc-path-normalization.md",
+        "decisions/0021-shared-link-resolver-backend.md",
+        "decisions/0024-basename-sql-prefilter.md",
+        "decisions/0025-root-priority-and-relative-rewrites.md",
+        "decisions/0026-query-and-search-filter-policy.md",
+        "decisions/0027-move-collateral-rewrite-policy.md",
+        "decisions/0028-shared-batch-move-and-delete.md",
+        "decisions/0029-reachable-navigation-traversal.md",
+        "decisions/0030-metadata-command-boundaries.md",
+        "decisions/0031-typed-link-resolver-backends.md",
+        "decisions/0032-module-and-sql-ownership.md",
+        "decisions/0033-toml-config-and-filter-policy.md",
+        "decisions/0034-cache-index-and-location-policy.md",
+        "decisions/0036-cache-management-and-location-policy.md",
+        "decisions/0037-markdown-source-relative-and-rewrites.md",
+        "decisions/0038-incremental-build-and-location-policy.md"
+      ],
+      "excluded_wiki_literal": [
+        "decisions/0004-root-priority-for-ambiguous-basename.md",
+        "decisions/0008-move-collateral-rewrite.md",
+        "decisions/0011-asset-node-management.md",
+        "decisions/0013-frontmatter-wikilink-detection.md",
+        "decisions/0014-frontmatter-link-keys.md",
+        "decisions/0018-anchor-check-headings-on-demand.md",
+        "decisions/0022-frontmatter-wikilink-rewrite-rollout.md",
+        "decisions/0023-frontmatter-wikilink-quoted-only.md",
+        "decisions/0035-line-qualified-resolve.md"
+      ],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          16.358917,
+          16.402417,
+          16.477958,
+          16.909375,
+          16.873458
+        ],
+        "enabled": [
+          9.232875,
+          8.97325,
+          9.404791,
+          9.557375,
+          9.756541
+        ],
+        "disabled": [
+          9.532583,
+          9.426541,
+          9.37525,
+          9.764708,
+          9.733459
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 16.477958,
+          "min": 16.358917,
+          "max": 16.909375
+        },
+        "enabled": {
+          "median": 9.404791,
+          "min": 8.97325,
+          "max": 9.756541
+        },
+        "disabled": {
+          "median": 9.532583,
+          "min": 9.37525,
+          "max": 9.764708
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 1110291,
+            "StateNS": 636458,
+            "CopyNS": 332208,
+            "DependencyNS": 0,
+            "NamesNS": 31375,
+            "TotalNS": 3851041,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 1,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 1075292,
+            "StateNS": 620541,
+            "CopyNS": 114666,
+            "DependencyNS": 0,
+            "NamesNS": 39375,
+            "TotalNS": 3586875,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 1,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "representative-body-0.5",
+      "notes": 35,
+      "assets": 0,
+      "body_bytes": 138497,
+      "selected": [
+        "docs/development.md",
+        "docs/information-management.md",
+        "docs/licensing.md",
+        "docs/release.md",
+        "docs/requirements.md",
+        "docs/verification.md",
+        "decisions/0001-tech-stack.md",
+        "decisions/0002-resolve-uses-db-queries.md",
+        "decisions/0003-move-auto-detects-disk-state.md",
+        "decisions/0005-delete-rm-flag.md",
+        "decisions/0006-config-file-and-query-exclude-filter.md",
+        "decisions/0007-build-exclude.md",
+        "decisions/0009-directory-move-batch-design.md",
+        "decisions/0010-repair-file-scan-based.md",
+        "decisions/0012-remove-external-rewrite-stale-check.md",
+        "decisions/0015-reachable-traversal.md",
+        "decisions/0016-graph-export-schema.md",
+        "decisions/0017-search-computed-fields.md",
+        "decisions/0019-meta-check-validate-separate-commands.md",
+        "decisions/0020-nfc-path-normalization.md",
+        "decisions/0021-shared-link-resolver-backend.md",
+        "decisions/0024-basename-sql-prefilter.md",
+        "decisions/0025-root-priority-and-relative-rewrites.md",
+        "decisions/0026-query-and-search-filter-policy.md",
+        "decisions/0027-move-collateral-rewrite-policy.md",
+        "decisions/0028-shared-batch-move-and-delete.md",
+        "decisions/0029-reachable-navigation-traversal.md",
+        "decisions/0030-metadata-command-boundaries.md",
+        "decisions/0031-typed-link-resolver-backends.md",
+        "decisions/0032-module-and-sql-ownership.md",
+        "decisions/0033-toml-config-and-filter-policy.md",
+        "decisions/0034-cache-index-and-location-policy.md",
+        "decisions/0036-cache-management-and-location-policy.md",
+        "decisions/0037-markdown-source-relative-and-rewrites.md",
+        "decisions/0038-incremental-build-and-location-policy.md"
+      ],
+      "excluded_wiki_literal": [
+        "decisions/0004-root-priority-for-ambiguous-basename.md",
+        "decisions/0008-move-collateral-rewrite.md",
+        "decisions/0011-asset-node-management.md",
+        "decisions/0013-frontmatter-wikilink-detection.md",
+        "decisions/0014-frontmatter-link-keys.md",
+        "decisions/0018-anchor-check-headings-on-demand.md",
+        "decisions/0022-frontmatter-wikilink-rewrite-rollout.md",
+        "decisions/0023-frontmatter-wikilink-quoted-only.md",
+        "decisions/0035-line-qualified-resolve.md"
+      ],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 17,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          17.518709,
+          17.61575,
+          17.024125,
+          17.21525,
+          16.609
+        ],
+        "enabled": [
+          13.080584,
+          13.218625,
+          12.016875,
+          12.462958,
+          12.579208
+        ],
+        "disabled": [
+          13.206167,
+          13.831625,
+          12.21975,
+          12.190792,
+          12.786834
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 17.21525,
+          "min": 16.609,
+          "max": 17.61575
+        },
+        "enabled": {
+          "median": 12.579208,
+          "min": 12.016875,
+          "max": 13.218625
+        },
+        "disabled": {
+          "median": 12.786834,
+          "min": 12.190792,
+          "max": 13.831625
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 1163917,
+            "StateNS": 634500,
+            "CopyNS": 111125,
+            "DependencyNS": 0,
+            "NamesNS": 35167,
+            "TotalNS": 7466625,
+            "ReadParseNotes": 17,
+            "ResolvedLinks": 17,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 1125083,
+            "StateNS": 614958,
+            "CopyNS": 105042,
+            "DependencyNS": 0,
+            "NamesNS": 34875,
+            "TotalNS": 6944750,
+            "ReadParseNotes": 17,
+            "ResolvedLinks": 17,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "representative-add-0.01",
+      "notes": 35,
+      "assets": 0,
+      "body_bytes": 138497,
+      "selected": [
+        "docs/development.md",
+        "docs/information-management.md",
+        "docs/licensing.md",
+        "docs/release.md",
+        "docs/requirements.md",
+        "docs/verification.md",
+        "decisions/0001-tech-stack.md",
+        "decisions/0002-resolve-uses-db-queries.md",
+        "decisions/0003-move-auto-detects-disk-state.md",
+        "decisions/0005-delete-rm-flag.md",
+        "decisions/0006-config-file-and-query-exclude-filter.md",
+        "decisions/0007-build-exclude.md",
+        "decisions/0009-directory-move-batch-design.md",
+        "decisions/0010-repair-file-scan-based.md",
+        "decisions/0012-remove-external-rewrite-stale-check.md",
+        "decisions/0015-reachable-traversal.md",
+        "decisions/0016-graph-export-schema.md",
+        "decisions/0017-search-computed-fields.md",
+        "decisions/0019-meta-check-validate-separate-commands.md",
+        "decisions/0020-nfc-path-normalization.md",
+        "decisions/0021-shared-link-resolver-backend.md",
+        "decisions/0024-basename-sql-prefilter.md",
+        "decisions/0025-root-priority-and-relative-rewrites.md",
+        "decisions/0026-query-and-search-filter-policy.md",
+        "decisions/0027-move-collateral-rewrite-policy.md",
+        "decisions/0028-shared-batch-move-and-delete.md",
+        "decisions/0029-reachable-navigation-traversal.md",
+        "decisions/0030-metadata-command-boundaries.md",
+        "decisions/0031-typed-link-resolver-backends.md",
+        "decisions/0032-module-and-sql-ownership.md",
+        "decisions/0033-toml-config-and-filter-policy.md",
+        "decisions/0034-cache-index-and-location-policy.md",
+        "decisions/0036-cache-management-and-location-policy.md",
+        "decisions/0037-markdown-source-relative-and-rewrites.md",
+        "decisions/0038-incremental-build-and-location-policy.md"
+      ],
+      "excluded_wiki_literal": [
+        "decisions/0004-root-priority-for-ambiguous-basename.md",
+        "decisions/0008-move-collateral-rewrite.md",
+        "decisions/0011-asset-node-management.md",
+        "decisions/0013-frontmatter-wikilink-detection.md",
+        "decisions/0014-frontmatter-link-keys.md",
+        "decisions/0018-anchor-check-headings-on-demand.md",
+        "decisions/0022-frontmatter-wikilink-rewrite-rollout.md",
+        "decisions/0023-frontmatter-wikilink-quoted-only.md",
+        "decisions/0035-line-qualified-resolve.md"
+      ],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "add",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          17.181583,
+          16.914708,
+          16.540667,
+          16.500667,
+          16.904958
+        ],
+        "enabled": [
+          9.518208,
+          9.172875,
+          8.905958,
+          9.379459,
+          9.200333
+        ],
+        "disabled": [
+          9.5885,
+          9.936,
+          9.756125,
+          9.337416,
+          9.666958
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 16.904958,
+          "min": 16.500667,
+          "max": 17.181583
+        },
+        "enabled": {
+          "median": 9.200333,
+          "min": 8.905958,
+          "max": 9.518208
+        },
+        "disabled": {
+          "median": 9.666958,
+          "min": 9.337416,
+          "max": 9.936
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 1151458,
+            "StateNS": 597709,
+            "CopyNS": 131250,
+            "DependencyNS": 174667,
+            "NamesNS": 833,
+            "TotalNS": 3054292,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 4
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 1109917,
+            "StateNS": 624834,
+            "CopyNS": 110542,
+            "DependencyNS": 154000,
+            "NamesNS": 833,
+            "TotalNS": 2945334,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 4
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "representative-delete-0.01",
+      "notes": 35,
+      "assets": 0,
+      "body_bytes": 138497,
+      "selected": [
+        "docs/development.md",
+        "docs/information-management.md",
+        "docs/licensing.md",
+        "docs/release.md",
+        "docs/requirements.md",
+        "docs/verification.md",
+        "decisions/0001-tech-stack.md",
+        "decisions/0002-resolve-uses-db-queries.md",
+        "decisions/0003-move-auto-detects-disk-state.md",
+        "decisions/0005-delete-rm-flag.md",
+        "decisions/0006-config-file-and-query-exclude-filter.md",
+        "decisions/0007-build-exclude.md",
+        "decisions/0009-directory-move-batch-design.md",
+        "decisions/0010-repair-file-scan-based.md",
+        "decisions/0012-remove-external-rewrite-stale-check.md",
+        "decisions/0015-reachable-traversal.md",
+        "decisions/0016-graph-export-schema.md",
+        "decisions/0017-search-computed-fields.md",
+        "decisions/0019-meta-check-validate-separate-commands.md",
+        "decisions/0020-nfc-path-normalization.md",
+        "decisions/0021-shared-link-resolver-backend.md",
+        "decisions/0024-basename-sql-prefilter.md",
+        "decisions/0025-root-priority-and-relative-rewrites.md",
+        "decisions/0026-query-and-search-filter-policy.md",
+        "decisions/0027-move-collateral-rewrite-policy.md",
+        "decisions/0028-shared-batch-move-and-delete.md",
+        "decisions/0029-reachable-navigation-traversal.md",
+        "decisions/0030-metadata-command-boundaries.md",
+        "decisions/0031-typed-link-resolver-backends.md",
+        "decisions/0032-module-and-sql-ownership.md",
+        "decisions/0033-toml-config-and-filter-policy.md",
+        "decisions/0034-cache-index-and-location-policy.md",
+        "decisions/0036-cache-management-and-location-policy.md",
+        "decisions/0037-markdown-source-relative-and-rewrites.md",
+        "decisions/0038-incremental-build-and-location-policy.md"
+      ],
+      "excluded_wiki_literal": [
+        "decisions/0004-root-priority-for-ambiguous-basename.md",
+        "decisions/0008-move-collateral-rewrite.md",
+        "decisions/0011-asset-node-management.md",
+        "decisions/0013-frontmatter-wikilink-detection.md",
+        "decisions/0014-frontmatter-link-keys.md",
+        "decisions/0018-anchor-check-headings-on-demand.md",
+        "decisions/0022-frontmatter-wikilink-rewrite-rollout.md",
+        "decisions/0023-frontmatter-wikilink-quoted-only.md",
+        "decisions/0035-line-qualified-resolve.md"
+      ],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "delete",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          15.577958,
+          15.899834,
+          17.168875,
+          15.716625,
+          15.661416
+        ],
+        "enabled": [
+          9.498375,
+          9.044083,
+          9.13925,
+          8.81225,
+          9.06375
+        ],
+        "disabled": [
+          9.033458,
+          8.944083,
+          9.19975,
+          8.648792,
+          9.097333
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 15.716625,
+          "min": 15.577958,
+          "max": 17.168875
+        },
+        "enabled": {
+          "median": 9.06375,
+          "min": 8.81225,
+          "max": 9.498375
+        },
+        "disabled": {
+          "median": 9.033458,
+          "min": 8.648792,
+          "max": 9.19975
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 1001168,
+            "StateNS": 568083,
+            "CopyNS": 103084,
+            "DependencyNS": 161000,
+            "NamesNS": 792,
+            "TotalNS": 2746000,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 4
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 967959,
+            "StateNS": 620708,
+            "CopyNS": 94625,
+            "DependencyNS": 157875,
+            "NamesNS": 792,
+            "TotalNS": 2769958,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 4
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "representative-move-0.01",
+      "notes": 35,
+      "assets": 0,
+      "body_bytes": 138497,
+      "selected": [
+        "docs/development.md",
+        "docs/information-management.md",
+        "docs/licensing.md",
+        "docs/release.md",
+        "docs/requirements.md",
+        "docs/verification.md",
+        "decisions/0001-tech-stack.md",
+        "decisions/0002-resolve-uses-db-queries.md",
+        "decisions/0003-move-auto-detects-disk-state.md",
+        "decisions/0005-delete-rm-flag.md",
+        "decisions/0006-config-file-and-query-exclude-filter.md",
+        "decisions/0007-build-exclude.md",
+        "decisions/0009-directory-move-batch-design.md",
+        "decisions/0010-repair-file-scan-based.md",
+        "decisions/0012-remove-external-rewrite-stale-check.md",
+        "decisions/0015-reachable-traversal.md",
+        "decisions/0016-graph-export-schema.md",
+        "decisions/0017-search-computed-fields.md",
+        "decisions/0019-meta-check-validate-separate-commands.md",
+        "decisions/0020-nfc-path-normalization.md",
+        "decisions/0021-shared-link-resolver-backend.md",
+        "decisions/0024-basename-sql-prefilter.md",
+        "decisions/0025-root-priority-and-relative-rewrites.md",
+        "decisions/0026-query-and-search-filter-policy.md",
+        "decisions/0027-move-collateral-rewrite-policy.md",
+        "decisions/0028-shared-batch-move-and-delete.md",
+        "decisions/0029-reachable-navigation-traversal.md",
+        "decisions/0030-metadata-command-boundaries.md",
+        "decisions/0031-typed-link-resolver-backends.md",
+        "decisions/0032-module-and-sql-ownership.md",
+        "decisions/0033-toml-config-and-filter-policy.md",
+        "decisions/0034-cache-index-and-location-policy.md",
+        "decisions/0036-cache-management-and-location-policy.md",
+        "decisions/0037-markdown-source-relative-and-rewrites.md",
+        "decisions/0038-incremental-build-and-location-policy.md"
+      ],
+      "excluded_wiki_literal": [
+        "decisions/0004-root-priority-for-ambiguous-basename.md",
+        "decisions/0008-move-collateral-rewrite.md",
+        "decisions/0011-asset-node-management.md",
+        "decisions/0013-frontmatter-wikilink-detection.md",
+        "decisions/0014-frontmatter-link-keys.md",
+        "decisions/0018-anchor-check-headings-on-demand.md",
+        "decisions/0022-frontmatter-wikilink-rewrite-rollout.md",
+        "decisions/0023-frontmatter-wikilink-quoted-only.md",
+        "decisions/0035-line-qualified-resolve.md"
+      ],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "move",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          16.949459,
+          15.698167,
+          16.087125,
+          15.999125,
+          15.909833
+        ],
+        "enabled": [
+          9.500375,
+          9.199334,
+          9.479083,
+          9.974083,
+          9.424666
+        ],
+        "disabled": [
+          9.507125,
+          9.201625,
+          9.542208,
+          9.884,
+          9.586458
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 15.999125,
+          "min": 15.698167,
+          "max": 16.949459
+        },
+        "enabled": {
+          "median": 9.479083,
+          "min": 9.199334,
+          "max": 9.974083
+        },
+        "disabled": {
+          "median": 9.542208,
+          "min": 9.201625,
+          "max": 9.884
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 1123792,
+            "StateNS": 595208,
+            "CopyNS": 99208,
+            "DependencyNS": 157416,
+            "NamesNS": 709,
+            "TotalNS": 3262125,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 4
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 1177291,
+            "StateNS": 602416,
+            "CopyNS": 107416,
+            "DependencyNS": 152375,
+            "NamesNS": 2542,
+            "TotalNS": 3154958,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 4
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-body-0",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "full": [
+          21.744125,
+          21.577209,
+          22.855083,
+          22.540083,
+          21.53325
+        ],
+        "enabled": [
+          10.427541,
+          10.330209,
+          10.011666,
+          10.301292,
+          9.883875
+        ],
+        "disabled": [
+          10.183208,
+          13.292875,
+          10.462625,
+          10.103541,
+          10.819416
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 21.744125,
+          "min": 21.53325,
+          "max": 22.855083
+        },
+        "enabled": {
+          "median": 10.301292,
+          "min": 9.883875,
+          "max": 10.427541
+        },
+        "disabled": {
+          "median": 10.462625,
+          "min": 10.103541,
+          "max": 13.292875
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3094750,
+            "StateNS": 684959,
+            "CopyNS": 0,
+            "DependencyNS": 0,
+            "NamesNS": 0,
+            "TotalNS": 3851500,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3155625,
+            "StateNS": 675583,
+            "CopyNS": 0,
+            "DependencyNS": 0,
+            "NamesNS": 0,
+            "TotalNS": 3898542,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-body-0.01",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          21.507333,
+          22.787834,
+          22.136958,
+          32.299125,
+          27.4225
+        ],
+        "enabled": [
+          13.1885,
+          11.4875,
+          11.867334,
+          13.7745,
+          16.731708
+        ],
+        "disabled": [
+          12.170875,
+          11.758583,
+          11.511416,
+          12.497,
+          13.198958
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 22.787834,
+          "min": 21.507333,
+          "max": 32.299125
+        },
+        "enabled": {
+          "median": 13.1885,
+          "min": 11.4875,
+          "max": 16.731708
+        },
+        "disabled": {
+          "median": 12.170875,
+          "min": 11.511416,
+          "max": 13.198958
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3306667,
+            "StateNS": 707125,
+            "CopyNS": 126917,
+            "DependencyNS": 0,
+            "NamesNS": 161750,
+            "TotalNS": 6124625,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 5,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3270625,
+            "StateNS": 840375,
+            "CopyNS": 127250,
+            "DependencyNS": 0,
+            "NamesNS": 182042,
+            "TotalNS": 6816750,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 5,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-body-0.5",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 32,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          22.777334,
+          22.304709,
+          22.589542,
+          22.423459,
+          22.982916
+        ],
+        "enabled": [
+          18.776667,
+          17.959292,
+          17.931583,
+          18.081334,
+          18.097792
+        ],
+        "disabled": [
+          18.630125,
+          17.919292,
+          18.271,
+          18.387583,
+          17.658875
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 22.589542,
+          "min": 22.304709,
+          "max": 22.982916
+        },
+        "enabled": {
+          "median": 18.081334,
+          "min": 17.931583,
+          "max": 18.776667
+        },
+        "disabled": {
+          "median": 18.271,
+          "min": 17.658875,
+          "max": 18.630125
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3172249,
+            "StateNS": 703542,
+            "CopyNS": 818833,
+            "DependencyNS": 0,
+            "NamesNS": 164250,
+            "TotalNS": 12343542,
+            "ReadParseNotes": 32,
+            "ResolvedLinks": 160,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3105833,
+            "StateNS": 669541,
+            "CopyNS": 383250,
+            "DependencyNS": 0,
+            "NamesNS": 163542,
+            "TotalNS": 11514917,
+            "ReadParseNotes": 32,
+            "ResolvedLinks": 160,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-add-0.01",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "add",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          21.321791,
+          21.740083,
+          21.900792,
+          21.45875,
+          22.3665
+        ],
+        "enabled": [
+          17.273333,
+          17.88525,
+          17.87,
+          17.844708,
+          18.158375
+        ],
+        "disabled": [
+          16.993417,
+          17.694917,
+          17.961,
+          17.743334,
+          18.040375
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 21.740083,
+          "min": 21.321791,
+          "max": 22.3665
+        },
+        "enabled": {
+          "median": 17.87,
+          "min": 17.273333,
+          "max": 18.158375
+        },
+        "disabled": {
+          "median": 17.743334,
+          "min": 16.993417,
+          "max": 18.040375
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3257166,
+            "StateNS": 656500,
+            "CopyNS": 126000,
+            "DependencyNS": 273333,
+            "NamesNS": 90125,
+            "TotalNS": 11995750,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 256,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3365500,
+            "StateNS": 697167,
+            "CopyNS": 133750,
+            "DependencyNS": 279292,
+            "NamesNS": 73917,
+            "TotalNS": 11981583,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 256,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-add-0.5",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "add",
+      "changed": 32,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          23.224583,
+          24.720875,
+          27.129958,
+          27.116042,
+          23.428583
+        ],
+        "enabled": [
+          20.334042,
+          21.802875,
+          21.219959,
+          21.619209,
+          21.101541
+        ],
+        "disabled": [
+          20.613709,
+          21.9145,
+          24.359084,
+          22.770708,
+          20.841292
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 24.720875,
+          "min": 23.224583,
+          "max": 27.129958
+        },
+        "enabled": {
+          "median": 21.219959,
+          "min": 20.334042,
+          "max": 21.802875
+        },
+        "disabled": {
+          "median": 21.9145,
+          "min": 20.613709,
+          "max": 24.359084
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3819250,
+            "StateNS": 734875,
+            "CopyNS": 130959,
+            "DependencyNS": 298541,
+            "NamesNS": 73000,
+            "TotalNS": 15187541,
+            "ReadParseNotes": 32,
+            "ResolvedLinks": 256,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 5147917,
+            "StateNS": 791667,
+            "CopyNS": 532875,
+            "DependencyNS": 330000,
+            "NamesNS": 80625,
+            "TotalNS": 16495250,
+            "ReadParseNotes": 32,
+            "ResolvedLinks": 256,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-delete-0.01",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "delete",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          21.641458,
+          21.634584,
+          22.348833,
+          21.855792,
+          21.776
+        ],
+        "enabled": [
+          12.300459,
+          11.709584,
+          11.861708,
+          11.766792,
+          12.28925
+        ],
+        "disabled": [
+          12.766959,
+          12.670542,
+          11.683625,
+          11.519208,
+          12.279
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 21.776,
+          "min": 21.634584,
+          "max": 22.348833
+        },
+        "enabled": {
+          "median": 11.861708,
+          "min": 11.709584,
+          "max": 12.300459
+        },
+        "disabled": {
+          "median": 12.279,
+          "min": 11.519208,
+          "max": 12.766959
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3877583,
+            "StateNS": 684500,
+            "CopyNS": 328208,
+            "DependencyNS": 223083,
+            "NamesNS": 171958,
+            "TotalNS": 6603709,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 4,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3309708,
+            "StateNS": 693042,
+            "CopyNS": 123833,
+            "DependencyNS": 221542,
+            "NamesNS": 172417,
+            "TotalNS": 5981375,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 4,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-delete-0.5",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "delete",
+      "changed": 32,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          18.646292,
+          19.264125,
+          18.950459,
+          18.828167,
+          18.294166
+        ],
+        "enabled": [
+          14.356334,
+          14.566416,
+          14.814916,
+          15.053625,
+          14.467542
+        ],
+        "disabled": [
+          14.272875,
+          14.336167,
+          14.683583,
+          14.7285,
+          14.724959
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 18.828167,
+          "min": 18.294166,
+          "max": 19.264125
+        },
+        "enabled": {
+          "median": 14.566416,
+          "min": 14.356334,
+          "max": 15.053625
+        },
+        "disabled": {
+          "median": 14.683583,
+          "min": 14.272875,
+          "max": 14.7285
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 2644291,
+            "StateNS": 688791,
+            "CopyNS": 128000,
+            "DependencyNS": 691875,
+            "NamesNS": 184375,
+            "TotalNS": 8053667,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 12,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3010791,
+            "StateNS": 746333,
+            "CopyNS": 153583,
+            "DependencyNS": 750750,
+            "NamesNS": 173542,
+            "TotalNS": 8671208,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 12,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-move-0.01",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "move",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          23.04225,
+          22.537625,
+          23.429042,
+          24.111625,
+          24.500708
+        ],
+        "enabled": [
+          12.938792,
+          12.978,
+          13.360292,
+          13.69675,
+          12.676541
+        ],
+        "disabled": [
+          13.045083,
+          12.96675,
+          12.903833,
+          12.609084,
+          12.300083
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 23.429042,
+          "min": 22.537625,
+          "max": 24.500708
+        },
+        "enabled": {
+          "median": 12.978,
+          "min": 12.676541,
+          "max": 13.69675
+        },
+        "disabled": {
+          "median": 12.903833,
+          "min": 12.300083,
+          "max": 13.045083
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3222168,
+            "StateNS": 689625,
+            "CopyNS": 122333,
+            "DependencyNS": 241500,
+            "NamesNS": 160708,
+            "TotalNS": 6031500,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 8,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3386459,
+            "StateNS": 699000,
+            "CopyNS": 149250,
+            "DependencyNS": 234167,
+            "NamesNS": 160541,
+            "TotalNS": 6234167,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 8,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n64-b768-move-0.5",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 41718,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "move",
+      "changed": 32,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          22.479,
+          23.373333,
+          22.51975,
+          22.081458,
+          22.39125
+        ],
+        "enabled": [
+          21.357167,
+          20.970959,
+          20.342333,
+          20.440083,
+          20.325833
+        ],
+        "disabled": [
+          21.070667,
+          20.968458,
+          20.10775,
+          19.786083,
+          20.2355
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 22.479,
+          "min": 22.081458,
+          "max": 23.373333
+        },
+        "enabled": {
+          "median": 20.440083,
+          "min": 20.325833,
+          "max": 21.357167
+        },
+        "disabled": {
+          "median": 20.2355,
+          "min": 19.786083,
+          "max": 21.070667
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 2999583,
+            "StateNS": 684666,
+            "CopyNS": 441167,
+            "DependencyNS": 1022083,
+            "NamesNS": 669333,
+            "TotalNS": 14143792,
+            "ReadParseNotes": 32,
+            "ResolvedLinks": 140,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3038458,
+            "StateNS": 685792,
+            "CopyNS": 1018541,
+            "DependencyNS": 756458,
+            "NamesNS": 683917,
+            "TotalNS": 14435875,
+            "ReadParseNotes": 32,
+            "ResolvedLinks": 140,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 66
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-body-0",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 0,
+      "rate": 0,
+      "samples_ms": {
+        "full": [
+          370.426375,
+          361.005417,
+          356.830834,
+          353.117542,
+          349.973333
+        ],
+        "enabled": [
+          36.661042,
+          35.441667,
+          35.237333,
+          37.071458,
+          36.305625
+        ],
+        "disabled": [
+          36.843,
+          35.553292,
+          35.597042,
+          35.799417,
+          37.506334
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 356.830834,
+          "min": 349.973333,
+          "max": 370.426375
+        },
+        "enabled": {
+          "median": 36.305625,
+          "min": 35.237333,
+          "max": 37.071458
+        },
+        "disabled": {
+          "median": 35.799417,
+          "min": 35.553292,
+          "max": 37.506334
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 23577166,
+            "StateNS": 5649292,
+            "CopyNS": 0,
+            "DependencyNS": 0,
+            "NamesNS": 0,
+            "TotalNS": 30674375,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 23562791,
+            "StateNS": 6455542,
+            "CopyNS": 0,
+            "DependencyNS": 0,
+            "NamesNS": 0,
+            "TotalNS": 31541042,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 0,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-body-0.01",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          362.215292,
+          355.697292,
+          356.597334,
+          413.141292,
+          361.975959
+        ],
+        "enabled": [
+          53.296292,
+          51.781084,
+          52.6505,
+          51.524125,
+          52.780375
+        ],
+        "disabled": [
+          52.456542,
+          52.799041,
+          55.638667,
+          51.28225,
+          53.738
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 361.975959,
+          "min": 355.697292,
+          "max": 413.141292
+        },
+        "enabled": {
+          "median": 52.6505,
+          "min": 51.524125,
+          "max": 53.296292
+        },
+        "disabled": {
+          "median": 52.799041,
+          "min": 51.28225,
+          "max": 55.638667
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 23902501,
+            "StateNS": 5316250,
+            "CopyNS": 852750,
+            "DependencyNS": 0,
+            "NamesNS": 2293375,
+            "TotalNS": 45024334,
+            "ReadParseNotes": 15,
+            "ResolvedLinks": 75,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 24261666,
+            "StateNS": 5941917,
+            "CopyNS": 958583,
+            "DependencyNS": 0,
+            "NamesNS": 2294042,
+            "TotalNS": 46102958,
+            "ReadParseNotes": 15,
+            "ResolvedLinks": 75,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-body-0.5",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "body",
+      "changed": 750,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          370.871959,
+          372.869,
+          376.738917,
+          372.748625,
+          376.134417
+        ],
+        "enabled": [
+          269.588542,
+          271.874542,
+          272.06475,
+          278.844334,
+          271.629584
+        ],
+        "disabled": [
+          265.000083,
+          265.366291,
+          307.656958,
+          277.467042,
+          265.371209
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 372.869,
+          "min": 370.871959,
+          "max": 376.738917
+        },
+        "enabled": {
+          "median": 271.874542,
+          "min": 269.588542,
+          "max": 278.844334
+        },
+        "disabled": {
+          "median": 265.371209,
+          "min": 265.000083,
+          "max": 307.656958
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 23421125,
+            "StateNS": 5956042,
+            "CopyNS": 866083,
+            "DependencyNS": 0,
+            "NamesNS": 4156375,
+            "TotalNS": 258516625,
+            "ReadParseNotes": 750,
+            "ResolvedLinks": 3750,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 24869876,
+            "StateNS": 5294250,
+            "CopyNS": 872750,
+            "DependencyNS": 0,
+            "NamesNS": 3755500,
+            "TotalNS": 258110417,
+            "ReadParseNotes": 750,
+            "ResolvedLinks": 3750,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-add-0.01",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "add",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          353.424042,
+          358.380708,
+          363.769958,
+          370.6715,
+          405.505417
+        ],
+        "enabled": [
+          206.216167,
+          181.661667,
+          187.673417,
+          181.028583,
+          182.756292
+        ],
+        "disabled": [
+          181.608959,
+          183.739833,
+          183.834916,
+          181.37725,
+          183.352292
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 363.769958,
+          "min": 353.424042,
+          "max": 405.505417
+        },
+        "enabled": {
+          "median": 182.756292,
+          "min": 181.028583,
+          "max": 206.216167
+        },
+        "disabled": {
+          "median": 183.352292,
+          "min": 181.37725,
+          "max": 183.834916
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 23800167,
+            "StateNS": 5296083,
+            "CopyNS": 836208,
+            "DependencyNS": 2494917,
+            "NamesNS": 1095125,
+            "TotalNS": 174995584,
+            "ReadParseNotes": 15,
+            "ResolvedLinks": 6000,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 23469375,
+            "StateNS": 5064875,
+            "CopyNS": 785292,
+            "DependencyNS": 2463250,
+            "NamesNS": 1112959,
+            "TotalNS": 175212333,
+            "ReadParseNotes": 15,
+            "ResolvedLinks": 6000,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-add-0.5",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "add",
+      "changed": 750,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          394.60125,
+          385.708541,
+          374.872083,
+          377.286875,
+          371.225375
+        ],
+        "enabled": [
+          244.913,
+          255.004042,
+          245.658042,
+          248.136792,
+          249.224791
+        ],
+        "disabled": [
+          244.598792,
+          249.771125,
+          247.931875,
+          248.911416,
+          247.785916
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 377.286875,
+          "min": 371.225375,
+          "max": 394.60125
+        },
+        "enabled": {
+          "median": 248.136792,
+          "min": 244.913,
+          "max": 255.004042
+        },
+        "disabled": {
+          "median": 247.931875,
+          "min": 244.598792,
+          "max": 249.771125
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 36640334,
+            "StateNS": 6247583,
+            "CopyNS": 915834,
+            "DependencyNS": 3768959,
+            "NamesNS": 1140791,
+            "TotalNS": 250705334,
+            "ReadParseNotes": 750,
+            "ResolvedLinks": 6000,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 34045292,
+            "StateNS": 5303958,
+            "CopyNS": 816667,
+            "DependencyNS": 2574916,
+            "NamesNS": 1135292,
+            "TotalNS": 235911750,
+            "ReadParseNotes": 750,
+            "ResolvedLinks": 6000,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-delete-0.01",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "delete",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          359.390625,
+          363.43075,
+          358.262375,
+          349.263958,
+          354.641625
+        ],
+        "enabled": [
+          50.609792,
+          51.815084,
+          50.898083,
+          49.495666,
+          50.49425
+        ],
+        "disabled": [
+          51.058166,
+          50.429792,
+          50.614459,
+          50.741333,
+          50.531917
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 358.262375,
+          "min": 349.263958,
+          "max": 363.43075
+        },
+        "enabled": {
+          "median": 50.609792,
+          "min": 49.495666,
+          "max": 51.815084
+        },
+        "disabled": {
+          "median": 50.614459,
+          "min": 50.429792,
+          "max": 51.058166
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 23227501,
+            "StateNS": 5303792,
+            "CopyNS": 792916,
+            "DependencyNS": 1504291,
+            "NamesNS": 2602375,
+            "TotalNS": 43576209,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 60,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 23240542,
+            "StateNS": 5245125,
+            "CopyNS": 1554792,
+            "DependencyNS": 1346166,
+            "NamesNS": 2563042,
+            "TotalNS": 44143625,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 60,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-delete-0.5",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "delete",
+      "changed": 750,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          187.88175,
+          190.825958,
+          185.060792,
+          185.690167,
+          185.068917
+        ],
+        "enabled": [
+          103.363334,
+          102.90825,
+          105.420541,
+          104.340209,
+          106.99075
+        ],
+        "disabled": [
+          101.712833,
+          102.398792,
+          104.645708,
+          106.632083,
+          105.497667
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 185.690167,
+          "min": 185.060792,
+          "max": 190.825958
+        },
+        "enabled": {
+          "median": 104.340209,
+          "min": 102.90825,
+          "max": 106.99075
+        },
+        "disabled": {
+          "median": 104.645708,
+          "min": 101.712833,
+          "max": 106.632083
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 12733541,
+            "StateNS": 5087417,
+            "CopyNS": 1415625,
+            "DependencyNS": 10578750,
+            "NamesNS": 2452416,
+            "TotalNS": 97548750,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 300,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 12971834,
+            "StateNS": 5072583,
+            "CopyNS": 827584,
+            "DependencyNS": 10684916,
+            "NamesNS": 2512042,
+            "TotalNS": 96858667,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 300,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-move-0.01",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "move",
+      "changed": 15,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          357.643125,
+          373.915,
+          359.939292,
+          357.053583,
+          370.987834
+        ],
+        "enabled": [
+          55.94825,
+          66.308875,
+          56.639583,
+          56.543417,
+          54.987708
+        ],
+        "disabled": [
+          56.049916,
+          65.83625,
+          56.411333,
+          55.332417,
+          55.448834
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 359.939292,
+          "min": 357.053583,
+          "max": 373.915
+        },
+        "enabled": {
+          "median": 56.543417,
+          "min": 54.987708,
+          "max": 66.308875
+        },
+        "disabled": {
+          "median": 56.049916,
+          "min": 55.332417,
+          "max": 65.83625
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 23394000,
+            "StateNS": 5308708,
+            "CopyNS": 1227750,
+            "DependencyNS": 1320333,
+            "NamesNS": 2699000,
+            "TotalNS": 48253333,
+            "ReadParseNotes": 15,
+            "ResolvedLinks": 120,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 24211709,
+            "StateNS": 5223250,
+            "CopyNS": 1245417,
+            "DependencyNS": 1505167,
+            "NamesNS": 2634500,
+            "TotalNS": 49879750,
+            "ReadParseNotes": 15,
+            "ResolvedLinks": 120,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "n1500-b8192-move-0.5",
+      "notes": 1500,
+      "assets": 1,
+      "body_bytes": 12189390,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": false,
+      "raw_targets": [],
+      "change": "move",
+      "changed": 750,
+      "rate": 0.5,
+      "samples_ms": {
+        "full": [
+          357.749792,
+          361.705042,
+          363.930375,
+          369.001167,
+          363.305667
+        ],
+        "enabled": [
+          320.774084,
+          328.269625,
+          320.085625,
+          334.963875,
+          323.236292
+        ],
+        "disabled": [
+          326.319959,
+          336.874,
+          332.159792,
+          329.221291,
+          324.323083
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 363.305667,
+          "min": 357.749792,
+          "max": 369.001167
+        },
+        "enabled": {
+          "median": 323.236292,
+          "min": 320.085625,
+          "max": 334.963875
+        },
+        "disabled": {
+          "median": 329.221291,
+          "min": 324.323083,
+          "max": 336.874
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 23411208,
+            "StateNS": 5272959,
+            "CopyNS": 1010667,
+            "DependencyNS": 10499208,
+            "NamesNS": 16900458,
+            "TotalNS": 324402167,
+            "ReadParseNotes": 750,
+            "ResolvedLinks": 3300,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 23357124,
+            "StateNS": 5290292,
+            "CopyNS": 807000,
+            "DependencyNS": 11097917,
+            "NamesNS": 16073917,
+            "TotalNS": 319997375,
+            "ReadParseNotes": 750,
+            "ResolvedLinks": 3300,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 1502
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "raw-basename-body",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 42742,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": true,
+      "raw_targets": [
+        [
+          "phantom",
+          null
+        ]
+      ],
+      "change": "body",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          29.524334,
+          30.82775,
+          29.044375,
+          24.180583,
+          24.481209
+        ],
+        "enabled": [
+          14.2925,
+          14.634792,
+          13.425834,
+          12.724042,
+          12.781291
+        ],
+        "disabled": [
+          16.215792,
+          17.249958,
+          12.482125,
+          12.698084,
+          12.181458
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 29.044375,
+          "min": 24.180583,
+          "max": 30.82775
+        },
+        "enabled": {
+          "median": 13.425834,
+          "min": 12.724042,
+          "max": 14.634792
+        },
+        "disabled": {
+          "median": 12.698084,
+          "min": 12.181458,
+          "max": 17.249958
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3152875,
+            "StateNS": 699083,
+            "CopyNS": 402959,
+            "DependencyNS": 0,
+            "NamesNS": 176417,
+            "TotalNS": 6186959,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 6,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3265833,
+            "StateNS": 714958,
+            "CopyNS": 114625,
+            "DependencyNS": 0,
+            "NamesNS": 170375,
+            "TotalNS": 5853250,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 6,
+            "BasenameEvaluations": 0,
+            "DependenciesChecked": 0
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "raw-basename-add",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 42742,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": true,
+      "raw_targets": [
+        [
+          "note",
+          "Future.md"
+        ]
+      ],
+      "change": "add",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          22.920833,
+          25.094791,
+          25.989583,
+          24.7035,
+          24.188166
+        ],
+        "enabled": [
+          19.083375,
+          21.698417,
+          20.478542,
+          19.958833,
+          20.030875
+        ],
+        "disabled": [
+          18.65025,
+          24.858542,
+          20.367875,
+          19.94925,
+          20.021459
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 24.7035,
+          "min": 22.920833,
+          "max": 25.989583
+        },
+        "enabled": {
+          "median": 20.030875,
+          "min": 19.083375,
+          "max": 21.698417
+        },
+        "disabled": {
+          "median": 20.021459,
+          "min": 18.65025,
+          "max": 24.858542
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3351082,
+            "StateNS": 708166,
+            "CopyNS": 144000,
+            "DependencyNS": 343209,
+            "NamesNS": 74584,
+            "TotalNS": 12557583,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 320,
+            "BasenameEvaluations": 2,
+            "DependenciesChecked": 67
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3500625,
+            "StateNS": 712250,
+            "CopyNS": 134041,
+            "DependencyNS": 320625,
+            "NamesNS": 85167,
+            "TotalNS": 12821209,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 320,
+            "BasenameEvaluations": 2,
+            "DependenciesChecked": 67
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "raw-basename-delete",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 42742,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": true,
+      "raw_targets": [
+        [
+          "phantom",
+          null
+        ]
+      ],
+      "change": "delete",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          24.69375,
+          24.4845,
+          24.196875,
+          24.435791,
+          24.068542
+        ],
+        "enabled": [
+          12.415667,
+          12.540167,
+          12.327583,
+          13.031417,
+          12.287667
+        ],
+        "disabled": [
+          12.956125,
+          12.483917,
+          12.558167,
+          12.532542,
+          13.878375
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 24.435791,
+          "min": 24.068542,
+          "max": 24.69375
+        },
+        "enabled": {
+          "median": 12.415667,
+          "min": 12.287667,
+          "max": 13.031417
+        },
+        "disabled": {
+          "median": 12.558167,
+          "min": 12.483917,
+          "max": 13.878375
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3401583,
+            "StateNS": 721666,
+            "CopyNS": 130791,
+            "DependencyNS": 232500,
+            "NamesNS": 179583,
+            "TotalNS": 6020042,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 5,
+            "BasenameEvaluations": 2,
+            "DependenciesChecked": 67
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 3458584,
+            "StateNS": 709125,
+            "CopyNS": 133208,
+            "DependencyNS": 291208,
+            "NamesNS": 207000,
+            "TotalNS": 6303042,
+            "ReadParseNotes": 0,
+            "ResolvedLinks": 5,
+            "BasenameEvaluations": 2,
+            "DependenciesChecked": 67
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    },
+    {
+      "case": "raw-basename-move",
+      "notes": 64,
+      "assets": 1,
+      "body_bytes": 42742,
+      "selected": [],
+      "excluded_wiki_literal": [],
+      "raw_path": true,
+      "raw_targets": [
+        [
+          "phantom",
+          null
+        ]
+      ],
+      "change": "move",
+      "changed": 1,
+      "rate": 0.01,
+      "samples_ms": {
+        "full": [
+          24.763167,
+          27.451584,
+          26.055417,
+          27.838125,
+          27.359084
+        ],
+        "enabled": [
+          13.25875,
+          16.658125,
+          14.295125,
+          14.604,
+          14.419292
+        ],
+        "disabled": [
+          13.963417,
+          17.214083,
+          15.407542,
+          17.769625,
+          14.489041
+        ]
+      },
+      "summary_ms": {
+        "full": {
+          "median": 27.359084,
+          "min": 24.763167,
+          "max": 27.838125
+        },
+        "enabled": {
+          "median": 14.419292,
+          "min": 13.25875,
+          "max": 16.658125
+        },
+        "disabled": {
+          "median": 15.407542,
+          "min": 13.963417,
+          "max": 17.769625
+        }
+      },
+      "trace": {
+        "enabled": [
+          {
+            "InventoryNS": 3287125,
+            "StateNS": 709125,
+            "CopyNS": 140958,
+            "DependencyNS": 230083,
+            "NamesNS": 253667,
+            "TotalNS": 6486833,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 10,
+            "BasenameEvaluations": 2,
+            "DependenciesChecked": 67
+          }
+        ],
+        "disabled": [
+          {
+            "InventoryNS": 4569083,
+            "StateNS": 774500,
+            "CopyNS": 192375,
+            "DependencyNS": 227417,
+            "NamesNS": 193750,
+            "TotalNS": 7955917,
+            "ReadParseNotes": 1,
+            "ResolvedLinks": 10,
+            "BasenameEvaluations": 2,
+            "DependenciesChecked": 67
+          }
+        ]
+      },
+      "semantics_equal": true,
+      "disabled_full_equal": true
+    }
+  ],
+  "disabled_full_verification": {
+    "exit_code": 0,
+    "cases": 28,
+    "duration_seconds": 5.906006082994281,
+    "timing": "after paired measurements; excluded from samples"
+  },
+  "build_verification": [
+    {
+      "command": [
+        "go",
+        "build",
+        "-o",
+        ".tmp/wikilink-enabled",
+        "./cmd/mdhop"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.21677291599917226
+    },
+    {
+      "command": [
+        "go",
+        "-C",
+        ".tmp/_go/wikilink-disabled",
+        "build",
+        "-o",
+        "../../wikilink-disabled",
+        "./cmd/mdhop"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.11705545800214168
+    },
+    {
+      "command": [
+        "go",
+        "-C",
+        ".tmp/_go/wikilink-enabled-trace",
+        "build",
+        "-o",
+        "../../wikilink-enabled-trace",
+        "./cmd/mdhop"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.10602212499361485
+    },
+    {
+      "command": [
+        "go",
+        "-C",
+        ".tmp/_go/wikilink-disabled-trace",
+        "build",
+        "-o",
+        "../../wikilink-disabled-trace",
+        "./cmd/mdhop"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.10676495899679139
+    }
+  ]
+}
