@@ -17,10 +17,14 @@ Options:
 --db, --config, and positional arguments are not accepted.
 Both YAML and TOML present is an error; neither file is changed.
 Unknown or unconvertible YAML settings are errors. YAML merge keys are unsupported.
+All path globs, including query/search filters, are validated before publication.
+Converted TOML preserves the legacy YAML file permissions.
 Conversion, save, or rebuild failure retains the old YAML and .mdhop/.
 A new TOML is rolled back on rebuild failure. Rollback or cleanup failure reports
 remaining paths; inspect them before retrying. After cleanup failure, the new
 cache index is already published. No stdout output on success; warnings use stderr.
+Use mdhop paths --vault <path> to inspect the new locations.
+Serialize migrate with build and other index writes.
 
 Examples:
   mdhop migrate

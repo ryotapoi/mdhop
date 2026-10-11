@@ -6,7 +6,7 @@ mdhop は、Obsidian Vault 相当の Markdown リポジトリを事前解析し�
 
 - 対象は Vault 配下の Markdown ノートと、画像・PDF 等の非 Markdown ファイル（asset）。wikilink、Markdown link・参照リンク、タグ、frontmatter による関係を扱う。
 - 実在しないリンク先も phantom として扱い、未作成の概念への参照元を探索できるようにする。
-- ローカルの SQLite で完結する。出力するファイルパスは Vault 相対・forward slash・Unicode NFC に正規化し、OS のパス表現に依存させない。
+- ローカルの SQLite で完結する。ノート・asset の識別と出力に使うパスは Vault 相対・forward slash・Unicode NFC に正規化し、OS のパス表現に依存させない。配置確認用の `paths` は Vault・設定・DB の実効的な絶対パスを返す。
 
 ## 正しさと安全性
 

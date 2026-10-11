@@ -6,7 +6,7 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
-const buildHelp = `Usage: mdhop build [--vault <path>]
+const buildHelp = `Usage: mdhop build [--vault <path>] [--db <path>] [--config <path>]
 
 Build the SQLite index for an Obsidian-style Markdown vault.
 
@@ -21,10 +21,22 @@ Output:
 
 Location paths may be absolute or relative to the current directory.
 Note paths and configuration globs remain relative to the vault.
+An explicit config must exist; unreadable or invalid configs are errors.
+Legacy mdhop.yaml and .mdhop/ are not used or migrated; use mdhop migrate.
+Use mdhop paths to inspect effective locations. Rebuild after cache removal or
+moving the vault; use --db for separate indexes of the same vault.
+
+The temporary DB is built beside the selected DB and published only on success;
+failure preserves the old index. An external DB requires no writes to the vault.
+On local Ubuntu/macOS filesystems, readers already connected retain the old index,
+and readers connecting after replacement see the new completed index.
+Serialize build with other index writes, including update and migrate.
+Separate CLI calls and edited note contents are not guaranteed the same snapshot.
 
 Examples:
   mdhop build
   mdhop build --vault ~/Notes
+  mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml
 
 `
 

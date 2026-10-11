@@ -12,7 +12,9 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 - Use `--format json` for agent-facing output.
 - Use `--relations` on `query` and `--fields` on `inspect`, `search`, `resolve`, `reachable`, `stats`, and `diagnose` to select only the data you need.
 - Run commands from the vault root, or pass `--vault <path>`.
-- Treat paths as vault-relative.
+- Treat note paths and configuration globs as vault-relative. `--vault`, `--db`, and `--config` accept absolute paths or paths relative to the current directory.
+- Keep the same vault, DB, and config selection across related commands. Use `--db` to separate indexes built with different configurations of the same vault.
+- Serialize index writes such as `build`, `update`, and `migrate`; concurrent reads during a build can use the completed index.
 - Do not use raw `mv`, `rm`, or `cp` for indexed vault files. Use `mdhop move`, `mdhop delete --rm`, and write-then-`mdhop add`.
 - Do not hand-edit a single frontmatter key. Use `mdhop set` so the index stays in sync.
 - Finish editing file contents before `mdhop add` or `mdhop update`; the index should reflect the final file state.
@@ -21,12 +23,42 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 
 ## Start Here
 
+Use `mdhop paths --format json` to inspect effective vault, config, and DB locations
+without reading or creating config or DB files. The default config is
+`<vault>/mdhop.toml`; a missing default means no config. `--config` selects only
+that file, which must exist and contain valid TOML.
+
+The default index is stored in `<cache>/mdhop/vaults/<vault-hash>/index.sqlite`.
+Cache uses absolute `XDG_CACHE_HOME`, otherwise `~/.cache`; the hash identifies
+the symlink-resolved absolute vault root. Run `mdhop build` if the index is
+missing, the cache was removed, or the vault moved.
+
 ```bash
 mdhop stats --format json
 mdhop diagnose --format json
 mdhop search --where "status=active || status=review" --fields meta --format json
 mdhop query --file Notes/Design.md --relations backlinks,outgoing --format json
 ```
+
+For independent locations, pass the same selection to each command:
+
+```bash
+mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml
+mdhop query --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml --file Index.md --format json
+```
+
+### Migrate Legacy Configuration and Index
+
+Normal commands do not read `mdhop.yaml` or use the old `.mdhop/` index. Run
+`mdhop migrate --help`, then `mdhop migrate --vault <path>` to convert legacy
+YAML to TOML and rebuild the default cache index. `migrate` accepts neither
+`--db` nor `--config`. Note frontmatter remains YAML.
+
+Migration removes the old YAML and `.mdhop/` only after a successful rebuild.
+If YAML and TOML both exist, preserve both and move one outside the vault before
+retrying. Conversion, save, or rebuild failure retains the legacy files; cleanup
+failure can leave some legacy paths after publishing the new index. Inspect
+reported remaining paths before retrying.
 
 ### Check Index Drift Without Changing It
 
@@ -98,7 +130,7 @@ Run `mdhop reachable --help`, `mdhop graph --help`, `mdhop stats --help`, or `md
 
 ### Validate Frontmatter
 
-Use `mdhop meta-check` to verify that frontmatter reference values point to real paths or wikilinks. Use `mdhop meta-validate` to check required keys and declared types from `mdhop.toml`.
+Use `mdhop meta-check` to verify that frontmatter reference values point to real paths or wikilinks. Use `mdhop meta-validate` to check required keys and declared types from the selected TOML config.
 
 ```bash
 mdhop meta-check --key sources --kind path --format json
@@ -149,7 +181,7 @@ Run `mdhop disambiguate --help`, `mdhop repair --help`, `mdhop simplify --help`,
 
 ### Initialize Metadata Schema
 
-Use `mdhop init-meta` to scaffold `mdhop.toml` `meta.types` from presets, a vault scan, or both.
+Use `mdhop init-meta` to scaffold TOML `meta.types` from presets, a vault scan, or both. It prints TOML by default; `--write` updates the selected config, preserving existing settings, explicit types, and file permissions. A missing default config can be created, but an explicit `--config` must already exist. No index DB is opened.
 
 ```bash
 mdhop init-meta --preset --scan

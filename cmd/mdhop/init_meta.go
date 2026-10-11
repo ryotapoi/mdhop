@@ -9,7 +9,7 @@ import (
 	"github.com/ryotapoi/mdhop/internal/core"
 )
 
-const initMetaHelp = `Usage: mdhop init-meta (--preset|--scan) [--write] [--no-comment] [--vault <path>]
+const initMetaHelp = `Usage: mdhop init-meta (--preset|--scan) [--write] [--no-comment] [--vault <path>] [--db <path>] [--config <path>]
 
 Generate mdhop.toml meta type definitions from presets, a vault scan, or both.
 
@@ -26,6 +26,10 @@ Output:
   TOML is written to stdout by default. With --write, update --config when specified,
   otherwise <vault>/mdhop.toml. An explicit --config file must already exist;
   a missing explicit file is an error. A missing default file may be created.
+  Existing settings and explicit type definitions take precedence. Updating an
+  existing file preserves its permissions, but not all formatting or comments.
+
+No index DB is opened. Note frontmatter remains YAML; generated config is TOML.
 
 Location paths may be absolute or relative to the current directory.
 Note paths and configuration globs remain relative to the vault.
