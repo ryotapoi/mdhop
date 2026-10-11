@@ -6,6 +6,23 @@
 
 ## [Unreleased]
 
+## [v0.24.0] - 2026-10-12
+
+### 変更
+
+- Markdown の参照先を `to.md` のような裸の名前も含めて元ノート相対で解決し、先頭 `/` は Vault ルート基準とした。参照リンクの定義・画像・asset にも同じ規則を適用する。Markdown link では Vault 全体の basename 探索とルートへの fallback を行わず、wikilink と frontmatter の raw path 値は従来の規則を維持する。
+- convert・move の書き換え・repair・simplify を新しい Markdown 規則に合わせ、参照先を維持するようにした。convert は明示的な相対 wikilink と Vault ルート基準の Markdown path、repair は安全な Vault ルート基準の Markdown path、simplify は短い元ノート相対 path を使う。
+- `build` が nanosecond mtime・size で追加・変更・削除を自動検出し、未変更ノートの読み取り・解析を省き、影響するリンクを再評価するようにした。強制全量再生成の `--full` を追加。旧形式・不完全な索引、索引に影響する実効設定・canonical Vault root の変更、成功した index mutation 後は自動的に全量再生成する。
+
+### アップグレード
+
+- 既存の Markdown basename / Vault 相対リンクを意図する参照先に合わせて直し、`mdhop build` を実行すること。旧索引は全量再生成が必要で、参照・差分更新には利用できない。リンクの自動移行や互換モードは提供しない。
+- mtime と size を両方保持した編集・復元には `build --full` を使うこと。`status` は秒精度 mtime 比較を維持し、build の更新対象のプレビューにはならない。build 中に検知した入力変動は旧索引を保持して失敗するが、filesystem snapshot や lock は提供しない。
+
+### 文書
+
+- 元ノート相対の Markdown link と自動差分 build に合わせ、README 日英・CLI ヘルプ・agent skill 例・要件・現行 ADR を更新。build の性能比較を記録し、wikilink 無効化設定は追加の実用的効果を確認できなかったため導入しなかった。
+
 ## [v0.23.0] - 2026-10-11
 
 ### 追加

@@ -6,6 +6,23 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.24.0] - 2026-10-12
+
+### Changed
+
+- Markdown destinations now resolve relative to the source note, including bare names such as `to.md`; a leading `/` starts at the vault root. Reference definitions, images, and assets follow the same rule. Vault-wide basename lookup and root fallback no longer apply to Markdown links; wikilinks and raw frontmatter paths retain their existing rules.
+- Link conversion, move rewrites, repair, and simplification preserve targets under the new Markdown rules. Conversion uses explicit relative wikilinks and vault-root Markdown paths; repair uses safe vault-root Markdown paths, and simplification uses shorter source-relative paths.
+- `build` now automatically detects added, changed, and deleted files using nanosecond mtime and size, skipping reads and parsing of unchanged notes and re-evaluating affected links. Added `--full` to force full regeneration. Old or incomplete indexes, changed index-effective settings or canonical vault roots, and successful index mutations trigger full regeneration automatically.
+
+### Upgrade
+
+- Adjust existing Markdown basename and vault-relative destinations to preserve their intended targets, then run `mdhop build`. Older indexes require full regeneration and cannot be queried or incrementally updated. No automatic link migration or compatibility mode is provided.
+- Edits or restores preserving both mtime and size require `build --full`. `status` retains its whole-second mtime comparison and is not a preview of build's update set. Detected input changes during build fail while preserving the old index; build does not provide a filesystem snapshot or lock.
+
+### Documentation
+
+- Updated both READMEs, CLI help, the example agent skill, requirements, and current ADRs for source-relative Markdown links and automatic incremental builds. Recorded build performance comparisons; no wikilink-disable setting was introduced after evaluation found no practical additional benefit.
+
 ## [v0.23.0] - 2026-10-11
 
 ### Added
