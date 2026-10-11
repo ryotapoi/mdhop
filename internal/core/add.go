@@ -303,17 +303,8 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 	// Resolve links and create edges.
 	for _, pf := range parsed {
 		sourceID := rm.pathToID[pf.file.path]
-		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.file.path, link, rm)
-			if err != nil {
-				return nil, err
-			}
-			if targetID == 0 {
-				continue
-			}
-			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd, link.inTable); err != nil {
-				return nil, err
-			}
+		if err := indexParsedLinks(tx, sourceID, pf.file.path, pf.links, rm); err != nil {
+			return nil, err
 		}
 
 		// Insert meta entries.

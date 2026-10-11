@@ -58,10 +58,15 @@ func rewriteFrontmatterCandidate(content []byte, rewrites []rewriteEntry) ([]byt
 	}
 
 	used := make([]bool, len(occurrences))
+	expectedOccurrences := make([]linkOccur, len(occurrences))
+	for i, occurrence := range occurrences {
+		expectedOccurrences[i] = occurrence.linkOccur
+	}
 	replacements := make([]frontmatterSourceReplacement, 0, len(frontmatterRewrites))
 	scalarReplacements := make(map[*yaml.Node][]frontmatterScalarReplacement)
 	for _, rewrite := range frontmatterRewrites {
-		if links := parseWikiLinks(rewrite.newRawLink, rewrite.lineStart); len(links) != 1 || links[0].rawLink != rewrite.newRawLink {
+		links := parseWikiLinks(rewrite.newRawLink, rewrite.lineStart)
+		if len(links) != 1 || links[0].rawLink != rewrite.newRawLink {
 			return nil, fmt.Errorf("frontmatter wikilink %q has invalid planned replacement %q", rewrite.rawLink, rewrite.newRawLink)
 		}
 
@@ -81,6 +86,10 @@ func rewriteFrontmatterCandidate(content []byte, rewrites []rewriteEntry) ([]byt
 			return nil, fmt.Errorf("frontmatter quoted scalar at line %d cannot prove decoded/source correspondence", rewrite.lineStart)
 		}
 		used[found] = true
+		updated := links[0]
+		updated.linkType = LinkTypeFrontmatterWikilink
+		updated.frontmatterKey = occurrence.frontmatterKey
+		expectedOccurrences[found] = updated
 		valueOffset := occurrence.start - scalarContentStart(lines, occurrence.scalar)
 		scalarReplacements[occurrence.scalar] = append(scalarReplacements[occurrence.scalar], frontmatterScalarReplacement{
 			start: valueOffset,
@@ -106,7 +115,7 @@ func rewriteFrontmatterCandidate(content []byte, rewrites []rewriteEntry) ([]byt
 	if !sameFrontmatterMeaning(originalDoc, candidateDoc, expectedValues) {
 		return nil, fmt.Errorf("frontmatter wikilink rewrite changes YAML interpretation")
 	}
-	if !sameFrontmatterRewriteOccurrences(frontmatterWikilinkOccurrences(candidate), expectedFrontmatterOccurrences(occurrences, frontmatterRewrites)) {
+	if !sameFrontmatterRewriteOccurrences(frontmatterWikilinkOccurrences(candidate), expectedOccurrences) {
 		return nil, fmt.Errorf("frontmatter wikilink rewrite does not match the planned occurrence sequence")
 	}
 	return []byte(candidate), nil
@@ -268,27 +277,6 @@ func frontmatterWikilinkOccurrences(content string) []linkOccur {
 		}
 	}
 	return out
-}
-
-func expectedFrontmatterOccurrences(original []frontmatterRewriteOccurrence, rewrites []rewriteEntry) []linkOccur {
-	result := make([]linkOccur, len(original))
-	for i, occurrence := range original {
-		result[i] = occurrence.linkOccur
-	}
-	used := make([]bool, len(original))
-	for _, rewrite := range rewrites {
-		for i, occurrence := range original {
-			if !used[i] && occurrence.lineStart == rewrite.lineStart && occurrence.rawLink == rewrite.rawLink {
-				updated := parseWikiLinks(rewrite.newRawLink, rewrite.lineStart)[0]
-				updated.linkType = LinkTypeFrontmatterWikilink
-				updated.frontmatterKey = occurrence.frontmatterKey
-				result[i] = updated
-				used[i] = true
-				break
-			}
-		}
-	}
-	return result
 }
 
 func sameFrontmatterRewriteOccurrences(got, want []linkOccur) bool {

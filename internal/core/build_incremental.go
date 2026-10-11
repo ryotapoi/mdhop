@@ -546,17 +546,8 @@ func buildIncremental(vaultPath, dbp string, inputs *buildInputs, state *savedBu
 			if _, err := tx.Exec("DELETE FROM edges WHERE source_id=?", sourceID); err != nil {
 				return nil, err
 			}
-			for _, link := range sourceLinks {
-				targetID, subpath, err := resolveLink(tx, path, link, rm)
-				if err != nil {
-					return nil, err
-				}
-				if targetID == 0 {
-					continue
-				}
-				if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd, link.inTable); err != nil {
-					return nil, err
-				}
+			if err := indexParsedLinks(tx, sourceID, path, sourceLinks, rm); err != nil {
+				return nil, err
 			}
 		}
 		if note, ok := prepared[path]; ok {

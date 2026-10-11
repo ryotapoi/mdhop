@@ -202,29 +202,6 @@ func stripInlineCode(line string) string {
 	return out.String()
 }
 
-// stripWikiLinks removes [[...]] from a line to avoid tag false positives.
-func stripWikiLinks(line string) string {
-	for {
-		start := strings.Index(line, "[[")
-		if start == -1 {
-			break
-		}
-		end := strings.Index(line[start+2:], "]]")
-		if end == -1 {
-			break
-		}
-		end = start + 2 + end + 2
-		line = line[:start] + line[end:]
-	}
-	return line
-}
-
-// stripMarkdownLinks masks inline Markdown links to avoid tag false positives.
-func stripMarkdownLinks(line string) string {
-	_, masked, _ := parseBodyMarkdown(line, 0, nil)
-	return masked
-}
-
 func parseWikiLinks(line string, lineNum int, table ...bool) []linkOccur {
 	var out []linkOccur
 	for _, span := range wikiLinkSpans(line) {

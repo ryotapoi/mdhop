@@ -82,23 +82,11 @@ func Update(vaultPath string, opts UpdateOptions, locations ...Locations) (*Upda
 		}
 	}
 
-	// Adjust maps to reflect post-update vault state.
+	// Inputs are registered and deduplicated above, so each missing note is
+	// removed exactly once before resolving the surviving files' links.
 	for _, cf := range classified {
 		if !cf.existsOnDisk {
-			// Only adjust maps if the file was present in them.
-			// removeNote decrements basenameCounts for the deleted file; if a
-			// root-level file is removed and only one file with that basename
-			// remains, the basename becomes unambiguous and links that were
-			// previously rejected can now resolve.
-			if _, ok := rm.pathToID[cf.path]; ok {
-				rm.removeNote(cf.path)
-			}
-		} else {
-			// Ensure present in maps (normally already there for registered notes).
-			if _, ok := rm.pathToID[cf.path]; !ok {
-				rm.registerNote(cf.path, cf.id)
-				rm.addNote(cf.path)
-			}
+			rm.removeNote(cf.path)
 		}
 	}
 
@@ -168,17 +156,8 @@ func Update(vaultPath string, opts UpdateOptions, locations ...Locations) (*Upda
 		}
 
 		// Re-resolve links and create new edges.
-		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.cf.path, link, rm)
-			if err != nil {
-				return nil, err
-			}
-			if targetID == 0 {
-				continue
-			}
-			if err := insertEdge(tx, pf.cf.id, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd, link.inTable); err != nil {
-				return nil, err
-			}
+		if err := indexParsedLinks(tx, pf.cf.id, pf.cf.path, pf.links, rm); err != nil {
+			return nil, err
 		}
 
 		// Insert meta entries.

@@ -216,17 +216,8 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 		if err := validateParsedLinks(m.to, newLinks, dm.rm); err != nil {
 			return nil, err
 		}
-		for _, link := range newLinks {
-			targetID, subpath, err := resolveLink(tx, m.to, link, dm.rm)
-			if err != nil {
-				return nil, err
-			}
-			if targetID == 0 {
-				continue
-			}
-			if err := insertEdge(tx, m.nodeID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd, link.inTable); err != nil {
-				return nil, err
-			}
+		if err := indexParsedLinks(tx, m.nodeID, m.to, newLinks, dm.rm); err != nil {
+			return nil, err
 		}
 	}
 

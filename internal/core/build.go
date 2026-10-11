@@ -76,17 +76,8 @@ func buildPrepared(vaultPath string, prepared *preparedBuild, locations ...Locat
 	// Pass 2: resolve links and create edges (using cached parsed data).
 	for _, pf := range prepared.notes {
 		sourceID := prepared.resolveMaps.pathToID[pf.path]
-		for _, link := range pf.links {
-			targetID, subpath, err := resolveLink(tx, pf.path, link, prepared.resolveMaps)
-			if err != nil {
-				return nil, err
-			}
-			if targetID == 0 {
-				continue
-			}
-			if err := insertEdge(tx, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd, link.inTable); err != nil {
-				return nil, err
-			}
+		if err := indexParsedLinks(tx, sourceID, pf.path, pf.links, prepared.resolveMaps); err != nil {
+			return nil, err
 		}
 	}
 
@@ -132,6 +123,24 @@ func buildPrepared(vaultPath string, prepared *preparedBuild, locations ...Locat
 		return nil, err
 	}
 	return &BuildResult{Warnings: metaWarnings}, nil
+}
+
+// indexParsedLinks resolves parsed links and inserts their edges in parser order.
+// The caller owns validation, node registration, and the surrounding transaction.
+func indexParsedLinks(db dbExecer, sourceID int64, sourcePath string, links []linkOccur, rm *resolveMaps) error {
+	for _, link := range links {
+		targetID, subpath, err := resolveLink(db, sourcePath, link, rm)
+		if err != nil {
+			return err
+		}
+		if targetID == 0 {
+			continue
+		}
+		if err := insertEdge(db, sourceID, targetID, link.linkType, link.rawLink, link.frontmatterKey, link.referenceTarget, subpath, link.lineStart, link.lineEnd, link.inTable); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // resolveLink resolves a linkOccur to a target node ID and subpath.
