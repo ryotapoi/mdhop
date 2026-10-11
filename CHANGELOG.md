@@ -6,6 +6,16 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.22.1] - 2026-10-11
+
+### Fixed
+
+- Fixed vault scans through a symlink root so `build` and `status` collect the same notes, assets, and links as the real path, without indexing the root itself as an asset. Related disk scans retain vault boundary protection.
+
+### Performance
+
+- Reused index placement resolution within each operation, reducing repeated filesystem work in `build`, `status`, and related scan and note mutation paths while preserving index self-exclusion and symlink handling.
+
 ## [v0.22.0] - 2026-10-11
 
 ### Changed

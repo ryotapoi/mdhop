@@ -4,22 +4,6 @@
 
 ## タスク
 
-### v0.22.1
-
-- [x] symlink の Vault root からの走査で実体と同じ入力を収集する（FR-001）
-
-  目的: 許可された root symlink 経由の `build` が不完全な索引で既存 DB を置換し、`status` が実在ノートを削除済みと判断する既存不具合を修正する。
-
-  受入条件: 実体パスで索引を作成した後、同じ Vault への root symlink から `status`・`build` を実行しても、ノート・asset・リンクの収集結果が一致し、root 自体を asset `.` として登録しない。同じ走査を使う直接の関連経路を確認し、Vault 内 symlink と mutation の Vault 外保護を維持する。
-
-- [x] 索引除外判定の不変な配置情報を操作単位で解決して高速化する（FR-005）
-
-  目的: ファイルごとに同じ Vault・DB 親の実体パスと Vault hash を再解決する filesystem I/O を減らす。
-
-  受入条件: `build`・`status` と同じ判定を使う直接の関連経路で、不変な配置情報を入力件数分再解決しない。選択 DB の自己除外、親 symlink の解決と末尾 entry の扱いを維持する。代表的な Vault と 2 万件規模の入力で変更前後を計測し、製品の実行時間と配置解決コストの改善を確認する。
-
-  計測結果: [操作時間と配置除外コストの比較](../cache/index-files-performance.md)。
-
 ### v0.23.0
 
 - [ ] mdhop の既定キャッシュ領域に保存された索引 DB と対象 Vault のパス一覧を返す
