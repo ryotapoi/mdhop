@@ -21,6 +21,8 @@ English · [日本語](README.ja.md)
 go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 ```
 
+For v0.22.0, run `mdhop migrate` to move legacy configuration and indexes to the new locations. See [Migrating legacy locations](#migrating-legacy-locations).
+
 After upgrading an existing vault to v0.20.0 or v0.21.0, run `mdhop build`. v0.20.0 added stored reference link destinations and refreshed the number sort format changed in v0.19.5. v0.21.0 adds stored table context and an index interpretation version; older indexes require a rebuild.
 
 ## Quick Start
@@ -67,6 +69,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `status` | Compare the disk with the current index without syncing |
 | `meta-check` | Check that frontmatter path/wikilink values resolve to real targets |
 | `meta-validate` | Check frontmatter against required keys, profiles, and declared `meta.types` |
+| `paths` | Show effective vault, configuration, and index locations |
 | `migrate` | Migrate legacy YAML and vault-local index to default locations |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.toml` |
 
@@ -102,7 +105,7 @@ mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/note
 mdhop query --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml --file Index.md
 ```
 
-With an external DB, build and reference commands require no write permission on the vault and create no index or temporary files there. Builds complete a private DB beside the selected DB and publish it only after commit and close. A failed rebuild preserves the previous index. A selected DB inside the vault is excluded from status inputs and directory note mutations; its path is retained when those notes are deleted or moved. On supported Ubuntu and macOS local filesystems, readers already connected retain the old completed index; readers starting after replacement see the new one. Read operations overlapping rebuild see completed generations. This does not promise one generation across separate CLI calls or a snapshot shared with changing note text; preview stale checks still apply. Serialize build with update and other index mutations: concurrent writers are unsupported. DB-free scan and configuration generation commands accept `--db` without opening it.
+With an external DB, build and reference commands require no write permission on the vault and create no index or temporary files there. Builds complete a private DB beside the selected DB and publish it only after commit and close. A failed rebuild preserves the previous index. A selected DB inside the vault is excluded from status inputs and directory note mutations; its path is retained when those notes are deleted or moved. `add` rejects the selected DB and its auxiliary files; delete and move reject an already indexed DB resource before changing files or the index, including template moves. On supported Ubuntu and macOS local filesystems, readers already connected retain the old completed index; readers starting after replacement see the new one. Read operations overlapping rebuild see completed generations. This does not promise one generation across separate CLI calls or a snapshot shared with changing note text; preview stale checks still apply. Serialize build with update and other index mutations: concurrent writers are unsupported. DB-free scan and configuration generation commands accept `--db` without opening it.
 
 ## Migrating legacy locations
 

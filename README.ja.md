@@ -21,6 +21,8 @@ Markdown リポジトリ内のリンク関係を SQLite にインデックス化
 go install github.com/ryotapoi/mdhop/cmd/mdhop@latest
 ```
 
+v0.22.0 では `mdhop migrate` で旧設定・索引を新しい配置へ移行してください。[旧配置からの移行](#旧配置からの移行)を参照してください。
+
 既存の Vault を v0.20.0 または v0.21.0 にアップグレードした場合は、`mdhop build` を実行してください。v0.20.0 では参照リンクの定義先を保存し、v0.19.5 で変更された number 型 frontmatter metadata の sort 形式も再生成します。v0.21.0 では表内のリンク文脈と index の解釈 version を保存するため、旧 index の再生成が必要です。
 
 ## クイックスタート
@@ -66,6 +68,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `diagnose` | basename 衝突・phantom ノード・見出し anchor 切れの検出 |
 | `meta-check` | frontmatter の path / wikilink 値が実在する対象に解決するか検査 |
 | `meta-validate` | frontmatter を必須 key・profiles・`meta.types` 宣言に照らして検査 |
+| `paths` | 実効的な Vault・設定・索引の配置を表示 |
 | `migrate` | 旧 YAML 設定と Vault 内索引を既定配置へ移行 |
 | `init-meta` | `mdhop.toml` の frontmatter 型定義を生成 |
 

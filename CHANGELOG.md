@@ -6,6 +6,25 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.22.0] - 2026-10-11
+
+### Changed
+
+- Switched vault configuration to `mdhop.toml`, including `init-meta` output and updates. Note frontmatter remains YAML.
+- Added independent `--vault`, `--db`, and `--config` locations and moved the default index to the user cache. `mdhop paths` reports effective locations. Rebuilds preserve the previous index on failure and allow concurrent readers on supported local filesystems.
+
+### Added
+
+- Added `mdhop migrate` to convert legacy YAML configuration and rebuild the default cache index before removing the old configuration and vault-local index.
+
+### Fixed
+
+- Strengthened protection of the selected index during scans and note mutations, validated migration settings before publication, and preserved configuration file permissions during updates and migration.
+
+### Upgrade
+
+- Run `mdhop migrate --vault <path>` for existing vaults using `mdhop.yaml` or `.mdhop/`. Normal commands no longer read those legacy locations. See [Migrating legacy locations](README.md#migrating-legacy-locations).
+
 ## [v0.21.0] - 2026-10-08
 
 ### Added
