@@ -48,6 +48,7 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 		path  string
 		mtime int64
 	}
+	indexFiles := newIndexFileMatcher(vaultPath, locations)
 	seen := make(map[string]bool)
 	var files []addFile
 	for _, f := range opts.Files {
@@ -55,7 +56,7 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 		if np == ".." || strings.HasPrefix(np, "../") {
 			return nil, fmt.Errorf("path escapes vault: %s", f)
 		}
-		if err := rejectIndexResource(vaultPath, np, locations); err != nil {
+		if err := indexFiles.reject(np, diskPaths); err != nil {
 			return nil, err
 		}
 		if seen[np] {

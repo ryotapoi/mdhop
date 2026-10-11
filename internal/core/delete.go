@@ -69,8 +69,10 @@ func Delete(vaultPath string, opts DeleteOptions, locations ...Locations) (*Dele
 		return nil, fmt.Errorf("%w: %s", ErrFileNotRegistered, f)
 	}
 
+	indexFiles := newIndexFileMatcher(vaultPath, locations)
+	indexDiskPaths := newVaultDiskPathResolver(vaultPath)
 	for _, n := range nodes {
-		if err := rejectIndexResource(vaultPath, n.path, locations); err != nil {
+		if err := indexFiles.reject(n.path, indexDiskPaths); err != nil {
 			return nil, err
 		}
 	}
@@ -224,6 +226,7 @@ func isDeleteDirectoryArg(vaultPath, path string) bool {
 }
 
 func cleanupDeletedDirectories(vaultPath string, directories, cleanupPaths []string, diskPaths *vaultDiskPathResolver, locations ...Locations) error {
+	indexFiles := newIndexFileMatcher(vaultPath, locations)
 	for _, dir := range directories {
 		absDir, err := deleteDiskPath(diskPaths, dir)
 		if err != nil {
@@ -245,7 +248,7 @@ func cleanupDeletedDirectories(vaultPath string, directories, cleanupPaths []str
 			if strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
 				return nil
 			}
-			excluded, err := isIndexFile(vaultPath, path, locations)
+			excluded, err := indexFiles.matches(path)
 			if err != nil {
 				return err
 			}

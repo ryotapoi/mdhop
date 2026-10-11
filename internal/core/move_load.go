@@ -145,6 +145,7 @@ func checkDestinationsFree(db dbExecer, moves []moveInfo) error {
 // registered in the DB. They will be moved verbatim alongside the registered files.
 // Returns an empty slice when fromDir does not exist on disk (already-moved mode).
 func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo, locations ...Locations) ([]diskOnlyMove, error) {
+	indexFiles := newIndexFileMatcher(vaultPath, locations)
 	var diskOnlyFiles []diskOnlyMove
 	absDir := filepath.Join(vaultPath, fromDir)
 	registeredPaths := make(map[string]bool, len(moves))
@@ -170,7 +171,7 @@ func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo, lo
 		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 			return nil
 		}
-		excluded, err := isIndexFile(vaultPath, path, locations)
+		excluded, err := indexFiles.matches(path)
 		if err != nil {
 			return err
 		}
@@ -264,8 +265,10 @@ func fileExists(path string) bool {
 
 // checkMoveSourcesProtectIndex validates the whole registered batch before mutation.
 func checkMoveSourcesProtectIndex(vaultPath string, moves []moveInfo, locations []Locations) error {
+	indexFiles := newIndexFileMatcher(vaultPath, locations)
+	indexDiskPaths := newVaultDiskPathResolver(vaultPath)
 	for _, move := range moves {
-		if err := rejectIndexResource(vaultPath, move.from, locations); err != nil {
+		if err := indexFiles.reject(move.from, indexDiskPaths); err != nil {
 			return err
 		}
 	}

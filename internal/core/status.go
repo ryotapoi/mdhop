@@ -57,11 +57,12 @@ func Status(vaultPath string, locations ...Locations) (*StatusResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	noteFiles, err = filterIndexFiles(vaultPath, noteFiles, locations)
+	indexFiles := newIndexFileMatcher(vaultPath, locations)
+	noteFiles, err = indexFiles.filter(noteFiles)
 	if err != nil {
 		return nil, err
 	}
-	assetFiles, err = filterIndexFiles(vaultPath, assetFiles, locations)
+	assetFiles, err = indexFiles.filter(assetFiles)
 	if err != nil {
 		return nil, err
 	}

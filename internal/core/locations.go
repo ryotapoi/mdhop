@@ -83,20 +83,3 @@ func Paths(vaultPath string, locations ...Locations) (*EffectivePaths, error) {
 	}
 	return &EffectivePaths{Vault: vault, Config: config, DB: db}, nil
 }
-
-// rejectIndexResource keeps the selected index out of registered file operations.
-// Resolve the disk spelling while preserving the final entry, as isIndexFile does.
-func rejectIndexResource(vaultPath, path string, locations []Locations) error {
-	diskPath, err := deleteDiskPath(newVaultDiskPathResolver(vaultPath), path)
-	if err != nil {
-		return err
-	}
-	protected, err := isIndexFile(vaultPath, diskPath, locations)
-	if err != nil {
-		return err
-	}
-	if protected {
-		return fmt.Errorf("selected index resource cannot be registered or mutated: %s", path)
-	}
-	return nil
-}
