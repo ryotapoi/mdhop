@@ -2,8 +2,10 @@ package core
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var moveRename = os.Rename
@@ -344,6 +346,13 @@ func prepareMoveRewrites(vaultPath string, db dbExecer, moves []moveInfo, needDi
 
 // validateMoveDestinations checks the entire batch before rewrites or mkdir/rename.
 func validateMoveDestinations(vaultPath string, moves []moveInfo, diskOnlyFiles []diskOnlyMove, needDiskMove bool) error {
+	for _, m := range moves {
+		fromNote := strings.HasSuffix(strings.ToLower(m.from), ".md")
+		toNote := strings.HasSuffix(strings.ToLower(m.to), ".md")
+		if fromNote != toNote {
+			return fmt.Errorf("move cannot change note/asset type: %s -> %s; rename externally, then run 'mdhop build' to rebuild the index", m.from, m.to)
+		}
+	}
 	if !needDiskMove {
 		return nil
 	}

@@ -26,6 +26,7 @@ Options:
   --format json|text  Optional. Output format. Default: text.
 
 Behavior notes:
+  Moves cannot change note/asset type across the case-insensitive .md suffix boundary, including already completed disk moves and template dry-runs. To change type, rename externally, then run mdhop build to rebuild the index.
   If registered targets include the selected index DB or its direct auxiliary files, the entire operation fails before any changes. Unregistered index resources remain in place during directory operations.
   The source file fails stale detection when its mtime does not match the DB record; external files rewritten as collateral are not stale-checked.
   If --from is missing on disk and --to already exists, the move is treated as already completed and only link rewrites plus DB updates are performed.
