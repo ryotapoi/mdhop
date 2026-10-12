@@ -89,6 +89,9 @@ func Migrate(vaultPath string) (*BuildResult, error) {
 	}
 	prepared, err := prepareBuildWithout(vault, "mdhop.yaml")
 	if err == nil {
+		err = validateMigrationConfigGlobs(*prepared.inputs.cfg)
+	}
+	if err == nil {
 		err = os.MkdirAll(filepath.Dir(dbp), 0o755)
 	}
 	var result *BuildResult
@@ -175,17 +178,26 @@ func convertLegacyConfig(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validateMigrationConfigGlobs(cfg); err != nil {
+		return nil, err
+	}
+	return converted, nil
+}
+
+// Migration validates every filter, including those unused by the rebuild.
+// Metadata profile globs are already validated when the config is decoded.
+func validateMigrationConfigGlobs(cfg Config) error {
 	for _, patterns := range [][]string{cfg.Build.ExcludePaths, cfg.Exclude.Paths, cfg.Query.Hide.Paths, cfg.Query.Via.Include.Paths} {
 		if err := validateGlobPatterns(patterns); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	if cfg.Query.Via.Exclude != nil {
 		if err := validateGlobPatterns(cfg.Query.Via.Exclude.Paths); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return converted, nil
+	return nil
 }
 
 func legacyConfigValue(node *yaml.Node, path string, depth int) (any, error) {

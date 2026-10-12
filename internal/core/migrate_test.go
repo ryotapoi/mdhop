@@ -310,6 +310,51 @@ func TestMigrateFailuresRetainLegacy(t *testing.T) {
 	}
 }
 
+func TestMigrateInvalidTOMLGlobsRetainLegacy(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		config string
+		cache  bool
+	}{
+		{"exclude", "[exclude]\npaths = ['[a]']\n", true},
+		{"hide", "[query.hide]\npaths = ['[a]']\n", true},
+		{"include", "[query.via.include]\npaths = ['[a]']\n", true},
+		{"via-exclude", "[query.via.exclude]\npaths = ['[a]']\n", true},
+		{"unused-exclude", "[exclude]\npaths = ['[a]']\n[query.via.exclude]\n", true},
+		{"no-cache", "[exclude]\npaths = ['[a]']\n", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vault := migrationVault(t)
+			config := filepath.Join(vault, "mdhop.toml")
+			mustMigrationWrite(t, config, tc.config)
+			dbp, err := resolveDBPath(vault)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.cache {
+				if err := os.MkdirAll(filepath.Dir(dbp), 0700); err != nil {
+					t.Fatal(err)
+				}
+				mustMigrationWrite(t, dbp, "existing cache")
+			}
+			if _, err := Migrate(vault); err == nil || !strings.Contains(err.Error(), "unsupported glob pattern") {
+				t.Fatalf("expected glob validation failure, got %v", err)
+			}
+			assertMigrationFile(t, config, tc.config)
+			assertMigrationFile(t, filepath.Join(vault, ".mdhop", "index.sqlite"), "old index")
+			if tc.cache {
+				assertMigrationFile(t, dbp, "existing cache")
+			} else if _, err := os.Lstat(filepath.Dir(dbp)); !os.IsNotExist(err) {
+				t.Fatalf("cache directory created: %v", err)
+			}
+			temps, err := filepath.Glob(dbp + ".tmp-*")
+			if err != nil || len(temps) != 0 {
+				t.Fatalf("temporary DBs: %v %v", temps, err)
+			}
+		})
+	}
+}
+
 func TestMigrateCleanupFailureReportsState(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("permission checks require non-root")
