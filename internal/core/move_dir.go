@@ -331,6 +331,9 @@ func prepareMoveRewrites(vaultPath string, db dbExecer, moves []moveInfo, needDi
 	if err := prepareMovedFileRewrites(vaultPath, movedFileRewrites, needDiskMove); err != nil {
 		return nil, err
 	}
+	if err := validateMoveAssetEdges(db, dm, allExternalRewrites, movedFileRewrites); err != nil {
+		return nil, err
+	}
 	return &preparedMoveRewrites{
 		maps:            dm,
 		external:        preparedExternalRewrites,
