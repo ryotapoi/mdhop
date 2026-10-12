@@ -125,6 +125,37 @@ func TestParseWhere_LeftmostOperator(t *testing.T) {
 	}
 }
 
+func TestParseWhere_ComparisonValueNotExists(t *testing.T) {
+	tests := []struct {
+		expr  string
+		op    WhereOp
+		value string
+	}{
+		{"title=SQL NOT EXISTS", WhereOpEq, "SQL NOT EXISTS"},
+		{"title!=SQL NOT EXISTS", WhereOpNeq, "SQL NOT EXISTS"},
+		{"title~% NOT EXISTS", WhereOpLike, "% NOT EXISTS"},
+		{"title>SQL NOT EXISTS", WhereOpGt, "SQL NOT EXISTS"},
+		{"title<SQL NOT EXISTS", WhereOpLt, "SQL NOT EXISTS"},
+		{"title>=SQL NOT EXISTS", WhereOpGte, "SQL NOT EXISTS"},
+		{"title<=SQL NOT EXISTS", WhereOpLte, "SQL NOT EXISTS"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			wc, err := ParseWhere([]string{tt.expr}, MetaConfig{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(wc.Conditions) != 1 {
+				t.Fatalf("conditions = %d, want 1", len(wc.Conditions))
+			}
+			c := wc.Conditions[0]
+			if c.Key != "title" || c.Op != tt.op || c.Value != tt.value {
+				t.Errorf("got {%q, %d, %q}, want {title, %d, %q}", c.Key, c.Op, c.Value, tt.op, tt.value)
+			}
+		})
+	}
+}
+
 func TestParseWhere_Like_PreservesWhitespace(t *testing.T) {
 	// Whitespace on the right-hand side of ~ is part of the match pattern.
 	for _, tt := range []struct {

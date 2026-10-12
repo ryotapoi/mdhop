@@ -123,14 +123,6 @@ func ParseWhere(exprs []string, metaCfg MetaConfig) (*WhereClause, error) {
 func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 	trimmedExpr := strings.TrimSpace(expr)
 
-	if key, ok := parseNotExistsWhere(trimmedExpr); ok {
-		key, coalesceKeys, err := parseWhereKey(key, trimmedExpr)
-		if err != nil {
-			return WhereCond{}, err
-		}
-		return WhereCond{Key: key, CoalesceKeys: coalesceKeys, Op: WhereOpNotExists, Value: ""}, nil
-	}
-
 	// Select the leftmost operator; table order breaks ties (longest first).
 	operatorIndex, idx := -1, -1
 	for i, ot := range operatorTable {
@@ -171,7 +163,15 @@ func parseOneWhere(expr string, metaCfg MetaConfig) (WhereCond, error) {
 		return WhereCond{Key: key, CoalesceKeys: coalesceKeys, Op: ot.op, Value: sortValue, valueType: valueType, keyValues: keyValues}, nil
 	}
 
-	// No operator found → EXISTS.
+	if key, ok := parseNotExistsWhere(trimmedExpr); ok {
+		key, coalesceKeys, err := parseWhereKey(key, trimmedExpr)
+		if err != nil {
+			return WhereCond{}, err
+		}
+		return WhereCond{Key: key, CoalesceKeys: coalesceKeys, Op: WhereOpNotExists, Value: ""}, nil
+	}
+
+	// No comparison operator or NOT EXISTS suffix found → EXISTS.
 	key, coalesceKeys, err := parseWhereKey(trimmedExpr, trimmedExpr)
 	if err != nil {
 		return WhereCond{}, err

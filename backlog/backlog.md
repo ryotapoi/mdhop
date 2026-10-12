@@ -87,7 +87,7 @@
   - 発生条件・頻度: 対象・条件: frontmatter に related: !!str "[[B]]" または single-quoted の同等値を置く。 この条件下での再現性: 隔離fixtureで成立を確認。実運用頻度は未測定。
   - リスク: 誤結果：中。frontmatter関係欠落。本文損失なし。
 
-- [ ] 比較値の末尾NOT EXISTSが別の検索条件になる問題を修正する（A7-001）
+- [x] 比較値の末尾NOT EXISTSが別の検索条件になる問題を修正する（A7-001）
   - 問題: title=SQL NOT EXISTSがタイトル比較ではなく、title=SQLという属性がない条件として解析される。 タイトルOtherのB.mdまで検索結果に入る。LIKE条件でも同じ誤結果を実証。
   - 対応: parseOneWhereで比較演算子の解析を先に行い、比較演算子がない場合にNOT EXISTSを判定する。
   - 完了条件: search --where 'title=SQL NOT EXISTS' がその値と一致するノートだけを返す。LIKE の値末尾も同様に扱い、独立した 'title NOT EXISTS' と他の比較条件を維持する。query と共有する解析で確認する。
