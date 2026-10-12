@@ -18,4 +18,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go test ./...
+      - name: Observe Unicode move filesystem
+        shell: bash
+        run: |
+          uname -a
+          printf 'runner OS=%s image=%s version=%s temp=%s\n' "$RUNNER_OS" "$ImageOS" "$ImageVersion" "$RUNNER_TEMP"
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            findmnt -T "${TMPDIR:-/tmp}" -o TARGET,SOURCE,FSTYPE,OPTIONS
+          else
+            df -T "${TMPDIR:-/tmp}"
+          fi
+      - name: Unicode move regressions
+        run: go test -count=1 -v ./internal/core -run '^TestMoveNFD'
+      - name: All tests
+        if: always()
+        run: go test ./...
