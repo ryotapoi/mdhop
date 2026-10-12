@@ -654,6 +654,83 @@ func TestConvertExplicitAssetPath(t *testing.T) {
 	}
 }
 
+func TestConvertExtensionlessTarget(t *testing.T) {
+	tests := []struct {
+		name     string
+		files    []string
+		rawLink  string
+		wantLink string
+		wantKey  string
+		wantType NodeType
+	}{
+		{"asset only", []string{"LICENSE"}, "[[LICENSE]]", "[LICENSE](/LICENSE)", "asset:path:LICENSE", NodeTypeAsset},
+		{"note only", []string{"LICENSE.md"}, "[[LICENSE]]", "[LICENSE](/LICENSE.md)", "note:path:LICENSE.md", NodeTypeNote},
+		{"note preferred", []string{"LICENSE", "LICENSE.md"}, "[[LICENSE]]", "[LICENSE](/LICENSE.md)", "note:path:LICENSE.md", NodeTypeNote},
+		{"explicit asset path", []string{"assets/LICENSE"}, "[[../assets/LICENSE#Terms|license]]", "[license](/assets/LICENSE#Terms)", "asset:path:assets/LICENSE", NodeTypeAsset},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := t.TempDir()
+			source := "notes/Source.md"
+			original := tt.rawLink + "\n"
+			files := map[string]string{source: original}
+			for _, path := range tt.files {
+				files[path] = "# Terms\n"
+			}
+			for path, content := range files {
+				fullPath := filepath.Join(vault, path)
+				if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			dbBefore, err := os.ReadFile(dbPath(vault))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, dryRun := range []bool{true, false} {
+				result, err := Convert(vault, ConvertOptions{ToFormat: "markdown", DryRun: dryRun})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(result.Rewritten) != 1 || result.Rewritten[0] != (RewrittenLink{File: source, OldLink: tt.rawLink, NewLink: tt.wantLink}) {
+					t.Fatalf("dryRun=%v: rewrites = %+v, want %q -> %q", dryRun, result.Rewritten, tt.rawLink, tt.wantLink)
+				}
+				content, err := os.ReadFile(filepath.Join(vault, source))
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantContent := tt.wantLink + "\n"
+				if dryRun {
+					wantContent = original
+				}
+				if string(content) != wantContent {
+					t.Fatalf("dryRun=%v: content = %q, want %q", dryRun, content, wantContent)
+				}
+				dbAfter, err := os.ReadFile(dbPath(vault))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(dbAfter) != string(dbBefore) {
+					t.Fatalf("dryRun=%v: convert changed the DB", dryRun)
+				}
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			edges := queryEdges(t, dbPath(vault), source)
+			if len(edges) != 1 || edges[0].targetKey != tt.wantKey || edges[0].targetType != tt.wantType || edges[0].linkType != LinkTypeMarkdown || edges[0].rawLink != tt.wantLink {
+				t.Fatalf("edges = %+v, want Markdown edge to %s (%s)", edges, tt.wantKey, tt.wantType)
+			}
+		})
+	}
+}
+
 func TestConvertEmbedPreserved(t *testing.T) {
 	tmp := t.TempDir()
 	if err := testutil.CopyDir("../../testdata/vault_convert", tmp); err != nil {

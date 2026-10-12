@@ -97,18 +97,28 @@ func Convert(vaultPath string, opts ConvertOptions, locations ...Locations) (*Co
 						if isLinkEscaping(sourcePath, lo) || lo.isBasename && isAmbiguousBasenameLink(lo.target, rm) {
 							continue
 						}
-						newRawLink = convertWikilinkToMarkdown(lo.rawLink, isAssetTarget, lo.inTable)
+						assetTarget := isAssetTarget
+						targetPath := ""
 						if lo.target != "" {
-							targetPath, _, err := resolveLinkWithBackend(sourcePath, lo, dryLinkResolver{rm: rm})
+							resolvedPath, _, err := resolveLinkWithBackend(sourcePath, lo, dryLinkResolver{rm: rm})
 							if err != nil {
 								return nil, err
 							}
-							if targetPath == "" {
+							targetPath = resolvedPath
+							if targetPath != "" {
+								// Classify the resolved path before generating Markdown so
+								// rewrite preserves the actual target's extension.
+								_, targetType, _ := rm.lookupPath(targetPath)
+								assetTarget = func(string) bool { return targetType == NodeTypeAsset }
+							} else {
 								targetPath = resolveToVaultRelative(sourcePath, lo)
 								if isNoteTarget(lo.target, sourcePath, noteNameSet, notePathSet) && !strings.HasSuffix(strings.ToLower(targetPath), ".md") {
 									targetPath += ".md"
 								}
 							}
+						}
+						newRawLink = convertWikilinkToMarkdown(lo.rawLink, assetTarget, lo.inTable)
+						if targetPath != "" {
 							newRawLink = rewriteRawLink(newRawLink, LinkTypeMarkdown, targetPath, lo.inTable)
 						}
 					}
