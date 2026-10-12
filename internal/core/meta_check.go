@@ -87,6 +87,7 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions, locations ...Locations) 
 		return nil, err
 	}
 	rm := newResolveMaps(files, assetFiles)
+	diskResolver := newVaultDiskPathResolver(vaultPath)
 
 	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
@@ -127,7 +128,7 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions, locations ...Locations) 
 		if !keySet[key] {
 			continue
 		}
-		if issue, ok := checkMetaValue(vaultPath, srcPath, key, value, line, opts.Kind, rm); ok {
+		if issue, ok := checkMetaValue(diskResolver, srcPath, key, value, line, opts.Kind, rm); ok {
 			result.Issues = append(result.Issues, issue)
 		}
 	}
@@ -137,7 +138,7 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions, locations ...Locations) 
 // checkMetaValue resolves a single value and returns a MetaIssue if it fails.
 // ok is false for valid values, URL/empty values, and ordinary strings with
 // complete wikilinks in auto mode.
-func checkMetaValue(vaultPath, srcPath, key, value string, line int, kind MetaValueKind, rm *resolveMaps) (MetaIssue, bool) {
+func checkMetaValue(diskResolver *vaultDiskPathResolver, srcPath, key, value string, line int, kind MetaValueKind, rm *resolveMaps) (MetaIssue, bool) {
 	v := strings.TrimSpace(value)
 	if v == "" || strings.Contains(v, "://") {
 		return MetaIssue{}, false // empty or URL: allowed
@@ -169,7 +170,7 @@ func checkMetaValue(vaultPath, srcPath, key, value string, line int, kind MetaVa
 		occ = link
 	default: // MetaKindPath
 		if strings.HasSuffix(v, "/") {
-			if ok, escaped := directoryMetaValueExists(vaultPath, srcPath, v); ok {
+			if ok, escaped := directoryMetaValueExists(diskResolver, srcPath, v); ok {
 				return MetaIssue{}, false
 			} else if escaped {
 				issue.Reason = ReasonVaultEscape
@@ -205,7 +206,7 @@ func checkMetaValue(vaultPath, srcPath, key, value string, line int, kind MetaVa
 	return MetaIssue{}, false
 }
 
-func directoryMetaValueExists(vaultPath, srcPath, value string) (exists bool, escaped bool) {
+func directoryMetaValueExists(diskResolver *vaultDiskPathResolver, srcPath, value string) (exists bool, escaped bool) {
 	target := normalizeTextNFC(value)
 	var resolved string
 	if isRelativePath(target) {
@@ -219,7 +220,7 @@ func directoryMetaValueExists(vaultPath, srcPath, value string) (exists bool, es
 		}
 		resolved = NormalizePath(strings.TrimPrefix(target, "/"))
 	}
-	diskPath, err := newVaultDiskPathResolver(vaultPath).existingPath(resolved)
+	diskPath, err := diskResolver.existingPath(resolved)
 	if err != nil {
 		return false, false
 	}

@@ -138,45 +138,53 @@ func TestMetaCheckResolvesNFCValueToNFDPath(t *testing.T) {
 	}
 }
 
-func TestMetaCheckPathKindDirectoryReferences(t *testing.T) {
-	vault := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(vault, "docs", "assets"), 0o755); err != nil {
-		t.Fatalf("mkdir assets: %v", err)
-	}
-	note := "---\nsources:\n  - ./assets/\n  - ./missing-dir/\n  - ../../outside/\n  - docs\n---\n"
-	if err := os.WriteFile(filepath.Join(vault, "docs", "Index.md"), []byte(note), 0o644); err != nil {
-		t.Fatalf("write index: %v", err)
-	}
-	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
-	}
+func TestMetaCheckDirectoryReferences(t *testing.T) {
+	for _, kind := range []MetaValueKind{MetaKindPath, MetaKindAuto} {
+		t.Run(string(kind), func(t *testing.T) {
+			vault := t.TempDir()
+			for _, dir := range []string{"docs/assets", "docs/Cafe\u0301"} {
+				if err := os.MkdirAll(filepath.Join(vault, dir), 0o755); err != nil {
+					t.Fatalf("mkdir: %v", err)
+				}
+			}
+			note := "---\nsources:\n  - ./assets/\n  - ./missing-dir/\n  - ../../outside/\n  - docs\n  - ./Caf\u00e9/\n  - /docs/Caf\u00e9/\n  - ./Future\u00e9/\n  - ./Index.md/\n---\n"
+			if err := os.WriteFile(filepath.Join(vault, "docs", "Index.md"), []byte(note), 0o644); err != nil {
+				t.Fatalf("write index: %v", err)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatalf("build: %v", err)
+			}
+			opts := MetaCheckOptions{Keys: []string{"sources"}, Kind: kind}
+			want := []MetaIssue{
+				{SourcePath: "docs/Index.md", Key: "sources", Value: "../../outside/", Line: 5, Reason: ReasonVaultEscape},
+				{SourcePath: "docs/Index.md", Key: "sources", Value: "./Future\u00e9/", Line: 9, Reason: ReasonNotFound},
+				{SourcePath: "docs/Index.md", Key: "sources", Value: "./Index.md/", Line: 10, Reason: ReasonNotFound},
+				{SourcePath: "docs/Index.md", Key: "sources", Value: "./missing-dir/", Line: 4, Reason: ReasonNotFound},
+				{SourcePath: "docs/Index.md", Key: "sources", Value: "docs", Line: 6, Reason: ReasonNotFound},
+			}
+			result, err := MetaCheck(vault, opts)
+			if err != nil {
+				t.Fatalf("meta-check: %v", err)
+			}
+			if !reflect.DeepEqual(result.Issues, want) {
+				t.Fatalf("issues = %+v, want %+v", result.Issues, want)
+			}
 
-	result, err := MetaCheck(vault, MetaCheckOptions{
-		Keys: []string{"sources"},
-		Kind: MetaKindPath,
-	})
-	if err != nil {
-		t.Fatalf("meta-check: %v", err)
-	}
-
-	if len(result.Issues) != 3 {
-		t.Fatalf("issues = %+v, want 3", result.Issues)
-	}
-	got := map[string]MetaIssueReason{}
-	for _, issue := range result.Issues {
-		got[issue.Value] = issue.Reason
-	}
-	if got["./missing-dir/"] != ReasonNotFound {
-		t.Fatalf("missing dir issue = %v, want not_found; issues=%+v", got["./missing-dir/"], result.Issues)
-	}
-	if got["../../outside/"] != ReasonVaultEscape {
-		t.Fatalf("escaping dir issue = %v, want vault_escape; issues=%+v", got["../../outside/"], result.Issues)
-	}
-	if got["docs"] != ReasonNotFound {
-		t.Fatalf("docs without slash issue = %v, want existing non-directory behavior not_found; issues=%+v", got["docs"], result.Issues)
-	}
-	if _, ok := got["./assets/"]; ok {
-		t.Fatalf("existing directory reported as issue: %+v", result.Issues)
+			// A later call must discover paths created after the first fallback scan.
+			for _, dir := range []string{"docs/missing-dir", "docs/Futuree\u0301"} {
+				if err := os.Mkdir(filepath.Join(vault, dir), 0o755); err != nil {
+					t.Fatalf("mkdir new reference: %v", err)
+				}
+			}
+			result, err = MetaCheck(vault, opts)
+			if err != nil {
+				t.Fatalf("second meta-check: %v", err)
+			}
+			want = []MetaIssue{want[0], want[2], want[4]}
+			if !reflect.DeepEqual(result.Issues, want) {
+				t.Fatalf("second issues = %+v, want %+v", result.Issues, want)
+			}
+		})
 	}
 }
 

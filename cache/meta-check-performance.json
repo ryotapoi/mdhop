@@ -1,0 +1,1241 @@
+{
+  "environment": "macOS-27.0.1-arm64-arm-64bit",
+  "scale": {
+    "notes": 1501,
+    "assets": 1500,
+    "directories_excluding_root": 400,
+    "references_per_key": 300,
+    "total_metadata_references": 900,
+    "unicode_direct_stat_succeeds": true
+  },
+  "build_seconds": 0.18812666699999997,
+  "samples": [
+    {
+      "key": "missing",
+      "version": "baseline",
+      "iteration": 0,
+      "wall_seconds": 3.495197958000002,
+      "user_seconds": 1.34,
+      "system_seconds": 2.38,
+      "peak_rss_bytes": 23445504
+    },
+    {
+      "key": "missing",
+      "version": "candidate",
+      "iteration": 0,
+      "wall_seconds": 0.050953291999999095,
+      "user_seconds": 0.01,
+      "system_seconds": 0.03,
+      "peak_rss_bytes": 18464768
+    },
+    {
+      "key": "missing",
+      "version": "candidate",
+      "iteration": 1,
+      "wall_seconds": 0.0480692910000009,
+      "user_seconds": 0.01,
+      "system_seconds": 0.03,
+      "peak_rss_bytes": 18399232
+    },
+    {
+      "key": "missing",
+      "version": "baseline",
+      "iteration": 1,
+      "wall_seconds": 3.4609919999999974,
+      "user_seconds": 1.33,
+      "system_seconds": 2.36,
+      "peak_rss_bytes": 23740416
+    },
+    {
+      "key": "missing",
+      "version": "baseline",
+      "iteration": 2,
+      "wall_seconds": 3.3861121250000004,
+      "user_seconds": 1.32,
+      "system_seconds": 2.28,
+      "peak_rss_bytes": 23855104
+    },
+    {
+      "key": "missing",
+      "version": "candidate",
+      "iteration": 2,
+      "wall_seconds": 0.04312962499999884,
+      "user_seconds": 0.01,
+      "system_seconds": 0.02,
+      "peak_rss_bytes": 17842176
+    },
+    {
+      "key": "missing",
+      "version": "candidate",
+      "iteration": 3,
+      "wall_seconds": 0.04165687500000104,
+      "user_seconds": 0.01,
+      "system_seconds": 0.02,
+      "peak_rss_bytes": 18317312
+    },
+    {
+      "key": "missing",
+      "version": "baseline",
+      "iteration": 3,
+      "wall_seconds": 3.381598167,
+      "user_seconds": 1.32,
+      "system_seconds": 2.27,
+      "peak_rss_bytes": 22921216
+    },
+    {
+      "key": "missing",
+      "version": "baseline",
+      "iteration": 4,
+      "wall_seconds": 3.351792415999995,
+      "user_seconds": 1.29,
+      "system_seconds": 2.26,
+      "peak_rss_bytes": 23560192
+    },
+    {
+      "key": "missing",
+      "version": "candidate",
+      "iteration": 4,
+      "wall_seconds": 0.04443937499999606,
+      "user_seconds": 0.01,
+      "system_seconds": 0.02,
+      "peak_rss_bytes": 18399232
+    },
+    {
+      "key": "missing",
+      "version": "candidate",
+      "iteration": 5,
+      "wall_seconds": 0.0434635419999978,
+      "user_seconds": 0.01,
+      "system_seconds": 0.02,
+      "peak_rss_bytes": 18432000
+    },
+    {
+      "key": "missing",
+      "version": "baseline",
+      "iteration": 5,
+      "wall_seconds": 3.402183000000001,
+      "user_seconds": 1.32,
+      "system_seconds": 2.3,
+      "peak_rss_bytes": 23494656
+    },
+    {
+      "key": "missing",
+      "version": "baseline",
+      "iteration": 6,
+      "wall_seconds": 3.373757750000003,
+      "user_seconds": 1.31,
+      "system_seconds": 2.27,
+      "peak_rss_bytes": 23379968
+    },
+    {
+      "key": "missing",
+      "version": "candidate",
+      "iteration": 6,
+      "wall_seconds": 0.04244333300000136,
+      "user_seconds": 0.01,
+      "system_seconds": 0.02,
+      "peak_rss_bytes": 18300928
+    },
+    {
+      "key": "unicode",
+      "version": "baseline",
+      "iteration": 0,
+      "wall_seconds": 0.03250775000000061,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17072128
+    },
+    {
+      "key": "unicode",
+      "version": "candidate",
+      "iteration": 0,
+      "wall_seconds": 0.03229912500000154,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17137664
+    },
+    {
+      "key": "unicode",
+      "version": "candidate",
+      "iteration": 1,
+      "wall_seconds": 0.032901249999994775,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17154048
+    },
+    {
+      "key": "unicode",
+      "version": "baseline",
+      "iteration": 1,
+      "wall_seconds": 0.032172000000002754,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17203200
+    },
+    {
+      "key": "unicode",
+      "version": "baseline",
+      "iteration": 2,
+      "wall_seconds": 0.032726250000003176,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17137664
+    },
+    {
+      "key": "unicode",
+      "version": "candidate",
+      "iteration": 2,
+      "wall_seconds": 0.032431333000005225,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17235968
+    },
+    {
+      "key": "unicode",
+      "version": "candidate",
+      "iteration": 3,
+      "wall_seconds": 0.03235241699999847,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17448960
+    },
+    {
+      "key": "unicode",
+      "version": "baseline",
+      "iteration": 3,
+      "wall_seconds": 0.032520667,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 16990208
+    },
+    {
+      "key": "unicode",
+      "version": "baseline",
+      "iteration": 4,
+      "wall_seconds": 0.03241529199999604,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17563648
+    },
+    {
+      "key": "unicode",
+      "version": "candidate",
+      "iteration": 4,
+      "wall_seconds": 0.03186104199999562,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17072128
+    },
+    {
+      "key": "unicode",
+      "version": "candidate",
+      "iteration": 5,
+      "wall_seconds": 0.031738625000002685,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17235968
+    },
+    {
+      "key": "unicode",
+      "version": "baseline",
+      "iteration": 5,
+      "wall_seconds": 0.03225674999999484,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17367040
+    },
+    {
+      "key": "unicode",
+      "version": "baseline",
+      "iteration": 6,
+      "wall_seconds": 0.03194854199999497,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17072128
+    },
+    {
+      "key": "unicode",
+      "version": "candidate",
+      "iteration": 6,
+      "wall_seconds": 0.0317887920000004,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17104896
+    },
+    {
+      "key": "direct",
+      "version": "baseline",
+      "iteration": 0,
+      "wall_seconds": 0.03172491700000535,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17055744
+    },
+    {
+      "key": "direct",
+      "version": "candidate",
+      "iteration": 0,
+      "wall_seconds": 0.030921374999998363,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17137664
+    },
+    {
+      "key": "direct",
+      "version": "candidate",
+      "iteration": 1,
+      "wall_seconds": 0.0316611249999994,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17039360
+    },
+    {
+      "key": "direct",
+      "version": "baseline",
+      "iteration": 1,
+      "wall_seconds": 0.030775832999999864,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17154048
+    },
+    {
+      "key": "direct",
+      "version": "baseline",
+      "iteration": 2,
+      "wall_seconds": 0.031050041000000306,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17039360
+    },
+    {
+      "key": "direct",
+      "version": "candidate",
+      "iteration": 2,
+      "wall_seconds": 0.030923833999999317,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17203200
+    },
+    {
+      "key": "direct",
+      "version": "candidate",
+      "iteration": 3,
+      "wall_seconds": 0.031007708000004186,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 16973824
+    },
+    {
+      "key": "direct",
+      "version": "baseline",
+      "iteration": 3,
+      "wall_seconds": 0.030970416000002388,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17465344
+    },
+    {
+      "key": "direct",
+      "version": "baseline",
+      "iteration": 4,
+      "wall_seconds": 0.030901249999999436,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17006592
+    },
+    {
+      "key": "direct",
+      "version": "candidate",
+      "iteration": 4,
+      "wall_seconds": 0.030630500000000893,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 16957440
+    },
+    {
+      "key": "direct",
+      "version": "candidate",
+      "iteration": 5,
+      "wall_seconds": 0.03225045800000004,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17039360
+    },
+    {
+      "key": "direct",
+      "version": "baseline",
+      "iteration": 5,
+      "wall_seconds": 0.031666665999999566,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17121280
+    },
+    {
+      "key": "direct",
+      "version": "baseline",
+      "iteration": 6,
+      "wall_seconds": 0.03131920799999932,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17170432
+    },
+    {
+      "key": "direct",
+      "version": "candidate",
+      "iteration": 6,
+      "wall_seconds": 0.03149820899999867,
+      "user_seconds": 0.01,
+      "system_seconds": 0.01,
+      "peak_rss_bytes": 17203200
+    }
+  ],
+  "contracts": [
+    {
+      "key": "missing",
+      "kind": "path",
+      "format": "json",
+      "exit": 0,
+      "stdout_sha256": "2f86b9eff3fb4859e0ba44b7b7f0d419dae97ef9f424c8401aa89edf9a241a74",
+      "identical": true
+    },
+    {
+      "key": "missing",
+      "kind": "path",
+      "format": "text",
+      "exit": 0,
+      "stdout_sha256": "4cc28e78d7ea7a19d2b55aa835f1576670a83a8b5981e3457ff4f804f76550fd",
+      "identical": true
+    },
+    {
+      "key": "missing",
+      "kind": "auto",
+      "format": "json",
+      "exit": 0,
+      "stdout_sha256": "2f86b9eff3fb4859e0ba44b7b7f0d419dae97ef9f424c8401aa89edf9a241a74",
+      "identical": true
+    },
+    {
+      "key": "missing",
+      "kind": "auto",
+      "format": "text",
+      "exit": 0,
+      "stdout_sha256": "4cc28e78d7ea7a19d2b55aa835f1576670a83a8b5981e3457ff4f804f76550fd",
+      "identical": true
+    },
+    {
+      "key": "unicode",
+      "kind": "path",
+      "format": "json",
+      "exit": 0,
+      "stdout_sha256": "8783ac5790c938aa7ea683df5f7b30e6f1faa364fd145dbe8ab26985d07a6bfc",
+      "identical": true
+    },
+    {
+      "key": "unicode",
+      "kind": "path",
+      "format": "text",
+      "exit": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "identical": true
+    },
+    {
+      "key": "unicode",
+      "kind": "auto",
+      "format": "json",
+      "exit": 0,
+      "stdout_sha256": "8783ac5790c938aa7ea683df5f7b30e6f1faa364fd145dbe8ab26985d07a6bfc",
+      "identical": true
+    },
+    {
+      "key": "unicode",
+      "kind": "auto",
+      "format": "text",
+      "exit": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "identical": true
+    },
+    {
+      "key": "direct",
+      "kind": "path",
+      "format": "json",
+      "exit": 0,
+      "stdout_sha256": "8783ac5790c938aa7ea683df5f7b30e6f1faa364fd145dbe8ab26985d07a6bfc",
+      "identical": true
+    },
+    {
+      "key": "direct",
+      "kind": "path",
+      "format": "text",
+      "exit": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "identical": true
+    },
+    {
+      "key": "direct",
+      "kind": "auto",
+      "format": "json",
+      "exit": 0,
+      "stdout_sha256": "8783ac5790c938aa7ea683df5f7b30e6f1faa364fd145dbe8ab26985d07a6bfc",
+      "identical": true
+    },
+    {
+      "key": "direct",
+      "kind": "auto",
+      "format": "text",
+      "exit": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "identical": true
+    },
+    {
+      "flags": [
+        "--kind",
+        "invalid"
+      ],
+      "exit": 1,
+      "identical": true
+    },
+    {
+      "flags": [
+        "--format",
+        "invalid"
+      ],
+      "exit": 1,
+      "identical": true
+    },
+    {
+      "flags": [
+        "--key",
+        "missing"
+      ],
+      "exit": 0,
+      "identical": true
+    }
+  ],
+  "instrumentation": [
+    {
+      "binary": "baseline-instrumented",
+      "key": "missing",
+      "wall_seconds": 3.7891076670000032,
+      "stderr": "PERF scans=300 scan_seconds=3.339120040\n"
+    },
+    {
+      "binary": "baseline-instrumented",
+      "key": "unicode",
+      "wall_seconds": 0.030549874999998394,
+      "stderr": "PERF scans=0 scan_seconds=0.000000000\n"
+    },
+    {
+      "binary": "baseline-instrumented",
+      "key": "direct",
+      "wall_seconds": 0.028861125000005927,
+      "stderr": "PERF scans=0 scan_seconds=0.000000000\n"
+    },
+    {
+      "binary": "candidate-instrumented",
+      "key": "missing",
+      "wall_seconds": 0.44969766699999525,
+      "stderr": "PERF scans=1 scan_seconds=0.010958083\n"
+    },
+    {
+      "binary": "candidate-instrumented",
+      "key": "unicode",
+      "wall_seconds": 0.03156383400000351,
+      "stderr": "PERF scans=0 scan_seconds=0.000000000\n"
+    },
+    {
+      "binary": "candidate-instrumented",
+      "key": "direct",
+      "wall_seconds": 0.028820875000000967,
+      "stderr": "PERF scans=0 scan_seconds=0.000000000\n"
+    }
+  ],
+  "unchanged_vault_and_db": true,
+  "summary": {
+    "missing": {
+      "baseline": {
+        "wall_seconds": {
+          "median": 3.3861121250000004,
+          "min": 3.351792415999995,
+          "max": 3.495197958000002
+        },
+        "user_seconds": {
+          "median": 1.32,
+          "min": 1.29,
+          "max": 1.34
+        },
+        "system_seconds": {
+          "median": 2.28,
+          "min": 2.26,
+          "max": 2.38
+        },
+        "peak_rss_bytes": {
+          "median": 23494656,
+          "min": 22921216,
+          "max": 23855104
+        }
+      },
+      "candidate": {
+        "wall_seconds": {
+          "median": 0.0434635419999978,
+          "min": 0.04165687500000104,
+          "max": 0.050953291999999095
+        },
+        "user_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "system_seconds": {
+          "median": 0.02,
+          "min": 0.02,
+          "max": 0.03
+        },
+        "peak_rss_bytes": {
+          "median": 18399232,
+          "min": 17842176,
+          "max": 18464768
+        }
+      }
+    },
+    "unicode": {
+      "baseline": {
+        "wall_seconds": {
+          "median": 0.03241529199999604,
+          "min": 0.03194854199999497,
+          "max": 0.032726250000003176
+        },
+        "user_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "system_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "peak_rss_bytes": {
+          "median": 17137664,
+          "min": 16990208,
+          "max": 17563648
+        }
+      },
+      "candidate": {
+        "wall_seconds": {
+          "median": 0.03229912500000154,
+          "min": 0.031738625000002685,
+          "max": 0.032901249999994775
+        },
+        "user_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "system_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "peak_rss_bytes": {
+          "median": 17154048,
+          "min": 17072128,
+          "max": 17448960
+        }
+      }
+    },
+    "direct": {
+      "baseline": {
+        "wall_seconds": {
+          "median": 0.031050041000000306,
+          "min": 0.030775832999999864,
+          "max": 0.03172491700000535
+        },
+        "user_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "system_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "peak_rss_bytes": {
+          "median": 17121280,
+          "min": 17006592,
+          "max": 17465344
+        }
+      },
+      "candidate": {
+        "wall_seconds": {
+          "median": 0.031007708000004186,
+          "min": 0.030630500000000893,
+          "max": 0.03225045800000004
+        },
+        "user_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "system_seconds": {
+          "median": 0.01,
+          "min": 0.01,
+          "max": 0.01
+        },
+        "peak_rss_bytes": {
+          "median": 17039360,
+          "min": 16957440,
+          "max": 17203200
+        }
+      }
+    }
+  },
+  "generated_at": "2026-10-12",
+  "baseline_commit": "4b2d091ced6335c7b1e2afe85ce83550f6cf66d4",
+  "go_version": "go1.27.2 darwin/arm64",
+  "build_flags": "go build (default optimization; no gcflags/ldflags)",
+  "candidate_source_sha256": "1963417109135b42d55032fc17cea6cb808c051f1351b339bd1d71c5357eb3e0",
+  "pilot": {
+    "environment": "macOS-27.0.1-arm64-arm-64bit",
+    "scale": {
+      "notes": 251,
+      "assets": 250,
+      "directories_excluding_root": 130,
+      "references_per_key": 30,
+      "total_metadata_references": 90,
+      "unicode_direct_stat_succeeds": true
+    },
+    "build_seconds": 0.06408304199999999,
+    "samples": [
+      {
+        "key": "missing",
+        "version": "baseline",
+        "iteration": 0,
+        "wall_seconds": 0.1041446250000001,
+        "user_seconds": 0.03,
+        "system_seconds": 0.07,
+        "peak_rss_bytes": 17563648
+      },
+      {
+        "key": "missing",
+        "version": "baseline",
+        "iteration": 1,
+        "wall_seconds": 0.10559687500000003,
+        "user_seconds": 0.03,
+        "system_seconds": 0.07,
+        "peak_rss_bytes": 17252352
+      },
+      {
+        "key": "missing",
+        "version": "baseline",
+        "iteration": 2,
+        "wall_seconds": 0.10901187499999998,
+        "user_seconds": 0.03,
+        "system_seconds": 0.07,
+        "peak_rss_bytes": 17580032
+      },
+      {
+        "key": "unicode",
+        "version": "baseline",
+        "iteration": 0,
+        "wall_seconds": 0.014275584000000174,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "peak_rss_bytes": 13828096
+      },
+      {
+        "key": "unicode",
+        "version": "baseline",
+        "iteration": 1,
+        "wall_seconds": 0.01390041700000011,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "peak_rss_bytes": 13959168
+      },
+      {
+        "key": "unicode",
+        "version": "baseline",
+        "iteration": 2,
+        "wall_seconds": 0.013963790999999892,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "peak_rss_bytes": 14221312
+      },
+      {
+        "key": "direct",
+        "version": "baseline",
+        "iteration": 0,
+        "wall_seconds": 0.013586917000000032,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "peak_rss_bytes": 13975552
+      },
+      {
+        "key": "direct",
+        "version": "baseline",
+        "iteration": 1,
+        "wall_seconds": 0.013708874999999843,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "peak_rss_bytes": 13991936
+      },
+      {
+        "key": "direct",
+        "version": "baseline",
+        "iteration": 2,
+        "wall_seconds": 0.014024999999999954,
+        "user_seconds": 0.0,
+        "system_seconds": 0.0,
+        "peak_rss_bytes": 13697024
+      }
+    ],
+    "contracts": [
+      {
+        "key": "missing",
+        "kind": "path",
+        "format": "json",
+        "exit": 0,
+        "stdout_sha256": "c4030153031374712c3a367fd4408658adebc28e24e8dfa835efa759325e2d9d",
+        "identical": true
+      },
+      {
+        "key": "missing",
+        "kind": "path",
+        "format": "text",
+        "exit": 0,
+        "stdout_sha256": "1dc7f1ace8e15444c965402855f3131bfb03998b9961eb1c471ef8b75d0c59be",
+        "identical": true
+      },
+      {
+        "key": "missing",
+        "kind": "auto",
+        "format": "json",
+        "exit": 0,
+        "stdout_sha256": "c4030153031374712c3a367fd4408658adebc28e24e8dfa835efa759325e2d9d",
+        "identical": true
+      },
+      {
+        "key": "missing",
+        "kind": "auto",
+        "format": "text",
+        "exit": 0,
+        "stdout_sha256": "1dc7f1ace8e15444c965402855f3131bfb03998b9961eb1c471ef8b75d0c59be",
+        "identical": true
+      },
+      {
+        "key": "unicode",
+        "kind": "path",
+        "format": "json",
+        "exit": 0,
+        "stdout_sha256": "8783ac5790c938aa7ea683df5f7b30e6f1faa364fd145dbe8ab26985d07a6bfc",
+        "identical": true
+      },
+      {
+        "key": "unicode",
+        "kind": "path",
+        "format": "text",
+        "exit": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "identical": true
+      },
+      {
+        "key": "unicode",
+        "kind": "auto",
+        "format": "json",
+        "exit": 0,
+        "stdout_sha256": "8783ac5790c938aa7ea683df5f7b30e6f1faa364fd145dbe8ab26985d07a6bfc",
+        "identical": true
+      },
+      {
+        "key": "unicode",
+        "kind": "auto",
+        "format": "text",
+        "exit": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "identical": true
+      },
+      {
+        "key": "direct",
+        "kind": "path",
+        "format": "json",
+        "exit": 0,
+        "stdout_sha256": "8783ac5790c938aa7ea683df5f7b30e6f1faa364fd145dbe8ab26985d07a6bfc",
+        "identical": true
+      },
+      {
+        "key": "direct",
+        "kind": "path",
+        "format": "text",
+        "exit": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "identical": true
+      },
+      {
+        "key": "direct",
+        "kind": "auto",
+        "format": "json",
+        "exit": 0,
+        "stdout_sha256": "8783ac5790c938aa7ea683df5f7b30e6f1faa364fd145dbe8ab26985d07a6bfc",
+        "identical": true
+      },
+      {
+        "key": "direct",
+        "kind": "auto",
+        "format": "text",
+        "exit": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "identical": true
+      },
+      {
+        "flags": [
+          "--kind",
+          "invalid"
+        ],
+        "exit": 1,
+        "identical": true
+      },
+      {
+        "flags": [
+          "--format",
+          "invalid"
+        ],
+        "exit": 1,
+        "identical": true
+      },
+      {
+        "flags": [
+          "--key",
+          "missing"
+        ],
+        "exit": 0,
+        "identical": true
+      }
+    ],
+    "instrumentation": [],
+    "unchanged_vault_and_db": true,
+    "summary": {
+      "missing": {
+        "baseline": {
+          "wall_seconds": {
+            "median": 0.10559687500000003,
+            "min": 0.1041446250000001,
+            "max": 0.10901187499999998
+          },
+          "user_seconds": {
+            "median": 0.03,
+            "min": 0.03,
+            "max": 0.03
+          },
+          "system_seconds": {
+            "median": 0.07,
+            "min": 0.07,
+            "max": 0.07
+          },
+          "peak_rss_bytes": {
+            "median": 17563648,
+            "min": 17252352,
+            "max": 17580032
+          }
+        }
+      },
+      "unicode": {
+        "baseline": {
+          "wall_seconds": {
+            "median": 0.013963790999999892,
+            "min": 0.01390041700000011,
+            "max": 0.014275584000000174
+          },
+          "user_seconds": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "system_seconds": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "peak_rss_bytes": {
+            "median": 13959168,
+            "min": 13828096,
+            "max": 14221312
+          }
+        }
+      },
+      "direct": {
+        "baseline": {
+          "wall_seconds": {
+            "median": 0.013708874999999843,
+            "min": 0.013586917000000032,
+            "max": 0.014024999999999954
+          },
+          "user_seconds": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "system_seconds": {
+            "median": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "peak_rss_bytes": {
+            "median": 13975552,
+            "min": 13697024,
+            "max": 13991936
+          }
+        }
+      }
+    }
+  },
+  "verification": [
+    {
+      "command": [
+        "go",
+        "test",
+        "./internal/core/",
+        "-run",
+        "TestMetaCheck|TestNFDDiskPathsContentAndChecks"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 1.712359167,
+      "stdout": "ok  \tgithub.com/ryotapoi/mdhop/internal/core\t0.563s\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "go",
+        "test",
+        "./cmd/mdhop/",
+        "-run",
+        "TestRunMetaCheck|TestPrintMetaCheck"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 1.0341880829999999,
+      "stdout": "ok  \tgithub.com/ryotapoi/mdhop/cmd/mdhop\t0.385s\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "exit_code": 0,
+      "duration_seconds": 10.106943542,
+      "stdout": "ok  \tgithub.com/ryotapoi/mdhop/cmd/mdhop\t1.284s\nok  \tgithub.com/ryotapoi/mdhop/internal/core\t7.674s\n?   \tgithub.com/ryotapoi/mdhop/internal/testutil\t[no test files]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "exit_code": 0,
+      "duration_seconds": 0.38944045799999927,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "supplemental_contracts": {
+    "results": [
+      {
+        "baseline": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "path",
+            "--format",
+            "json"
+          ],
+          "exit_code": 0,
+          "duration_seconds": 0.008477875000000003,
+          "stdout": "{\n  \"issues\": [\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"../../outside/\",\n      \"line\": 5,\n      \"reason\": \"vault_escape\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"/Target.md/\",\n      \"line\": 9,\n      \"reason\": \"not_found\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"/absent/\",\n      \"line\": 4,\n      \"reason\": \"not_found\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"[[Target]]\",\n      \"line\": 7,\n      \"reason\": \"not_found\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"about [[Target]]\",\n      \"line\": 8,\n      \"reason\": \"not_found\"\n    }\n  ]\n}\n",
+          "stderr": ""
+        },
+        "candidate": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "path",
+            "--format",
+            "json"
+          ],
+          "exit_code": 0,
+          "duration_seconds": 0.010082792,
+          "stdout": "{\n  \"issues\": [\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"../../outside/\",\n      \"line\": 5,\n      \"reason\": \"vault_escape\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"/Target.md/\",\n      \"line\": 9,\n      \"reason\": \"not_found\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"/absent/\",\n      \"line\": 4,\n      \"reason\": \"not_found\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"[[Target]]\",\n      \"line\": 7,\n      \"reason\": \"not_found\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"about [[Target]]\",\n      \"line\": 8,\n      \"reason\": \"not_found\"\n    }\n  ]\n}\n",
+          "stderr": ""
+        },
+        "identical": true
+      },
+      {
+        "baseline": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "path",
+            "--format",
+            "text"
+          ],
+          "exit_code": 0,
+          "duration_seconds": 0.008619249999999995,
+          "stdout": "issues:\n- source_path: Index.md\n  key: sources\n  value: ../../outside/\n  location: Index.md:5\n  reason: vault_escape\n- source_path: Index.md\n  key: sources\n  value: /Target.md/\n  location: Index.md:9\n  reason: not_found\n- source_path: Index.md\n  key: sources\n  value: /absent/\n  location: Index.md:4\n  reason: not_found\n- source_path: Index.md\n  key: sources\n  value: [[Target]]\n  location: Index.md:7\n  reason: not_found\n- source_path: Index.md\n  key: sources\n  value: about [[Target]]\n  location: Index.md:8\n  reason: not_found\n",
+          "stderr": ""
+        },
+        "candidate": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "path",
+            "--format",
+            "text"
+          ],
+          "exit_code": 0,
+          "duration_seconds": 0.009649666999999994,
+          "stdout": "issues:\n- source_path: Index.md\n  key: sources\n  value: ../../outside/\n  location: Index.md:5\n  reason: vault_escape\n- source_path: Index.md\n  key: sources\n  value: /Target.md/\n  location: Index.md:9\n  reason: not_found\n- source_path: Index.md\n  key: sources\n  value: /absent/\n  location: Index.md:4\n  reason: not_found\n- source_path: Index.md\n  key: sources\n  value: [[Target]]\n  location: Index.md:7\n  reason: not_found\n- source_path: Index.md\n  key: sources\n  value: about [[Target]]\n  location: Index.md:8\n  reason: not_found\n",
+          "stderr": ""
+        },
+        "identical": true
+      },
+      {
+        "baseline": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "auto",
+            "--format",
+            "json"
+          ],
+          "exit_code": 0,
+          "duration_seconds": 0.009105084,
+          "stdout": "{\n  \"issues\": [\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"../../outside/\",\n      \"line\": 5,\n      \"reason\": \"vault_escape\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"/Target.md/\",\n      \"line\": 9,\n      \"reason\": \"not_found\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"/absent/\",\n      \"line\": 4,\n      \"reason\": \"not_found\"\n    }\n  ]\n}\n",
+          "stderr": ""
+        },
+        "candidate": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "auto",
+            "--format",
+            "json"
+          ],
+          "exit_code": 0,
+          "duration_seconds": 0.008805875000000005,
+          "stdout": "{\n  \"issues\": [\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"../../outside/\",\n      \"line\": 5,\n      \"reason\": \"vault_escape\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"/Target.md/\",\n      \"line\": 9,\n      \"reason\": \"not_found\"\n    },\n    {\n      \"source_path\": \"Index.md\",\n      \"key\": \"sources\",\n      \"value\": \"/absent/\",\n      \"line\": 4,\n      \"reason\": \"not_found\"\n    }\n  ]\n}\n",
+          "stderr": ""
+        },
+        "identical": true
+      },
+      {
+        "baseline": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "auto",
+            "--format",
+            "text"
+          ],
+          "exit_code": 0,
+          "duration_seconds": 0.009312041999999993,
+          "stdout": "issues:\n- source_path: Index.md\n  key: sources\n  value: ../../outside/\n  location: Index.md:5\n  reason: vault_escape\n- source_path: Index.md\n  key: sources\n  value: /Target.md/\n  location: Index.md:9\n  reason: not_found\n- source_path: Index.md\n  key: sources\n  value: /absent/\n  location: Index.md:4\n  reason: not_found\n",
+          "stderr": ""
+        },
+        "candidate": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "auto",
+            "--format",
+            "text"
+          ],
+          "exit_code": 0,
+          "duration_seconds": 0.007883000000000001,
+          "stdout": "issues:\n- source_path: Index.md\n  key: sources\n  value: ../../outside/\n  location: Index.md:5\n  reason: vault_escape\n- source_path: Index.md\n  key: sources\n  value: /Target.md/\n  location: Index.md:9\n  reason: not_found\n- source_path: Index.md\n  key: sources\n  value: /absent/\n  location: Index.md:4\n  reason: not_found\n",
+          "stderr": ""
+        },
+        "identical": true
+      },
+      {
+        "baseline": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "invalid"
+          ],
+          "exit_code": 1,
+          "duration_seconds": 0.008070250000000001,
+          "stdout": "",
+          "stderr": "error: meta-check: invalid kind \"invalid\" (must be path, wikilink, or auto)\n"
+        },
+        "candidate": {
+          "args": [
+            "--key",
+            "sources",
+            "--kind",
+            "invalid"
+          ],
+          "exit_code": 1,
+          "duration_seconds": 0.007239208000000011,
+          "stdout": "",
+          "stderr": "error: meta-check: invalid kind \"invalid\" (must be path, wikilink, or auto)\n"
+        },
+        "identical": true
+      },
+      {
+        "baseline": {
+          "args": [
+            "--key",
+            "sources",
+            "--format",
+            "invalid"
+          ],
+          "exit_code": 1,
+          "duration_seconds": 0.007847875000000004,
+          "stdout": "",
+          "stderr": "error: meta-check: invalid format: \"invalid\" (must be json or text)\n"
+        },
+        "candidate": {
+          "args": [
+            "--key",
+            "sources",
+            "--format",
+            "invalid"
+          ],
+          "exit_code": 1,
+          "duration_seconds": 0.00792620799999999,
+          "stdout": "",
+          "stderr": "error: meta-check: invalid format: \"invalid\" (must be json or text)\n"
+        },
+        "identical": true
+      },
+      {
+        "baseline": {
+          "args": [],
+          "exit_code": 1,
+          "duration_seconds": 0.008559125,
+          "stdout": "",
+          "stderr": "error: meta-check: at least one --key is required\n"
+        },
+        "candidate": {
+          "args": [],
+          "exit_code": 1,
+          "duration_seconds": 0.00760050000000001,
+          "stdout": "",
+          "stderr": "error: meta-check: at least one --key is required\n"
+        },
+        "identical": true
+      }
+    ],
+    "unchanged_vault_and_db": true
+  }
+}
