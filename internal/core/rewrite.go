@@ -124,7 +124,7 @@ func rewriteRawLink(rawLink string, linkType LinkType, targetPath string, table 
 
 	case LinkTypeMarkdown:
 		// rawLink: [text](url), [text](url#frag)
-		start := strings.Index(rawLink, "](")
+		start := markdownInlineDelimiter(rawLink)
 		if start < 0 {
 			return rawLink
 		}

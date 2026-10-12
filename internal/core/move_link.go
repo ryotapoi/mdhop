@@ -98,7 +98,7 @@ func parseRelativeLink(rawLink string, linkType LinkType, table ...bool) (relati
 		parts := splitWikilinkParts(rawLink, table...)
 		return relativeLinkParts{prefix: "[[", target: parts.target, suffix: parts.subpath + parts.alias + "]]", stripMovedMD: true}, true
 	case LinkTypeMarkdown:
-		start := strings.Index(rawLink, "](")
+		start := markdownInlineDelimiter(rawLink)
 		if start < 0 {
 			return relativeLinkParts{}, false
 		}

@@ -66,7 +66,7 @@ func parseLinks(content string) parseResult {
 		out = append(out, parseWikiLinks(clean, lineNum, tableLines[lineNum])...)
 		clean = maskWikiLinks(clean)
 		clean = maskReferenceContinuation(clean, &pendingReference)
-		links, tagLine, pending := parseBodyMarkdown(clean, lineNum, definitions)
+		links, tagLine, pending := parseBodyMarkdown(raw, clean, lineNum, definitions)
 		if pending > 0 {
 			pendingReference = pending
 		}
@@ -290,8 +290,31 @@ func markdownDestinationEnd(line string, start int) int {
 	return -1
 }
 
+// markdownInlineDelimiter finds the outer display/destination boundary using
+// the same byte-preserving code mask as body parsing. Extra closing brackets
+// retain the existing parts-extraction behavior; body parsing validates syntax.
+func markdownInlineDelimiter(raw string) int {
+	if !strings.HasPrefix(raw, "[") {
+		return -1
+	}
+	clean := stripInlineCode(raw)
+	depth := 1
+	for i := 1; i+1 < len(clean); i++ {
+		switch clean[i] {
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth <= 0 && clean[i+1] == '(' {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
 func parseMarkdownLinks(line string, lineNum int) []linkOccur {
-	links, _, _ := parseBodyMarkdown(maskWikiLinks(line), lineNum, nil)
+	links, _, _ := parseBodyMarkdown(line, maskWikiLinks(stripInlineCode(line)), lineNum, nil)
 	return links
 }
 

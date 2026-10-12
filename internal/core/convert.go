@@ -267,7 +267,7 @@ func extractMarkdownParts(rawLink string) (text, url string) {
 	if !strings.HasPrefix(rawLink, "[") {
 		return "", ""
 	}
-	mid := strings.Index(rawLink, "](")
+	mid := markdownInlineDelimiter(rawLink)
 	if mid < 0 {
 		return "", ""
 	}

@@ -494,8 +494,12 @@ func TestRewriteContentCandidateMarkdownBoundaries(t *testing.T) {
 	}
 }
 
-func TestRewriteContentCandidatePreservesMaskedLabels(t *testing.T) {
-	for _, line := range []string{"[`shown`](Old.md)", "[outer [[Target]]](Old.md)"} {
+func TestRewriteContentCandidatePreservesOriginalLabels(t *testing.T) {
+	for _, tt := range []struct{ line, want string }{
+		{"[`shown`](Old.md)", "[[./Old|`shown`]]"},
+		{"[outer [[Target]]](Old.md)", "[outer [[Target]]](Old.md)"},
+	} {
+		line := tt.line
 		t.Run(line, func(t *testing.T) {
 			var rewrites []rewriteEntry
 			for _, link := range parseLinks(line).Links {
@@ -503,12 +507,12 @@ func TestRewriteContentCandidatePreservesMaskedLabels(t *testing.T) {
 					rewrites = append(rewrites, rewriteEntry{rawLink: link.rawLink, newRawLink: convertMarkdownToWikilink(link.rawLink), linkType: link.linkType, lineStart: link.lineStart})
 				}
 			}
-			if len(rewrites) != 1 || rewrites[0].rawLink == line {
-				t.Fatalf("expected masked Markdown raw, got %+v", rewrites)
+			if len(rewrites) != 1 || rewrites[0].rawLink != line {
+				t.Fatalf("expected original Markdown raw, got %+v", rewrites)
 			}
 			got, err := rewriteContentCandidate([]byte(line), rewrites)
-			if err != nil || string(got) != line {
-				t.Fatalf("got %q, %v; want original %q", got, err, line)
+			if err != nil || string(got) != tt.want {
+				t.Fatalf("got %q, %v; want %q", got, err, tt.want)
 			}
 		})
 	}

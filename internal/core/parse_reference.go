@@ -137,7 +137,7 @@ func markdownDestinationOccur(destination, raw string, typ LinkType, line int) (
 
 // parseBodyMarkdown scans disjoint bracket spans, so undefined full references
 // cannot fall back to a shortcut and inline links cannot consume earlier references.
-func parseBodyMarkdown(line string, lineNum int, definitions map[string]string) ([]linkOccur, string, int) {
+func parseBodyMarkdown(raw, line string, lineNum int, definitions map[string]string) ([]linkOccur, string, int) {
 	pending := 0
 	masked := []byte(line)
 	var out []linkOccur
@@ -179,7 +179,7 @@ func parseBodyMarkdown(line string, lineNum int, definitions map[string]string) 
 			}
 			continue
 		}
-		label := line[start+1 : end]
+		label := raw[start+1 : end]
 		destination, typ, used := "", LinkTypeMarkdownReference, false
 		if i < len(line) && line[i] == '(' {
 			close := markdownDestinationEnd(line, i+1)
@@ -196,7 +196,7 @@ func parseBodyMarkdown(line string, lineNum int, definitions map[string]string) 
 					break
 				}
 				if close > i+1 {
-					label = line[i+1 : close]
+					label = raw[i+1 : close]
 				}
 				i = close + 1
 				if !ok {
@@ -206,7 +206,7 @@ func parseBodyMarkdown(line string, lineNum int, definitions map[string]string) 
 			destination, used = definitions[normalizeReferenceLabel(label)]
 		}
 		if used {
-			if occ, ok := markdownDestinationOccur(destination, line[start:i], typ, lineNum); ok {
+			if occ, ok := markdownDestinationOccur(destination, raw[start:i], typ, lineNum); ok {
 				out = append(out, occ)
 			}
 			for j := start; j < i; j++ {
