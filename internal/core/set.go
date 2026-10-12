@@ -206,11 +206,20 @@ func rewriteFrontmatterValue(content []byte, key, value string, list []string) (
 			if nextKeyIndex := matchIndex + 2; nextKeyIndex < len(mapping.Content) {
 				stop = mapping.Content[nextKeyIndex].Line
 			}
-			stop = setListValueEnd(valNode, stop, lines)
+			stop, err := setListValueEnd(valNode, stop, lines)
+			if err != nil {
+				return nil, false, err
+			}
 			if start < 1 || start > stop || stop > len(lines) {
 				return nil, false, fmt.Errorf("frontmatter key %q lines are out of range", key)
 			}
-			newLines[0] += yamlCommentSuffix(lines[start])
+			comment := yamlCommentSuffix(lines[start])
+			if valNode.Kind == yaml.SequenceNode && valNode.Style&yaml.FlowStyle != 0 {
+				if parsedComment := setFlowSequenceCommentSuffix(valNode, lines[start]); parsedComment != "" {
+					comment = parsedComment
+				}
+			}
+			newLines[0] += comment
 			lines = append(lines[:start], append(newLines, lines[stop:]...)...)
 			return []byte(strings.Join(lines, "\n")), false, nil
 		}
@@ -302,19 +311,28 @@ func formatSetYAMLLines(key, value string, list []string) []string {
 
 // setListValueEnd ends the replacement immediately after the parsed value,
 // preserving comments and formatting before the next key or frontmatter end.
-func setListValueEnd(value *yaml.Node, stop int, lines []string) int {
+func setListValueEnd(value *yaml.Node, stop int, lines []string) (int, error) {
 	lastLine := value.Line
-	for _, child := range value.Content {
-		lastLine = max(lastLine, setListValueEnd(child, 0, lines))
-	}
-	lastLine = max(lastLine, setScalarValueEnd(value, lines))
-	if value.Kind == yaml.SequenceNode && value.Style == yaml.FlowStyle {
-		lastLine = max(lastLine, setFlowSequenceEnd(value.Line, lines))
+	if value.Kind == yaml.SequenceNode && value.Style&yaml.FlowStyle != 0 {
+		var err error
+		lastLine, err = setFlowSequenceEnd(value, stop, lines)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		for _, child := range value.Content {
+			childEnd, err := setListValueEnd(child, 0, lines)
+			if err != nil {
+				return 0, err
+			}
+			lastLine = max(lastLine, childEnd)
+		}
+		lastLine = max(lastLine, setScalarValueEnd(value, lines))
 	}
 	if stop == 0 {
-		return lastLine
+		return lastLine, nil
 	}
-	return min(stop, lastLine+1)
+	return min(stop, lastLine+1), nil
 }
 
 // setScalarValueEnd finds the last physical line of block and quoted scalar
@@ -358,52 +376,51 @@ func setPlainSequenceItemEnd(start int, lines []string) int {
 	return end
 }
 
-func setFlowSequenceEnd(start int, lines []string) int {
-	depth := 0
-	inSingle := false
-	inDouble := false
-	for line := start; line < len(lines); line++ {
-	scanLine:
-		for column := 0; column < len(lines[line]); column++ {
-			ch := lines[line][column]
-			if inDouble {
-				if ch == '"' && !yamlQuoteEscaped(lines[line], column) {
-					inDouble = false
-				}
+// Let the same parser that accepted the original value determine which line
+// completes it. Quotes inside plain scalars and brackets inside quoted values
+// must not be interpreted by a separate YAML scanner.
+func setFlowSequenceEnd(value *yaml.Node, stop int, lines []string) (int, error) {
+	if stop == 0 {
+		stop = len(lines)
+	}
+	firstLine := string([]rune(lines[value.Line])[value.Column-1:])
+	for line := value.Line; line < stop; line++ {
+		if !strings.Contains(lines[line], "]") {
+			continue
+		}
+		fragment := firstLine
+		if line > value.Line {
+			fragment += "\n" + strings.Join(lines[value.Line+1:line+1], "\n")
+		}
+		var doc yaml.Node
+		if err := yaml.Unmarshal([]byte(fragment), &doc); err == nil &&
+			len(doc.Content) == 1 && doc.Content[0].Kind == yaml.SequenceNode {
+			return line, nil
+		}
+	}
+	return 0, fmt.Errorf("cannot locate end of frontmatter flow sequence")
+}
+
+// Flow comments may belong to an item rather than the sequence itself. Use
+// parsed comments to avoid treating quotes within plain items as delimiters.
+func setFlowSequenceCommentSuffix(value *yaml.Node, line string) string {
+	for _, comments := range []string{value.HeadComment, value.LineComment, value.FootComment} {
+		for _, comment := range strings.Split(comments, "\n") {
+			if comment == "" || !strings.HasSuffix(line, comment) {
 				continue
 			}
-			if inSingle {
-				if ch == '\'' {
-					if column+1 < len(lines[line]) && lines[line][column+1] == '\'' {
-						column++
-						continue
-					}
-					inSingle = false
-				}
-				continue
-			}
-			switch ch {
-			case '#':
-				if column == 0 || lines[line][column-1] == ' ' || lines[line][column-1] == '\t' {
-					break scanLine
-				}
-			case '"':
-				inDouble = true
-			case '\'':
-				inSingle = true
-			case '[':
-				depth++
-			case ']':
-				if depth > 0 {
-					depth--
-					if depth == 0 {
-						return line
-					}
-				}
+			start := len(line) - len(comment)
+			if start > 0 && (line[start-1] == ' ' || line[start-1] == '\t') {
+				return line[start-1:]
 			}
 		}
 	}
-	return start
+	for _, child := range value.Content {
+		if suffix := setFlowSequenceCommentSuffix(child, line); suffix != "" {
+			return suffix
+		}
+	}
+	return ""
 }
 
 func setBlockScalarEnd(start int, lines []string) int {

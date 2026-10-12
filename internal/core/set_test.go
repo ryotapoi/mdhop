@@ -625,6 +625,82 @@ func TestSetListReplacesComplexSequenceSyntaxAndRefreshesIndex(t *testing.T) {
 	}
 }
 
+func TestSetListReplacesParsedFlowSequences(t *testing.T) {
+	for _, source := range []string{
+		"[don't,\n  old\n]",
+		"[say\"hello,\n  old\n]",
+		"[don't, # retained\n  old\n]",
+		"[\"quoted ]\", # ignored ]\n  ['nested', old],\n  {key: old}\n]",
+		"!!seq [don't,\n  old\n]",
+		"# retained\n  [old, older]",
+	} {
+		t.Run(source, func(t *testing.T) {
+			const prefix = "---\ntitle: A\n"
+			const suffix = "\n\n# independent comment\n\nstatus: draft\ntags: [kept]\n---\n# Body\n[[Target]] #bodytag\n"
+			content := prefix + "aliases: " + source + suffix
+			lines := strings.Split(content, "\n")
+			var values map[string]any
+			if err := yaml.Unmarshal([]byte(strings.Join(lines[1:frontmatterEnd(lines)], "\n")), &values); err != nil {
+				t.Fatalf("original YAML: %v", err)
+			}
+			vault := t.TempDir()
+			path := filepath.Join(vault, "A.md")
+			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			before, err := Inspect(vault, "A.md", InspectOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			beforeEdges := queryEdges(t, dbPath(vault), "A.md")
+			if _, err := Set(vault, SetOptions{File: "A.md", Key: "aliases", List: []string{"new"}}); err != nil {
+				t.Fatalf("set list: %v", err)
+			}
+			got := readTestFile(t, path)
+			comment := ""
+			if strings.Contains(source, "# ignored ]") {
+				comment = " # ignored ]"
+			}
+			if strings.Contains(source, "# retained") {
+				comment = " # retained"
+			}
+			want := prefix + "aliases:" + comment + "\n  - \"new\"" + suffix
+			if got != want {
+				t.Fatalf("content = %q, want %q", got, want)
+			}
+			lines = strings.Split(got, "\n")
+			values = nil
+			if err := yaml.Unmarshal([]byte(strings.Join(lines[1:frontmatterEnd(lines)], "\n")), &values); err != nil {
+				t.Fatalf("rewritten YAML: %v", err)
+			}
+			if !reflect.DeepEqual(values["aliases"], []any{"new"}) {
+				t.Fatalf("aliases = %#v", values["aliases"])
+			}
+			after, err := Inspect(vault, "A.md", InspectOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			before.Meta["aliases"] = []string{"new"}
+			if !reflect.DeepEqual(after.Meta, before.Meta) || !reflect.DeepEqual(after.Tags, before.Tags) {
+				t.Fatalf("index = %+v, want meta %v and tags %v", after, before.Meta, before.Tags)
+			}
+			afterEdges := queryEdges(t, dbPath(vault), "A.md")
+			for i := range beforeEdges {
+				beforeEdges[i].lineStart, beforeEdges[i].lineEnd = 0, 0
+			}
+			for i := range afterEdges {
+				afterEdges[i].lineStart, afterEdges[i].lineEnd = 0, 0
+			}
+			if !reflect.DeepEqual(afterEdges, beforeEdges) {
+				t.Fatalf("links changed: %+v, want %+v", afterEdges, beforeEdges)
+			}
+		})
+	}
+}
+
 func TestSetListWritesExplicitYAMLStrings(t *testing.T) {
 	values := []string{"2026-01-02", "true", "123", "", "plain"}
 	content := "---\ntitle: A\n---\n"
