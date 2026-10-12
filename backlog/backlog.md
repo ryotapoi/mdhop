@@ -127,7 +127,7 @@
   - 発生条件・頻度: 対象・条件: Vault に Café.md があり、macOS のファイル名等からコピーした NFD 表記 Cafe\u0301.md を build.exclude_paths に指定する。 この条件下での再現性: 隔離fixtureで成立を確認。実運用頻度は未測定。
   - リスク: 誤結果：中。除外漏れ。走査後の誤書換えへの波及は静的経路で確認し、実書換え未実行。
 
-- [ ] 同じ見た目の Unicode 名を disambiguate が見つけない問題を修正する（A10-C3）
+- [x] 同じ見た目の Unicode 名を disambiguate が見つけない問題を修正する（A10-C3）
   - 問題: 候補は Café の合成文字へ揃えるが、--name や本文は Café の分解文字のまま比較する箇所がある。 実在する Café.md に対し「候補がない」とエラーになる。または成功しても本文の同じ見た目のリンクが対象から漏れる。
   - 対応: DB/scan の nameKey と scan の targetName を normalizeTextNFC 後に既存 lower/suffix除去で生成する。name引数の許容形を変えないため、filepath.Baseを取る basenameKey への単純置換は避ける。
   - 完了条件: DB / scan の両方で NFC / NFD の --name が同じ候補を選び、scan でも NFD 表記の本文リンクを漏らさず書き換える。--name の許容形式を広げない。

@@ -34,7 +34,7 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions, locations ...Locat
 	}
 
 	// Find candidate notes matching the basename.
-	nameKey := strings.TrimSuffix(strings.ToLower(opts.Name), ".md")
+	nameKey := strings.TrimSuffix(strings.ToLower(normalizeTextNFC(opts.Name)), ".md")
 
 	rows, err := db.Query("SELECT id, path FROM nodes WHERE type='note' AND exists_flag=1")
 	if err != nil {
@@ -218,15 +218,15 @@ func resolveDisambiguateTarget(name string, candidates []string, target string) 
 func DisambiguateScan(vaultPath string, opts DisambiguateOptions, locations ...Locations) (*DisambiguateResult, error) {
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		Prepare: func(files, _ []string) (scanRewritePlan, error) {
+			nameKey := strings.TrimSuffix(strings.ToLower(normalizeTextNFC(opts.Name)), ".md")
 			fileSet := make(map[string]bool, len(files))
 			var candidates []string
 			for _, f := range files {
 				fileSet[f] = true
-				if basenameKey(f) == strings.TrimSuffix(strings.ToLower(opts.Name), ".md") {
+				if basenameKey(f) == nameKey {
 					candidates = append(candidates, f)
 				}
 			}
-			nameKey := strings.TrimSuffix(strings.ToLower(opts.Name), ".md")
 			targetPath, err := resolveDisambiguateTarget(opts.Name, candidates, opts.Target)
 			if err != nil {
 				return scanRewritePlan{}, err
@@ -263,7 +263,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions, locations ...L
 						continue
 					}
 					// Only strip the Markdown suffix; other dots belong to the note name.
-					targetName := strings.TrimSuffix(strings.ToLower(filepath.Base(lo.target)), ".md")
+					targetName := strings.TrimSuffix(strings.ToLower(normalizeTextNFC(filepath.Base(lo.target))), ".md")
 					if targetName != nameKey {
 						continue
 					}

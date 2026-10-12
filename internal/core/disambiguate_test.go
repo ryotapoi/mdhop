@@ -972,3 +972,127 @@ func TestDisambiguatePreservesExcludedPaths(t *testing.T) {
 		})
 	}
 }
+
+func TestDisambiguateUnicodeNames(t *testing.T) {
+	const original = "[[Caf\u00e9]]\n[[Cafe\u0301|alias]]\n[[Cafe\u0301.md#Heading]]\n[[sub/Cafe\u0301]]\n`[[Cafe\u0301]]`\n"
+	const expected = "[[sub/Caf\u00e9]]\n[[sub/Caf\u00e9|alias]]\n[[sub/Caf\u00e9#Heading]]\n[[sub/Cafe\u0301]]\n`[[Cafe\u0301]]`\n"
+	for _, scan := range []bool{false, true} {
+		mode := "DB"
+		if scan {
+			mode = "scan"
+		}
+		t.Run(mode, func(t *testing.T) {
+			for _, tc := range []struct {
+				label  string
+				name   string
+				reject bool
+			}{
+				{label: "NFC", name: "Caf\u00e9"},
+				{label: "NFD", name: "Cafe\u0301"},
+				{label: "uppercase_suffix", name: "CAFE\u0301.MD"},
+				{label: "subdirectory", name: "sub/Cafe\u0301", reject: true},
+				{label: "dot_prefix", name: "./Caf\u00e9", reject: true},
+			} {
+				t.Run(tc.label, func(t *testing.T) {
+					vault := t.TempDir()
+					if err := os.Mkdir(filepath.Join(vault, "sub"), 0755); err != nil {
+						t.Fatal(err)
+					}
+					for path, content := range map[string]string{
+						"sub/Caf\u00e9.md": "# Target\n",
+						"source.md":        original,
+					} {
+						if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0644); err != nil {
+							t.Fatal(err)
+						}
+					}
+					var beforeDB []byte
+					if !scan {
+						if _, err := Build(vault); err != nil {
+							t.Fatal(err)
+						}
+						var err error
+						beforeDB, err = os.ReadFile(dbPath(vault))
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					var result *DisambiguateResult
+					var err error
+					if scan {
+						result, err = DisambiguateScan(vault, DisambiguateOptions{Name: tc.name})
+					} else {
+						result, err = Disambiguate(vault, DisambiguateOptions{Name: tc.name})
+					}
+					want := expected
+					if tc.reject {
+						if err == nil || !strings.Contains(err.Error(), "no note found with basename:") {
+							t.Fatalf("error = %v, want no candidate", err)
+						}
+						want = original
+					} else {
+						if err != nil {
+							t.Fatal(err)
+						}
+						wantRewrites := []RewrittenLink{
+							{File: "source.md", OldLink: "[[Caf\u00e9]]", NewLink: "[[sub/Caf\u00e9]]"},
+							{File: "source.md", OldLink: "[[Cafe\u0301|alias]]", NewLink: "[[sub/Caf\u00e9|alias]]"},
+							{File: "source.md", OldLink: "[[Cafe\u0301.md#Heading]]", NewLink: "[[sub/Caf\u00e9#Heading]]"},
+						}
+						if len(result.Rewritten) != len(wantRewrites) {
+							t.Fatalf("rewrites = %+v, want %+v", result.Rewritten, wantRewrites)
+						}
+						for i, rewrite := range result.Rewritten {
+							if rewrite != wantRewrites[i] {
+								t.Errorf("rewrite %d = %+v, want %+v", i, rewrite, wantRewrites[i])
+							}
+						}
+					}
+					got, err := os.ReadFile(filepath.Join(vault, "source.md"))
+					if err != nil || string(got) != want {
+						t.Fatalf("source = %q, want %q (error %v)", got, want, err)
+					}
+					target, err := os.ReadFile(filepath.Join(vault, "sub/Caf\u00e9.md"))
+					if err != nil || string(target) != "# Target\n" {
+						t.Fatalf("target changed: %q (error %v)", target, err)
+					}
+					if scan {
+						if _, err := os.Stat(dbPath(vault)); !os.IsNotExist(err) {
+							t.Fatalf("scan created DB: %v", err)
+						}
+					} else if tc.reject {
+						afterDB, err := os.ReadFile(dbPath(vault))
+						if err != nil || string(afterDB) != string(beforeDB) {
+							t.Fatalf("rejected name changed DB (error %v)", err)
+						}
+					} else {
+						db := openTestDB(t, dbPath(vault))
+						defer db.Close()
+						rows, err := db.Query(`SELECT e.raw_link, tn.path FROM edges e
+							JOIN nodes sn ON sn.id = e.source_id JOIN nodes tn ON tn.id = e.target_id
+							WHERE sn.path = 'source.md' ORDER BY e.line_start`)
+						if err != nil {
+							t.Fatal(err)
+						}
+						defer rows.Close()
+						wantRaw := []string{"[[sub/Caf\u00e9]]", "[[sub/Caf\u00e9|alias]]", "[[sub/Caf\u00e9#Heading]]", "[[sub/Cafe\u0301]]"}
+						i := 0
+						for rows.Next() {
+							var raw, path string
+							if err := rows.Scan(&raw, &path); err != nil {
+								t.Fatal(err)
+							}
+							if i >= len(wantRaw) || raw != wantRaw[i] || path != "sub/Caf\u00e9.md" {
+								t.Fatalf("edge %d = (%q, %q), want rewritten raw link and NFC target", i, raw, path)
+							}
+							i++
+						}
+						if err := rows.Err(); err != nil || i != len(wantRaw) {
+							t.Fatalf("edges count = %d, want %d (error %v)", i, len(wantRaw), err)
+						}
+					}
+				})
+			}
+		})
+	}
+}
