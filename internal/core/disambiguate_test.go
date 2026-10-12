@@ -100,9 +100,9 @@ func TestDisambiguateBasic(t *testing.T) {
 		t.Fatalf("disambiguate: %v", err)
 	}
 
-	// B.md has 5 basename links to A: [[A]], [[A|alias]], [[A#Heading]], [link](A.md), [link2](A.md#frag)
-	if len(result.Rewritten) != 5 {
-		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
+	// B.md has 3 basename wikilinks; unresolved Markdown paths stay unchanged.
+	if len(result.Rewritten) != 3 {
+		t.Errorf("Rewritten count = %d, want 3", len(result.Rewritten))
 		for _, r := range result.Rewritten {
 			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
 		}
@@ -120,8 +120,8 @@ func TestDisambiguateBasic(t *testing.T) {
 		"[[sub/A]]",
 		"[[sub/A|alias]]",
 		"[[sub/A#Heading]]",
-		"[link](/sub/A.md)",
-		"[link2](/sub/A.md#frag)",
+		"[link](A.md)",
+		"[link2](A.md#frag)",
 	}
 	for _, want := range wantLines {
 		if !strings.Contains(got, want) {
@@ -441,8 +441,8 @@ func TestDisambiguateCaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("disambiguate: %v", err)
 	}
-	if len(result.Rewritten) != 5 {
-		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
+	if len(result.Rewritten) != 3 {
+		t.Errorf("Rewritten count = %d, want 3", len(result.Rewritten))
 	}
 }
 
@@ -457,8 +457,8 @@ func TestDisambiguateScanBasic(t *testing.T) {
 		t.Fatalf("scan: %v", err)
 	}
 
-	if len(result.Rewritten) != 5 {
-		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
+	if len(result.Rewritten) != 3 {
+		t.Errorf("Rewritten count = %d, want 3", len(result.Rewritten))
 		for _, r := range result.Rewritten {
 			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
 		}
@@ -475,8 +475,8 @@ func TestDisambiguateScanBasic(t *testing.T) {
 		"[[sub/A]]",
 		"[[sub/A|alias]]",
 		"[[sub/A#Heading]]",
-		"[link](/sub/A.md)",
-		"[link2](/sub/A.md#frag)",
+		"[link](A.md)",
+		"[link2](A.md#frag)",
 	}
 	for _, want := range wantLines {
 		if !strings.Contains(got, want) {
@@ -509,15 +509,15 @@ func TestDisambiguateScanPreservesAssetLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan: %v", err)
 	}
-	if len(result.Rewritten) != 3 {
-		t.Errorf("Rewritten = %+v, want only 3 note links", result.Rewritten)
+	if len(result.Rewritten) != 1 {
+		t.Errorf("Rewritten = %+v, want only 1 basename link", result.Rewritten)
 	}
 	for _, rewrite := range result.Rewritten {
 		if strings.Contains(rewrite.OldLink, ".png") || strings.Contains(rewrite.OldLink, "assets/") {
 			t.Errorf("asset link rewritten: %+v", rewrite)
 		}
 	}
-	want := assets + "[[sub/image]]\n[[sub/image]]\n[note](/sub/image.md)\n"
+	want := assets + "[[sub/image]]\n[[missing/image]]\n[note](missing/image.md)\n"
 	for path, expected := range map[string]string{
 		"notes/source.md":  want,
 		"assets/image.png": "asset bytes\n",
@@ -560,7 +560,7 @@ func TestDisambiguateScanDottedBasename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan: %v", err)
 	}
-	wantLinks := []string{"[[Note.v1]]", "[[NOTE.V1.MD]]", "[[missing/Note.v1]]", "[note](missing/Note.v1.md)"}
+	wantLinks := []string{"[[Note.v1]]", "[[NOTE.V1.MD]]"}
 	if len(result.Rewritten) != len(wantLinks) {
 		t.Errorf("Rewritten = %+v, want %d note links", result.Rewritten, len(wantLinks))
 	}
@@ -569,7 +569,7 @@ func TestDisambiguateScanDottedBasename(t *testing.T) {
 			t.Errorf("unexpected rewrite: %+v", rewrite)
 		}
 	}
-	files["notes/source.md"] = unchanged + "[[sub/Note.v1]]\n[[sub/Note.v1]]\n[[sub/Note.v1]]\n[note](/sub/Note.v1.md)\n"
+	files["notes/source.md"] = unchanged + "[[sub/Note.v1]]\n[[sub/Note.v1]]\n[[missing/Note.v1]]\n[note](missing/Note.v1.md)\n"
 	for path, expected := range files {
 		content, err := os.ReadFile(filepath.Join(vault, path))
 		if err != nil {
@@ -679,8 +679,8 @@ func TestDisambiguateScanCaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan: %v", err)
 	}
-	if len(result.Rewritten) != 5 {
-		t.Errorf("Rewritten count = %d, want 5", len(result.Rewritten))
+	if len(result.Rewritten) != 3 {
+		t.Errorf("Rewritten count = %d, want 3", len(result.Rewritten))
 	}
 }
 
@@ -770,48 +770,26 @@ func TestDisambiguateScan_RespectsExclude(t *testing.T) {
 func TestDisambiguatePhantomPathLink(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate_phantom")
 	if _, err := Build(vault); err != nil {
-		t.Fatalf("build: %v", err)
+		t.Fatal(err)
 	}
-
-	result, err := Disambiguate(vault, DisambiguateOptions{
-		Name:   "X",
-		Target: "dir1/X.md",
-	})
+	result, err := Disambiguate(vault, DisambiguateOptions{Name: "X", Target: "dir1/X.md"})
 	if err != nil {
-		t.Fatalf("disambiguate: %v", err)
+		t.Fatal(err)
 	}
-
-	// A.md has [[old/X]] and [text](broken/X.md) → both path links to phantom X.
-	// B.md has [[wrong/X]] → path link to phantom X.
-	// All 3 should be rewritten to dir1/X paths.
-	if len(result.Rewritten) != 3 {
-		t.Errorf("Rewritten count = %d, want 3", len(result.Rewritten))
-		for _, r := range result.Rewritten {
-			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+	if len(result.Rewritten) != 0 {
+		t.Errorf("unexpected rewrites: %+v", result.Rewritten)
+	}
+	for path, want := range map[string]string{
+		"A.md": "[[old/X]]\n[text](broken/X.md)\n",
+		"B.md": "[[wrong/X]]\n",
+	} {
+		got, err := os.ReadFile(filepath.Join(vault, path))
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-
-	// Verify A.md disk content.
-	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
-	if err != nil {
-		t.Fatalf("read A.md: %v", err)
-	}
-	got := string(content)
-	if !strings.Contains(got, "[[dir1/X]]") {
-		t.Errorf("A.md should contain [[dir1/X]], got:\n%s", got)
-	}
-	if !strings.Contains(got, "[text](/dir1/X.md)") {
-		t.Errorf("A.md should contain [text](dir1/X.md), got:\n%s", got)
-	}
-
-	// Verify B.md disk content.
-	contentB, err := os.ReadFile(filepath.Join(vault, "B.md"))
-	if err != nil {
-		t.Fatalf("read B.md: %v", err)
-	}
-	gotB := string(contentB)
-	if !strings.Contains(gotB, "[[dir1/X]]") {
-		t.Errorf("B.md should contain [[dir1/X]], got:\n%s", gotB)
+		if string(got) != want {
+			t.Errorf("%s = %q, want %q", path, got, want)
+		}
 	}
 }
 
@@ -881,46 +859,116 @@ parent: [[B]]
 
 func TestDisambiguatePhantomPathLinkScan(t *testing.T) {
 	vault := copyVault(t, "vault_disambiguate_phantom")
-
-	// No build — scan works without DB.
-	result, err := DisambiguateScan(vault, DisambiguateOptions{
-		Name:   "X",
-		Target: "dir1/X.md",
-	})
+	result, err := DisambiguateScan(vault, DisambiguateOptions{Name: "X", Target: "dir1/X.md"})
 	if err != nil {
-		t.Fatalf("scan: %v", err)
+		t.Fatal(err)
 	}
-
-	// A.md has [[old/X]] and [text](broken/X.md) → broken path links.
-	// B.md has [[wrong/X]] → broken path link.
-	// All 3 should be rewritten.
-	if len(result.Rewritten) != 3 {
-		t.Errorf("Rewritten count = %d, want 3", len(result.Rewritten))
-		for _, r := range result.Rewritten {
-			t.Logf("  %s: %s → %s", r.File, r.OldLink, r.NewLink)
+	if len(result.Rewritten) != 0 {
+		t.Errorf("unexpected rewrites: %+v", result.Rewritten)
+	}
+	for path, want := range map[string]string{
+		"A.md": "[[old/X]]\n[text](broken/X.md)\n",
+		"B.md": "[[wrong/X]]\n",
+	} {
+		got, err := os.ReadFile(filepath.Join(vault, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != want {
+			t.Errorf("%s = %q, want %q", path, got, want)
 		}
 	}
+}
 
-	// Verify A.md disk content.
-	content, err := os.ReadFile(filepath.Join(vault, "A.md"))
-	if err != nil {
-		t.Fatalf("read A.md: %v", err)
-	}
-	got := string(content)
-	if !strings.Contains(got, "[[dir1/X]]") {
-		t.Errorf("A.md should contain [[dir1/X]], got:\n%s", got)
-	}
-	if !strings.Contains(got, "[text](/dir1/X.md)") {
-		t.Errorf("A.md should contain [text](dir1/X.md), got:\n%s", got)
-	}
+func TestDisambiguatePreservesExcludedPaths(t *testing.T) {
+	for _, scan := range []bool{false, true} {
+		name := "DB"
+		if scan {
+			name = "scan"
+		}
+		t.Run(name, func(t *testing.T) {
+			vault := t.TempDir()
+			for _, dir := range []string{"excluded", "sub"} {
+				if err := os.MkdirAll(filepath.Join(vault, dir), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for path, content := range map[string]string{
+				"mdhop.toml":    "[build]\nexclude_paths = ['excluded/**']\n",
+				"excluded/A.md": "# Excluded A\n",
+				"sub/A.md":      "# Included A\n",
+				"source.md":     "[[excluded/A]]\n[A](excluded/A.md)\n[[A]]\n",
+			} {
+				if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			db := openTestDB(t, dbPath(vault))
+			defer func() { db.Close() }()
+			var phantomID, targetID int64
+			if err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'phantom'", phantomKey("a")).Scan(&phantomID); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND exists_flag = 1", noteKey("sub/A.md")).Scan(&targetID); err != nil {
+				t.Fatal(err)
+			}
+			assertEdge := func(raw string, wantID int64, wantType NodeType) {
+				t.Helper()
+				var id int64
+				var nodeType NodeType
+				if err := db.QueryRow(`SELECT tn.id, tn.type FROM edges e
+					JOIN nodes sn ON sn.id = e.source_id JOIN nodes tn ON tn.id = e.target_id
+					WHERE sn.path = 'source.md' AND e.raw_link = ?`, raw).Scan(&id, &nodeType); err != nil {
+					t.Fatal(err)
+				}
+				if id != wantID || nodeType != wantType {
+					t.Errorf("%s target = (%d, %s), want (%d, %s)", raw, id, nodeType, wantID, wantType)
+				}
+			}
+			assertEdge("[[excluded/A]]", phantomID, NodeTypePhantom)
+			assertEdge("[A](excluded/A.md)", phantomID, NodeTypePhantom)
+			assertEdge("[[A]]", targetID, NodeTypeNote)
 
-	// Verify B.md disk content.
-	contentB, err := os.ReadFile(filepath.Join(vault, "B.md"))
-	if err != nil {
-		t.Fatalf("read B.md: %v", err)
-	}
-	gotB := string(contentB)
-	if !strings.Contains(gotB, "[[dir1/X]]") {
-		t.Errorf("B.md should contain [[dir1/X]], got:\n%s", gotB)
+			var result *DisambiguateResult
+			var err error
+			if scan {
+				result, err = DisambiguateScan(vault, DisambiguateOptions{Name: "A"})
+			} else {
+				result, err = Disambiguate(vault, DisambiguateOptions{Name: "A"})
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Rewritten) != 1 || result.Rewritten[0] != (RewrittenLink{File: "source.md", OldLink: "[[A]]", NewLink: "[[sub/A]]"}) {
+				t.Fatalf("unexpected rewrites: %+v", result.Rewritten)
+			}
+			got, err := os.ReadFile(filepath.Join(vault, "source.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := "[[excluded/A]]\n[A](excluded/A.md)\n[[sub/A]]\n"; string(got) != want {
+				t.Errorf("source.md = %q, want %q", got, want)
+			}
+			if scan {
+				if _, err := Build(vault); err != nil {
+					t.Fatal(err)
+				}
+				db.Close()
+				db = openTestDB(t, dbPath(vault))
+				// A full build replaces the DB; reopen it and inspect the new IDs.
+				if err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", phantomKey("a")).Scan(&phantomID); err != nil {
+					t.Fatal(err)
+				}
+				if err := db.QueryRow("SELECT id FROM nodes WHERE node_key = ?", noteKey("sub/A.md")).Scan(&targetID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			assertEdge("[[excluded/A]]", phantomID, NodeTypePhantom)
+			assertEdge("[A](excluded/A.md)", phantomID, NodeTypePhantom)
+			assertEdge("[[sub/A]]", targetID, NodeTypeNote)
+		})
 	}
 }

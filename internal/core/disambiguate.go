@@ -94,53 +94,26 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions, locations ...Locat
 		fileScope[np] = true
 	}
 
-	// Also look up the phantom node with the same basename, so we can find
-	// broken path links (pointing to the phantom) in addition to basename links
-	// (pointing to the real note).
-	var phantomID sql.NullInt64
-	err = db.QueryRow("SELECT id FROM nodes WHERE node_key = ? AND type = 'phantom'",
-		phantomKey(nameKey)).Scan(&phantomID.Int64)
-	if err == nil {
-		phantomID.Valid = true
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
-
-	// Get incoming edges: basename links pointing to target note,
-	// plus broken path links pointing to the phantom (if any).
-	var edgeRows *sql.Rows
+	// Get incoming edges pointing to the selected real note.
 	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
-	if phantomID.Valid {
-		edgeRows, err = db.Query(fmt.Sprintf(
-			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table, tn.type
-			 FROM edges e
-			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-			 JOIN nodes tn ON tn.id = e.target_id
-			 WHERE e.target_id IN (?, ?) AND %s`, rewriteLinkTypeSQL),
-			append([]any{target.id, phantomID.Int64}, rewriteLinkTypeArgs...)...)
-	} else {
-		edgeRows, err = db.Query(fmt.Sprintf(
-			`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table, tn.type
-			 FROM edges e
-			 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
-			 JOIN nodes tn ON tn.id = e.target_id
-			 WHERE e.target_id = ? AND %s`, rewriteLinkTypeSQL),
-			append([]any{target.id}, rewriteLinkTypeArgs...)...)
-	}
+	edgeRows, err := db.Query(fmt.Sprintf(
+		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table
+		 FROM edges e
+		 JOIN nodes sn ON sn.id = e.source_id AND sn.exists_flag = 1
+		 WHERE e.target_id = ? AND %s`, rewriteLinkTypeSQL),
+		append([]any{target.id}, rewriteLinkTypeArgs...)...)
 	if err != nil {
 		return nil, err
 	}
 	var rewrites []rewriteEntry
 	for edgeRows.Next() {
 		var re rewriteEntry
-		var targetType NodeType
-		if err := edgeRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &re.inTable, &targetType); err != nil {
+		if err := edgeRows.Scan(&re.edgeID, &re.rawLink, &re.linkType, &re.lineStart, &re.sourcePath, &re.sourceID, &re.inTable); err != nil {
 			edgeRows.Close()
 			return nil, err
 		}
-		// Filter: basename links to the note target are always candidates.
-		// Path links are only candidates if they point to a phantom.
-		if !isBasenameRawLink(re.rawLink, re.linkType, re.inTable) && targetType != NodeTypePhantom {
+		// Filter: only basename links can be made explicit.
+		if !isBasenameRawLink(re.rawLink, re.linkType, re.inTable) {
 			continue
 		}
 		// Filter: skip self-references.
@@ -200,16 +173,6 @@ func Disambiguate(vaultPath string, opts DisambiguateOptions, locations ...Locat
 		return nil, err
 	}
 	result.Rewritten = append(result.Rewritten, rewritten...)
-	for _, re := range rewrites {
-		if _, err := rewriteTxExec(tx, "UPDATE edges SET target_id = ? WHERE id = ?", target.id, re.edgeID); err != nil {
-			return nil, err
-		}
-	}
-	if phantomID.Valid {
-		if _, err := tx.Exec("DELETE FROM nodes WHERE id = ? AND type = 'phantom' AND NOT EXISTS (SELECT 1 FROM edges WHERE target_id = ?)", phantomID.Int64, phantomID.Int64); err != nil {
-			return nil, err
-		}
-	}
 
 	if err := invalidateBuildState(tx); err != nil {
 		return nil, err
@@ -253,15 +216,12 @@ func resolveDisambiguateTarget(name string, candidates []string, target string) 
 // DisambiguateScan rewrites basename links to full paths without using the DB.
 // It scans all .md files in the vault directly.
 func DisambiguateScan(vaultPath string, opts DisambiguateOptions, locations ...Locations) (*DisambiguateResult, error) {
-	diskPaths := newVaultDiskPathResolver(vaultPath)
 	rewrites, err := scanAndRewrite(vaultPath, scanRewriteOptions{
 		Prepare: func(files, _ []string) (scanRewritePlan, error) {
 			fileSet := make(map[string]bool, len(files))
-			pathSetLower := make(map[string]bool, len(files))
 			var candidates []string
 			for _, f := range files {
 				fileSet[f] = true
-				pathSetLower[strings.ToLower(f)] = true
 				if basenameKey(f) == strings.TrimSuffix(strings.ToLower(opts.Name), ".md") {
 					candidates = append(candidates, f)
 				}
@@ -299,26 +259,13 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions, locations ...L
 				links := parseLinks(string(content)).Links
 				var entries []rewriteEntry
 				for _, lo := range links {
-					if !isPathLinkType(lo.linkType) {
+					if !isPathLinkType(lo.linkType) || !lo.isBasename {
 						continue
 					}
 					// Only strip the Markdown suffix; other dots belong to the note name.
 					targetName := strings.TrimSuffix(strings.ToLower(filepath.Base(lo.target)), ".md")
 					if targetName != nameKey {
 						continue
-					}
-					if !lo.isBasename {
-						// Path link: only include if the matching link is broken.
-						if !isLinkBrokenForScan(sourcePath, lo, pathSetLower) {
-							continue
-						}
-						// A path can point to an existing asset even
-						// when it is absent from the Markdown-only path set.
-						if !isLinkEscaping(sourcePath, lo) {
-							if _, err := diskPaths.existingPath(resolveToVaultRelative(sourcePath, lo)); err == nil {
-								continue
-							}
-						}
 					}
 
 					newRawLink := rewriteRawLink(lo.rawLink, lo.linkType, targetPath, lo.inTable)
@@ -361,7 +308,7 @@ func DisambiguateScan(vaultPath string, opts DisambiguateOptions, locations ...L
 }
 
 // isLinkBrokenForScan checks if a path link target does not resolve to any
-// known file in the vault. Used by DisambiguateScan to detect broken path links.
+// known file in the vault. Used by Repair to detect broken path links.
 func isLinkBrokenForScan(sourcePath string, lo linkOccur, pathSetLower map[string]bool) bool {
 	target := lo.target
 

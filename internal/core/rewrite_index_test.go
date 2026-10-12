@@ -73,7 +73,6 @@ func TestRewriteMetadataIndexMatchesBuild(t *testing.T) {
 			if command == "disambiguate" {
 				// Disambiguation must retain real assets even without incoming edges.
 				write("unused.png", "unreferenced asset")
-				write("A.md", "---\nrelated: \"[[missing/B]]\"\nrevision: 2\n---\n[[missing/B]]\n")
 			}
 			if _, err := Build(vault); err != nil {
 				t.Fatal(err)

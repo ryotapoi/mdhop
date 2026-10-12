@@ -11,6 +11,7 @@ import (
 const disambiguateHelp = `Usage: mdhop disambiguate --name <basename> [--target <path>] [--file <path>] [--scan] [--vault <path>] [--format json|text]
 
 Rewrite ambiguous basename links to full paths.
+Unresolved explicit path links are left unchanged.
 
 Options:
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.
