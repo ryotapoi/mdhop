@@ -45,15 +45,20 @@ func atxHeadingText(line string) (string, bool) {
 	return text, true
 }
 
-// normalizeAnchor normalizes a heading or link fragment for anchor matching,
-// following Obsidian's behavior: strip a leading '#', drop punctuation, and
-// collapse whitespace. Case and accents are preserved (Obsidian-compatible).
+// normalizeAnchor normalizes a link fragment for anchor matching: strip a
+// leading '#' and normalize its text. Case and accents are preserved.
 // Returns ("", false) for block references (#^id), which are not heading anchors.
 func normalizeAnchor(s string) (string, bool) {
 	s = strings.TrimPrefix(s, "#")
 	if strings.HasPrefix(s, "^") {
 		return "", false // block reference, not a heading anchor
 	}
+	return normalizeHeadingText(s), true
+}
+
+// normalizeHeadingText drops punctuation and symbols and collapses whitespace
+// in heading text. Case and accents are preserved (Obsidian-compatible).
+func normalizeHeadingText(s string) string {
 	var b strings.Builder
 	prevSpace := false
 	for _, r := range s {
@@ -70,5 +75,5 @@ func normalizeAnchor(s string) (string, bool) {
 			prevSpace = false
 		}
 	}
-	return strings.TrimSpace(b.String()), true
+	return strings.TrimSpace(b.String())
 }

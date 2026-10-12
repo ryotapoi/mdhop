@@ -103,10 +103,10 @@
   - 発生条件・頻度: 対象・条件: ノートに #Parent #parent/child をこの順で記述し build して inspect --fields tags する。または別ノートで #TOPIC が先に登録され、その後 #topic/sub を含むノートを inspect する。 この条件下での再現性: 隔離fixtureで成立を確認。実運用頻度は未測定。
   - リスク: 誤結果：小〜中。親タグ重複表示。本文変更・損失なし。
 
-- [ ] ^で始まる見出しへのリンクを壊れていると誤診断する問題を修正する（A8-02）
+- [x] ^で始まる見出しへのリンクを壊れていると誤診断する問題を修正する（A8-02）
   - 問題: # ^Configという見出し本文にも、リンク先の#^idを対象外にする判定を適用して見出しを捨てる。 [[target#Config]]をdiagnose --fields anchorsで壊れたリンクとして報告する。
   - 対応: normalizeAnchorの記号除去を共通の本文正規化へ分け、block reference拒否はリンクfragment側だけで行う。見出し側は本文正規化だけ使う。
-  - 完了条件: 見出し # ^Config に対する #config の参照を diagnose --fields anchors が有効と判定する。リンク fragment の block reference を対象外にする既存規則は維持する。
+  - 完了条件: 見出し # ^Config に対する #Config の参照を diagnose --fields anchors が有効と判定する。リンク fragment の block reference を対象外にする既存規則は維持する。
   - 保守性: 文脈固有の拒否と共通正規化の責務を分けられる。小helperは増えるが、見出しにリンク構文判定を適用する混同は減る。
   - 発生条件・頻度: 対象・条件: target.md に # ^Config という ATX heading があり、source に [[target#Config]] がある状態で diagnose --fields anchors を実行する。 この条件下での再現性: 隔離fixtureで成立を確認。実運用頻度は未測定。
   - リスク: 誤結果：小〜中。broken anchor誤報。本文変更・損失なし。

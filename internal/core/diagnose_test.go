@@ -81,6 +81,32 @@ func TestDiagnose_BrokenAnchors(t *testing.T) {
 	}
 }
 
+func TestDiagnose_BrokenAnchors_CaretHeading(t *testing.T) {
+	vault := t.TempDir()
+	for name, content := range map[string]string{
+		"target.md": "# ^Config\n",
+		"source.md": "[[target#Config]]\n[[target#^missing]]\n[[target#Missing]]\n[[target#config]]\n",
+	} {
+		if err := os.WriteFile(filepath.Join(vault, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	buildForQuery(t, vault)
+	result, err := Diagnose(vault, DiagnoseOptions{Fields: []string{"anchors"}})
+	if err != nil {
+		t.Fatalf("diagnose: %v", err)
+	}
+	if len(result.BrokenAnchors) != 2 {
+		t.Fatalf("broken anchors = %+v, want Missing and config only", result.BrokenAnchors)
+	}
+	for i, want := range []string{"Missing", "config"} {
+		got := result.BrokenAnchors[i]
+		if got.SourcePath != "source.md" || got.TargetPath != "target.md" || got.Fragment != want {
+			t.Errorf("broken anchor[%d] = %+v, want source.md → target.md#%s", i, got, want)
+		}
+	}
+}
+
 func TestDiagnose_BrokenAnchors_StaleTargetDeleted(t *testing.T) {
 	vault := setupVaultForDiagnose(t, "vault_anchor_check")
 

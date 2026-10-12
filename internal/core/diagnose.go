@@ -259,7 +259,7 @@ func readNoteHeadingSet(vaultPath, notePath string) (map[string]bool, error) {
 	}
 	set := make(map[string]bool)
 	for _, h := range collectHeadings(string(content)) {
-		if norm, ok := normalizeAnchor(h); ok && norm != "" {
+		if norm := normalizeHeadingText(h); norm != "" {
 			set[norm] = true
 		}
 	}

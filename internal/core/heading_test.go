@@ -92,21 +92,27 @@ func TestNormalizeAnchor(t *testing.T) {
 func TestNormalizeAnchor_HeadingMatchesFragment(t *testing.T) {
 	// A heading and a link fragment that differ only in punctuation must
 	// normalize to the same anchor (Obsidian behavior).
-	h, _ := normalizeAnchor("Setup & Config")
+	h := normalizeHeadingText("Setup & Config")
 	f, _ := normalizeAnchor("#Setup and Config")
 	if h == f {
 		t.Errorf("expected differing text (and vs &) to differ: %q vs %q", h, f)
 	}
-	h2, _ := normalizeAnchor("Setup, Config")
+	h2 := normalizeHeadingText("Setup, Config")
 	f2, _ := normalizeAnchor("#Setup Config")
 	if h2 != f2 {
 		t.Errorf("expected punctuation-only difference to match: %q vs %q", h2, f2)
 	}
 	// A heading with inline code matches a link fragment with the same words:
 	// the backticks drop out but the code text ("v2") is preserved on both sides.
-	hc, _ := normalizeAnchor("API `v2` Reference")
+	hc := normalizeHeadingText("API `v2` Reference")
 	fc, _ := normalizeAnchor("#API v2 Reference")
 	if hc != fc {
 		t.Errorf("expected inline-code heading to match fragment: %q vs %q", hc, fc)
+	}
+	// A leading caret is heading punctuation, not block-reference syntax.
+	hp := normalizeHeadingText("^Config")
+	fp, ok := normalizeAnchor("#Config")
+	if hp != "Config" || !ok || hp != fp {
+		t.Errorf("expected caret heading to match fragment: %q vs (%q, %v)", hp, fp, ok)
 	}
 }
