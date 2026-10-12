@@ -1426,3 +1426,93 @@ func TestMoveRollbackRestoresSingleFileDiskPaths(t *testing.T) {
 		})
 	}
 }
+
+func TestMoveDir_ToRootNormalizesDestinations(t *testing.T) {
+	vault := t.TempDir()
+	for path, content := range map[string]string{
+		"src/A.md":      "root destination\n",
+		"src/image.png": "image",
+		"notes/A.md":    "local namesake\n",
+		"notes/Ref.md":  "[[src/A]]\n![[src/image.png]]\n",
+	} {
+		full := filepath.Join(vault, path)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	// This file is intentionally absent from the index.
+	if err := os.WriteFile(filepath.Join(vault, "src", "extra.txt"), []byte("extra"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := MoveDir(vault, MoveDirOptions{FromDir: "src", ToDir: "."})
+	if err != nil {
+		t.Fatalf("MoveDir: %v", err)
+	}
+	wantMoves := map[string]string{"src/A.md": "A.md", "src/image.png": "image.png", "src/extra.txt": "extra.txt"}
+	if len(result.Moved) != len(wantMoves) {
+		t.Fatalf("moved %d files, want %d", len(result.Moved), len(wantMoves))
+	}
+	for _, moved := range result.Moved {
+		if want, ok := wantMoves[moved.From]; !ok || moved.To != want {
+			t.Errorf("move %s -> %s, want %s", moved.From, moved.To, want)
+		}
+	}
+	for from, to := range wantMoves {
+		if fileExists(filepath.Join(vault, from)) || !fileExists(filepath.Join(vault, to)) {
+			t.Errorf("disk move %s -> %s incomplete", from, to)
+		}
+	}
+
+	db := openTestDB(t, dbPath(vault))
+	for path, key := range map[string]string{"A.md": "note:path:A.md", "image.png": "asset:path:image.png"} {
+		var got string
+		if err := db.QueryRow("SELECT node_key FROM nodes WHERE path = ?", path).Scan(&got); err != nil || got != key {
+			t.Errorf("node %s key = %q, %v; want %q", path, got, err, key)
+		}
+	}
+	var noncanonical int
+	if err := db.QueryRow("SELECT COUNT(*) FROM nodes WHERE path LIKE './%' OR path LIKE 'src/%'").Scan(&noncanonical); err != nil || noncanonical != 0 {
+		t.Errorf("noncanonical nodes = %d, %v", noncanonical, err)
+	}
+	db.Close()
+
+	content, err := os.ReadFile(filepath.Join(vault, "notes", "Ref.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "[[A]]\n![[image.png]]\n" {
+		t.Errorf("rewritten reference = %q", content)
+	}
+	for link, want := range map[string]string{"[[A]]": "A.md", "[[image.png]]": "image.png"} {
+		resolved, err := Resolve(vault, "notes/Ref.md", link)
+		if err != nil {
+			t.Errorf("resolve %s: %v", link, err)
+		} else if resolved.Path != want || !resolved.Exists {
+			t.Errorf("resolve %s = %+v, want %s", link, resolved, want)
+		}
+	}
+	for _, opts := range []MoveOptions{{From: "A.md", To: "Renamed.md"}, {From: "image.png", To: "renamed.png"}} {
+		if _, err := Move(vault, opts); err != nil {
+			t.Errorf("follow-up Move(%+v): %v", opts, err)
+		}
+	}
+	// Rebuild to verify the rewritten text still resolves to the moved root targets.
+	if _, err := Build(vault); err != nil {
+		t.Fatalf("rebuild after follow-up moves: %v", err)
+	}
+	for link, want := range map[string]string{"[[Renamed]]": "Renamed.md", "[[renamed.png]]": "renamed.png"} {
+		resolved, err := Resolve(vault, "notes/Ref.md", link)
+		if err != nil {
+			t.Errorf("resolve after rebuild %s: %v", link, err)
+		} else if resolved.Path != want || !resolved.Exists {
+			t.Errorf("resolve after rebuild %s = %+v, want %s", link, resolved, want)
+		}
+	}
+}

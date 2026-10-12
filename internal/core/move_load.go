@@ -94,7 +94,7 @@ func loadMovesFromDB(db dbExecer, fromDir, toDir string) ([]moveInfo, error) {
 
 	moves := make([]moveInfo, 0, len(fromNotePaths)+len(fromAssetPaths))
 	for _, from := range fromNotePaths {
-		to := toDir + "/" + strings.TrimPrefix(from, fromDir+"/")
+		to := NormalizePath(toDir + "/" + strings.TrimPrefix(from, fromDir+"/"))
 		var nodeID, dbMtime int64
 		err := db.QueryRow(
 			"SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'note'",
@@ -106,7 +106,7 @@ func loadMovesFromDB(db dbExecer, fromDir, toDir string) ([]moveInfo, error) {
 		moves = append(moves, moveInfo{from: from, to: to, nodeID: nodeID, dbMtime: dbMtime})
 	}
 	for _, from := range fromAssetPaths {
-		to := toDir + "/" + strings.TrimPrefix(from, fromDir+"/")
+		to := NormalizePath(toDir + "/" + strings.TrimPrefix(from, fromDir+"/"))
 		var nodeID, dbMtime int64
 		err := db.QueryRow(
 			"SELECT id, mtime FROM nodes WHERE node_key = ? AND type = 'asset'",
@@ -181,7 +181,7 @@ func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo, lo
 		rel, _ := filepath.Rel(vaultPath, path)
 		relNorm := NormalizePath(rel)
 		if !registeredPaths[relNorm] {
-			to := toDir + "/" + strings.TrimPrefix(relNorm, fromDir+"/")
+			to := NormalizePath(toDir + "/" + strings.TrimPrefix(relNorm, fromDir+"/"))
 			diskOnlyFiles = append(diskOnlyFiles, diskOnlyMove{from: relNorm, to: to})
 		}
 		return nil
