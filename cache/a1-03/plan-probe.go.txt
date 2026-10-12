@@ -1,0 +1,23 @@
+package main
+
+import (
+	"encoding/json"
+	"github.com/ryotapoi/mdhop/internal/core"
+	"os"
+	"runtime"
+	"time"
+)
+
+func main() {
+	runtime.GC()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	start := time.Now()
+	result, err := core.PlanMoveTemplate(os.Args[1], core.MoveTemplateOptions{From: os.Args[3], Directory: os.Args[3] == "src/", Template: "archive/{client}/{updated:year}/{basename}"}, core.Locations{DBPath: os.Args[2]})
+	elapsed := time.Since(start).Seconds()
+	runtime.ReadMemStats(&after)
+	if err != nil {
+		panic(err)
+	}
+	json.NewEncoder(os.Stdout).Encode(map[string]any{"seconds": elapsed, "allocated_bytes": after.TotalAlloc - before.TotalAlloc, "count": len(result.Moved)})
+}

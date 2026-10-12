@@ -84,7 +84,7 @@ func TestMoveTemplateOutputAfterMetadataUpdate(t *testing.T) {
 			}
 			for _, format := range []string{"text", "json"} {
 				t.Run(format, func(t *testing.T) {
-					out := captureStdout(t, func() error { return printMoveTemplatePlan(format, directory, plan, result) })
+					out := captureStdout(t, func() error { return printMoveTemplateResult(format, directory, result) })
 					if format == "text" {
 						for _, moved := range want {
 							if !strings.Contains(out, "from: "+moved.From+"\n") || !strings.Contains(out, "to: "+moved.To+"\n") {
@@ -121,10 +121,9 @@ func TestMoveTemplateOutputAfterMetadataUpdate(t *testing.T) {
 	}
 }
 
-func TestMoveTemplateOutputUsesExecutionCount(t *testing.T) {
-	plan := &core.MoveTemplatePlanResult{Moved: []core.MovedFile{{From: "A.md", To: "old/A.md"}, {From: "B.md", To: "old/B.md"}}}
+func TestMoveTemplateOutputSingleCount(t *testing.T) {
 	result := &core.MoveDirResult{Moved: []core.MovedFile{{From: "A.md", To: "actual/A.md"}}}
-	out := captureStdout(t, func() error { return printMoveTemplatePlan("json", false, plan, result) })
+	out := captureStdout(t, func() error { return printMoveTemplateResult("json", false, result) })
 	var got moveJSONOutput
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatal(err)
@@ -132,10 +131,9 @@ func TestMoveTemplateOutputUsesExecutionCount(t *testing.T) {
 	if got.To != "actual/A.md" || got.Rewritten == nil || len(got.Rewritten) != 0 {
 		t.Fatalf("unexpected output: %s", out)
 	}
-	plan.Moved = plan.Moved[:1]
 	for _, moved := range [][]core.MovedFile{nil, {{From: "A.md"}, {From: "B.md"}}} {
 		result.Moved = moved
-		if err := printMoveTemplatePlan("json", false, plan, result); err == nil || !strings.Contains(err.Error(), "expected one --to-template move") {
+		if err := printMoveTemplateResult("json", false, result); err == nil || !strings.Contains(err.Error(), "expected one --to-template move") {
 			t.Fatalf("expected execution count error, got %v", err)
 		}
 	}

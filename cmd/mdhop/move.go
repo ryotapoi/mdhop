@@ -104,18 +104,18 @@ func runMove(args []string) error {
 			Template:  *toTemplate,
 			Directory: fromIsDir,
 		}
-		plan, err := core.PlanMoveTemplate(*vault, opts, locations)
-		if err != nil {
-			return err
-		}
 		if *dryRun {
-			return printMoveTemplatePlan(*format, fromIsDir, plan, nil)
+			plan, err := core.PlanMoveTemplate(*vault, opts, locations)
+			if err != nil {
+				return err
+			}
+			return printMoveTemplateResult(*format, fromIsDir, &core.MoveDirResult{Moved: plan.Moved})
 		}
 		result, err := core.MoveTemplate(*vault, opts, locations)
 		if err != nil {
 			return err
 		}
-		return printMoveTemplatePlan(*format, fromIsDir, plan, result)
+		return printMoveTemplateResult(*format, fromIsDir, result)
 	}
 
 	if fromIsDir {
@@ -162,20 +162,15 @@ func runMove(args []string) error {
 	}
 }
 
-func printMoveTemplatePlan(format string, isDir bool, plan *core.MoveTemplatePlanResult, result *core.MoveDirResult) error {
-	moved := plan.Moved
-	rewritten := []core.RewrittenLink(nil)
-	if result != nil {
-		moved = result.Moved
-		rewritten = result.Rewritten
-	}
+func printMoveTemplateResult(format string, isDir bool, result *core.MoveDirResult) error {
+	moved := result.Moved
+	rewritten := result.Rewritten
 	if isDir {
-		dirResult := &core.MoveDirResult{Moved: moved, Rewritten: rewritten}
 		switch format {
 		case "json":
-			return printMoveDirJSON(os.Stdout, dirResult)
+			return printMoveDirJSON(os.Stdout, result)
 		default:
-			return printMoveDirText(os.Stdout, dirResult)
+			return printMoveDirText(os.Stdout, result)
 		}
 	}
 	if len(moved) != 1 {
