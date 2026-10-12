@@ -194,11 +194,7 @@ func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo, lo
 // checkDiskOnlyDestinationsFree rejects existing entries before any move side effects.
 func checkDiskOnlyDestinationsFree(vaultPath string, files []diskOnlyMove) error {
 	for _, file := range files {
-		_, err := os.Lstat(filepath.Join(vaultPath, file.to))
-		if err == nil {
-			return fmt.Errorf("%w: %s", ErrAlreadyExistsOnDisk, file.to)
-		}
-		if !os.IsNotExist(err) {
+		if err := checkMoveDestinationFree(vaultPath, file.to); err != nil {
 			return err
 		}
 	}
@@ -271,6 +267,18 @@ func checkMoveSourcesProtectIndex(vaultPath string, moves []moveInfo, locations 
 		if err := indexFiles.reject(move.from, indexDiskPaths); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// checkMoveDestinationFree rejects any existing entry, including a dangling symlink.
+func checkMoveDestinationFree(vaultPath, to string) error {
+	_, err := os.Lstat(filepath.Join(vaultPath, to))
+	if err == nil {
+		return fmt.Errorf("%w: %s", ErrAlreadyExistsOnDisk, to)
+	}
+	if !os.IsNotExist(err) {
+		return err
 	}
 	return nil
 }

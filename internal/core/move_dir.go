@@ -142,6 +142,9 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			if err := os.MkdirAll(toFileDir, 0o755); err != nil {
 				return nil, err
 			}
+			if err := checkMoveDestinationFree(vaultPath, m.to); err != nil {
+				return nil, err
+			}
 			if err := moveRename(filepath.Join(vaultPath, m.from), toFull); err != nil {
 				return nil, err
 			}
@@ -152,6 +155,9 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			toFull := filepath.Join(vaultPath, df.to)
 			toFileDir := filepath.Dir(toFull)
 			if err := os.MkdirAll(toFileDir, 0o755); err != nil {
+				return nil, err
+			}
+			if err := checkMoveDestinationFree(vaultPath, df.to); err != nil {
 				return nil, err
 			}
 			if err := moveRename(filepath.Join(vaultPath, df.from), toFull); err != nil {
@@ -339,12 +345,12 @@ func validateMoveDestinations(vaultPath string, moves []moveInfo, diskOnlyFiles 
 		return nil
 	}
 	for _, m := range moves {
-		if err := validateVaultWritePath(vaultPath, filepath.Join(vaultPath, m.to)); err != nil {
+		if err := checkMoveDestinationFree(vaultPath, m.to); err != nil {
 			return err
 		}
 	}
 	for _, m := range diskOnlyFiles {
-		if err := validateVaultWritePath(vaultPath, filepath.Join(vaultPath, m.to)); err != nil {
+		if err := checkMoveDestinationFree(vaultPath, m.to); err != nil {
 			return err
 		}
 	}

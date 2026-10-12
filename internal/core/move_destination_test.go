@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -8,25 +9,23 @@ import (
 	"testing"
 )
 
-func TestMoveDestinationRejectsExternalAncestorBeforeMutation(t *testing.T) {
+func TestMoveDestinationAllowsExternalAncestor(t *testing.T) {
 	for _, mode := range []string{"single", "directory", "disk-only", "template-plan", "template-execute"} {
 		t.Run(mode, func(t *testing.T) {
 			files := map[string]string{
-				"src/A.md":    "---\nbucket: safe\n---\n[[../Target]]\n",
+				"src/A.md":    "---\nbucket: late\n---\n[Target](../Target.md)\n",
 				"Target.md":   "# Target\n",
 				"Incoming.md": "[[src/A]]\n",
-			}
-			if mode != "disk-only" {
-				files["src/late/Z.md"] = "---\nbucket: late\n---\n[[../../Target]]\n"
-				files["Incoming.md"] += "[[src/late/Z]]\n"
 			}
 			vault := newMoveVault(t, files)
 			outside := t.TempDir()
 			if mode == "disk-only" {
-				if err := os.MkdirAll(filepath.Join(vault, "src/late"), 0o755); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(filepath.Join(vault, "src/late/data.bin"), []byte("unregistered"), 0o644); err != nil {
+				writeVaultFile(t, vault, "src/late/data.bin", "unregistered")
+			}
+			if mode == "directory" {
+				files["src/late/Z.md"] = "# Z\n"
+				writeVaultFile(t, vault, "src/late/Z.md", files["src/late/Z.md"])
+				if _, err := Build(vault); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -36,48 +35,11 @@ func TestMoveDestinationRejectsExternalAncestorBeforeMutation(t *testing.T) {
 			if err := os.Symlink(outside, filepath.Join(vault, "dest/late")); err != nil {
 				t.Fatal(err)
 			}
-			// Include file bytes, directories, symlinks and the SQLite file so that
-			// partial moves, rewrites, index updates and temporary files are visible.
-			snapshot := func(root string) map[string]string {
-				t.Helper()
-				state := make(map[string]string)
-				err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-					if err != nil {
-						return err
-					}
-					rel, err := filepath.Rel(root, path)
-					if err != nil {
-						return err
-					}
-					switch {
-					case entry.Type()&os.ModeSymlink != 0:
-						target, err := os.Readlink(path)
-						if err != nil {
-							return err
-						}
-						state[rel] = "symlink:" + target
-					case entry.IsDir():
-						state[rel] = "directory"
-					default:
-						content, err := os.ReadFile(path)
-						if err != nil {
-							return err
-						}
-						state[rel] = "file:" + string(content)
-					}
-					return nil
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-				return state
-			}
-			before := snapshot(vault)
-			outsideBefore := snapshot(outside)
+			dbBefore := readTestFile(t, dbPath(vault))
 			var err error
 			switch mode {
 			case "single":
-				_, err = Move(vault, MoveOptions{From: "src/late/Z.md", To: "dest/late/new/deep/Z.md"})
+				_, err = Move(vault, MoveOptions{From: "src/A.md", To: "dest/late/new/deep/A.md"})
 			case "directory", "disk-only":
 				_, err = MoveDir(vault, MoveDirOptions{FromDir: "src", ToDir: "dest"})
 			case "template-plan":
@@ -85,14 +47,139 @@ func TestMoveDestinationRejectsExternalAncestorBeforeMutation(t *testing.T) {
 			case "template-execute":
 				_, err = MoveTemplate(vault, MoveTemplateOptions{From: "src", Directory: true, Template: "dest/{bucket}/new/deep/{basename}"})
 			}
-			if err == nil || !strings.Contains(err.Error(), "resolves outside vault") {
-				t.Fatalf("error = %v, want destination boundary rejection", err)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(snapshot(vault), before) {
-				t.Fatal("rejected move changed the vault or index")
+			if mode == "template-plan" {
+				for path, want := range files {
+					if got := readTestFile(t, filepath.Join(vault, path)); got != want {
+						t.Fatalf("plan changed %s", path)
+					}
+				}
+				entries, err := os.ReadDir(outside)
+				if err != nil || len(entries) != 0 {
+					t.Fatalf("plan changed destination: %v, %v", entries, err)
+				}
+				if got := readTestFile(t, dbPath(vault)); got != dbBefore {
+					t.Fatal("plan changed DB")
+				}
+				return
 			}
-			if !reflect.DeepEqual(snapshot(outside), outsideBefore) {
-				t.Fatal("rejected move created external files or directories")
+			if fileExists(filepath.Join(vault, "src/A.md")) {
+				t.Fatal("source remains")
+			}
+			if mode == "directory" || mode == "disk-only" {
+				if got := readTestFile(t, filepath.Join(vault, "dest/A.md")); got != files["src/A.md"] {
+					t.Fatalf("moved content = %q", got)
+				}
+			} else {
+				if got := readTestFile(t, filepath.Join(outside, "new/deep/A.md")); !strings.Contains(got, "../../../../Target.md") {
+					t.Fatalf("outgoing link = %q", got)
+				}
+			}
+			if mode == "directory" {
+				if got := readTestFile(t, filepath.Join(outside, "Z.md")); got != "# Z\n" {
+					t.Fatalf("moved content = %q", got)
+				}
+			}
+			if mode == "disk-only" {
+				if got := readTestFile(t, filepath.Join(outside, "data.bin")); got != "unregistered" {
+					t.Fatalf("disk-only content = %q", got)
+				}
+			}
+		})
+	}
+}
+
+func TestMoveDirAliasedDestinationCollision(t *testing.T) {
+	for _, mode := range []string{"internal", "external", "disk-only", "rollback-failure", "distinct-names"} {
+		t.Run(mode, func(t *testing.T) {
+			second := "X.md"
+			if mode == "distinct-names" || mode == "disk-only" {
+				second = "Y.md"
+			}
+			files := map[string]string{
+				"src/one/X.md":      "# One\n[Target](../../Target.md)\n",
+				"src/two/" + second: "# Two\n[Target](../../Target.md)\n",
+				"Target.md":         "# Target\n",
+				"Incoming.md":       "[[src/one/X]]\n[[src/two/" + strings.TrimSuffix(second, ".md") + "]]\n",
+			}
+			vault := newMoveVault(t, files)
+			target := t.TempDir()
+			if mode == "internal" {
+				target = filepath.Join(vault, "actual")
+				if err := os.Mkdir(target, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if mode == "disk-only" {
+				// Distinct registered names let the two disk-only files reach rename.
+				writeVaultFile(t, vault, "src/one/data.bin", "one")
+				writeVaultFile(t, vault, "src/two/data.bin", "two")
+				files["src/one/data.bin"] = "one"
+				files["src/two/data.bin"] = "two"
+			}
+			for _, dir := range []string{"one", "two"} {
+				if err := os.MkdirAll(filepath.Join(vault, "dest/deep"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(target, filepath.Join(vault, "dest/deep", dir)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			nodesBefore := queryNodes(t, dbPath(vault), NodeTypeNote)
+			edgesBefore := make(map[string][]edgeRow)
+			for path := range files {
+				edgesBefore[path] = queryEdges(t, dbPath(vault), path)
+			}
+			if mode == "rollback-failure" {
+				oldRename := moveRename
+				moveRename = func(from, to string) error {
+					if strings.HasPrefix(from, filepath.Join(vault, "dest/deep")+string(filepath.Separator)) {
+						return errors.New("rollback rename blocked")
+					}
+					return oldRename(from, to)
+				}
+				t.Cleanup(func() { moveRename = oldRename })
+			}
+			result, err := MoveDir(vault, MoveDirOptions{FromDir: "src", ToDir: "dest/deep"})
+			if mode == "distinct-names" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, name := range []string{"X.md", "Y.md"} {
+					if !fileExists(filepath.Join(target, name)) {
+						t.Fatalf("missing %s", name)
+					}
+				}
+				return
+			}
+			if result != nil || !errors.Is(err, ErrAlreadyExistsOnDisk) {
+				t.Fatalf("result = %v, error = %v, want collision", result, err)
+			}
+			if mode == "rollback-failure" {
+				for _, want := range []string{"rollback failed", "could not move back dest/deep/one/X.md -> src/one/X.md", "rollback rename blocked", "mdhop build"} {
+					if !strings.Contains(err.Error(), want) {
+						t.Fatalf("error missing %q: %v", want, err)
+					}
+				}
+				return
+			}
+			for path, want := range files {
+				if got := readTestFile(t, filepath.Join(vault, path)); got != want {
+					t.Fatalf("%s not restored: %q", path, got)
+				}
+				if got := queryEdges(t, dbPath(vault), path); !reflect.DeepEqual(got, edgesBefore[path]) {
+					t.Fatalf("%s edges changed: %v", path, got)
+				}
+			}
+			if got := queryNodes(t, dbPath(vault), NodeTypeNote); !reflect.DeepEqual(got, nodesBefore) {
+				t.Fatalf("nodes changed: %v", got)
+			}
+			for _, name := range []string{"X.md", "Y.md", "data.bin"} {
+				if fileExists(filepath.Join(target, name)) {
+					t.Fatalf("destination remains: %s", name)
+				}
 			}
 		})
 	}
