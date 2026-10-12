@@ -145,6 +145,14 @@ func parseBodyMarkdown(line string, lineNum int, definitions map[string]string) 
 			i++
 			continue
 		}
+		backslashes := 0
+		for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
+			backslashes++
+		}
+		if backslashes%2 == 1 {
+			i++
+			continue
+		}
 		start := i
 		end, valid := referenceBracketEnd(line, start)
 		if end < 0 {
@@ -152,9 +160,6 @@ func parseBodyMarkdown(line string, lineNum int, definitions map[string]string) 
 			break
 		}
 		i = end + 1
-		if start > 0 && line[start-1] == '\\' {
-			valid = false
-		}
 		if !valid && (i >= len(line) || line[i] != '(') {
 			// Consume the following reference label as part of this unsupported span.
 			if i < len(line) && line[i] == '[' {

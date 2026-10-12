@@ -230,10 +230,14 @@ func TestEncodedVaultEscapeAndOldIndexGate(t *testing.T) {
 	if _, err := Build(vault); err == nil || !strings.Contains(err.Error(), "escape") {
 		t.Fatalf("escape error %v", err)
 	}
-	writeInterpretationFiles(t, vault, map[string]string{"Source.md": "[space](A%20B.md)", "A B.md": "a"})
+	writeInterpretationFiles(t, vault, map[string]string{"Source.md": "[space](A%20B.md)\n\\[odd](A%20B.md)\n\\\\[guide]\n[guide]: A%20B.md", "A B.md": "a"})
 	buildVault(t, vault)
 	db := openTestDB(t, dbPath(vault))
-	if _, err := db.Exec("PRAGMA user_version = 1"); err != nil {
+	if _, err := db.Exec("PRAGMA user_version = 3"); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate stale extraction with unchanged source files and build signatures.
+	if _, err := db.Exec("UPDATE edges SET raw_link = '[odd](A%20B.md)' WHERE raw_link = '[guide]'"); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
@@ -262,6 +266,10 @@ func TestEncodedVaultEscapeAndOldIndexGate(t *testing.T) {
 		t.Fatal(leftovers)
 	}
 	buildVault(t, vault)
+	assertEdgeRawLinks(t, vault, "Source.md", []string{"[space](A%20B.md)", "[guide]"})
+	if edges := queryEdges(t, dbPath(vault), "Source.md"); len(edges) != 2 {
+		t.Fatalf("rebuilt index retained escaped links: %+v", edges)
+	}
 	if got, err := Resolve(vault, "Source.md", "[space](A%20B.md)"); err != nil || got.Path != "A B.md" {
 		t.Fatalf("rebuilt %+v %v", got, err)
 	}

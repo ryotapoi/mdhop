@@ -1,9 +1,64 @@
 package core
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+func TestMarkdownOpeningBracketEscapes(t *testing.T) {
+	for _, form := range []struct {
+		name, raw string
+		typ       LinkType
+		counts    []int
+	}{
+		{"inline", "[guide](B.md)", LinkTypeMarkdown, []int{0, 1, 2, 3}},
+		{"full", "[text][guide]", LinkTypeMarkdownReference, []int{1, 2}},
+		{"collapsed", "[guide][]", LinkTypeMarkdownReference, []int{1, 2}},
+		{"shortcut", "[guide]", LinkTypeMarkdownReference, []int{0, 1, 2, 3}},
+	} {
+		for _, count := range form.counts {
+			t.Run(fmt.Sprintf("%s/%d", form.name, count), func(t *testing.T) {
+				content := "[guide]: B.md\n" + strings.Repeat(`\`, count) + form.raw + " [later](C.md)"
+				want := []string{form.raw, "[later](C.md)"}
+				if count%2 == 1 {
+					want = []string{"[later](C.md)"}
+					if form.name == "full" {
+						// The literal opening bracket leaves a standalone shortcut.
+						want = []string{"[guide]", "[later](C.md)"}
+					}
+				}
+				links := parseLinks(content).Links
+				if len(links) != len(want) {
+					t.Fatalf("links = %+v, want raw links %v", links, want)
+				}
+				for i, raw := range want {
+					target, typ := "B", form.typ
+					if raw == "[later](C.md)" {
+						target, typ = "C", LinkTypeMarkdown
+					}
+					got := links[i]
+					if got.rawLink != raw || got.target != target || got.linkType != typ || got.lineStart != 2 || got.lineEnd != 2 {
+						t.Fatalf("link %d = %+v, want %q / %q / %s on line 2", i, got, raw, target, typ)
+					}
+				}
+			})
+		}
+	}
+	for _, content := range []string{
+		"[guide]: B.md\n`\\\\[guide] \\\\[text](B.md)`\n~~~\n\\\\[guide] \\\\[text](B.md)\n~~~",
+		"[guide]: B.md\n\\\\[nested[guide]][guide] \\\\[gu\\ide]",
+	} {
+		if links := parseLinks(content).Links; len(links) != 0 {
+			t.Fatalf("unsupported or code syntax produced links: %+v", links)
+		}
+	}
+	content := "\\[literal\n[normal](B.md) [guide] ]\n[guide]: B.md"
+	if links := parseLinks(content).Links; len(links) != 2 || links[0].rawLink != "[normal](B.md)" || links[1].rawLink != "[guide]" || links[0].lineStart != 2 || links[1].lineStart != 2 {
+		t.Fatalf("escaped bracket started a multiline reference: %+v", links)
+	}
+}
 
 func TestParseMarkdownReferences(t *testing.T) {
 	tests := []struct {
