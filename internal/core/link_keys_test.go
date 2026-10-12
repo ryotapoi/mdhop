@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -602,6 +603,83 @@ func TestMoveLinkKeysRelativeRawInMovedFileFails(t *testing.T) {
 	_, err := Move(vault, MoveOptions{From: "docs/index.md", To: "other/index.md"})
 	if err == nil || !strings.Contains(err.Error(), "cannot be rewritten") {
 		t.Errorf("error = %v, want frontmatter_path guard error", err)
+	}
+}
+
+func TestMoveLinkKeysUnresolvedRelativeRawMeaning(t *testing.T) {
+	for _, tt := range []struct {
+		name, raw, to string
+		targetExists  bool
+		moveDir       bool
+		wantError     bool
+	}{
+		{name: "new target exists", raw: "./Missing.md", to: "new/Source.md", targetExists: true, wantError: true},
+		{name: "both destinations missing", raw: "./Missing.md", to: "new/Source.md", wantError: true},
+		{name: "directory move", raw: "./Missing.md", to: "new/Source.md", moveDir: true, wantError: true},
+		{name: "same directory rename", raw: "./Missing.md", to: "old/Renamed.md"},
+		{name: "parent destination preserved", raw: "../Missing.md", to: "new/Source.md"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			source := "---\nrelated: " + tt.raw + "\n---\n\n# Source\n"
+			files := map[string]string{
+				"mdhop.toml":    "[meta]\nlink_keys = ['related']\n",
+				"old/Source.md": source,
+				"Other.md":      "[source](old/Source.md)\n",
+			}
+			if tt.targetExists {
+				files["new/Missing.md"] = "# Existing target\n"
+			}
+			vault := referenceVault(t, files)
+			beforeEdges := queryEdges(t, dbPath(vault), "old/Source.md")
+			if len(beforeEdges) != 1 || beforeEdges[0].targetType != NodeTypePhantom {
+				t.Fatalf("expected unresolved raw edge: %+v", beforeEdges)
+			}
+			snapshot := func() map[string]string {
+				contents := map[string]string{}
+				if err := filepath.WalkDir(vault, func(path string, entry os.DirEntry, err error) error {
+					if err != nil {
+						return err
+					}
+					if entry.IsDir() {
+						contents[path] = "directory"
+						return nil
+					}
+					data, err := os.ReadFile(path)
+					contents[path] = string(data)
+					return err
+				}); err != nil {
+					t.Fatal(err)
+				}
+				return contents
+			}
+			before := snapshot()
+			var err error
+			if tt.moveDir {
+				_, err = MoveDir(vault, MoveDirOptions{FromDir: "old", ToDir: "new"})
+			} else {
+				_, err = Move(vault, MoveOptions{From: "old/Source.md", To: tt.to})
+			}
+			if tt.wantError {
+				if err == nil || !strings.Contains(err.Error(), "cannot be rewritten") {
+					t.Fatalf("error = %v, want non-rewritable relative path guard error", err)
+				}
+				if !reflect.DeepEqual(before, snapshot()) {
+					t.Fatal("rejected move changed files, directories, or DB")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("meaning-preserving move: %v", err)
+			}
+			contents, err := os.ReadFile(filepath.Join(vault, tt.to))
+			if err != nil || string(contents) != source {
+				t.Fatalf("raw value changed: %q, error = %v", contents, err)
+			}
+			beforeEdges[0].sourcePath = tt.to
+			if after := queryEdges(t, dbPath(vault), tt.to); !reflect.DeepEqual(beforeEdges, after) {
+				t.Fatalf("move changed unresolved edge: before=%+v after=%+v", beforeEdges, after)
+			}
+		})
 	}
 }
 

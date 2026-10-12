@@ -9,7 +9,7 @@ import (
 // validateFrontmatterPathEdges re-resolves frontmatter_path and reference edges
 // against the post-mutation resolve maps and returns an error if either would
 // resolve to a different target. Raw path values are not link syntax and cannot
-// be rewritten (ADR 0014); reference definitions are also not rewritten.
+// be rewritten (ADR 0037); reference definitions are also not rewritten.
 // Mutations that would change their resolution must fail instead of leaving
 // the index inconsistent with the next build.
 //
@@ -60,9 +60,9 @@ func validateFrontmatterPathEdges(db dbExecer, rm *resolveMaps, movedFromTo map[
 			continue
 		}
 		if e.targetType == NodeTypePhantom {
-			if e.linkType == LinkTypeMarkdownReference && occ.isRelative {
+			if occ.isRelative {
 				if to, moved := movedFromTo[e.sourcePath]; moved && filepath.Clean(filepath.Join(filepath.Dir(to), occ.target)) != filepath.Clean(filepath.Join(filepath.Dir(e.sourcePath), occ.target)) {
-					return fmt.Errorf("reference %q in %s would change destination after this operation; reference definitions cannot be rewritten", e.rawLink, e.sourcePath)
+					return fmt.Errorf("non-rewritable link %q in %s would change destination after this operation; frontmatter_path values and reference definitions cannot be rewritten", e.rawLink, e.sourcePath)
 				}
 			}
 			// Unresolved values stay unresolved or get promoted to a unique
