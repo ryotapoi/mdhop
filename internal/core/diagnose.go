@@ -145,11 +145,14 @@ func basenameConflicts(db dbExecer, nodeType NodeType, allowed map[int64]bool) (
 				continue
 			}
 		}
+		// SQL LOWER does not fold all Unicode case variants grouped above.
+		// Sort each group so paths and the display name share the same order.
+		sort.Slice(entries, func(i, j int) bool { return entries[i].path < entries[j].path })
 		paths := make([]string, len(entries))
 		for i, e := range entries {
 			paths[i] = e.path
 		}
-		// Name is from the first entry (paths are already sorted by SQL ORDER BY)
+		// Name is from the first path in the sorted group.
 		conflicts = append(conflicts, BasenameConflict{
 			Name:  entries[0].name,
 			Paths: paths,

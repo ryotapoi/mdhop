@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -39,6 +40,37 @@ func TestDiagnose_BasenameConflicts(t *testing.T) {
 	}
 	if conflict.Paths[1] != "sub2/A.md" {
 		t.Errorf("conflict paths[1] = %q, want sub2/A.md", conflict.Paths[1])
+	}
+}
+
+func TestDiagnose_BasenameConflicts_UnicodePathOrder(t *testing.T) {
+	vault := t.TempDir()
+	for _, path := range []string{"a/é.md", "z/É.md", "a/é.png", "z/É.png"} {
+		writeVaultFile(t, vault, path, "no links\n")
+	}
+	buildForQuery(t, vault)
+
+	result, err := Diagnose(vault, DiagnoseOptions{Fields: []string{
+		FieldDiagnoseBasenameConflicts, FieldDiagnoseAssetBasenameConflicts,
+	}})
+	if err != nil {
+		t.Fatalf("diagnose: %v", err)
+	}
+	for _, tc := range []struct {
+		field string
+		got   []BasenameConflict
+		want  []BasenameConflict
+	}{
+		{FieldDiagnoseBasenameConflicts, result.BasenameConflicts,
+			[]BasenameConflict{{Name: "é", Paths: []string{"a/é.md", "z/É.md"}}}},
+		{FieldDiagnoseAssetBasenameConflicts, result.AssetBasenameConflicts,
+			[]BasenameConflict{{Name: "é.png", Paths: []string{"a/é.png", "z/É.png"}}}},
+	} {
+		t.Run(tc.field, func(t *testing.T) {
+			if !reflect.DeepEqual(tc.got, tc.want) {
+				t.Errorf("conflicts = %#v, want %#v", tc.got, tc.want)
+			}
+		})
 	}
 }
 

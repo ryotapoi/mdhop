@@ -111,7 +111,7 @@
   - 発生条件・頻度: 対象・条件: target.md に # ^Config という ATX heading があり、source に [[target#Config]] がある状態で diagnose --fields anchors を実行する。 この条件下での再現性: 隔離fixtureで成立を確認。実運用頻度は未測定。
   - リスク: 誤結果：小〜中。broken anchor誤報。本文変更・損失なし。
 
-- [ ] Unicode同名衝突の一覧順と代表名が約束と異なる問題を修正する（A8-01）
+- [x] Unicode同名衝突の一覧順と代表名が約束と異なる問題を修正する（A8-01）
   - 問題: é.mdとÉ.mdをGoでは同じ群にするが、SQLは別群の順で返すためpath順にならない。 a/é.mdとz/É.mdがあると、診断は[z/É.md,a/é.md]と代表名Éを返す。
   - 対応: Unicodeでgroupingした後、各entriesをpath順にsortしてからPathsと先頭由来Nameを作る。
   - 完了条件: a/é.md と z/É.md の basename_conflicts が path 順になり、代表名もその先頭から決まる。既存の同名判定を維持する。
