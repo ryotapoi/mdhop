@@ -341,6 +341,111 @@ func TestAddLinkKeysPhantomBecomesAmbiguousFails(t *testing.T) {
 	}
 }
 
+func TestAddLinkKeysAssetNoteCandidates(t *testing.T) {
+	tests := []struct {
+		name          string
+		initialNotes  []string
+		addedNotes    []string
+		wantAmbiguous bool
+		wantChanged   bool
+		wantTarget    string
+	}{
+		{name: "ambiguous notes override asset", addedNotes: []string{"x/LICENSE.md", "y/LICENSE.md"}, wantAmbiguous: true},
+		{name: "unique note changes asset target", addedNotes: []string{"x/LICENSE.md"}, wantChanged: true, wantTarget: "note:path:x/LICENSE.md"},
+		{name: "root note changes asset target", addedNotes: []string{"LICENSE.md", "x/LICENSE.md", "y/LICENSE.md"}, wantChanged: true, wantTarget: "note:path:LICENSE.md"},
+		{name: "existing root note keeps priority", initialNotes: []string{"LICENSE.md"}, addedNotes: []string{"x/LICENSE.md", "y/LICENSE.md"}, wantTarget: "note:path:LICENSE.md"},
+		{name: "unrelated note keeps asset", addedNotes: []string{"Other.md"}, wantTarget: "asset:path:LICENSE"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vault := t.TempDir()
+			contents := map[string]string{
+				"mdhop.toml": "[meta]\nlink_keys = [\"related\"]\n",
+				"Source.md":  "---\nrelated: LICENSE\n---\n\n# Source\n",
+				"LICENSE":    "License text\n",
+			}
+			write := func(path, content string) {
+				t.Helper()
+				full := filepath.Join(vault, path)
+				if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				contents[path] = content
+			}
+			for path, content := range contents {
+				write(path, content)
+			}
+			for _, path := range tt.initialNotes {
+				write(path, "# License note\n")
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatalf("initial build: %v", err)
+			}
+			beforeEdges := queryEdges(t, dbPath(vault), "Source.md")
+			initialTarget := "asset:path:LICENSE"
+			if len(tt.initialNotes) != 0 {
+				initialTarget = "note:path:LICENSE.md"
+			}
+			if len(beforeEdges) != 1 || beforeEdges[0].targetKey != initialTarget {
+				t.Fatalf("initial edges = %+v, want target %s", beforeEdges, initialTarget)
+			}
+			beforeNotes := queryNodes(t, dbPath(vault), NodeTypeNote)
+			for _, path := range tt.addedNotes {
+				write(path, "# Added note\n")
+			}
+			_, err := Add(vault, AddOptions{Files: tt.addedNotes, AutoDisambiguate: true})
+			if tt.wantAmbiguous {
+				if !errors.Is(err, ErrAmbiguousLink) {
+					t.Fatalf("add error = %v, want ambiguous link", err)
+				}
+			} else if tt.wantChanged {
+				if err == nil || errors.Is(err, ErrAmbiguousLink) || !strings.Contains(err.Error(), "would no longer resolve") {
+					t.Fatalf("add error = %v, want target meaning change", err)
+				}
+			} else if err != nil {
+				t.Fatalf("add: %v", err)
+			}
+			assertIndexUnchanged := func() {
+				t.Helper()
+				if got := queryEdges(t, dbPath(vault), "Source.md"); !reflect.DeepEqual(got, beforeEdges) {
+					t.Errorf("source edges changed: %+v, want %+v", got, beforeEdges)
+				}
+				if got := queryNodes(t, dbPath(vault), NodeTypeNote); !reflect.DeepEqual(got, beforeNotes) {
+					t.Errorf("indexed notes changed: %+v, want %+v", got, beforeNotes)
+				}
+			}
+			if tt.wantAmbiguous || tt.wantChanged {
+				assertIndexUnchanged()
+			} else if edges := queryEdges(t, dbPath(vault), "Source.md"); len(edges) != 1 || edges[0].targetKey != tt.wantTarget {
+				t.Errorf("add edges = %+v, want target %s", edges, tt.wantTarget)
+			}
+			_, err = Build(vault)
+			if tt.wantAmbiguous {
+				if err == nil || !strings.Contains(err.Error(), "ambiguous link") {
+					t.Fatalf("build error = %v, want ambiguous link", err)
+				}
+				assertIndexUnchanged()
+			} else {
+				if err != nil {
+					t.Fatalf("build: %v", err)
+				}
+				if edges := queryEdges(t, dbPath(vault), "Source.md"); len(edges) != 1 || edges[0].targetKey != tt.wantTarget {
+					t.Errorf("build edges = %+v, want target %s", edges, tt.wantTarget)
+				}
+			}
+			for path, want := range contents {
+				got, err := os.ReadFile(filepath.Join(vault, path))
+				if err != nil || string(got) != want {
+					t.Errorf("file %s changed: %q, error %v, want %q", path, got, err, want)
+				}
+			}
+		})
+	}
+}
+
 func TestAddLinkKeysNonBasenamePhantomNotPromoted(t *testing.T) {
 	vault := copyVault(t, "vault_build_link_keys")
 	// docs/np.md carries a path raw that stays unresolved; it shares phantom

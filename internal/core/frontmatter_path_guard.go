@@ -59,19 +59,19 @@ func validateFrontmatterPathEdges(db dbExecer, rm *resolveMaps, movedFromTo map[
 		if !ok {
 			continue
 		}
+		// Reject ambiguous basenames even when the existing target is an
+		// asset: note candidates take priority over the asset on a full build.
+		if occ.isBasename && isAmbiguousBasenameLink(occ.target, rm) {
+			candidates := ambiguousCandidates(occ.target, rm)
+			return fmt.Errorf("%w: non-rewritable link %q in %s (candidates: %s; frontmatter_path values and reference definitions cannot be rewritten)", ErrAmbiguousLink, e.rawLink, e.sourcePath, strings.Join(candidates, ", "))
+		}
 		if e.targetType == NodeTypePhantom {
 			if occ.isRelative {
 				if to, moved := movedFromTo[e.sourcePath]; moved && filepath.Clean(filepath.Join(filepath.Dir(to), occ.target)) != filepath.Clean(filepath.Join(filepath.Dir(e.sourcePath), occ.target)) {
 					return fmt.Errorf("non-rewritable link %q in %s would change destination after this operation; frontmatter_path values and reference definitions cannot be rewritten", e.rawLink, e.sourcePath)
 				}
 			}
-			// Unresolved values stay unresolved or get promoted to a unique
-			// node, unless the mutation makes the basename ambiguous
-			// (Pattern B): a full build would then fail, so stop here.
-			if occ.isBasename && isAmbiguousBasenameLink(occ.target, rm) {
-				candidates := ambiguousCandidates(occ.target, rm)
-				return fmt.Errorf("%w: non-rewritable link %q in %s (candidates: %s; frontmatter_path values and reference definitions cannot be rewritten)", ErrAmbiguousLink, e.rawLink, e.sourcePath, strings.Join(candidates, ", "))
-			}
+			// Unresolved values stay unresolved or get promoted to a unique node.
 			continue
 		}
 		sourcePath := e.sourcePath
