@@ -135,7 +135,8 @@ func MetaCheck(vaultPath string, opts MetaCheckOptions, locations ...Locations) 
 }
 
 // checkMetaValue resolves a single value and returns a MetaIssue if it fails.
-// ok is false when the value is valid or intentionally skipped (URL/empty).
+// ok is false for valid values, URL/empty values, and ordinary strings with
+// complete wikilinks in auto mode.
 func checkMetaValue(vaultPath, srcPath, key, value string, line int, kind MetaValueKind, rm *resolveMaps) (MetaIssue, bool) {
 	v := strings.TrimSpace(value)
 	if v == "" || strings.Contains(v, "://") {
@@ -146,7 +147,11 @@ func checkMetaValue(vaultPath, srcPath, key, value string, line int, kind MetaVa
 
 	checkKind := kind
 	if kind == MetaKindAuto {
-		if strings.HasPrefix(v, "[[") {
+		if _, ok := singleFrontmatterWikilink(value, 0); ok {
+			checkKind = MetaKindWikilink
+		} else if len(parseWikiLinks(value, 0)) > 0 {
+			return MetaIssue{}, false // ordinary string containing link syntax
+		} else if strings.HasPrefix(v, "[[") {
 			checkKind = MetaKindWikilink
 		} else {
 			checkKind = MetaKindPath
@@ -156,12 +161,12 @@ func checkMetaValue(vaultPath, srcPath, key, value string, line int, kind MetaVa
 	var occ linkOccur
 	switch checkKind {
 	case MetaKindWikilink:
-		links := parseWikiLinks(v, 0)
-		if len(links) == 0 {
+		link, ok := singleFrontmatterWikilink(value, 0)
+		if !ok {
 			issue.Reason = ReasonNotWikilink
 			return issue, true
 		}
-		occ = links[0]
+		occ = link
 	default: // MetaKindPath
 		if strings.HasSuffix(v, "/") {
 			if ok, escaped := directoryMetaValueExists(vaultPath, srcPath, v); ok {

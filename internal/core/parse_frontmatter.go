@@ -76,8 +76,8 @@ func parseFrontmatter(lines []string) frontmatterResult {
 	return fr
 }
 
-// collectFrontmatterWikilinks extracts wikilinks from quoted YAML scalar and
-// list-item values only, matching Obsidian property link semantics. Bare
+// collectFrontmatterWikilinks extracts a single whole-value wikilink from each
+// quoted YAML scalar or list item, matching property link semantics. Bare
 // `key: [[Note]]` and bare list items `- [[Note]]` are YAML nested sequences,
 // not quoted scalars, and are ignored.
 func collectFrontmatterWikilinks(key string, val *yaml.Node, offset int) []linkOccur {
@@ -105,14 +105,13 @@ func wikilinksFromQuotedScalar(key string, val *yaml.Node, offset int) []linkOcc
 	if val.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle) == 0 {
 		return nil
 	}
-	fileLine := val.Line + offset
-	var out []linkOccur
-	for _, l := range parseWikiLinks(val.Value, fileLine) {
-		l.linkType = LinkTypeFrontmatterWikilink
-		l.frontmatterKey = key
-		out = append(out, l)
+	l, ok := singleFrontmatterWikilink(val.Value, val.Line+offset)
+	if !ok {
+		return nil
 	}
-	return out
+	l.linkType = LinkTypeFrontmatterWikilink
+	l.frontmatterKey = key
+	return []linkOccur{l}
 }
 
 // stripYAMLComment returns line with the YAML comment portion removed.
@@ -271,4 +270,14 @@ func collectMeta(key string, val *yaml.Node, offset int, meta []FrontmatterEntry
 		}
 	}
 	return meta
+}
+
+// singleFrontmatterWikilink accepts only a decoded value occupied entirely by
+// one wikilink. Body parsing continues to accept multiple links and prose.
+func singleFrontmatterWikilink(value string, line int) (linkOccur, bool) {
+	links := parseWikiLinks(value, line)
+	if len(links) != 1 || links[0].rawLink != value {
+		return linkOccur{}, false
+	}
+	return links[0], true
 }

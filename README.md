@@ -6,6 +6,8 @@ A CLI tool that indexes link relationships in Markdown repositories into SQLite.
 
 English · [日本語](README.ja.md)
 
+Frontmatter wikilinks require the entire decoded value of a quoted YAML scalar or each array string element to be a single `[[foo]]`. `related: ["[[Existing]]", "[[Missing]]"]` contains two links; `related: "[[Existing]] [[Missing]]"` and `related: "prose [[foo]]"` remain ordinary metadata strings whose embedded links are neither traversed nor rewritten. `meta-check --kind auto` skips these strings; explicit `--kind wikilink` reports `not_wikilink`. Body parsing and raw paths configured through `meta.link_keys` retain their existing behavior. Run `mdhop build` to fully regenerate old indexes, including unchanged files, and remove obsolete edges and phantoms. Old indexes cannot be read or partially updated.
+
 ## Features
 
 - **Pre-indexed, instant responses** — Indexes the entire vault into SQLite. Queries return in milliseconds

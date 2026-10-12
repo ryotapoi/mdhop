@@ -2,7 +2,7 @@
 status: current
 ---
 
-# ADR 0023: frontmatter wikilink は引用符付き YAML 値のみから抽出する
+# ADR 0023: frontmatter wikilink は引用符付き YAML の単一リンク値から抽出する
 
 ## Context
 
@@ -20,7 +20,9 @@ mdhop の frontmatter wikilink 抽出を Obsidian と揃えないと、bare 記�
 
 ## Decision
 
-We will adopt option B: frontmatter wikilink は `yaml.Node` 上で double/single-quoted scalar と、それらを含む sequence（list item）だけから抽出する。値文字列は YAML パーサが引用符を外した後の `val.Value` を `parseWikiLinks` に渡し、`linkType="frontmatter_wikilink"` を付ける。
+We will adopt option B: frontmatter wikilink は `yaml.Node` 上で double/single-quoted scalar と、それらを含む sequence（list item）だけから抽出する。YAML 復号後の値全体が単一の `[[foo]]` である場合だけ `linkType="frontmatter_wikilink"` を付ける。配列は各要素を独立に判定する。alias / subpath / self-heading は既存の意味を保ち、外側の余白や embed prefix は取り除かない。
+
+`related: ["[[Existing]]", "[[Missing]]"]` は二つのリンクになる。`related: "[[Existing]] [[Missing]]"`、`related: "説明 [[foo]]"`、`related: "[[foo]] 説明"` は通常文字列として meta に保持し、edge・phantom・書き換え・mutation のリンク検証対象にしない。同じ全体判定を抽出・meta-check・rewrite で共有する。meta-check の `auto` は通常文字列内部の完全な wikilink を検査せず、明示 `wikilink` は `not_wikilink` を返す。純粋な raw path、URL/空値の skip、壊れた先頭 `[[broken` の検査は維持する。`meta.link_keys` の raw path 契約は変更しない。
 
 対象外（edge・phantom・meta-check issue・graph / reachable / 書き換え系 / mutation 検証に含めない）:
 
@@ -38,7 +40,7 @@ We will adopt option B: frontmatter wikilink は `yaml.Node` 上で double/singl
 
 - Obsidian property link セマンティクスと一致し、bare 記法による false positive が消える
 - 抽出は YAML 構造と引用符スタイルに依存するため、行範囲推定や block scalar 用の特別扱いが不要になる
-- quoted 値は meta テーブルにも載るため、frontmatter wikilink edge と meta 検索の対象が揃う
+- 通常文字列も meta 属性として保持し、値の一部だけをリンクに昇格させない
 
 否定的:
 
@@ -48,3 +50,5 @@ We will adopt option B: frontmatter wikilink は `yaml.Node` 上で double/singl
 中立的:
 
 - ADR 0022 の書き換え展開は quoted frontmatter wikilink に対して引き続き有効。bare 行は書き換え対象外のまま残る
+
+- 複数リンクや説明文付きの quoted 値を従来 edge 化していた索引は互換ではない。解釈 version を 6 から 7 に更新し、旧索引の read / partial mutation は拒否する。`mdhop build` は mtime・size 未変更でも全量再解析し、旧 edge / phantom を除去する。in-place migration は行わない。

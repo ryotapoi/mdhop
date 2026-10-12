@@ -52,12 +52,12 @@ func TestRewriteFrontmatterCandidateRejectsUnsupportedSourceDifferences(t *testi
 	}
 }
 
-func TestRewriteFrontmatterCandidateRejectsLaterOccurrenceInUnsupportedScalar(t *testing.T) {
+func TestRewriteFrontmatterCandidateRejectsPlanInsideOrdinaryScalar(t *testing.T) {
 	content := "---\nref: \"\\u005b\\u005bA\\u005d\\u005d [[B]]\"\n---\n"
 	original := []byte(content)
 	got, err := rewriteFrontmatterCandidate(original, []rewriteEntry{plannedFrontmatterRewrite("[[B]]", "[[C]]", 2)})
-	if err == nil || !strings.Contains(err.Error(), "correspondence") {
-		t.Fatalf("error = %v, want correspondence rejection", err)
+	if err == nil || !strings.Contains(err.Error(), "no matching") {
+		t.Fatalf("error = %v, want excluded-value rejection", err)
 	}
 	if got != nil {
 		t.Fatalf("candidate = %q, want nil", got)
@@ -102,7 +102,7 @@ func TestRewriteFrontmatterCandidateWithTaggedScalar(t *testing.T) {
 }
 
 func TestRewriteFrontmatterCandidateRejectsInvalidPlansAndDoesNotChain(t *testing.T) {
-	content := "---\nref: \"[[B]] [[C]]\"\n---\n"
+	content := "---\nref: [\"[[B]]\", \"[[C]]\"]\n---\n"
 	got, err := rewriteFrontmatterCandidate([]byte(content), []rewriteEntry{
 		plannedFrontmatterRewrite("[[B]]", "[[C]]", 2),
 		plannedFrontmatterRewrite("[[C]]", "[[D]]", 2),
@@ -110,7 +110,7 @@ func TestRewriteFrontmatterCandidateRejectsInvalidPlansAndDoesNotChain(t *testin
 	if err != nil {
 		t.Fatalf("rewriteFrontmatterCandidate: %v", err)
 	}
-	if want := "---\nref: \"[[C]] [[D]]\"\n---\n"; string(got) != want {
+	if want := "---\nref: [\"[[C]]\", \"[[D]]\"]\n---\n"; string(got) != want {
 		t.Fatalf("candidate = %q, want %q", got, want)
 	}
 	_, err = rewriteFrontmatterCandidate([]byte(content), []rewriteEntry{plannedFrontmatterRewrite("[[B]]", "[[C]]", 2), plannedFrontmatterRewrite("[[B]]", "[[C]]", 2)})
@@ -119,8 +119,8 @@ func TestRewriteFrontmatterCandidateRejectsInvalidPlansAndDoesNotChain(t *testin
 	}
 }
 
-func TestRewriteFrontmatterCandidateAppliesSameScalarReplacementsFromOriginalOffsets(t *testing.T) {
-	content := "---\nref: \"[[B]] [[B]]\"\n---\n"
+func TestRewriteFrontmatterCandidateRewritesDuplicateArrayElements(t *testing.T) {
+	content := "---\nref: [\"[[B]]\", \"[[B]]\"]\n---\n"
 	got, err := rewriteFrontmatterCandidate([]byte(content), []rewriteEntry{
 		plannedFrontmatterRewrite("[[B]]", "[[Longer]]", 2),
 		plannedFrontmatterRewrite("[[B]]", "[[C]]", 2),
@@ -128,7 +128,7 @@ func TestRewriteFrontmatterCandidateAppliesSameScalarReplacementsFromOriginalOff
 	if err != nil {
 		t.Fatalf("rewriteFrontmatterCandidate: %v", err)
 	}
-	if want := "---\nref: \"[[Longer]] [[C]]\"\n---\n"; string(got) != want {
+	if want := "---\nref: [\"[[Longer]]\", \"[[C]]\"]\n---\n"; string(got) != want {
 		t.Fatalf("candidate = %q, want %q", got, want)
 	}
 }

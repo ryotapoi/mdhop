@@ -6,6 +6,8 @@ Markdown リポジトリ内のリンク関係を SQLite にインデックス化
 
 [English](README.md) · 日本語
 
+frontmatter の wikilink は、引用符付き YAML scalar または配列の各文字列要素の値全体が単一の `[[foo]]` の場合だけ扱います。`related: ["[[Existing]]", "[[Missing]]"]` は二つのリンクですが、`related: "[[Existing]] [[Missing]]"` や `related: "説明 [[foo]]"` は通常の属性文字列です。内部のリンクは辿らず、書き換えません。`meta-check --kind auto` はこれらを skip し、明示 `--kind wikilink` は `not_wikilink` とします。本文の複数リンクと `meta.link_keys` の raw path は従来どおりです。旧索引は `mdhop build` で全量再生成してください。未変更ファイルも再解析し、旧 edge / phantom を除去します。旧索引の読み取り・部分更新はできません。
+
 ## 特徴
 
 - **事前解析・即応答** — Vault 全体を SQLite にインデックス化。クエリは数ミリ秒で返る

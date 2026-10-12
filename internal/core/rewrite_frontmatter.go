@@ -65,8 +65,8 @@ func rewriteFrontmatterCandidate(content []byte, rewrites []rewriteEntry) ([]byt
 	replacements := make([]frontmatterSourceReplacement, 0, len(frontmatterRewrites))
 	scalarReplacements := make(map[*yaml.Node][]frontmatterScalarReplacement)
 	for _, rewrite := range frontmatterRewrites {
-		links := parseWikiLinks(rewrite.newRawLink, rewrite.lineStart)
-		if len(links) != 1 || links[0].rawLink != rewrite.newRawLink {
+		link, ok := singleFrontmatterWikilink(rewrite.newRawLink, rewrite.lineStart)
+		if !ok {
 			return nil, fmt.Errorf("frontmatter wikilink %q has invalid planned replacement %q", rewrite.rawLink, rewrite.newRawLink)
 		}
 
@@ -86,7 +86,7 @@ func rewriteFrontmatterCandidate(content []byte, rewrites []rewriteEntry) ([]byt
 			return nil, fmt.Errorf("frontmatter quoted scalar at line %d cannot prove decoded/source correspondence", rewrite.lineStart)
 		}
 		used[found] = true
-		updated := links[0]
+		updated := link
 		updated.linkType = LinkTypeFrontmatterWikilink
 		updated.frontmatterKey = occurrence.frontmatterKey
 		expectedOccurrences[found] = updated
@@ -164,8 +164,8 @@ func appendRewriteOccurrences(lines []string, key string, value *yaml.Node, out 
 	if value.Kind != yaml.ScalarNode || value.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle) == 0 {
 		return out, nil
 	}
-	spans := wikiLinkSpans(value.Value)
-	if len(spans) == 0 {
+	link, ok := singleFrontmatterWikilink(value.Value, value.Line+1)
+	if !ok {
 		return out, nil
 	}
 
@@ -174,18 +174,15 @@ func appendRewriteOccurrences(lines []string, key string, value *yaml.Node, out 
 	if !supported {
 		contentStart = -1
 	}
-	for _, span := range spans {
-		link := parseWikiLinks(span.raw, value.Line+1)[0]
-		link.linkType = LinkTypeFrontmatterWikilink
-		link.frontmatterKey = key
-		out = append(out, frontmatterRewriteOccurrence{
-			linkOccur: link,
-			start:     contentStart + span.start,
-			end:       contentStart + span.end,
-			scalar:    value,
-			supported: supported,
-		})
-	}
+	link.linkType = LinkTypeFrontmatterWikilink
+	link.frontmatterKey = key
+	out = append(out, frontmatterRewriteOccurrence{
+		linkOccur: link,
+		start:     contentStart,
+		end:       contentStart + len(value.Value),
+		scalar:    value,
+		supported: supported,
+	})
 	return out, nil
 }
 

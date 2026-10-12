@@ -10,6 +10,9 @@ import (
 const metaCheckHelp = `Usage: mdhop meta-check --key <name> [--key <name>...] [--kind path|wikilink|auto] [--path <glob>...] [--exclude <glob>...] [--vault <path>] [--format json|text]
 
 Check whether frontmatter values resolve to real vault paths or wikilinks.
+Wikilink values must be exactly one [[target]]; array elements are checked separately.
+Auto skips ordinary strings containing complete wikilinks; explicit wikilink
+reports not_wikilink for multiple links, prose, or surrounding whitespace.
 
 Options:
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.
