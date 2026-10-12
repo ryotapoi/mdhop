@@ -60,6 +60,26 @@ func TestMarkdownOpeningBracketEscapes(t *testing.T) {
 	}
 }
 
+func TestMarkdownReferenceLineEndings(t *testing.T) {
+	for _, ending := range []struct{ name, value string }{{"LF", "\n"}, {"CRLF", "\r\n"}} {
+		for _, destination := range []string{"B.md", "<B.md>"} {
+			t.Run(ending.name+"/"+destination, func(t *testing.T) {
+				content := strings.Join([]string{"# Note", "", "[guide]: " + destination, "", "[guide]", "", "[guide]", ""}, ending.value)
+				links := parseLinks(content).Links
+				if len(links) != 2 {
+					t.Fatalf("links = %+v, want two reference uses", links)
+				}
+				for i, line := range []int{5, 7} {
+					got := links[i]
+					if got.target != "B" || got.referenceTarget != "B.md" || got.rawLink != "[guide]" || got.linkType != LinkTypeMarkdownReference || got.lineStart != line || got.lineEnd != line {
+						t.Fatalf("link %d = %+v, want reference to B.md on line %d", i, got, line)
+					}
+				}
+			})
+		}
+	}
+}
+
 func TestParseMarkdownReferences(t *testing.T) {
 	tests := []struct {
 		name, content string

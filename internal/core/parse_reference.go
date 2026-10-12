@@ -9,6 +9,7 @@ func normalizeReferenceLabel(label string) string {
 // referenceDefinition recognizes only independent, single-line definitions.
 // Definition-shaped lines are consumed even when their destination is unsupported.
 func referenceDefinition(line string) (label, destination string, definition bool) {
+	line = strings.TrimSuffix(line, "\r")
 	i := 0
 	for i < len(line) && line[i] == ' ' {
 		i++
