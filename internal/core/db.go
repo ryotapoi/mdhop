@@ -22,7 +22,7 @@ type dbExecer interface {
 const (
 	dataDirName                = ".mdhop"
 	dbFileName                 = "index.sqlite"
-	indexInterpretationVersion = 8
+	indexInterpretationVersion = 9
 )
 
 // NodeType is the value set of the `nodes.type` column. Go code uses these

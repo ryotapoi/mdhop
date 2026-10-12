@@ -230,13 +230,16 @@ func TestEncodedVaultEscapeAndOldIndexGate(t *testing.T) {
 	if _, err := Build(vault); err == nil || !strings.Contains(err.Error(), "escape") {
 		t.Fatalf("escape error %v", err)
 	}
-	writeInterpretationFiles(t, vault, map[string]string{"Source.md": "[space](A%20B.md)\n\\[odd](A%20B.md)\n\\\\[guide]\n[guide]: A%20B.md", "A B.md": "a"})
+	writeInterpretationFiles(t, vault, map[string]string{"Source.md": "[space](A%20B.md)\n[a\\]b](A%20B.md)\n\\[odd](A%20B.md)\n\\\\[guide]\n[guide]: A%20B.md", "A B.md": "a"})
 	buildVault(t, vault)
 	db := openTestDB(t, dbPath(vault))
-	if _, err := db.Exec("PRAGMA user_version = 3"); err != nil {
+	if _, err := db.Exec("PRAGMA user_version = 8"); err != nil {
 		t.Fatal(err)
 	}
 	// Simulate stale extraction with unchanged source files and build signatures.
+	if _, err := db.Exec("DELETE FROM edges WHERE raw_link = ?", `[a\]b](A%20B.md)`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec("UPDATE edges SET raw_link = '[odd](A%20B.md)' WHERE raw_link = '[guide]'"); err != nil {
 		t.Fatal(err)
 	}
@@ -266,8 +269,8 @@ func TestEncodedVaultEscapeAndOldIndexGate(t *testing.T) {
 		t.Fatal(leftovers)
 	}
 	buildVault(t, vault)
-	assertEdgeRawLinks(t, vault, "Source.md", []string{"[space](A%20B.md)", "[guide]"})
-	if edges := queryEdges(t, dbPath(vault), "Source.md"); len(edges) != 2 {
+	assertEdgeRawLinks(t, vault, "Source.md", []string{"[space](A%20B.md)", `[a\]b](A%20B.md)`, "[guide]"})
+	if edges := queryEdges(t, dbPath(vault), "Source.md"); len(edges) != 3 {
 		t.Fatalf("rebuilt index retained escaped links: %+v", edges)
 	}
 	if got, err := Resolve(vault, "Source.md", "[space](A%20B.md)"); err != nil || got.Path != "A B.md" {
@@ -444,7 +447,8 @@ func TestTableWikiConversionRepresentability(t *testing.T) {
 		{"unsafe self alias in table", `[shown](#H%5C)`, `[shown](#H%5C)`, true},
 		{"safe self alias in table", `[shown](#H)`, `[[#H\|shown]]`, true},
 		{"even trailing backslashes in table", `[shown](#H%5C%5C)`, `[[#H\\\|shown]]`, true},
-		{"self without alias in table", `[#H\](#H%5C)`, `[[#H\]]`, true},
+		{"self without alias in table", `[#H\\](#H%5C)`, `[[#H\]]`, true},
+		{"escaped outer terminator is not a link", `[#H\](#H%5C)`, `[#H\](#H%5C)`, true},
 		{"self alias outside table", `[shown](#H%5C)`, `[[#H\|shown]]`, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

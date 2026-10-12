@@ -157,7 +157,7 @@ func TestParseMarkdownSelfLinks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseMarkdownSelfLinks(tt.line, 1)
+			got := parseMarkdownSelfLinks(tt.line, 1, nil)
 			if len(got) != len(tt.subpaths) {
 				t.Fatalf("parseMarkdownSelfLinks(%q) returned %d links, want %d", tt.line, len(got), len(tt.subpaths))
 			}

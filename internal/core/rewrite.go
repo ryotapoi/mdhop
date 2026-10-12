@@ -215,13 +215,14 @@ func bodyLinkSpans(line, old string, linkType LinkType) []bodyLinkSpan {
 	var spans []bodyLinkSpan
 	for i := 0; i < len(line); {
 		if linkType == LinkTypeMarkdown {
-			if clean[i] != '[' {
+			if clean[i] != '[' || markdownBracketEscaped(clean, i) {
 				i++
 				continue
 			}
 			end, _ := referenceBracketEnd(clean, i)
 			if end < 0 {
-				break
+				i++
+				continue
 			}
 			end++
 			if end < len(clean) && clean[end] == '(' {

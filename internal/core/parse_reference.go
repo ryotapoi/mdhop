@@ -103,13 +103,30 @@ func referenceDefinition(line string) (label, destination string, definition boo
 	return
 }
 
-// referenceBracketEnd consumes nested brackets but rejects them as supported syntax.
+// markdownEscapeAt identifies the CommonMark ASCII punctuation escape pair.
+func markdownEscapeAt(line string, i int) bool {
+	return line[i] == '\\' && i+1 < len(line) && asciiPunctuation(line[i+1])
+}
+
+func markdownBracketEscaped(line string, i int) bool {
+	backslashes := 0
+	for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
+		backslashes++
+	}
+	return backslashes%2 == 1
+}
+
+// referenceBracketEnd shares inline bracket boundaries, while valid keeps
+// escaped and nested reference labels outside the supported reference grammar.
 func referenceBracketEnd(line string, start int) (int, bool) {
 	depth, valid := 1, true
 	for i := start + 1; i < len(line); i++ {
 		switch line[i] {
 		case '\\':
 			valid = false
+			if markdownEscapeAt(line, i) {
+				i++
+			}
 		case '[':
 			depth++
 			valid = false
@@ -137,7 +154,7 @@ func markdownDestinationOccur(destination, raw string, typ LinkType, line int) (
 
 // parseBodyMarkdown scans disjoint bracket spans, so undefined full references
 // cannot fall back to a shortcut and inline links cannot consume earlier references.
-func parseBodyMarkdown(raw, line string, lineNum int, definitions map[string]string) ([]linkOccur, string, int) {
+func parseBodyMarkdown(raw, line string, lineNum int, definitions map[string]string, following []string) ([]linkOccur, string, int) {
 	pending := 0
 	masked := []byte(line)
 	var out []linkOccur
@@ -146,19 +163,21 @@ func parseBodyMarkdown(raw, line string, lineNum int, definitions map[string]str
 			i++
 			continue
 		}
-		backslashes := 0
-		for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
-			backslashes++
-		}
-		if backslashes%2 == 1 {
+		if markdownBracketEscaped(line, i) {
 			i++
 			continue
 		}
 		start := i
 		end, valid := referenceBracketEnd(line, start)
 		if end < 0 {
-			pending = unmatchedBracketDepth(line[start:])
-			break
+			depth := unmatchedBracketDepth(line[start:])
+			if referenceContinuationCloses(following, 0, depth) {
+				pending = depth
+				break
+			}
+			// An unmatched prose bracket does not own later independent links.
+			i++
+			continue
 		}
 		i = end + 1
 		if !valid && (i >= len(line) || line[i] != '(') {
@@ -220,6 +239,10 @@ func parseBodyMarkdown(raw, line string, lineNum int, definitions map[string]str
 func unmatchedBracketDepth(line string) int {
 	depth := 0
 	for i := 0; i < len(line); i++ {
+		if markdownEscapeAt(line, i) {
+			i++
+			continue
+		}
 		if line[i] == '[' {
 			depth++
 		}
@@ -239,6 +262,11 @@ func maskReferenceContinuation(line string, pending *int) string {
 	masked := []byte(line)
 	i := 0
 	for i < len(line) && *pending > 0 {
+		if markdownEscapeAt(line, i) {
+			masked[i], masked[i+1] = ' ', ' '
+			i += 2
+			continue
+		}
 		if line[i] == '[' {
 			*pending++
 		}
@@ -277,6 +305,10 @@ func referenceContinuationCloses(lines []string, nextLine, depth int) bool {
 		}
 		clean := maskWikiLinks(stripInlineCode(raw))
 		for i := 0; i < len(clean); i++ {
+			if markdownEscapeAt(clean, i) {
+				i++
+				continue
+			}
 			if clean[i] == '[' {
 				depth++
 			}

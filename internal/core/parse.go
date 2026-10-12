@@ -66,7 +66,7 @@ func parseLinks(content string) parseResult {
 		out = append(out, parseWikiLinks(clean, lineNum, tableLines[lineNum])...)
 		clean = maskWikiLinks(clean)
 		clean = maskReferenceContinuation(clean, &pendingReference)
-		links, tagLine, pending := parseBodyMarkdown(raw, clean, lineNum, definitions)
+		links, tagLine, pending := parseBodyMarkdown(raw, clean, lineNum, definitions, lines[lineNum:])
 		if pending > 0 {
 			pendingReference = pending
 		}
@@ -300,6 +300,10 @@ func markdownInlineDelimiter(raw string) int {
 	clean := stripInlineCode(raw)
 	depth := 1
 	for i := 1; i+1 < len(clean); i++ {
+		if markdownEscapeAt(clean, i) {
+			i++
+			continue
+		}
 		switch clean[i] {
 		case '[':
 			depth++
@@ -314,7 +318,7 @@ func markdownInlineDelimiter(raw string) int {
 }
 
 func parseMarkdownLinks(line string, lineNum int) []linkOccur {
-	links, _, _ := parseBodyMarkdown(line, maskWikiLinks(stripInlineCode(line)), lineNum, nil)
+	links, _, _ := parseBodyMarkdown(line, maskWikiLinks(stripInlineCode(line)), lineNum, nil, nil)
 	return links
 }
 

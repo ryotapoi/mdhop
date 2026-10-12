@@ -171,13 +171,13 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 	if target == "" && subpath != "" {
 		wikiTarget := subpath // e.g. "#Section"
 		alias := ""
-		if text != subpath {
+		if text != subpath && text != escapeMarkdownDisplay(subpath) {
 			alias = separator + text
 		}
 		if !wikilinkRepresentable("", subpath, alias, LinkTypeWikilink) {
 			return rawLink
 		}
-		if text == subpath {
+		if text == subpath || text == escapeMarkdownDisplay(subpath) {
 			return "[[" + wikiTarget + "]]"
 		}
 		if len(table) > 0 && table[0] && !tableWikiAliasSafe(subpath) {
@@ -199,8 +199,8 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 	//   - basename alone (e.g. text="Name" for [[Name#H]])
 	//   - basename + subpath (e.g. text="Name#H" for [[Name#H]])
 	baseName := filepath.Base(wikiTarget)
-	needAlias := text != baseName
-	if subpath != "" && text == baseName+subpath {
+	needAlias := text != baseName && text != escapeMarkdownDisplay(baseName)
+	if subpath != "" && (text == baseName+subpath || text == escapeMarkdownDisplay(baseName+subpath)) {
 		needAlias = false
 	}
 	alias := ""
@@ -237,7 +237,7 @@ func convertWikilinkToMarkdown(rawLink string, isAssetTarget func(string) bool, 
 		if alias != "" {
 			text = alias
 		}
-		return "[" + text + "](" + encodeMarkdownDestination("", subpath) + ")"
+		return "[" + escapeMarkdownDisplay(text) + "](" + encodeMarkdownDestination("", subpath) + ")"
 	}
 
 	// Determine if we need to add .md extension.
@@ -259,7 +259,25 @@ func convertWikilinkToMarkdown(rawLink string, isAssetTarget func(string) bool, 
 		text = alias
 	}
 
-	return "[" + text + "](" + encodeMarkdownDestination(mdTarget, subpath) + ")"
+	return "[" + escapeMarkdownDisplay(text) + "](" + encodeMarkdownDestination(mdTarget, subpath) + ")"
+}
+
+// escapeMarkdownDisplay preserves existing punctuation escapes and escapes
+// brackets that would otherwise change the outer link boundary.
+func escapeMarkdownDisplay(text string) string {
+	var out strings.Builder
+	for i := 0; i < len(text); i++ {
+		if markdownEscapeAt(text, i) {
+			out.WriteString(text[i : i+2])
+			i++
+			continue
+		}
+		if text[i] == '[' || text[i] == ']' || (text[i] == '\\' && i+1 == len(text)) {
+			out.WriteByte('\\')
+		}
+		out.WriteByte(text[i])
+	}
+	return out.String()
 }
 
 // extractMarkdownParts extracts text and url from a markdown link [text](url).
@@ -313,7 +331,7 @@ func parseLinksForConvert(content string) parseResult {
 		if _, _, definition := referenceDefinition(raw); definition {
 			return
 		}
-		links := parseMarkdownSelfLinks(maskWikiLinks(clean), lineNum)
+		links := parseMarkdownSelfLinks(maskWikiLinks(clean), lineNum, lines[lineNum:])
 		for i := range links {
 			links[i].inTable = tableLines[lineNum]
 		}
@@ -324,7 +342,7 @@ func parseLinksForConvert(content string) parseResult {
 
 // parseMarkdownSelfLinks extracts inline Markdown self-links [text](#fragment),
 // including balanced parentheses in the fragment.
-func parseMarkdownSelfLinks(line string, lineNum int) []linkOccur {
+func parseMarkdownSelfLinks(line string, lineNum int, following []string) []linkOccur {
 	var out []linkOccur
 	remaining := line
 	for {
@@ -332,16 +350,24 @@ func parseMarkdownSelfLinks(line string, lineNum int) []linkOccur {
 		if open == -1 {
 			break
 		}
+		if markdownBracketEscaped(remaining, open) {
+			remaining = remaining[open+1:]
+			continue
+		}
 		// Skip wikilinks.
 		if open+1 < len(remaining) && remaining[open+1] == '[' {
 			remaining = remaining[open+2:]
 			continue
 		}
-		mid, valid := referenceBracketEnd(remaining, open)
+		mid, _ := referenceBracketEnd(remaining, open)
 		if mid < 0 {
-			break
+			if referenceContinuationCloses(following, 0, unmatchedBracketDepth(remaining[open:])) {
+				break
+			}
+			remaining = remaining[open+1:]
+			continue
 		}
-		if !valid || mid+1 >= len(remaining) || remaining[mid+1] != '(' {
+		if mid+1 >= len(remaining) || remaining[mid+1] != '(' {
 			remaining = remaining[mid+1:]
 			continue
 		}
