@@ -44,6 +44,11 @@ func TestRewriteMovedOutgoingLink(t *testing.T) {
 			from: "A.md", to: "sub/A.md", want: "[label](../B.md#heading)", wantOK: true,
 		},
 		{
+			name: "relative markdown preserves image display",
+			link: linkOccur{rawLink: "[![logo](logo.png)](./B.md)", isRelative: true, linkType: LinkTypeMarkdown},
+			from: "A.md", to: "sub/A.md", want: "[![logo](logo.png)](../B.md)", wantOK: true,
+		},
+		{
 			name: "relative markdown allows dot dot filename",
 			link: parseMarkdownLinks("[draft](..draft.md)", 1)[0],
 			from: "A.md", to: "sub/A.md", want: "[draft](../..draft.md)", wantOK: true,

@@ -125,6 +125,7 @@ func TestExtractMarkdownParts(t *testing.T) {
 		{"[alias](path/to/Name.md)", "alias", "path/to/Name.md"},
 		{"[text](#heading)", "text", "#heading"},
 		{"[text](Name.md#H)", "text", "Name.md#H"},
+		{"[![logo](logo.png)](/long/Target.md)", "![logo](logo.png)", "/long/Target.md"},
 		{"not a link", "", ""},
 	}
 
