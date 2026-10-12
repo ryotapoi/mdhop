@@ -3,9 +3,68 @@ package core
 import (
 	"database/sql"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestListDirNodesByType_LiteralPrefix(t *testing.T) {
+	db := newTestDB(t)
+	for _, node := range []struct {
+		path   string
+		typ    NodeType
+		exists int
+	}{
+		{"docs/a.md", NodeTypeNote, 1},
+		{"docs/sub/b.md", NodeTypeNote, 1},
+		{"Docs/c.md", NodeTypeNote, 1},
+		{"docs-extra/d.md", NodeTypeNote, 1},
+		{"other/docs/e.md", NodeTypeNote, 1},
+		{"docs", NodeTypeNote, 1},
+		{"docs/missing.md", NodeTypeNote, 0},
+		{"docs/image.png", NodeTypeAsset, 1},
+		{"Docs/other.png", NodeTypeAsset, 1},
+		{"docs/missing.png", NodeTypeAsset, 0},
+		{"docs/phantom.md", NodeTypePhantom, 1},
+		{"資料/é/a.md", NodeTypeNote, 1},
+		{"資料/É/b.md", NodeTypeNote, 1},
+		{"資料/é-extra/c.md", NodeTypeNote, 1},
+		{"100%_done/a.md", NodeTypeNote, 1},
+		{"100%_done/sub/b.md", NodeTypeNote, 1},
+		{"100xxdone/c.md", NodeTypeNote, 1},
+		{"100%xdone/d.md", NodeTypeNote, 1},
+		{"100%_done-extra/e.md", NodeTypeNote, 1},
+	} {
+		if _, err := db.Exec(`INSERT INTO nodes (node_key, type, name, path, exists_flag) VALUES (?, ?, ?, ?, ?)`,
+			string(node.typ)+":"+node.path, node.typ, node.path, node.path, node.exists); err != nil {
+			t.Fatalf("insert %q: %v", node.path, err)
+		}
+	}
+
+	for _, tc := range []struct {
+		name, prefix string
+		typ          NodeType
+		want         []string
+	}{
+		{"lowercase notes", "docs", NodeTypeNote, []string{"docs/a.md", "docs/sub/b.md"}},
+		{"uppercase notes", "Docs", NodeTypeNote, []string{"Docs/c.md"}},
+		{"assets", "docs", NodeTypeAsset, []string{"docs/image.png"}},
+		{"unicode", "資料/é", NodeTypeNote, []string{"資料/é/a.md"}},
+		{"wildcard characters", "100%_done", NodeTypeNote, []string{"100%_done/a.md", "100%_done/sub/b.md"}},
+		{"unregistered prefix", "DOCS", NodeTypeNote, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := listDirNodesByType(db, tc.prefix, tc.typ)
+			if err != nil {
+				t.Fatal(err)
+			}
+			slices.Sort(got)
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("paths = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestOpenDBChecked_NoDB(t *testing.T) {
 	dir := t.TempDir()

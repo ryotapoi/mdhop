@@ -437,21 +437,12 @@ func cleanupOrphanedNodes(tx dbExecer) error {
 	return err
 }
 
-// escapeLikePattern escapes %, _, and \ in s for use in SQL LIKE patterns with ESCAPE '\'.
-func escapeLikePattern(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `%`, `\%`)
-	s = strings.ReplaceAll(s, `_`, `\_`)
-	return s
-}
-
 // listDirNodesByType returns vault-relative paths of all registered nodes of
-// the given type under the given directory prefix.
+// the given type under the given case-sensitive, literal directory prefix.
 func listDirNodesByType(db dbExecer, dirPrefix string, nodeType NodeType) ([]string, error) {
-	pattern := escapeLikePattern(dirPrefix) + "/%"
 	rows, err := db.Query(
-		`SELECT path FROM nodes WHERE type=? AND exists_flag=1 AND (path LIKE ? ESCAPE '\')`,
-		nodeType, pattern,
+		`SELECT path FROM nodes WHERE type=? AND exists_flag=1 AND instr(path, ?) = 1`,
+		nodeType, dirPrefix+"/",
 	)
 	if err != nil {
 		return nil, err
