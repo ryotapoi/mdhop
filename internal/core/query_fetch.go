@@ -96,19 +96,22 @@ func filterLeafTags(tags []string) []string {
 	if len(tags) <= 1 {
 		return tags
 	}
-	sorted := make([]string, len(tags))
-	copy(sorted, tags)
-	sort.Strings(sorted)
+	keys := make([]string, len(tags))
+	for i, t := range tags {
+		keys[i] = strings.ToLower(t)
+	}
+	sort.Strings(keys)
 	var leaves []string
-	for _, t := range sorted {
-		prefix := t + "/"
-		idx := sort.SearchStrings(sorted, prefix)
-		// If idx < len(sorted) and sorted[idx] starts with prefix, t has a descendant.
-		if idx < len(sorted) && strings.HasPrefix(sorted[idx], prefix) {
+	for _, t := range tags {
+		prefix := strings.ToLower(t) + "/"
+		idx := sort.SearchStrings(keys, prefix)
+		// A matching prefix identifies a descendant regardless of display case.
+		if idx < len(keys) && strings.HasPrefix(keys[idx], prefix) {
 			continue
 		}
 		leaves = append(leaves, t)
 	}
+	sort.Strings(leaves)
 	return leaves
 }
 

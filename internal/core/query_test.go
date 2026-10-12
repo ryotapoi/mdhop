@@ -529,6 +529,9 @@ func TestFilterLeafTags(t *testing.T) {
 		{"confusing prefix", []string{"#status", "#status2", "#status/active"}, []string{"#status/active", "#status2"}},
 		{"hyphen tag", []string{"#a", "#a-1", "#a/b"}, []string{"#a-1", "#a/b"}},
 		{"mixed", []string{"#a", "#a/b", "#b", "#b/c"}, []string{"#a/b", "#b/c"}},
+		{"case insensitive hierarchy", []string{"#Parent", "#parent/child"}, []string{"#parent/child"}},
+		{"display spelling and order", []string{"#a/Child", "#Z", "#A", "#zebra"}, []string{"#Z", "#a/Child", "#zebra"}},
+		{"case insensitive prefix boundary", []string{"#Status", "#status2"}, []string{"#Status", "#status2"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

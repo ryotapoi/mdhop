@@ -95,7 +95,7 @@
   - 発生条件・頻度: 対象・条件: title: SQL NOT EXISTS を保存し、search または query で --where 'title=SQL NOT EXISTS' を指定する。LIKE の 'title~% NOT EXISTS' でも発生する。 この条件下での再現性: 隔離fixtureで成立を確認。実運用頻度は未測定。
   - リスク: 誤結果：中。無関係なノート・誤件数。読み取りだけで本文変更なし。
 
-- [ ] 大小文字違いの階層タグで親タグも表示される問題を修正する（A7-003）
+- [x] 大小文字違いの階層タグで親タグも表示される問題を修正する（A7-003）
   - 問題: #Parentと#parent/childを同じタグ階層として登録するのに、葉の判定だけ大小文字を区別する。 inspect --fields tagsが子の#parent/childに加え親の#Parentも返す。
   - 対応: 比較用にlowercaseタグキーを作って親子判定し、返却する表示名は元のまま保持する。キーをsortして既存のprefix検索を使う。
   - 完了条件: #Parent と #parent/child がある場合、inspect --fields tags は末端の #parent/child だけを返す。表示用の大小文字と既存の返却順を保つ。
