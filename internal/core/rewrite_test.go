@@ -477,6 +477,58 @@ func TestRollbackReportsMtimeRestoreFailure(t *testing.T) {
 	}
 }
 
+func TestRewriteContentCandidateAppliesOriginalSpansOnce(t *testing.T) {
+	for _, tt := range []struct {
+		name, content, want string
+		rewrites            []rewriteEntry
+	}{
+		{
+			name:    "wikilink chain and duplicate occurrences",
+			content: "[[A]] [[B]] [[A]] `[[A]] [[B]]`",
+			want:    "[[B]] [[sub/B]] [[B]] `[[A]] [[B]]`",
+			rewrites: []rewriteEntry{
+				{rawLink: "[[A]]", newRawLink: "[[B]]", linkType: LinkTypeWikilink, lineStart: 1},
+				{rawLink: "[[B]]", newRawLink: "[[sub/B]]", linkType: LinkTypeWikilink, lineStart: 1},
+				{rawLink: "[[A]]", newRawLink: "[[B]]", linkType: LinkTypeWikilink, lineStart: 1},
+			},
+		},
+		{
+			name:    "independent wikilinks in Markdown label",
+			content: "[outer [[A]] [[B]]](A.md) [[A]]",
+			want:    "[outer [[B]] [[sub/B]]](/B.md) [[B]]",
+			rewrites: []rewriteEntry{
+				{rawLink: "[outer [[A]] [[B]]](A.md)", newRawLink: "[outer [[A]] [[B]]](/B.md)", linkType: LinkTypeMarkdown, lineStart: 1},
+				{rawLink: "[[A]]", newRawLink: "[[B]]", linkType: LinkTypeWikilink, lineStart: 1},
+				{rawLink: "[[B]]", newRawLink: "[[sub/B]]", linkType: LinkTypeWikilink, lineStart: 1},
+			},
+		},
+		{
+			name:    "generated syntax and original Markdown boundaries",
+			content: "[shown](A.md) [[B]] [shown](A.md) [[Target|[shown](A.md)]] [outer [shown](A.md)](other.md) `[shown](A.md)`",
+			want:    "[[B]] [[sub/B]] [[B]] [[Target|[shown](A.md)]] [outer [shown](A.md)](other.md) `[shown](A.md)`",
+			rewrites: []rewriteEntry{
+				{rawLink: "[shown](A.md)", newRawLink: "[[B]]", linkType: LinkTypeMarkdown, lineStart: 1},
+				{rawLink: "[[B]]", newRawLink: "[[sub/B]]", linkType: LinkTypeWikilink, lineStart: 1},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, reverse := range []bool{false, true} {
+				rewrites := append([]rewriteEntry(nil), tt.rewrites...)
+				if reverse {
+					for i, j := 0, len(rewrites)-1; i < j; i, j = i+1, j-1 {
+						rewrites[i], rewrites[j] = rewrites[j], rewrites[i]
+					}
+				}
+				got, err := rewriteContentCandidate([]byte(tt.content), rewrites)
+				if err != nil || string(got) != tt.want {
+					t.Fatalf("reverse=%v: got %q, %v; want %q", reverse, got, err, tt.want)
+				}
+			}
+		})
+	}
+}
+
 func TestRewriteContentCandidateMarkdownBoundaries(t *testing.T) {
 	for _, prefix := range []string{
 		"[[Target|[shown](Old.md)]]",

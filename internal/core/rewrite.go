@@ -146,36 +146,93 @@ func rewriteRawLink(rawLink string, linkType LinkType, targetPath string, table 
 // replaceBodyLink rewrites matching raw links outside inline code. Markdown
 // matches must start at a disjoint bracket span, outside wikilinks and labels.
 func replaceBodyLink(line, old, new string, linkType LinkType) string {
+	return replaceBodyLinks(line, []rewriteEntry{{rawLink: old, newRawLink: new, linkType: linkType}})
+}
+
+type bodyLinkSpan struct {
+	start, end int
+}
+
+// replaceBodyLinks finds every target in the original line before emitting any
+// replacements, so generated links cannot become targets of later rewrites.
+func replaceBodyLinks(line string, rewrites []rewriteEntry) string {
+	// Markdown labels may contain independently indexed wikilinks. Compose
+	// those updates from the original label before emitting the outer span, and
+	// keep its planned raw link in sync for DB updates and rewrite reports.
+	var wikiRewrites []rewriteEntry
+	for _, re := range rewrites {
+		if re.linkType == LinkTypeWikilink {
+			wikiRewrites = append(wikiRewrites, re)
+		}
+	}
+	if len(wikiRewrites) > 0 {
+		for i, re := range rewrites {
+			if re.linkType != LinkTypeMarkdown {
+				continue
+			}
+			oldDelimiter := markdownInlineDelimiter(re.rawLink)
+			newDelimiter := markdownInlineDelimiter(re.newRawLink)
+			if oldDelimiter >= 0 && newDelimiter >= 0 {
+				prefix := replaceBodyLinks(re.rawLink[:oldDelimiter+2], wikiRewrites)
+				rewrites[i].newRawLink = prefix + re.newRawLink[newDelimiter+2:]
+			}
+		}
+	}
+	type replacement struct {
+		bodyLinkSpan
+		text string
+	}
+	var replacements []replacement
+	for _, re := range rewrites {
+		for _, span := range bodyLinkSpans(line, re.rawLink, re.linkType) {
+			replacements = append(replacements, replacement{span, re.newRawLink})
+		}
+	}
+	sort.SliceStable(replacements, func(i, j int) bool {
+		return replacements[i].start < replacements[j].start
+	})
+	var result strings.Builder
+	end := 0
+	for _, replacement := range replacements {
+		if replacement.start < end {
+			// Duplicate spans are already emitted; contained wikilink updates
+			// are included in the original Markdown label composition above.
+			continue
+		}
+		result.WriteString(line[end:replacement.start])
+		result.WriteString(replacement.text)
+		end = replacement.end
+	}
+	result.WriteString(line[end:])
+	return result.String()
+}
+
+func bodyLinkSpans(line, old string, linkType LinkType) []bodyLinkSpan {
 	clean := line
 	if linkType == LinkTypeMarkdown {
 		clean = maskWikiLinks(stripInlineCode(line))
 	}
-	var result strings.Builder
+	var spans []bodyLinkSpan
 	for i := 0; i < len(line); {
 		if linkType == LinkTypeMarkdown {
 			if clean[i] != '[' {
-				result.WriteByte(line[i])
 				i++
 				continue
 			}
 			end, _ := referenceBracketEnd(clean, i)
 			if end < 0 {
-				result.WriteString(line[i:])
 				break
 			}
 			end++
 			if end < len(clean) && clean[end] == '(' {
 				close := markdownDestinationEnd(clean, end+1)
 				if close < 0 {
-					result.WriteString(line[i:])
 					break
 				}
 				end = close + 1
 			}
 			if line[i:end] == old {
-				result.WriteString(new)
-			} else {
-				result.WriteString(line[i:end])
+				spans = append(spans, bodyLinkSpan{i, end})
 			}
 			i = end
 			continue
@@ -187,20 +244,18 @@ func replaceBodyLink(line, old, new string, linkType LinkType) string {
 			}
 			if backslashes%2 == 0 {
 				end := inlineCodeEnd(line, i)
-				result.WriteString(line[i:end])
 				i = end
 				continue
 			}
 		}
 		if strings.HasPrefix(clean[i:], old) {
-			result.WriteString(new)
+			spans = append(spans, bodyLinkSpan{i, i + len(old)})
 			i += len(old)
 			continue
 		}
-		result.WriteByte(line[i])
 		i++
 	}
-	return result.String()
+	return spans
 }
 
 // writeFilePreservePerm writes data to path with the given permission bits.
@@ -271,14 +326,15 @@ func applyFileRewritesWithRollbackFailures(vaultPath string, rewrites []rewriteE
 }
 
 // prepareFileRewrites reads and validates every candidate before a caller can
-// write any file. The candidate is also the exact content later written.
+// write any file. The candidate is also the exact content later written, and
+// composed raw links are copied back to rewrites for DB updates and reports.
 func prepareFileRewrites(vaultPath string, rewrites []rewriteEntry) ([]preparedFileRewrite, error) {
-	groups := make(map[string][]rewriteEntry)
-	for _, re := range rewrites {
+	groups := make(map[string][]int)
+	for i, re := range rewrites {
 		if re.newRawLink == "" {
 			return nil, fmt.Errorf("cannot preserve wikilink destination while rewriting %q", re.rawLink)
 		}
-		groups[re.sourcePath] = append(groups[re.sourcePath], re)
+		groups[re.sourcePath] = append(groups[re.sourcePath], i)
 	}
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 	sourcePaths := make([]string, 0, len(groups))
@@ -301,15 +357,24 @@ func prepareFileRewrites(vaultPath string, rewrites []rewriteEntry) ([]preparedF
 		if err != nil {
 			return nil, err
 		}
-		candidate, err := rewriteContentCandidate(content, groups[sourcePath])
+		entries := make([]rewriteEntry, 0, len(groups[sourcePath]))
+		for _, index := range groups[sourcePath] {
+			entries = append(entries, rewrites[index])
+		}
+		candidate, err := rewriteContentCandidate(content, entries)
 		if err != nil {
 			return nil, err
 		}
-		prepared = append(prepared, preparedFileRewrite{vaultPath: vaultPath, path: sourcePath, fullPath: fullPath, original: content, candidate: candidate, perm: info.Mode().Perm(), mtime: info.ModTime(), entries: groups[sourcePath]})
+		for i, index := range groups[sourcePath] {
+			rewrites[index].newRawLink = entries[i].newRawLink
+		}
+		prepared = append(prepared, preparedFileRewrite{vaultPath: vaultPath, path: sourcePath, fullPath: fullPath, original: content, candidate: candidate, perm: info.Mode().Perm(), mtime: info.ModTime(), entries: entries})
 	}
 	return prepared, nil
 }
 
+// rewriteContentCandidate also updates planned Markdown raw links when their
+// original labels contain independently rewritten wikilinks.
 func rewriteContentCandidate(content []byte, rewrites []rewriteEntry) ([]byte, error) {
 	for _, re := range rewrites {
 		if re.newRawLink == "" {
@@ -321,18 +386,23 @@ func rewriteContentCandidate(content []byte, rewrites []rewriteEntry) ([]byte, e
 		return nil, err
 	}
 	lines := strings.Split(string(candidate), "\n")
-	lineEntries := make(map[int][]rewriteEntry)
-	for _, re := range rewrites {
+	lineEntries := make(map[int][]int)
+	for i, re := range rewrites {
 		if re.linkType != LinkTypeFrontmatterWikilink {
-			lineEntries[re.lineStart] = append(lineEntries[re.lineStart], re)
+			lineEntries[re.lineStart] = append(lineEntries[re.lineStart], i)
 		}
 	}
-	for lineNum, res := range lineEntries {
+	for lineNum, indexes := range lineEntries {
 		if lineNum < 1 || lineNum > len(lines) {
 			continue
 		}
-		for _, re := range res {
-			lines[lineNum-1] = replaceBodyLink(lines[lineNum-1], re.rawLink, re.newRawLink, re.linkType)
+		entries := make([]rewriteEntry, 0, len(indexes))
+		for _, index := range indexes {
+			entries = append(entries, rewrites[index])
+		}
+		lines[lineNum-1] = replaceBodyLinks(lines[lineNum-1], entries)
+		for i, index := range indexes {
+			rewrites[index].newRawLink = entries[i].newRawLink
 		}
 	}
 	return []byte(strings.Join(lines, "\n")), nil

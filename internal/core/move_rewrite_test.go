@@ -884,6 +884,105 @@ func TestMove_CollateralAndIncomingSameFile(t *testing.T) {
 	}
 }
 
+func TestMove_CollateralAndIncomingSameLine(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.Mkdir(filepath.Join(vault, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range map[string]string{
+		"A.md": "content\n", "sub/B.md": "content\n", "X.md": "[[A]] [[B]]\n",
+	} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Move(vault, MoveOptions{From: "A.md", To: "B.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(filepath.Join(vault, "X.md"))
+	if err != nil || string(content) != "[[B]] [[sub/B]]\n" {
+		t.Fatalf("content = %q, err=%v; want [[B]] [[sub/B]]", content, err)
+	}
+	want := map[string]string{"[[B]]": "note:path:B.md", "[[sub/B]]": "note:path:sub/B.md"}
+	edges := queryEdges(t, dbPath(vault), "X.md")
+	if len(edges) != len(want) {
+		t.Fatalf("edges = %+v, want two edges", edges)
+	}
+	for _, edge := range edges {
+		if target, ok := want[edge.rawLink]; !ok || edge.targetKey != target {
+			t.Errorf("edge = %+v, want raw link and target %v", edge, want)
+		}
+		delete(want, edge.rawLink)
+	}
+	if len(result.Rewritten) != 2 {
+		t.Fatalf("rewrites = %+v, want two rewrites", result.Rewritten)
+	}
+	wantRewrites := map[string]string{"[[A]]": "[[B]]", "[[B]]": "[[sub/B]]"}
+	for _, rewrite := range result.Rewritten {
+		newLink := wantRewrites[rewrite.OldLink]
+		if rewrite.File != "X.md" || rewrite.NewLink != newLink || newLink == "" {
+			t.Errorf("unexpected rewrite: %+v", rewrite)
+		}
+		delete(wantRewrites, rewrite.OldLink)
+	}
+}
+
+func TestMove_WikilinkInsideRewrittenMarkdownLabel(t *testing.T) {
+	for _, source := range []string{"X.md", "A.md"} {
+		t.Run(source, func(t *testing.T) {
+			vault := t.TempDir()
+			files := map[string]string{"A.md": "content\n"}
+			files[source] = "[outer [[A]]](A.md)\n"
+			for path, content := range files {
+				if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			result, err := Move(vault, MoveOptions{From: "A.md", To: "B.md"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			markdown := "[outer [[B]]](/B.md)"
+			if source == "A.md" {
+				source = "B.md"
+				markdown = "[outer [[B]]](./B.md)"
+			}
+			content, err := os.ReadFile(filepath.Join(vault, source))
+			if err != nil || string(content) != markdown+"\n" {
+				t.Fatalf("content = %q, err=%v", content, err)
+			}
+			want := map[string]string{"[[B]]": "note:path:B.md", markdown: "note:path:B.md"}
+			edges := queryEdges(t, dbPath(vault), source)
+			if len(edges) != 2 {
+				t.Fatalf("edges = %+v, want two edges", edges)
+			}
+			for _, edge := range edges {
+				if target, ok := want[edge.rawLink]; !ok || target != edge.targetKey {
+					t.Errorf("unexpected edge: %+v", edge)
+				}
+				delete(want, edge.rawLink)
+			}
+			wantRewrites := map[string]string{"[[A]]": "[[B]]", "[outer [[A]]](A.md)": markdown}
+			if len(result.Rewritten) != 2 {
+				t.Fatalf("rewrites = %+v, want two rewrites", result.Rewritten)
+			}
+			for _, rewrite := range result.Rewritten {
+				if rewrite.File != source || rewrite.NewLink != wantRewrites[rewrite.OldLink] {
+					t.Errorf("unexpected rewrite: %+v", rewrite)
+				}
+				delete(wantRewrites, rewrite.OldLink)
+			}
+		})
+	}
+}
+
 // --- Test 28: collateral rewrite in multiple files ---
 func TestMove_CollateralMultipleFiles(t *testing.T) {
 	// X.md and Y.md both have [[B]] (→ sub1/B.md).

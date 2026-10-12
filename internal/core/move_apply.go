@@ -30,6 +30,9 @@ func prepareMovedFileRewrites(vaultPath string, movedFileRewrites []movedFileRew
 			return err
 		}
 		movedFileRewrites[i].content = candidate
+		for j, re := range rewrites {
+			movedFileRewrites[i].outRewrites[j].newRawLink = re.newRawLink
+		}
 	}
 	return nil
 }
