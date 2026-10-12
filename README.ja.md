@@ -57,7 +57,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | コマンド | 説明 |
 |---------|------|
 | `build` | 追加・変更・削除を自動検出して索引を更新（`--full` で全量再生成） |
-| `add` | 新規ファイルをインデックスに追加 |
+| `add` | 新規 Markdown ノートをインデックスに追加 |
 | `update` | 既存ファイルのインデックスを更新 |
 | `set` | frontmatter の単一 key または相対日付を設定しインデックスを更新 |
 | `delete` | ファイルをインデックスから削除 |
@@ -78,6 +78,8 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `meta-validate` | frontmatter を必須 key・profiles・`meta.types` 宣言に照らして検査 |
 | `migrate` | 旧 YAML 設定と Vault 内索引を既定配置へ移行 |
 | `init-meta` | `mdhop.toml` の frontmatter 型定義を生成 |
+
+`add` は大小文字を区別しない `.md` パスのみ受け付けます。非 Markdown パスを含むバッチは変更前に全体を拒否します。asset の登録には `build` を使います。
 
 `--vault <path>`（省略時はカレントディレクトリ）は各コマンドに共通。出力・field 系のフラグはコマンドごとに異なる。
 

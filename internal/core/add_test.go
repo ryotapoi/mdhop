@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -1619,5 +1620,105 @@ func TestAddAutoDisambiguateFrontmatterDBUpdated(t *testing.T) {
 	}
 	if fmEdges == 0 {
 		t.Error("expected at least one frontmatter_wikilink edge from A.md after rewrite")
+	}
+}
+
+func TestAddRejectsNonMarkdownBeforeMutation(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		files   []string
+		invalid string
+	}{
+		{"text", []string{"data.txt"}, "data.txt"},
+		{"image", []string{"image.png"}, "image.png"},
+		{"mixed batch", []string{"B.md", "data.txt"}, "data.txt"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vault := copyVault(t, "vault_add_disambiguate")
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			// Adding B.md alone would rewrite the existing basename links in A.md.
+			for _, path := range []string{"B.md", "data.txt", "image.png"} {
+				if err := os.WriteFile(filepath.Join(vault, path), []byte("[[Unexpected]]\n#unexpected\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			snapshot := func() map[string]string {
+				files := map[string]string{}
+				if err := filepath.WalkDir(vault, func(path string, entry os.DirEntry, err error) error {
+					if err != nil {
+						return err
+					}
+					if entry.IsDir() {
+						files[path] = "directory"
+						return nil
+					}
+					content, err := os.ReadFile(path)
+					files[path] = string(content)
+					return err
+				}); err != nil {
+					t.Fatal(err)
+				}
+				return files
+			}
+			beforeFiles := snapshot()
+			beforeIndex := indexSnapshot(t, vault)
+			beforeDB, err := os.ReadFile(dbPath(vault))
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := Add(vault, AddOptions{Files: tc.files, AutoDisambiguate: true})
+			if err == nil || !strings.Contains(err.Error(), "Markdown note (.md)") || !strings.Contains(err.Error(), tc.invalid) {
+				t.Fatalf("result=%v error=%v, want Markdown rejection for %s", result, err, tc.invalid)
+			}
+			if after := snapshot(); !reflect.DeepEqual(beforeFiles, after) {
+				t.Fatal("rejected add changed vault contents or left temporary files")
+			}
+			if after := indexSnapshot(t, vault); !reflect.DeepEqual(beforeIndex, after) {
+				t.Fatalf("rejected add changed index: before=%v after=%v", beforeIndex, after)
+			}
+			afterDB, err := os.ReadFile(dbPath(vault))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(beforeDB, afterDB) {
+				t.Fatal("rejected add changed DB bytes")
+			}
+		})
+	}
+}
+
+func TestAddAcceptsCaseInsensitiveMarkdownExtension(t *testing.T) {
+	for _, extension := range []string{".md", ".MD", ".mD"} {
+		t.Run(extension, func(t *testing.T) {
+			vault := copyVault(t, "vault_add")
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			path := "C" + extension
+			if err := os.WriteFile(filepath.Join(vault, path), []byte("[[A]]\n#newtag\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			result, err := Add(vault, AddOptions{Files: []string{path}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Added) != 1 || result.Added[0] != path {
+				t.Fatalf("Added=%v, want [%s]", result.Added, path)
+			}
+			if edges := queryEdges(t, dbPath(vault), path); len(edges) != 2 {
+				t.Fatalf("edges=%v, want link and tag", edges)
+			}
+			found := false
+			for _, node := range queryNodes(t, dbPath(vault), "note") {
+				if node.path == path {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("%s not registered as note", path)
+			}
+		})
 	}
 }

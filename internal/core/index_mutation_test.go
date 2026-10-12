@@ -51,10 +51,10 @@ func TestAddRejectsSelectedIndexResources(t *testing.T) {
 			if err != nil || string(ref) != "[[A]]\n" {
 				t.Fatalf("reference rewritten: %q, %v", ref, err)
 			}
-			// Only the selected index is protected, rather than every SQLite filename.
+			// Other SQLite files are rejected as non-Markdown, not as selected index resources.
 			write("other.sqlite", "ordinary file\n")
-			if _, err := Add(vault, AddOptions{Files: []string{"other.sqlite"}}, location); err != nil {
-				t.Fatal(err)
+			if _, err := Add(vault, AddOptions{Files: []string{"other.sqlite"}}, location); err == nil || !strings.Contains(err.Error(), "Markdown note (.md)") {
+				t.Fatalf("non-Markdown add error = %v", err)
 			}
 		})
 	}

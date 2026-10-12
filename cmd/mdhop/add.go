@@ -10,17 +10,18 @@ import (
 
 const addHelp = `Usage: mdhop add --file <path> [--file <path>...] [--no-auto-disambiguate] [--vault <path>] [--format json|text]
 
-Add newly created files to the index. Use this after writing the files.
+Add newly created Markdown notes (.md, case-insensitive) to the index. Use this after writing the notes.
 
 Options:
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
-  --file <path>              Required, repeatable. Vault-relative file path to add.
+  --file <path>              Required, repeatable. Vault-relative Markdown note path to add.
   --no-auto-disambiguate     Optional. Disable automatic rewriting when a new basename collision would otherwise be made safe.
   --vault <path>             Optional. Vault root directory. Default: ".".
   --format json|text         Optional. Output format. Default: text.
 
 Behavior notes:
+  Non-Markdown inputs fail the entire add before any changes. Use build to register assets.
   The selected index DB and its direct auxiliary files cannot be added. The entire add fails before any changes.
   Registered files passed to --file fail.
   Files being added fail when they contain ambiguous basename links.
@@ -52,7 +53,7 @@ func runAdd(args []string) error {
 	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	var files multiString
-	fs.Var(&files, "file", "file to add (can be specified multiple times)")
+	fs.Var(&files, "file", "Markdown note to add (can be specified multiple times)")
 	noAutoDisambiguate := fs.Bool("no-auto-disambiguate", false,
 		"disable automatic link rewriting when basename collision occurs")
 	if err := parseFlags(fs, args); err != nil {

@@ -57,7 +57,7 @@ Use the same vault/DB and the saved source used to create the index to obtain th
 | Command | Description |
 |---------|-------------|
 | `build` | Detect additions, changes, and deletions; use `--full` to regenerate everything |
-| `add` | Add new files to the index |
+| `add` | Add new Markdown notes to the index |
 | `update` | Update existing files in the index |
 | `set` | Set one frontmatter key or relative date and update the index |
 | `delete` | Remove files from the index |
@@ -79,6 +79,8 @@ Use the same vault/DB and the saved source used to create the index to obtain th
 | `meta-validate` | Check frontmatter against required keys, profiles, and declared `meta.types` |
 | `migrate` | Migrate legacy YAML and vault-local index to default locations |
 | `init-meta` | Generate frontmatter type declarations for `mdhop.toml` |
+
+`add` accepts only `.md` paths (case-insensitive). A batch containing any non-Markdown path fails before any changes. Use `build` to register assets.
 
 `--vault <path>` (defaults to the current directory) is common to commands. Output and field flags vary by command.
 

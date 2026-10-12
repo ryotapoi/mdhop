@@ -29,7 +29,7 @@ type AddResult struct {
 	Warnings  []string        // meta normalization warnings
 }
 
-// Add inserts new files into the existing index DB.
+// Add inserts new Markdown notes into the existing index DB.
 func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *AddResult, resultErr error) {
 	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
@@ -58,6 +58,9 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 		}
 		if err := indexFiles.reject(np, diskPaths); err != nil {
 			return nil, err
+		}
+		if !strings.HasSuffix(strings.ToLower(np), ".md") {
+			return nil, fmt.Errorf("add requires a Markdown note (.md): %s", np)
 		}
 		if seen[np] {
 			continue
