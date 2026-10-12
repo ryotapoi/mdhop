@@ -23,7 +23,8 @@ Options:
 Behavior notes:
   Non-Markdown inputs fail the entire add before any changes. Use build to register assets.
   The selected index DB and its direct auxiliary files cannot be added. The entire add fails before any changes.
-  Registered files passed to --file fail.
+  Registered files passed to --file fail, including alternate casing that reaches the same filesystem entry.
+  Alternate casing of the same filesystem entry within one add also fails before any changes.
   Files being added fail when they contain ambiguous basename links.
   When basename collisions occur, existing basename links are automatically rewritten to full paths where their meaning can be preserved; --no-auto-disambiguate disables this.
   Existing basename links to phantom nodes fail even with auto-disambiguation when the added files contain multiple files with that basename, because there is no safe rewrite target.

@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"golang.org/x/text/cases"
 )
 
 // AddOptions controls which files to add to the index.
@@ -84,6 +87,21 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 	}
 
 	// Check disk existence and collect mtime.
+	registeredEntries := make(map[string]bool, len(rm.pathToID))
+	for path := range rm.pathToID {
+		fullPath, err := diskPaths.existingPath(path)
+		if os.IsNotExist(err) {
+			continue // A stale registration has no disk entry to compare.
+		}
+		if err != nil {
+			return nil, err
+		}
+		entryPath, err := addDiskEntryPath(vaultPath, fullPath)
+		if err != nil {
+			return nil, err
+		}
+		registeredEntries[entryPath] = true
+	}
 	for i := range files {
 		fullPath, err := diskPaths.existingPath(files[i].path)
 		if os.IsNotExist(err) {
@@ -99,6 +117,14 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 		if err != nil {
 			return nil, err
 		}
+		entryPath, err := addDiskEntryPath(vaultPath, fullPath)
+		if err != nil {
+			return nil, err
+		}
+		if registeredEntries[entryPath] {
+			return nil, fmt.Errorf("%w: %s", ErrFileAlreadyRegistered, files[i].path)
+		}
+		registeredEntries[entryPath] = true
 		files[i].mtime = info.ModTime().Unix()
 	}
 
@@ -342,4 +368,62 @@ func Add(vaultPath string, opts AddOptions, locations ...Locations) (result *Add
 	committed = true
 
 	return result, nil
+}
+
+// addDiskEntryPath keeps symlink/hardlink aliases distinct while identifying
+// alternate casing of the same directory entry, including parent directories.
+func addDiskEntryPath(vaultPath, fullPath string) (string, error) {
+	rel, err := filepath.Rel(vaultPath, fullPath)
+	if err != nil {
+		return "", err
+	}
+	parent := vaultPath
+	var names []string
+	for _, component := range strings.Split(filepath.ToSlash(rel), "/") {
+		entries, err := os.ReadDir(parent)
+		if err != nil {
+			return "", err
+		}
+		name := component
+		exact := false
+		for _, entry := range entries {
+			if normalizeTextNFC(entry.Name()) == normalizeTextNFC(component) {
+				name, exact = entry.Name(), true
+				break
+			}
+		}
+		if !exact {
+			info, err := os.Lstat(filepath.Join(parent, component))
+			if err != nil {
+				return "", err
+			}
+			var matches []string
+			for _, entry := range entries {
+				entryInfo, err := entry.Info()
+				if err != nil {
+					return "", err
+				}
+				if os.SameFile(info, entryInfo) {
+					matches = append(matches, entry.Name())
+				}
+			}
+			if len(matches) == 1 {
+				name = matches[0]
+			} else if len(matches) > 1 {
+				// Hardlinks can share an inode. Full Unicode folding only
+				// distinguishes these filesystem-confirmed candidates; it
+				// never makes different filesystem entries identical.
+				fold := cases.Fold()
+				for _, candidate := range matches {
+					if fold.String(normalizeTextNFC(candidate)) == fold.String(normalizeTextNFC(component)) {
+						name = candidate
+						break
+					}
+				}
+			}
+		}
+		parent = filepath.Join(parent, name)
+		names = append(names, name)
+	}
+	return NormalizePath(filepath.Join(names...)), nil
 }

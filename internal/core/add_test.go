@@ -1722,3 +1722,226 @@ func TestAddAcceptsCaseInsensitiveMarkdownExtension(t *testing.T) {
 		})
 	}
 }
+
+func TestAddCaseInsensitiveEntryPreflight(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		registered string
+		files      []string
+		newEntry   bool
+		diskPath   string
+		lookupPath string
+	}{
+		{"basename", "Notes/A.md", []string{"Notes/a.md"}, false, "", ""},
+		{"parent", "Notes/A.md", []string{"notes/A.md"}, false, "", ""},
+		{"registered alternate spelling", "notes/a.md", []string{"Notes/A.md"}, false, "", ""},
+		{"mixed batch", "Notes/A.md", []string{"New.md", "notes/a.md"}, false, "", ""},
+		{"new entry batch", "", []string{"Notes/A.md", "notes/a.md"}, true, "", ""},
+		{"Unicode registered entry", "Notes/ß.md", []string{"Notes/SS.md"}, false, "Notes/ß.md", "Notes/SS.md"},
+		{"Unicode new entry batch", "", []string{"Notes/ß.md", "Notes/SS.md"}, true, "Notes/ß.md", "Notes/SS.md"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vault := t.TempDir()
+			diskPath, lookupPath := tc.diskPath, tc.lookupPath
+			if diskPath == "" {
+				diskPath = "Notes/A.md"
+			}
+			if lookupPath == "" {
+				lookupPath = "notes/a.md"
+			}
+			ref := "[[" + strings.TrimSuffix(diskPath, ".md") + "]]\n"
+			write := func(path, content string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Dir(filepath.Join(vault, path)), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			write(diskPath, "# A\n")
+			if _, err := os.Stat(filepath.Join(vault, lookupPath)); os.IsNotExist(err) {
+				t.Skip("filesystem distinguishes this case spelling")
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			if tc.newEntry || tc.registered == "notes/a.md" {
+				if err := os.Remove(filepath.Join(vault, diskPath)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			write("Ref.md", ref)
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			// Store an alternate spelling through the public API too.
+			if tc.registered == "notes/a.md" {
+				write(diskPath, "# A\n")
+				if _, err := Add(vault, AddOptions{Files: []string{tc.registered}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			write("New.md", "# New\n")
+			if tc.newEntry {
+				write(diskPath, "# A\n")
+			}
+			db := openTestDB(t, dbPath(vault))
+			beforeIDs := queryExistingPathNodeIDs(t, db)
+			db.Close()
+			beforeNodes := queryNodes(t, dbPath(vault), NodeTypeNote)
+			beforeEdges := queryEdges(t, dbPath(vault), "Ref.md")
+			_, err := Add(vault, AddOptions{Files: tc.files, AutoDisambiguate: true})
+			if !errors.Is(err, ErrFileAlreadyRegistered) {
+				t.Fatalf("Add error = %v, want %v", err, ErrFileAlreadyRegistered)
+			}
+			db = openTestDB(t, dbPath(vault))
+			afterIDs := queryExistingPathNodeIDs(t, db)
+			db.Close()
+			if !reflect.DeepEqual(beforeIDs, afterIDs) {
+				t.Fatalf("node IDs changed: %v -> %v", beforeIDs, afterIDs)
+			}
+			if got := queryNodes(t, dbPath(vault), NodeTypeNote); !reflect.DeepEqual(beforeNodes, got) {
+				t.Fatalf("notes changed: %v -> %v", beforeNodes, got)
+			}
+			if got := queryEdges(t, dbPath(vault), "Ref.md"); !reflect.DeepEqual(beforeEdges, got) {
+				t.Fatalf("edges changed: %v -> %v", beforeEdges, got)
+			}
+			for path, want := range map[string]string{"Ref.md": ref, diskPath: "# A\n", "New.md": "# New\n"} {
+				got, err := os.ReadFile(filepath.Join(vault, path))
+				if err != nil || string(got) != want {
+					t.Fatalf("%s content = %q, error = %v", path, got, err)
+				}
+			}
+		})
+	}
+}
+
+func TestAddCaseSensitiveEntries(t *testing.T) {
+	vault := t.TempDir()
+	if err := os.Mkdir(filepath.Join(vault, "Notes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "Notes/A.md"), []byte("# A\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(vault, "Notes/a.md")); err == nil {
+		t.Skip("filesystem does not distinguish case; exercised by TestAddCaseInsensitiveEntryPreflight")
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	if _, err := Build(vault); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(vault, AddOptions{Files: []string{"Notes/a.md"}}); !errors.Is(err, ErrFileNotFound) {
+		t.Fatalf("Add missing spelling = %v, want %v", err, ErrFileNotFound)
+	}
+	// No links: basename ambiguity/root collision rules are independent of entry identity.
+	if err := os.WriteFile(filepath.Join(vault, "Notes/a.md"), []byte("# a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(vault, AddOptions{Files: []string{"Notes/a.md"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := countNotes(t, dbPath(vault)); got != 2 {
+		t.Fatalf("note count = %d, want 2", got)
+	}
+	if err := os.Mkdir(filepath.Join(vault, "notes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "notes/A.md"), []byte("# another A\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(vault, AddOptions{Files: []string{"notes/A.md"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := countNotes(t, dbPath(vault)); got != 3 {
+		t.Fatalf("note count = %d, want 3", got)
+	}
+}
+
+func TestAddDistinctLinkAliases(t *testing.T) {
+	for _, kind := range []string{"hardlink", "symlink", "directory symlink"} {
+		t.Run(kind, func(t *testing.T) {
+			vault := t.TempDir()
+			if err := os.Mkdir(filepath.Join(vault, "Notes"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(vault, "Notes/A.md"), []byte("# A\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			alias := "Alias.md"
+			var err error
+			switch kind {
+			case "hardlink":
+				err = os.Link(filepath.Join(vault, "Notes/A.md"), filepath.Join(vault, alias))
+			case "symlink":
+				err = os.Symlink("Notes/A.md", filepath.Join(vault, alias))
+			case "directory symlink":
+				alias = "Alias/A.md"
+				err = os.Symlink("Notes", filepath.Join(vault, "Alias"))
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Add(vault, AddOptions{Files: []string{alias}}); err != nil {
+				t.Fatalf("Add %s = %v", kind, err)
+			}
+			if got := countNotes(t, dbPath(vault)); got != 2 {
+				t.Fatalf("note count = %d, want 2", got)
+			}
+		})
+	}
+}
+
+func TestAddUnicodeCaseWithDistinctHardlink(t *testing.T) {
+	vault := t.TempDir()
+	if _, err := Build(vault); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vault, "ß.md"), []byte("# note\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	original, err := os.Lstat(filepath.Join(vault, "ß.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias, err := os.Lstat(filepath.Join(vault, "SS.md"))
+	if os.IsNotExist(err) {
+		t.Skip("filesystem distinguishes ß.md and SS.md")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(original, alias) {
+		t.Skip("filesystem does not resolve ß.md and SS.md to the same entry")
+	}
+	if err := os.Link(filepath.Join(vault, "ß.md"), filepath.Join(vault, "Alias.md")); err != nil {
+		t.Fatal(err)
+	}
+	// Register the other hardlink first. The Unicode case alias must still
+	// select ß.md rather than whichever matching inode ReadDir lists first.
+	if _, err := Add(vault, AddOptions{Files: []string{"Alias.md"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(vault, AddOptions{Files: []string{"SS.md"}}); err != nil {
+		t.Fatalf("distinct entry case alias: %v", err)
+	}
+	if got := countNotes(t, dbPath(vault)); got != 2 {
+		t.Fatalf("notes = %d, want 2", got)
+	}
+	db := openTestDB(t, dbPath(vault))
+	before := queryExistingPathNodeIDs(t, db)
+	db.Close()
+	if _, err := Add(vault, AddOptions{Files: []string{"ß.md"}}); !errors.Is(err, ErrFileAlreadyRegistered) {
+		t.Fatalf("duplicate entry error = %v", err)
+	}
+	db = openTestDB(t, dbPath(vault))
+	after := queryExistingPathNodeIDs(t, db)
+	db.Close()
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("IDs changed: %v -> %v", before, after)
+	}
+}
