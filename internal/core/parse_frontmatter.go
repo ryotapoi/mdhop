@@ -102,7 +102,7 @@ func wikilinksFromQuotedScalar(key string, val *yaml.Node, offset int) []linkOcc
 	if val.Kind != yaml.ScalarNode || val.Value == "" {
 		return nil
 	}
-	if val.Style != yaml.DoubleQuotedStyle && val.Style != yaml.SingleQuotedStyle {
+	if val.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle) == 0 {
 		return nil
 	}
 	fileLine := val.Line + offset

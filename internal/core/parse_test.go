@@ -439,6 +439,29 @@ func TestParseFrontmatterWikilinkQuoted(t *testing.T) {
 	}
 }
 
+func TestParseFrontmatterWikilinkTaggedQuoted(t *testing.T) {
+	for _, quote := range []string{`"`, `'`} {
+		for _, prefix := range []string{"related: ", "related:\n  - "} {
+			t.Run(prefix+quote, func(t *testing.T) {
+				plain := "---\n" + prefix + quote + "[[B]]" + quote + "\n---\n"
+				tagged := "---\n" + prefix + "!!str " + quote + "[[B]]" + quote + "\n---\n"
+				want := filterByType(parseLinksSlice(plain), LinkTypeFrontmatterWikilink)
+				got := filterByType(parseLinksSlice(tagged), LinkTypeFrontmatterWikilink)
+				if len(want) != 1 || len(got) != 1 || got[0] != want[0] {
+					t.Fatalf("tagged links = %+v, want untagged links %+v", got, want)
+				}
+			})
+		}
+	}
+}
+
+func TestParseFrontmatterWikilinkTaggedExcludedStyles(t *testing.T) {
+	content := "---\nbare: !!str text [[B]]\nliteral: !!str |\n  [[B]]\nfolded: !!str >\n  [[B]]\ntags: [!!str \"[[B]]\", !!str '[[B]]']\nsafe: \"[[C]]\"\n---\n"
+	if got := filterByType(parseLinksSlice(content), LinkTypeFrontmatterWikilink); len(got) != 1 || got[0].target != "C" {
+		t.Fatalf("want only the quoted control wikilink, got %+v", got)
+	}
+}
+
 func TestParseFrontmatterWikilinkBare(t *testing.T) {
 	content := "---\nparent: [[B]]\n---\n"
 	links := parseLinksSlice(content)

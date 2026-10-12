@@ -78,6 +78,29 @@ func TestRewriteFrontmatterCandidateIgnoresUnplannedLossyScalar(t *testing.T) {
 	}
 }
 
+func TestRewriteFrontmatterCandidateWithTaggedScalar(t *testing.T) {
+	for _, quote := range []string{`"`, `'`} {
+		t.Run(quote, func(t *testing.T) {
+			content := "---\nsafe: \"[[B]]\"\ntagged: !!str " + quote + "[[Ignored]]" + quote + "\n---\n"
+			original := []byte(content)
+			got, err := rewriteFrontmatterCandidate(original, []rewriteEntry{plannedFrontmatterRewrite("[[B]]", "[[C]]", 2)})
+			if err != nil {
+				t.Fatalf("rewrite with unplanned tagged scalar: %v", err)
+			}
+			if want := strings.Replace(content, "[[B]]", "[[C]]", 1); string(got) != want {
+				t.Fatalf("candidate = %q, want %q", got, want)
+			}
+			got, err = rewriteFrontmatterCandidate(original, []rewriteEntry{plannedFrontmatterRewrite("[[Ignored]]", "[[C]]", 3)})
+			if err == nil || !strings.Contains(err.Error(), "correspondence") || got != nil {
+				t.Fatalf("candidate = %q, error = %v, want correspondence rejection", got, err)
+			}
+			if string(original) != content {
+				t.Fatal("input changed after rejected candidate")
+			}
+		})
+	}
+}
+
 func TestRewriteFrontmatterCandidateRejectsInvalidPlansAndDoesNotChain(t *testing.T) {
 	content := "---\nref: \"[[B]] [[C]]\"\n---\n"
 	got, err := rewriteFrontmatterCandidate([]byte(content), []rewriteEntry{

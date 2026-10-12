@@ -161,7 +161,7 @@ func appendRewriteOccurrences(lines []string, key string, value *yaml.Node, out 
 		}
 		return out, nil
 	}
-	if value.Kind != yaml.ScalarNode || (value.Style != yaml.DoubleQuotedStyle && value.Style != yaml.SingleQuotedStyle) {
+	if value.Kind != yaml.ScalarNode || value.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle) == 0 {
 		return out, nil
 	}
 	spans := wikiLinkSpans(value.Value)
@@ -199,7 +199,7 @@ func scalarSourceRange(lines []string, value *yaml.Node) (int, int, error) {
 		return 0, 0, fmt.Errorf("frontmatter quoted scalar at line %d has invalid source column", value.Line+1)
 	}
 	quote := line[startInLine]
-	if (value.Style == yaml.DoubleQuotedStyle && quote != '"') || (value.Style == yaml.SingleQuotedStyle && quote != '\'') {
+	if (value.Style&yaml.DoubleQuotedStyle != 0 && quote != '"') || (value.Style&yaml.SingleQuotedStyle != 0 && quote != '\'') {
 		return 0, 0, fmt.Errorf("frontmatter quoted scalar at line %d does not start at its YAML source coordinate", value.Line+1)
 	}
 	endInLine := strings.IndexByte(line[startInLine+1:], quote)
