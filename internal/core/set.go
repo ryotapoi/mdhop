@@ -146,6 +146,9 @@ func rewriteFrontmatterValue(content []byte, key, value string, list []string) (
 	if err := yaml.Unmarshal([]byte(yamlContent), &doc); err != nil {
 		return nil, false, err
 	}
+	if len(doc.Content) > 0 && doc.Content[0].Anchor != "" {
+		return nil, false, fmt.Errorf("frontmatter has unsupported anchor on root; set cannot preserve shared values")
+	}
 	// Empty frontmatter (e.g. "---\n---\n") unmarshals to a zero-value Node
 	// (doc.Kind == 0, not yaml.DocumentNode) rather than an empty mapping.
 	// Treat it the same as "key not present": append a new mapping entry.
@@ -162,6 +165,9 @@ func rewriteFrontmatterValue(content []byte, key, value string, list []string) (
 	matchCount := 0
 	for i := 0; i < len(mapping.Content)-1; i += 2 {
 		keyNode := mapping.Content[i]
+		if keyNode.Kind == yaml.AliasNode {
+			return nil, false, fmt.Errorf("frontmatter has unsupported alias key; set cannot identify a single key")
+		}
 		if keyNode.Value != key {
 			continue
 		}
@@ -173,6 +179,9 @@ func rewriteFrontmatterValue(content []byte, key, value string, list []string) (
 	}
 	if matchIndex >= 0 {
 		valNode := mapping.Content[matchIndex+1]
+		if setNodeHasAnchorOrAlias(mapping.Content[matchIndex]) || setNodeHasAnchorOrAlias(valNode) {
+			return nil, false, fmt.Errorf("frontmatter key %q has unsupported anchor or alias; set cannot preserve shared values", key)
+		}
 		if list != nil {
 			if valNode.Kind != yaml.ScalarNode && valNode.Kind != yaml.SequenceNode {
 				return nil, false, fmt.Errorf("frontmatter key %q has unsupported value; set supports scalar or sequence values for list writes", key)
@@ -232,6 +241,21 @@ func rewriteFrontmatterValue(content []byte, key, value string, list []string) (
 	}
 	lines = append(lines[:end], append(newLines, lines[end:]...)...)
 	return []byte(strings.Join(lines, "\n")), true, nil
+}
+
+// Replacing an anchored node can remove a definition or change values reached
+// by other keys. Inspect Content only: following Alias would traverse references
+// outside the replacement and may encounter cycles.
+func setNodeHasAnchorOrAlias(node *yaml.Node) bool {
+	if node.Anchor != "" || node.Kind == yaml.AliasNode {
+		return true
+	}
+	for _, child := range node.Content {
+		if setNodeHasAnchorOrAlias(child) {
+			return true
+		}
+	}
+	return false
 }
 
 // Flow mappings may put several keys on one physical line, so replacing that

@@ -887,3 +887,155 @@ func metaCount(rows []MetaRow, key, value string) int {
 	}
 	return count
 }
+
+func TestRewriteFrontmatterRejectsAnchorAndAliasEdits(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		yaml string
+		key  string
+		list []string
+	}{
+		{name: "shared scalar", yaml: "status: &state draft\ncopy: *state", key: "status"},
+		{name: "shared scalar to list", yaml: "status: &state draft\ncopy: *state", key: "status", list: []string{"done"}},
+		{name: "flow mapping", yaml: "{status: &state draft, copy: *state}", key: "status"},
+		{name: "sequence anchor", yaml: "status: &state [draft]\ncopy: *state", key: "status", list: []string{"done"}},
+		{name: "sequence descendant", yaml: "status:\n  - &state draft\ncopy: *state", key: "status", list: []string{"done"}},
+		{name: "nested descendant", yaml: "status: [{nested: &state draft}]\ncopy: *state", key: "status", list: []string{"done"}},
+		{name: "key anchor", yaml: "&state status: draft\ncopy: *state", key: "status"},
+		{name: "flow key anchor", yaml: "{&state status: draft, copy: *state}", key: "status"},
+		{name: "redefined anchor", yaml: "first: &state old\nstatus: &state draft\ncopy: *state", key: "status"},
+		{name: "alias value", yaml: "first: &state draft\nstatus: *state", key: "status"},
+		{name: "alias sequence item", yaml: "first: &state draft\nstatus: [*state]", key: "status", list: []string{"done"}},
+		{name: "root anchor update", yaml: "&root {status: draft, copy: *root}", key: "status"},
+		{name: "root anchor insert", yaml: "&root {title: A}", key: "status"},
+		{name: "alias key", yaml: "name: &name status\n*name : draft", key: "status"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			content := []byte("---\n" + tc.yaml + "\n---\n# Body\n")
+			var doc yaml.Node
+			if err := yaml.Unmarshal([]byte(tc.yaml), &doc); err != nil {
+				t.Fatalf("fixture must be valid YAML: %v", err)
+			}
+			got, created, err := rewriteFrontmatterValue(content, tc.key, "done", tc.list)
+			if err == nil || !strings.Contains(err.Error(), "unsupported") || got != nil || created {
+				t.Fatalf("rewrite = %q, created %v, error %v; want unsupported without content", got, created, err)
+			}
+		})
+	}
+}
+
+func TestSetPreservesIndependentAnchorsAndAliases(t *testing.T) {
+	for _, flow := range []bool{false, true} {
+		for _, create := range []bool{false, true} {
+			t.Run(fmt.Sprintf("flow=%v/create=%v", flow, create), func(t *testing.T) {
+				source := "shared: &state draft\ncopy: *state\ntags: [kept]"
+				if flow {
+					source = "{shared: &state draft, copy: *state, tags: [kept]"
+				}
+				if !create {
+					if flow {
+						source += ", status: old"
+					} else {
+						source += "\nstatus: old"
+					}
+				}
+				if flow {
+					source += "} # retained"
+				} else {
+					source += " # retained"
+				}
+				vault := t.TempDir()
+				path := filepath.Join(vault, "A.md")
+				if err := os.WriteFile(path, []byte("---\n"+source+"\n---\n# Body\n[[Target]]\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := Build(vault); err != nil {
+					t.Fatal(err)
+				}
+				before, err := Inspect(vault, "A.md", InspectOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				beforeEdges := queryEdges(t, dbPath(vault), "A.md")
+				var list []string
+				var wantStatus any = "done"
+				if create {
+					list = []string{"done"}
+					wantStatus = []any{"done"}
+				}
+				result, err := Set(vault, SetOptions{File: "A.md", Key: "status", Value: "done", List: list})
+				if err != nil || result.Created != create {
+					t.Fatalf("set = %+v, %v", result, err)
+				}
+				got := readTestFile(t, path)
+				lines := strings.Split(got, "\n")
+				var values map[string]any
+				if err := yaml.Unmarshal([]byte(strings.Join(lines[1:frontmatterEnd(lines)], "\n")), &values); err != nil {
+					t.Fatalf("rewritten YAML: %v", err)
+				}
+				want := map[string]any{"shared": "draft", "copy": "draft", "tags": []any{"kept"}, "status": wantStatus}
+				if !reflect.DeepEqual(values, want) || !strings.Contains(got, "# retained") || !strings.HasSuffix(got, "---\n# Body\n[[Target]]\n") {
+					t.Fatalf("changed unrelated YAML, comment, or body: %s; values %#v", got, values)
+				}
+				after, err := Inspect(vault, "A.md", InspectOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				afterEdges := queryEdges(t, dbPath(vault), "A.md")
+				// Inserting a key shifts indexed source lines; link meanings stay fixed.
+				for i := range beforeEdges {
+					beforeEdges[i].lineStart, beforeEdges[i].lineEnd = 0, 0
+				}
+				for i := range afterEdges {
+					afterEdges[i].lineStart, afterEdges[i].lineEnd = 0, 0
+				}
+				if !reflect.DeepEqual(afterEdges, beforeEdges) {
+					t.Fatalf("links changed: %+v, want %+v", afterEdges, beforeEdges)
+				}
+				before.Meta["status"] = []string{"done"}
+				if !reflect.DeepEqual(after.Meta, before.Meta) || !reflect.DeepEqual(after.Tags, before.Tags) {
+					t.Fatalf("index = %+v, want meta %v and tags %v", after, before.Meta, before.Tags)
+				}
+			})
+		}
+	}
+}
+
+func TestSetRejectsAnchorEditWithoutChangingFileOrIndex(t *testing.T) {
+	for _, list := range [][]string{nil, {"done"}} {
+		t.Run(fmt.Sprintf("list=%v", list != nil), func(t *testing.T) {
+			vault := t.TempDir()
+			path := filepath.Join(vault, "A.md")
+			original := "---\nstatus: &state draft\ncopy: *state\ntags: [kept]\n---\n# Body\n[[Target]]\n"
+			if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			mtime := time.Date(2026, 1, 2, 3, 4, 5, 123456789, time.UTC)
+			if err := os.Chtimes(path, mtime, mtime); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatal(err)
+			}
+			beforeInfo, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			beforeDB := readTestFile(t, dbPath(vault))
+			_, err = Set(vault, SetOptions{File: "A.md", Key: "status", Value: "done", List: list})
+			if err == nil || !strings.Contains(err.Error(), "unsupported") {
+				t.Fatalf("error = %v, want unsupported", err)
+			}
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := readTestFile(t, path); got != original || info.Mode() != beforeInfo.Mode() || !info.ModTime().Equal(beforeInfo.ModTime()) {
+				t.Fatalf("file changed on rejection: %q, mode %v, mtime %v", got, info.Mode(), info.ModTime())
+			}
+			if afterDB := readTestFile(t, dbPath(vault)); afterDB != beforeDB {
+				t.Fatal("index changed on rejection")
+			}
+		})
+	}
+}

@@ -33,6 +33,9 @@ Behavior notes:
   --list replaces the whole value, including an existing scalar or sequence.
   It keeps order, duplicates, and empty strings. [] writes an empty sequence.
   Scalar writes reject existing list values. Duplicate keys are rejected.
+  Writes involving anchors or aliases in the target key/value, an anchored root,
+  or alias keys are unsupported and rejected before saving. Independent keys
+  can still be updated in documents containing anchors and aliases.
 
 Output fields:
   file     Edited file path.

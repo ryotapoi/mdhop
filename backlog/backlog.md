@@ -19,10 +19,11 @@
   - 対応: 大小文字を区別する literal prefix 選択に揃える。SQL と Go に二重の選別規則を置かず、共通のディレクトリ選択処理で保証する。
   - 完了条件: `docs/` と `Docs/` が共存しても指定した側だけが削除・移動の対象になる。Unicode・`%`・`_` を含むパスと、note/asset の既存選択契約を維持する。
 
-- [ ] set が YAML anchor / alias を壊して成功しないようにする（A11-C1）
+- [x] set が YAML anchor / alias を壊して成功しないようにする（A11-C1）
   - 問題: `status: &state draft` と `copy: *state` を持つノートで status を更新すると、独自の行置換が anchor を消し、未定義の alias を残す。不正 YAML を保存したまま成功し、索引の属性も消える。
   - 対応方針: `yaml.v3` が解析する anchor / alias の関係に編集処理を合わせる。ライブラリ側の未対応を独自の YAML 実装で補うことは求めない。mdhop が更新を保証しない構文は変更前に未対応として拒否してよい。
   - 完了条件: 有効だった YAML を壊して成功しない。対応する更新では、対象外 key の値・参照の意味を保ち、索引を更新する。未対応として拒否する場合は元ファイルと索引を保持する。共有値を持つ anchor の更新成功まで保証するかは、着手時に既存の単一 key 更新契約と照合して決める。
+  - 判断: 単一 key 更新契約を保つため共有 anchor の更新成功は保証せず、対象 key / 値の anchor・alias、anchor 付き root、alias key は保存前に拒否する。独立 key の更新・追加は維持する。
 
 - [ ] set のリスト更新を YAML ライブラリの解析と一致させる（A11-C2）
   - 問題: `aliases: [don't,`、次行の `old`、独立行の `]` という有効な flow sequence を `--list` で更新すると、`internal/core/set.go` の独自走査が単語中の apostrophe を引用符の開始と誤認する。余分な `]` を残し、YAML と索引の属性を壊して成功する。
