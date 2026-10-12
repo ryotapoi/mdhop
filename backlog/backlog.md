@@ -119,7 +119,7 @@
   - 発生条件・頻度: 対象・条件: a/é.md と z/É.md を含む Vault を曖昧 basename リンクなしで build し、diagnose の basename_conflicts を要求する。asset の Unicode case variant でも同様。 この条件下での再現性: 隔離fixtureで成立を確認。実運用頻度は未測定。
   - リスク: 誤結果：小。一覧順・代表名の契約違反。同一索引でランダムに揺れる問題ではない。
 
-- [ ] 除外した同名ノートが文字の表現差で登録される問題を修正する（A2-001）
+- [x] 除外した同名ノートが文字の表現差で登録される問題を修正する（A2-001）
   - 問題: Café.mdを除外する設定でも、アクセントを分けた表現で書くと同じ見た目の名前に一致しない。 build後も除外したノートや添付が検索に出て、ノートのタグも登録される。
   - 対応: filterBuildExcludesの独自globループを、patternも正規化する既存pathMatchesFilters(f,nil,patterns)による判定へ置き換える。
   - 完了条件: build.exclude_paths の Café.md と Café.md が正規化後に同じ対象を除外する。既存 glob 規則を変えず、対象内ノートの登録を維持する。

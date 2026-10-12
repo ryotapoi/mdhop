@@ -448,17 +448,24 @@ func TestFilterBuildExcludes(t *testing.T) {
 		name     string
 		patterns []string
 		want     []string
+		files    []string
 	}{
-		{"no patterns", nil, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}},
-		{"empty patterns", []string{}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}},
-		{"single pattern", []string{"daily/*"}, []string{"A.md", "B.md", "templates/T.md"}},
-		{"multiple patterns", []string{"daily/*", "templates/*"}, []string{"A.md", "B.md"}},
-		{"case sensitive", []string{"Daily/*"}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}},
-		{"no match", []string{"archive/*"}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}},
+		{"no patterns", nil, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}, nil},
+		{"empty patterns", []string{}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}, nil},
+		{"single pattern", []string{"daily/*"}, []string{"A.md", "B.md", "templates/T.md"}, nil},
+		{"multiple patterns", []string{"daily/*", "templates/*"}, []string{"A.md", "B.md"}, nil},
+		{"case sensitive", []string{"Daily/*"}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}, nil},
+		{"no match", []string{"archive/*"}, []string{"A.md", "B.md", "daily/D.md", "daily/E.md", "templates/T.md"}, nil},
+		{"NFC exclude", []string{"Café.md"}, []string{"Keep.md"}, []string{"Café.md", "Keep.md"}},
+		{"NFD exclude", []string{"Cafe\u0301.md"}, []string{"Keep.md"}, []string{"Café.md", "Keep.md"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := filterBuildExcludes(files, tt.patterns)
+			input := files
+			if tt.files != nil {
+				input = tt.files
+			}
+			got := filterBuildExcludes(input, tt.patterns)
 			if len(got) != len(tt.want) {
 				t.Fatalf("filterBuildExcludes len = %d, want %d (got %v)", len(got), len(tt.want), got)
 			}

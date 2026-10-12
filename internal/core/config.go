@@ -193,14 +193,7 @@ func filterBuildExcludes(files []string, patterns []string) []string {
 	}
 	result := make([]string, 0, len(files))
 	for _, f := range files {
-		excluded := false
-		for _, p := range patterns {
-			if globMatch(p, f) {
-				excluded = true
-				break
-			}
-		}
-		if !excluded {
+		if pathMatchesFilters(f, nil, patterns) {
 			result = append(result, f)
 		}
 	}
