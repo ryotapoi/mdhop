@@ -15,7 +15,7 @@ func (m *multiString) Set(v string) error {
 	return nil
 }
 
-// parseFlags rejects positional arguments before command processing begins.
+// parseFlags rejects positional arguments and explicit empty location paths before processing.
 func parseFlags(fs *flag.FlagSet, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -23,5 +23,11 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 	if fs.NArg() != 0 {
 		return fmt.Errorf("unexpected positional argument: %q", fs.Arg(0))
 	}
-	return nil
+	var locationErr error
+	fs.Visit(func(f *flag.Flag) {
+		if locationErr == nil && (f.Name == "db" || f.Name == "config") && f.Value.String() == "" {
+			locationErr = fmt.Errorf("--%s requires a nonempty path", f.Name)
+		}
+	})
+	return locationErr
 }

@@ -134,3 +134,120 @@ func snapshotVaultFiles(t *testing.T, vault string) map[string]string {
 	}
 	return files
 }
+
+func TestParseFlagsLocationPaths(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		args             []string
+		db, config, want string
+	}{
+		{"omitted", nil, "", "", ""},
+		{"relative", []string{"--db", "indexes/notes.sqlite", "--config", "settings/notes.toml"}, "indexes/notes.sqlite", "settings/notes.toml", ""},
+		{"absolute", []string{"--db=/tmp/notes.sqlite", "--config=/tmp/notes.toml"}, "/tmp/notes.sqlite", "/tmp/notes.toml", ""},
+		{"empty db value", []string{"--db", ""}, "", "", "--db"},
+		{"empty db equals", []string{"--db="}, "", "", "--db"},
+		{"empty config value", []string{"--config", ""}, "", "", "--config"},
+		{"empty config equals", []string{"--config="}, "", "", "--config"},
+		{"final valid db", []string{"--db=", "--db=chosen.sqlite"}, "chosen.sqlite", "", ""},
+		{"final empty db", []string{"--db=chosen.sqlite", "--db="}, "", "", "--db"},
+		{"final valid config", []string{"--config=", "--config=chosen.toml"}, "", "chosen.toml", ""},
+		{"final empty config", []string{"--config=chosen.toml", "--config="}, "", "", "--config"},
+		{"help", []string{"--db=", "--help"}, "", "", "help"},
+		{"invalid flag", []string{"--config=", "--invalid"}, "", "", "flag provided but not defined"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := flag.NewFlagSet("test", flag.ContinueOnError)
+			fs.SetOutput(io.Discard)
+			db := fs.String("db", "", "")
+			config := fs.String("config", "", "")
+			err := parseFlags(fs, tc.args)
+			if tc.want == "help" {
+				if !errors.Is(err, flag.ErrHelp) {
+					t.Fatalf("expected help, got %v", err)
+				}
+			} else if tc.want != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.want) {
+					t.Fatalf("expected %q, got %v", tc.want, err)
+				}
+			} else if err != nil || *db != tc.db || *config != tc.config {
+				t.Fatalf("db=%q config=%q error=%v", *db, *config, err)
+			}
+		})
+	}
+}
+
+func TestCommandsRejectEmptyLocationPaths(t *testing.T) {
+	commands := map[string]func([]string) error{
+		"build": runBuild, "resolve": runResolve, "inspect": runInspect, "query": runQuery,
+		"stats": runStats, "diagnose": runDiagnose, "status": runStatus, "meta-check": runMetaCheck,
+		"meta-validate": runMetaValidate, "delete": runDelete, "update": runUpdate, "set": runSet,
+		"add": runAdd, "move": runMove, "disambiguate": runDisambiguate, "simplify": runSimplify,
+		"repair": runRepair, "convert": runConvert, "search": runSearch, "reachable": runReachable,
+		"graph": runGraph, "init-meta": runInitMeta,
+	}
+	vault := t.TempDir()
+	// An invalid default config proves rejection precedes configuration loading.
+	if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte("broken = ["), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for name, run := range commands {
+		t.Run(name, func(t *testing.T) {
+			for _, pathFlag := range []string{"--db", "--config"} {
+				for _, tail := range [][]string{{pathFlag, ""}, {pathFlag + "="}} {
+					err := run(append([]string{"--vault", vault}, tail...))
+					if err == nil || !strings.Contains(err.Error(), pathFlag+" requires a nonempty path") {
+						t.Fatalf("args=%v: expected location rejection before config loading or command validation, got %v", tail, err)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestEmptyLocationPathsDoNotModifyFiles(t *testing.T) {
+	root := t.TempDir()
+	vault := filepath.Join(root, "vault")
+	if err := os.Mkdir(vault, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(root, "cache"))
+	for name, content := range map[string]string{"A.md": "---\nrank: 1\n---\nA\n", "mdhop.toml": "[build]\n"} {
+		if err := os.WriteFile(filepath.Join(vault, name), []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runBuild([]string{"--vault", vault}); err != nil {
+		t.Fatal(err)
+	}
+	before := snapshotVaultFiles(t, root)
+	for _, tc := range []struct {
+		name string
+		run  func([]string) error
+		args []string
+	}{
+		{"build", runBuild, []string{"--full"}},
+		{"update", runUpdate, []string{"--file", "A.md"}},
+		{"set", runSet, []string{"--file", "A.md", "--key", "rank", "--value", "2"}},
+		{"init-meta", runInitMeta, []string{"--preset", "--scan", "--write"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, pathFlag := range []string{"--db", "--config"} {
+				args := append([]string{"--vault", vault}, tc.args...)
+				args = append(args, pathFlag, "")
+				out := captureStdout(t, func() error {
+					err := tc.run(args)
+					if err == nil || !strings.Contains(err.Error(), pathFlag+" requires a nonempty path") {
+						t.Fatalf("expected location error, got %v", err)
+					}
+					return nil
+				})
+				if out != "" {
+					t.Fatalf("unexpected stdout: %q", out)
+				}
+				if after := snapshotVaultFiles(t, root); !reflect.DeepEqual(before, after) {
+					t.Fatal("rejected arguments changed notes, index, config, cache records or temporary files")
+				}
+			}
+		})
+	}
+}

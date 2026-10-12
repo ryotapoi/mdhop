@@ -166,7 +166,4 @@ func TestCacheListCLIEmptyAndRejectedArguments(t *testing.T) {
 			t.Errorf("help missing %q", contract)
 		}
 	}
-	if err := runBuild([]string{"--db", ""}); err == nil || !strings.Contains(err.Error(), "nonempty") {
-		t.Fatalf("empty explicit DB=%v", err)
-	}
 }

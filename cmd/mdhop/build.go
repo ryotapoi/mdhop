@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
@@ -67,15 +66,6 @@ func runBuild(args []string) error {
 	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
-	}
-	var emptyDB bool
-	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "db" && *db == "" {
-			emptyDB = true
-		}
-	})
-	if emptyDB {
-		return fmt.Errorf("--db requires a nonempty path")
 	}
 	locations := core.Locations{DBPath: *db, ConfigPath: *config}
 	if _, err := core.LoadConfig(*vault, locations); err != nil {
