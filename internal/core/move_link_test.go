@@ -44,6 +44,16 @@ func TestRewriteMovedOutgoingLink(t *testing.T) {
 			from: "A.md", to: "sub/A.md", want: "[label](../B.md#heading)", wantOK: true,
 		},
 		{
+			name: "relative markdown allows dot dot filename",
+			link: parseMarkdownLinks("[draft](..draft.md)", 1)[0],
+			from: "A.md", to: "sub/A.md", want: "[draft](../..draft.md)", wantOK: true,
+		},
+		{
+			name: "relative wikilink dot dot filename keeps explicit relative path",
+			link: linkOccur{rawLink: "[[../..draft]]", isRelative: true, linkType: LinkTypeWikilink},
+			from: "sub/deep/A.md", to: "sub/A.md", want: "[[./..draft]]", wantOK: true,
+		},
+		{
 			name: "relative markdown preserves destination whitespace",
 			link: parseMarkdownLinks("[link]( ./B.md )", 1)[0],
 			from: "A.md", to: "sub/A.md", want: "[link]( ../B.md )", wantOK: true,

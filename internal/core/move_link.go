@@ -154,10 +154,10 @@ func rewriteOutgoingRelativeLink(rawLink string, linkType LinkType, from, to str
 		return "", err
 	}
 	rel = filepath.ToSlash(filepath.Clean(rel))
-	if strings.HasPrefix(NormalizePath(filepath.Join(filepath.Dir(to), rel)), "..") {
+	if pathEscapesVault(NormalizePath(filepath.Join(filepath.Dir(to), rel))) {
 		return "", fmt.Errorf("rewritten link would escape vault: %s", rawLink)
 	}
-	if !strings.HasPrefix(rel, "..") {
+	if !pathEscapesVault(rel) {
 		rel = "./" + rel
 	}
 	if parts.preserveMD {
