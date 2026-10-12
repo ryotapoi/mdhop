@@ -108,8 +108,9 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 
 	// 4.3: disk moves (if needed).
 	type completedRename struct {
-		from string
-		to   string
+		from        string
+		to          string
+		description string
 	}
 	var completedRenames []completedRename
 	committed := false
@@ -122,10 +123,10 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 		// Rollback renames.
 		for j := len(completedRenames) - 1; j >= 0; j-- {
 			cr := completedRenames[j]
-			if renameErr := moveRename(filepath.Join(vaultPath, cr.to), filepath.Join(vaultPath, cr.from)); renameErr != nil {
+			if renameErr := moveRename(cr.to, cr.from); renameErr != nil {
 				rollbackFailures = append(rollbackFailures, rollbackFailure{
 					action: "move back",
-					path:   cr.to + " -> " + cr.from,
+					path:   cr.description,
 					err:    renameErr,
 				})
 			}
@@ -139,7 +140,7 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 
 	if needDiskMove {
 		for _, m := range moves {
-			toFull := filepath.Join(vaultPath, m.to)
+			toFull := m.toDisk
 			toFileDir := filepath.Dir(toFull)
 			if err := os.MkdirAll(toFileDir, 0o755); err != nil {
 				return nil, err
@@ -147,14 +148,14 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			if err := checkMoveDestinationFree(vaultPath, m.to); err != nil {
 				return nil, err
 			}
-			if err := moveRename(filepath.Join(vaultPath, m.from), toFull); err != nil {
+			if err := moveRename(m.fromDisk, toFull); err != nil {
 				return nil, err
 			}
-			completedRenames = append(completedRenames, completedRename{from: m.from, to: m.to})
+			completedRenames = append(completedRenames, completedRename{from: m.fromDisk, to: m.toDisk, description: m.to + " -> " + m.from})
 		}
 		// Move disk-only files (not registered in DB).
 		for _, df := range diskOnlyFiles {
-			toFull := filepath.Join(vaultPath, df.to)
+			toFull := df.toDisk
 			toFileDir := filepath.Dir(toFull)
 			if err := os.MkdirAll(toFileDir, 0o755); err != nil {
 				return nil, err
@@ -162,17 +163,17 @@ func executeMoves(vaultPath string, db *sql.DB, cfg Config, moves []moveInfo, di
 			if err := checkMoveDestinationFree(vaultPath, df.to); err != nil {
 				return nil, err
 			}
-			if err := moveRename(filepath.Join(vaultPath, df.from), toFull); err != nil {
+			if err := moveRename(df.fromDisk, toFull); err != nil {
 				return nil, err
 			}
-			completedRenames = append(completedRenames, completedRename{from: df.from, to: df.to})
+			completedRenames = append(completedRenames, completedRename{from: df.fromDisk, to: df.toDisk, description: df.to + " -> " + df.from})
 		}
 	}
 
 	// Collect mtimes at final locations.
 	toMtimes := make(map[int64]int64, len(moves))
 	for _, m := range moves {
-		info, err := os.Stat(filepath.Join(vaultPath, m.to))
+		info, err := os.Stat(m.toDisk)
 		if err != nil {
 			return nil, err
 		}

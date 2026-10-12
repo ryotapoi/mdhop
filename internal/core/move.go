@@ -39,20 +39,21 @@ func Move(vaultPath string, opts MoveOptions, locations ...Locations) (*MoveResu
 	if err != nil {
 		return nil, err
 	}
-	if err := checkMoveSourcesProtectIndex(vaultPath, []moveInfo{move}, locations); err != nil {
+	moves := []moveInfo{move}
+	if err := checkMoveSourcesProtectIndex(vaultPath, moves, locations); err != nil {
 		return nil, err
 	}
-	if err := checkDestinationsFree(db, []moveInfo{move}); err != nil {
+	if err := checkDestinationsFree(db, moves); err != nil {
 		return nil, err
 	}
-	needDiskMove, err := classifyDiskState(vaultPath, []moveInfo{move})
+	needDiskMove, err := classifyDiskState(vaultPath, moves)
 	if err != nil {
 		return nil, err
 	}
-	if err := checkMovedFilesNotStale(vaultPath, []moveInfo{move}, needDiskMove); err != nil {
+	if err := checkMovedFilesNotStale(vaultPath, moves, needDiskMove); err != nil {
 		return nil, err
 	}
-	result, err := executeMoves(vaultPath, db, cfg, []moveInfo{move}, nil, needDiskMove)
+	result, err := executeMoves(vaultPath, db, cfg, moves, nil, needDiskMove)
 	if err != nil {
 		return nil, err
 	}

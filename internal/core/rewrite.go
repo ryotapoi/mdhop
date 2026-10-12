@@ -33,10 +33,11 @@ func isPathLinkType(linkType LinkType) bool {
 
 // rewriteBackup holds original file content and metadata for rollback on failure.
 type rewriteBackup struct {
-	path    string
-	content []byte
-	perm    os.FileMode
-	mtime   time.Time
+	path     string
+	fullPath string
+	content  []byte
+	perm     os.FileMode
+	mtime    time.Time
 }
 
 type rollbackFailure struct {
@@ -273,10 +274,14 @@ func restoreBackupFiles(vaultPath string, backups []rewriteBackup) []rollbackFai
 	diskPaths := newVaultDiskPathResolver(vaultPath)
 	var failures []rollbackFailure
 	for _, fb := range backups {
-		fullPath, err := diskPaths.existingPath(fb.path)
-		if os.IsNotExist(err) {
-			fullPath = filepath.Join(vaultPath, fb.path)
-			err = nil
+		fullPath := fb.fullPath
+		var err error
+		if fullPath == "" {
+			fullPath, err = diskPaths.existingPath(fb.path)
+			if os.IsNotExist(err) {
+				fullPath = filepath.Join(vaultPath, fb.path)
+				err = nil
+			}
 		}
 		if err == nil {
 			err = validateVaultWritePath(vaultPath, fullPath)
@@ -444,7 +449,7 @@ func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64,
 	}
 
 	for _, file := range prepared {
-		written = append(written, rewriteBackup{path: file.path, content: file.original, perm: file.perm, mtime: file.mtime})
+		written = append(written, rewriteBackup{path: file.path, fullPath: file.fullPath, content: file.original, perm: file.perm, mtime: file.mtime})
 		if err := rewriteWriteFile(file.fullPath, file.candidate, file.perm); err != nil {
 			restoreFailures := restore()
 			return nil, nil, restoreFailures, err

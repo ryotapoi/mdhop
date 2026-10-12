@@ -50,6 +50,40 @@ func (r *vaultDiskPathResolver) existingPath(rel string) (string, error) {
 	return "", &os.PathError{Op: "stat", Path: exact, Err: os.ErrNotExist}
 }
 
+// movePath retains directory-entry spelling, even on filesystems where Stat
+// accepts NFC aliases. Missing destinations inherit their existing parent's
+// disk spelling. Resolve these paths before a move invalidates the disk map.
+func (r *vaultDiskPathResolver) movePath(rel string) (string, error) {
+	if r.normalizedPaths == nil {
+		paths, err := collectNormalizedDiskPaths(r.vaultPath)
+		if err != nil {
+			return "", err
+		}
+		r.normalizedPaths = paths
+	}
+	normalized := NormalizePath(rel)
+	var missing []string
+	for {
+		if found, ok := r.normalizedPaths[normalized]; ok {
+			for i := len(missing) - 1; i >= 0; i-- {
+				found = filepath.Join(found, missing[i])
+			}
+			return found, nil
+		}
+		exact := filepath.Join(r.vaultPath, normalized)
+		if _, err := os.Lstat(exact); err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				exact = filepath.Join(exact, missing[i])
+			}
+			return exact, nil
+		} else if !os.IsNotExist(err) {
+			return "", err
+		}
+		missing = append(missing, filepath.Base(normalized))
+		normalized = filepath.ToSlash(filepath.Dir(normalized))
+	}
+}
+
 // writablePath preserves disk spelling while rejecting symlink escapes.
 func (r *vaultDiskPathResolver) writablePath(rel string) (string, error) {
 	path, err := r.existingPath(rel)

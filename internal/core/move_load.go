@@ -11,18 +11,22 @@ import (
 
 // moveInfo records one file move within a directory move.
 type moveInfo struct {
-	from    string
-	to      string
-	nodeID  int64
-	dbMtime int64
-	isAsset bool
+	from     string // NFC vault-relative path for index and links
+	to       string
+	fromDisk string // resolved disk path, retained before mutation
+	toDisk   string
+	nodeID   int64
+	dbMtime  int64
+	isAsset  bool
 }
 
 // diskOnlyMove records a non-registered file (not in DB) that must be moved alongside
 // the registered files in a directory move.
 type diskOnlyMove struct {
-	from string
-	to   string
+	from     string
+	to       string
+	fromDisk string
+	toDisk   string
 }
 
 // validateMoveDirOptions checks that source and destination directories are well-formed
@@ -147,7 +151,11 @@ func checkDestinationsFree(db dbExecer, moves []moveInfo) error {
 func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo, locations ...Locations) ([]diskOnlyMove, error) {
 	indexFiles := newIndexFileMatcher(vaultPath, locations)
 	var diskOnlyFiles []diskOnlyMove
-	absDir := filepath.Join(vaultPath, fromDir)
+	diskPaths := newVaultDiskPathResolver(vaultPath)
+	absDir, err := diskPaths.movePath(fromDir)
+	if err != nil {
+		return nil, err
+	}
 	registeredPaths := make(map[string]bool, len(moves))
 	for _, m := range moves {
 		registeredPaths[m.from] = true
@@ -182,7 +190,11 @@ func collectDiskOnlyFiles(vaultPath, fromDir, toDir string, moves []moveInfo, lo
 		relNorm := NormalizePath(rel)
 		if !registeredPaths[relNorm] {
 			to := NormalizePath(toDir + "/" + strings.TrimPrefix(relNorm, fromDir+"/"))
-			diskOnlyFiles = append(diskOnlyFiles, diskOnlyMove{from: relNorm, to: to})
+			toDisk, err := diskPaths.movePath(to)
+			if err != nil {
+				return err
+			}
+			diskOnlyFiles = append(diskOnlyFiles, diskOnlyMove{from: relNorm, to: to, fromDisk: path, toDisk: toDisk})
 		}
 		return nil
 	}); err != nil {
@@ -202,6 +214,7 @@ func checkDiskOnlyDestinationsFree(vaultPath string, files []diskOnlyMove) error
 }
 
 // classifyDiskState determines whether the registered files still need to be moved on disk.
+// It retains the resolved disk paths in moves for subsequent I/O and rollback.
 // Returns needDiskMove=true when all files are at their from paths, false when they are
 // already at the to paths. Mixed or missing states return an error.
 //
@@ -209,9 +222,19 @@ func checkDiskOnlyDestinationsFree(vaultPath string, files []diskOnlyMove) error
 // is meaningless. MoveDir guards this via loadMovesFromDB which errors on no matches.
 func classifyDiskState(vaultPath string, moves []moveInfo) (needDiskMove bool, err error) {
 	var normalMode, alreadyMovedMode bool
-	for _, m := range moves {
-		fromOnDisk := fileExists(filepath.Join(vaultPath, m.from))
-		toOnDisk := fileExists(filepath.Join(vaultPath, m.to))
+	diskPaths := newVaultDiskPathResolver(vaultPath)
+	for i := range moves {
+		m := &moves[i]
+		m.fromDisk, err = diskPaths.movePath(m.from)
+		if err != nil {
+			return false, err
+		}
+		m.toDisk, err = diskPaths.movePath(m.to)
+		if err != nil {
+			return false, err
+		}
+		fromOnDisk := fileExists(m.fromDisk)
+		toOnDisk := fileExists(m.toDisk)
 		switch {
 		case fromOnDisk && !toOnDisk:
 			normalMode = true
@@ -235,9 +258,9 @@ func checkMovedFilesNotStale(vaultPath string, moves []moveInfo, needDiskMove bo
 	for _, m := range moves {
 		var checkPath string
 		if needDiskMove {
-			checkPath = filepath.Join(vaultPath, m.from)
+			checkPath = m.fromDisk
 		} else {
-			checkPath = filepath.Join(vaultPath, m.to)
+			checkPath = m.toDisk
 		}
 		info, err := os.Stat(checkPath)
 		if err != nil {
@@ -273,7 +296,11 @@ func checkMoveSourcesProtectIndex(vaultPath string, moves []moveInfo, locations 
 
 // checkMoveDestinationFree rejects any existing entry, including a dangling symlink.
 func checkMoveDestinationFree(vaultPath, to string) error {
-	_, err := os.Lstat(filepath.Join(vaultPath, to))
+	fullPath, err := newVaultDiskPathResolver(vaultPath).movePath(to)
+	if err != nil {
+		return err
+	}
+	_, err = os.Lstat(fullPath)
 	if err == nil {
 		return fmt.Errorf("%w: %s", ErrAlreadyExistsOnDisk, to)
 	}

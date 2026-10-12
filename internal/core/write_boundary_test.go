@@ -232,7 +232,7 @@ func TestMovedRewriteRejectsExternalSymlink(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(vault, "Note.md")); err != nil {
 		t.Fatal(err)
 	}
-	moved := []movedFileRewrite{{move: moveInfo{from: "Note.md", to: "New.md"}, original: []byte("[[Old]]\n"), content: []byte("[[Old]]\n"), perm: 0o644,
+	moved := []movedFileRewrite{{move: moveInfo{from: "Note.md", to: "New.md", fromDisk: filepath.Join(vault, "Note.md"), toDisk: filepath.Join(vault, "New.md")}, original: []byte("[[Old]]\n"), content: []byte("[[Old]]\n"), perm: 0o644,
 		outRewrites: []outgoingRewrite{{rawLink: "[[Old]]", newRawLink: "[[New]]", linkType: LinkTypeWikilink, lineStart: 1}},
 	}}
 	if err := prepareMovedFileRewrites(vault, moved, true); err == nil {

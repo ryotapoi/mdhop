@@ -67,7 +67,7 @@ func TestMoveNFDDiskPaths(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			const actual = "src/Cafe\u0301.md"
 			const from = "src/Café.md"
-			const to = "Résumé/Café.md"
+			const to = "Résumé/deep/Café.md"
 			vault := newMoveVault(t, map[string]string{actual: "[target](../Target.md)\n", "Index.md": "[[src/Café]]\n", "Target.md": "# Target\n"})
 			observeMoveNFD(t, vault, actual)
 			actualParent := "Re\u0301sume\u0301"
@@ -75,9 +75,12 @@ func TestMoveNFDDiskPaths(t *testing.T) {
 				t.Fatal(err)
 			}
 			observeMoveNFD(t, vault, actualParent)
-			actualTo := actualParent + "/Café.md"
+			actualTo := actualParent + "/deep/Café.md"
 			if mode == "already-moved" {
-				actualTo = actualParent + "/Cafe\u0301.md"
+				actualTo = actualParent + "/deep/Cafe\u0301.md"
+				if err := os.Mkdir(filepath.Join(vault, actualParent, "deep"), 0o755); err != nil {
+					t.Fatal(err)
+				}
 				if err := os.Rename(filepath.Join(vault, actual), filepath.Join(vault, actualTo)); err != nil {
 					t.Fatal(err)
 				}
@@ -85,7 +88,7 @@ func TestMoveNFDDiskPaths(t *testing.T) {
 			}
 			var err error
 			if mode == "template" {
-				result, moveErr := MoveTemplate(vault, MoveTemplateOptions{From: from, Template: "Résumé/{basename}"})
+				result, moveErr := MoveTemplate(vault, MoveTemplateOptions{From: from, Template: "Résumé/deep/{basename}"})
 				err = moveErr
 				if err == nil && !reflect.DeepEqual(result.Moved, []MovedFile{{From: from, To: to}}) {
 					t.Fatalf("template moves = %+v", result.Moved)
@@ -99,10 +102,10 @@ func TestMoveNFDDiskPaths(t *testing.T) {
 			if _, err := os.Stat(filepath.Join(vault, actual)); !os.IsNotExist(err) {
 				t.Fatalf("source remains: %v", err)
 			}
-			if got := readVaultFile(t, vault, actualTo); got != "[target](../Target.md)\n" {
+			if got := readVaultFile(t, vault, actualTo); got != "[target](../../Target.md)\n" {
 				t.Fatalf("moved content = %q", got)
 			}
-			if got := readVaultFile(t, vault, "Index.md"); got != "[[Résumé/Café]]\n" {
+			if got := readVaultFile(t, vault, "Index.md"); got != "[[Résumé/deep/Café]]\n" {
 				t.Fatalf("incoming content = %q", got)
 			}
 			// Resolving an existing NFD parent must not create a second NFC directory.
@@ -122,7 +125,7 @@ func TestMoveNFDDiskPaths(t *testing.T) {
 			assertMoveNFDIndex(t, vault, from, to)
 			incoming := queryEdges(t, dbPath(vault), "Index.md")
 			outgoing := queryEdges(t, dbPath(vault), to)
-			if len(incoming) != 1 || incoming[0].targetKey != noteKey(to) || incoming[0].rawLink != "[[Résumé/Café]]" {
+			if len(incoming) != 1 || incoming[0].targetKey != noteKey(to) || incoming[0].rawLink != "[[Résumé/deep/Café]]" {
 				t.Fatalf("incoming edges = %+v", incoming)
 			}
 			if len(outgoing) != 1 || outgoing[0].targetKey != noteKey("Target.md") {
@@ -246,8 +249,8 @@ func TestMoveNFDRollback(t *testing.T) {
 			beforeOutgoing := queryEdges(t, dbPath(vault), "Café/Résumé.md")
 			diskActual := actual
 			if failure == "already-moved-database" {
-				diskActual = "deep/Re\u0301sume\u0301.md"
-				if err := os.Mkdir(filepath.Join(vault, "deep"), 0o755); err != nil {
+				diskActual = "deep/sub/Re\u0301sume\u0301.md"
+				if err := os.MkdirAll(filepath.Join(vault, "deep/sub"), 0o755); err != nil {
 					t.Fatal(err)
 				}
 				if err := os.Rename(filepath.Join(vault, actual), filepath.Join(vault, diskActual)); err != nil {
@@ -278,9 +281,9 @@ func TestMoveNFDRollback(t *testing.T) {
 			}
 			var err error
 			if failure == "partial-rename" {
-				_, err = MoveDir(vault, MoveDirOptions{FromDir: "Café", ToDir: "deep"})
+				_, err = MoveDir(vault, MoveDirOptions{FromDir: "Café", ToDir: "deep/sub"})
 			} else {
-				_, err = Move(vault, MoveOptions{From: "Café/Résumé.md", To: "deep/Résumé.md"})
+				_, err = Move(vault, MoveOptions{From: "Café/Résumé.md", To: "deep/sub/Résumé.md"})
 			}
 			if !errors.Is(err, primary) {
 				t.Fatalf("error = %v, want injected failure", err)
@@ -308,8 +311,21 @@ func TestMoveNFDRollback(t *testing.T) {
 				t.Fatal("rollback changed index")
 			}
 			observeMoveNFD(t, vault, diskActual)
+			entries, err := os.ReadDir(filepath.Dir(filepath.Join(vault, diskActual)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			foundOriginalName := false
+			for _, entry := range entries {
+				if entry.Name() == filepath.Base(diskActual) {
+					foundOriginalName = true
+				}
+			}
+			if !foundOriginalName {
+				t.Fatalf("rollback lost original disk spelling %q", diskActual)
+			}
 			if failure != "already-moved-database" {
-				if _, err := os.Stat(filepath.Join(vault, "deep/Résumé.md")); !os.IsNotExist(err) {
+				if _, err := os.Stat(filepath.Join(vault, "deep/sub/Résumé.md")); !os.IsNotExist(err) {
 					t.Fatalf("destination survived rollback: %v", err)
 				}
 			}
