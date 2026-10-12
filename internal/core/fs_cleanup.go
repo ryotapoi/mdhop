@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 )
 
@@ -22,7 +21,7 @@ func CleanupEmptyDirs(vaultPath string, paths []string) error {
 				break
 			}
 			rel = filepath.ToSlash(rel)
-			if rel == "." || rel == "" || strings.HasPrefix(rel, "..") {
+			if rel == "." || rel == "" || pathEscapesVault(rel) {
 				break // reached vault root
 			}
 			if cleaned[dir] {

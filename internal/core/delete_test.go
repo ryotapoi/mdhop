@@ -742,27 +742,55 @@ func TestDelete_DirRm_EmptyDirCleanupErrorAfterDBUpdate(t *testing.T) {
 // --- CleanupEmptyDirs tests ---
 
 func TestCleanupEmptyDirs_Basic(t *testing.T) {
-	vault := t.TempDir()
-	dir := filepath.Join(vault, "a", "b")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	// Create and remove a file to leave empty dir.
-	f := filepath.Join(dir, "X.md")
-	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	os.Remove(f)
+	for _, parent := range []string{"a", "..archive"} {
+		t.Run(parent, func(t *testing.T) {
+			vault := t.TempDir()
+			dir := filepath.Join(vault, parent, "b")
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
 
-	if err := CleanupEmptyDirs(vault, []string{"a/b/X.md"}); err != nil {
-		t.Fatalf("cleanup: %v", err)
-	}
+			if err := CleanupEmptyDirs(vault, []string{filepath.Join(parent, "b", "X.md")}); err != nil {
+				t.Fatalf("cleanup: %v", err)
+			}
 
-	if _, err := os.Stat(filepath.Join(vault, "a", "b")); !os.IsNotExist(err) {
-		t.Error("a/b should be removed")
+			for _, path := range []string{dir, filepath.Join(vault, parent)} {
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Errorf("%s should be removed: %v", path, err)
+				}
+			}
+			if _, err := os.Stat(vault); err != nil {
+				t.Fatalf("vault root should remain: %v", err)
+			}
+		})
 	}
-	if _, err := os.Stat(filepath.Join(vault, "a")); !os.IsNotExist(err) {
-		t.Error("a should be removed")
+}
+
+func TestCleanupEmptyDirs_OutsideVault(t *testing.T) {
+	for _, path := range []string{"../X.md", "../outside/X.md"} {
+		t.Run(path, func(t *testing.T) {
+			root := t.TempDir()
+			vault := filepath.Join(root, "vault")
+			if err := os.Mkdir(vault, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			outside := filepath.Dir(filepath.Join(vault, filepath.FromSlash(path)))
+			if outside == root {
+				// Leave the parent empty so its survival tests the boundary check.
+				if err := os.Remove(vault); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.Mkdir(outside, 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := CleanupEmptyDirs(vault, []string{path}); err != nil {
+				t.Fatalf("cleanup: %v", err)
+			}
+			if _, err := os.Stat(outside); err != nil {
+				t.Fatalf("outside directory should remain: %v", err)
+			}
+		})
 	}
 }
 
