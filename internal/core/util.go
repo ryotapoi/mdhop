@@ -40,11 +40,59 @@ func IsDirectory(vaultPath, rel string) (bool, error) {
 }
 
 type vaultDiskPathResolver struct {
-	vaultPath string
+	vaultPath   string
+	directories map[string]diskDirectoryNames
+}
+
+type diskDirectoryNames struct {
+	info  os.FileInfo
+	names map[string][]string
 }
 
 func newVaultDiskPathResolver(vaultPath string) *vaultDiskPathResolver {
 	return &vaultDiskPathResolver{vaultPath: vaultPath}
+}
+
+// Read-only build/preview callers own this resolver for one operation. Mutation
+// callers retain the uncached resolver. Each lookup checks the followed directory
+// identity and metadata, so additions, renames and symlink retargets invalidate it.
+func newReadVaultDiskPathResolver(vaultPath string) *vaultDiskPathResolver {
+	return &vaultDiskPathResolver{vaultPath: vaultPath, directories: make(map[string]diskDirectoryNames)}
+}
+
+func (r *vaultDiskPathResolver) componentNames(directory, component string) ([]string, error) {
+	var info os.FileInfo
+	if r.directories != nil {
+		var err error
+		info, err = os.Stat(directory)
+		if err != nil {
+			return nil, err
+		}
+		cached, ok := r.directories[directory]
+		if ok && os.SameFile(info, cached.info) && info.ModTime().Equal(cached.info.ModTime()) && info.Size() == cached.info.Size() && info.Mode() == cached.info.Mode() {
+			return cached.names[component], nil
+		}
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return nil, err
+	}
+	if r.directories == nil {
+		var names []string
+		for _, entry := range entries {
+			if normalizeTextNFC(entry.Name()) == component {
+				names = append(names, entry.Name())
+			}
+		}
+		return names, nil
+	}
+	names := make(map[string][]string, len(entries))
+	for _, entry := range entries {
+		key := normalizeTextNFC(entry.Name())
+		names[key] = append(names[key], entry.Name())
+	}
+	r.directories[directory] = diskDirectoryNames{info: info, names: names}
+	return names[component], nil
 }
 
 // existingPath resolves an existing directory entry. Callers that read its
@@ -79,19 +127,16 @@ func (r *vaultDiskPathResolver) resolvePath(rel string, allowMissing bool) (stri
 	}
 	components := strings.Split(normalized, "/")
 	for i, component := range components {
-		entries, err := os.ReadDir(current)
+		names, err := r.componentNames(current, component)
 		if err != nil {
 			return "", err
 		}
 		name := ""
-		for _, entry := range entries {
-			if normalizeTextNFC(entry.Name()) != component {
-				continue
-			}
+		for _, entry := range names {
 			if name != "" {
-				return "", fmt.Errorf("ambiguous normalized disk path: %s (disk entries: %+q and %+q)", normalizeTextNFC(filepath.Join(current, component)), filepath.Join(current, name), filepath.Join(current, entry.Name()))
+				return "", fmt.Errorf("ambiguous normalized disk path: %s (disk entries: %+q and %+q)", normalizeTextNFC(filepath.Join(current, component)), filepath.Join(current, name), filepath.Join(current, entry))
 			}
-			name = entry.Name()
+			name = entry
 		}
 		if name == "" {
 			exact := filepath.Join(current, component)

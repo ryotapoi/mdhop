@@ -33,7 +33,7 @@ func TestReadHeadOwnershipAndEmptyResults(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			head, err := readHead(vault, contentSource{path: "Note.md", mtime: info.ModTime().Unix()}, tt.n)
+			head, err := readHead(newReadVaultDiskPathResolver(vault), contentSource{path: "Note.md", mtime: info.ModTime().Unix()}, tt.n)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -54,7 +54,7 @@ func TestReadHeadScannerFailureAfterHead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	head, err := readHead(vault, contentSource{path: "Note.md", mtime: info.ModTime().Unix()}, 1)
+	head, err := readHead(newReadVaultDiskPathResolver(vault), contentSource{path: "Note.md", mtime: info.ModTime().Unix()}, 1)
 	if !errors.Is(err, bufio.ErrTooLong) {
 		t.Errorf("error = %v, want Scanner token too long", err)
 	}
@@ -90,7 +90,7 @@ func TestQueryContentReaders(t *testing.T) {
 	}
 	source := contentSource{path: "Note.md", mtime: info.ModTime().Unix()}
 
-	head, err := readHead(vault, source, 2)
+	head, err := readHead(newReadVaultDiskPathResolver(vault), source, 2)
 	if err != nil {
 		t.Fatalf("read head: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestQueryContentReaders(t *testing.T) {
 		t.Errorf("head = %#v, want %#v", head, want)
 	}
 
-	snippets, err := readSnippets(vault, []snippetSource{{contentSource: source, lineStart: 7, lineEnd: 7}}, 1, make(map[string][]string))
+	snippets, err := readSnippets(newReadVaultDiskPathResolver(vault), []snippetSource{{contentSource: source, lineStart: 7, lineEnd: 7}}, 1, make(map[string][]string))
 	if err != nil {
 		t.Fatalf("read snippets: %v", err)
 	}
@@ -107,10 +107,10 @@ func TestQueryContentReaders(t *testing.T) {
 		t.Errorf("snippets = %#v, want %#v", snippets, wantSnippet)
 	}
 
-	if _, err := readHead(vault, contentSource{path: "missing.md", mtime: source.mtime}, 1); !errors.Is(err, ErrFileNotFound) {
+	if _, err := readHead(newReadVaultDiskPathResolver(vault), contentSource{path: "missing.md", mtime: source.mtime}, 1); !errors.Is(err, ErrFileNotFound) {
 		t.Errorf("missing file error = %v, want ErrFileNotFound", err)
 	}
-	if _, err := readSnippets(vault, []snippetSource{{contentSource: contentSource{path: "Note.md", mtime: source.mtime + 1}, lineStart: 1, lineEnd: 1}}, 0, make(map[string][]string)); !errors.Is(err, ErrSourceStale) {
+	if _, err := readSnippets(newReadVaultDiskPathResolver(vault), []snippetSource{{contentSource: contentSource{path: "Note.md", mtime: source.mtime + 1}, lineStart: 1, lineEnd: 1}}, 0, make(map[string][]string)); !errors.Is(err, ErrSourceStale) {
 		t.Errorf("stale source error = %v, want ErrSourceStale", err)
 	}
 
@@ -130,7 +130,7 @@ func TestQueryContentReaders(t *testing.T) {
 			t.Errorf("unlock directory: %v", err)
 		}
 	})
-	_, err = readHead(vault, contentSource{path: "locked/Note.md", mtime: source.mtime}, 1)
+	_, err = readHead(newReadVaultDiskPathResolver(vault), contentSource{path: "locked/Note.md", mtime: source.mtime}, 1)
 	if !errors.Is(err, os.ErrPermission) {
 		t.Errorf("permission error = %v, want permission error", err)
 	}
@@ -174,7 +174,7 @@ func TestReadSnippetsSameSecondTruncation(t *testing.T) {
 			if err := checkStale(path, source.mtime); err != nil {
 				t.Fatalf("same-second mtime must pass stale check: %v", err)
 			}
-			snippets, err := readSnippets(vault, []snippetSource{source}, tt.contextLines, make(map[string][]string))
+			snippets, err := readSnippets(newReadVaultDiskPathResolver(vault), []snippetSource{source}, tt.contextLines, make(map[string][]string))
 			if !errors.Is(err, ErrSourceStale) {
 				t.Errorf("error = %v, want ErrSourceStale", err)
 			}
@@ -199,7 +199,7 @@ func TestReadSnippetsSharedCacheAndOwnership(t *testing.T) {
 			}
 			source := snippetSource{contentSource: contentSource{path: "Source.md", mtime: info.ModTime().Unix()}, lineStart: 2, lineEnd: 2}
 			cache := make(map[string][]string)
-			first, err := readSnippets(vault, []snippetSource{source, source}, 0, cache)
+			first, err := readSnippets(newReadVaultDiskPathResolver(vault), []snippetSource{source, source}, 0, cache)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -219,7 +219,7 @@ func TestReadSnippetsSharedCacheAndOwnership(t *testing.T) {
 				}
 			}
 			// Reusing the cache must return the initial content without accessing disk.
-			second, err := readSnippets(vault, []snippetSource{source}, 0, cache)
+			second, err := readSnippets(newReadVaultDiskPathResolver(vault), []snippetSource{source}, 0, cache)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -231,14 +231,14 @@ func TestReadSnippetsSharedCacheAndOwnership(t *testing.T) {
 			if cache[source.path][1] != "[[Target]]" || first[1].Lines[0] != "[[Target]]" || second[0].Lines[0] != "[[Target]]" {
 				t.Fatal("snippet lines alias the cached body or another snippet")
 			}
-			if _, err := readSnippets(vault, []snippetSource{source}, 0, make(map[string][]string)); !errors.Is(err, expectedError) {
+			if _, err := readSnippets(newReadVaultDiskPathResolver(vault), []snippetSource{source}, 0, make(map[string][]string)); !errors.Is(err, expectedError) {
 				t.Fatalf("fresh cache error = %v, want %v", err, expectedError)
 			}
 			// Each occurrence still validates its indexed range on a cache hit.
 			for _, bounds := range [][2]int{{1003, 1003}, {2, 1003}} {
 				invalid := source
 				invalid.lineStart, invalid.lineEnd = bounds[0], bounds[1]
-				if _, err := readSnippets(vault, []snippetSource{invalid}, 0, cache); !errors.Is(err, ErrSourceStale) {
+				if _, err := readSnippets(newReadVaultDiskPathResolver(vault), []snippetSource{invalid}, 0, cache); !errors.Is(err, ErrSourceStale) {
 					t.Fatalf("cached range %v error = %v, want ErrSourceStale", bounds, err)
 				}
 			}

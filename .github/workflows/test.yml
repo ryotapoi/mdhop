@@ -30,9 +30,33 @@ jobs:
             mount
           fi
       - name: Unicode path regressions
-        run: go test -count=1 -v ./internal/core -run '^Test(MoveNFD|NFDSymlink|BuildUnicode|BuildNormalizesUnicodePathsToNFC)'
+        run: go test -count=1 -v ./internal/core -run '^Test(MoveNFD|NFDSymlink|BuildUnicode|BuildNormalizesUnicodePathsToNFC|ReadDiskPathResolver|BuildCachedDiskNames|ReadHeadSharedResolver)'
       - name: Move CLI directory regressions
         run: go test -count=1 -v ./cmd/mdhop -run '^TestRunMove'
       - name: All tests
         if: always()
         run: go test ./...
+
+  a3-04-measure:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Observe filesystem and paired CLI operations
+        shell: bash
+        run: |
+          uname -a
+          findmnt -T "$RUNNER_TEMP" -o TARGET,SOURCE,FSTYPE,OPTIONS
+          printf 'runner OS=%s image=%s version=%s temp=%s\n' "$RUNNER_OS" "$ImageOS" "$ImageVersion" "$RUNNER_TEMP"
+          bash cache/a3-04/ci-measure.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a3-04-performance
+          path: ${{ runner.temp }}/a3-04-measure/results

@@ -27,6 +27,7 @@ type buildInputs struct {
 	cfg                        *Config
 	notes, assets              []string
 	files                      map[string]buildSignature
+	disk                       *vaultDiskPathResolver
 }
 
 func collectBuildInputs(vaultPath, omitted string, locations ...Locations) (*buildInputs, error) {
@@ -74,7 +75,9 @@ func collectBuildInputs(vaultPath, omitted string, locations ...Locations) (*bui
 		return nil, err
 	}
 	inputs := &buildInputs{root: root, omitted: omitted, fingerprint: fingerprint, cfg: &cfg, notes: notes, assets: assets, files: make(map[string]buildSignature)}
-	disk := newVaultDiskPathResolver(root)
+	// Publication verification collects independently with a fresh resolver.
+	disk := newReadVaultDiskPathResolver(root)
+	inputs.disk = disk
 	for _, paths := range [][]string{notes, assets} {
 		for _, path := range paths {
 			full, err := disk.existingPath(path)

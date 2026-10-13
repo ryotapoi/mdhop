@@ -43,7 +43,7 @@ func TestNFDDiskPathsContentAndChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	head, err := readHead(vault, source, 2)
+	head, err := readHead(newReadVaultDiskPathResolver(vault), source, 2)
 	if err != nil || !reflect.DeepEqual(head, []string{"# Present", "[[Target]]"}) {
 		t.Fatalf("head = %v, %v", head, err)
 	}
@@ -51,7 +51,7 @@ func TestNFDDiskPathsContentAndChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snippets, err := readSnippets(vault, sources, 1, make(map[string][]string))
+	snippets, err := readSnippets(newReadVaultDiskPathResolver(vault), sources, 1, make(map[string][]string))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,16 +67,16 @@ func TestNFDDiskPathsContentAndChecks(t *testing.T) {
 		t.Fatalf("meta check = %+v, %v", check, err)
 	}
 	writeStaleTestFile(t, actual, []byte(content+"changed\n"))
-	if _, err := readHead(vault, source, 1); !errors.Is(err, ErrSourceStale) {
+	if _, err := readHead(newReadVaultDiskPathResolver(vault), source, 1); !errors.Is(err, ErrSourceStale) {
 		t.Fatalf("head stale error = %v", err)
 	}
-	if _, err := readSnippets(vault, sources, 1, make(map[string][]string)); !errors.Is(err, ErrSourceStale) {
+	if _, err := readSnippets(newReadVaultDiskPathResolver(vault), sources, 1, make(map[string][]string)); !errors.Is(err, ErrSourceStale) {
 		t.Fatalf("snippet stale error = %v", err)
 	}
 	if err := os.Remove(actual); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readHead(vault, source, 1); !errors.Is(err, ErrFileNotFound) {
+	if _, err := readHead(newReadVaultDiskPathResolver(vault), source, 1); !errors.Is(err, ErrFileNotFound) {
 		t.Fatalf("missing head error = %v", err)
 	}
 	diag, err = Diagnose(vault, DiagnoseOptions{Fields: []string{"anchors"}})
