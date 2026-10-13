@@ -813,3 +813,46 @@ func TestResolveAtLineDistinctIndexedMeanings(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveFallbackMarkdownSuffixMatchesBuild(t *testing.T) {
+	for _, tc := range []struct {
+		name, source, destination, want string
+		suffixes                        int
+	}{
+		{"reported root", "Source.md", "F.md.md", "F.md.md", 2},
+		{"multiple suffixes relative", "sub/Source.md", "F.md.md.md", "sub/F.md.md.md", 3},
+		{"multiple suffixes root", "sub/Source.md", "/F.md.md.md", "F.md.md.md", 3},
+		{"alias collision", "Source.md", "F.md.md", "F.md.md", 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vault := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(vault, "sub"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			dir := filepath.Dir(tc.want)
+			for i := 1; i <= tc.suffixes; i++ {
+				path := filepath.Join(vault, dir, "F"+strings.Repeat(".md", i))
+				if err := os.WriteFile(path, []byte("# F\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			original := "[original](" + tc.destination + ")"
+			// Include an edge to F.md so the reported wrong selection still
+			// passes edgeExists and is detected by the target assertion.
+			body := original + "\n[[F]]\n"
+			if err := os.WriteFile(filepath.Join(vault, filepath.FromSlash(tc.source)), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			buildVault(t, vault)
+			for _, input := range []string{original, "[other](" + tc.destination + ")"} {
+				result, err := Resolve(vault, tc.source, input)
+				if err != nil {
+					t.Fatalf("resolve %q: %v", input, err)
+				}
+				if result.Type != NodeTypeNote || result.Path != tc.want {
+					t.Fatalf("resolve %q = %+v, want note %s", input, result, tc.want)
+				}
+			}
+		})
+	}
+}

@@ -178,29 +178,44 @@ func (r dbLinkResolver) resolveBasename(target string, link linkOccur) (int64, s
 	return resolveBasenameFromDB(r.db, target, link)
 }
 
-// resolvePathFromDB finds a note/asset node by path, falling back to phantom.
-// Resolution order: note exact → note+.md → asset exact → phantom.
+// resolvePathFromDB uses the build-time path maps over indexed paths only.
+// Construct them lazily here: exact raw, self, tag and basename lookups need no maps.
 func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, string, error) {
 	normalized := NormalizePath(resolved)
-
-	// Try note: exact path or path+.md (case-insensitive). Compare in Go so
-	// Unicode case conversion matches the build-time resolve maps.
-	id, found, err := findPathNodeID(db, NodeTypeNote, normalized, true)
+	rows, err := db.Query(`SELECT id, type, path FROM nodes WHERE type IN (?, ?) ORDER BY path`, NodeTypeNote, NodeTypeAsset)
 	if err != nil {
 		return 0, "", err
 	}
-	if found {
-		return id, link.subpath, nil
+	var notes, assets []string
+	ids := make(map[string]int64)
+	for rows.Next() {
+		var id int64
+		var nodeType NodeType
+		var path string
+		if err := rows.Scan(&id, &nodeType, &path); err != nil {
+			rows.Close()
+			return 0, "", err
+		}
+		path = NormalizePath(path)
+		ids[path] = id
+		if nodeType == NodeTypeNote {
+			notes = append(notes, path)
+		} else {
+			assets = append(assets, path)
+		}
 	}
-
-	// Try asset: exact path (case-insensitive).
-	id, found, err = findPathNodeID(db, NodeTypeAsset, normalized, false)
-	if err != nil {
+	rows.Close()
+	if err := rows.Err(); err != nil {
 		return 0, "", err
 	}
-	if found {
-		return id, link.subpath, nil
+	// Path order matches build's lexical traversal for paths whose aliases collide,
+	// independently of node insertion order.
+	rm := newResolveMaps(notes, assets)
+	if path, _, found := rm.lookupPath(normalized); found {
+		return ids[path], link.subpath, nil
 	}
+
+	var id int64
 
 	// Not found → look for phantom.
 	// D10: only strip .md extension for phantom name; preserve other extensions.
@@ -218,32 +233,6 @@ func resolvePathFromDB(db dbExecer, resolved string, link linkOccur) (int64, str
 	}
 
 	return 0, "", fmt.Errorf("%w: %s", ErrLinkNotFound, resolved)
-}
-
-func findPathNodeID(db dbExecer, nodeType NodeType, path string, includeMarkdownExtension bool) (int64, bool, error) {
-	lowerPath := strings.ToLower(NormalizePath(path))
-	lowerMarkdownPath := lowerPath + ".md"
-	rows, err := db.Query(`SELECT id, path FROM nodes WHERE type = ? ORDER BY id`, nodeType)
-	if err != nil {
-		return 0, false, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var id int64
-		var storedPath string
-		if err := rows.Scan(&id, &storedPath); err != nil {
-			return 0, false, err
-		}
-		lowerStoredPath := strings.ToLower(NormalizePath(storedPath))
-		if lowerStoredPath == lowerPath || includeMarkdownExtension && lowerStoredPath == lowerMarkdownPath {
-			return id, true, nil
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return 0, false, err
-	}
-	return 0, false, nil
 }
 
 // resolveBasenameFromDB finds a note/asset node by basename (case-insensitive).

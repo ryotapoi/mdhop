@@ -262,11 +262,12 @@
   - 完了条件: `move --from Café --to Archive` と --to-template の末尾 `/` なし指定でも、実在フォルダーを正しく選択する。末尾 `/` の明示指定を維持し、正規化名の衝突は一方を黙って選ばない。Ubuntu CI で該当環境の回帰を確認する。
   - 検証: [Ubuntu/macOS CI](https://github.com/ryotapoi/mdhop/actions/runs/38339824346)（`9921423b2f7b08a984a3f07c567f9e923e399d76`）で core・CLI 集中、全 suite、実 CLI に成功。対象 Go・依存・fixture 414 files が作業 snapshot と一致。Ubuntu / ext4 は NFD entry bytes と NFC 直接 Stat の不在を観測し、末尾 `/` なしの --to・template apply / dry-run、明示 `/`、不在 source の明示 directory、symlink directory、移動済み file を確認。索引作成後の NFC/NFD directory 衝突 4 経路を含む新規 11 subcase は skip なしで成功し、衝突時の空 stdout・disk/DB bytes 無変更を確認。実 CLI は NFC JSON / DB、file とリンク更新、dry-run 無変更、および衝突時の非ゼロ終了を確認。macOS は成功経路と全 suite を実行し、衝突 4 subcase のみ列挙 count=1 の filesystem alias を理由に skip。ローカルで集中・全 test、build、vet と実 CLI も成功。
 
-- [ ] resolve の fallback を build と同じリンク解決規則に揃える（A5-1）
+- [x] resolve の fallback を build と同じリンク解決規則に揃える（A5-1）
   - 問題: F.md と F.md.md が存在し、Source.md に `[original](F.md.md)` と `[[F]]` がある場合、resolve に登録済みの前者を渡すと F.md.md を返すが、表示文字だけ違う `[other](F.md.md)` を渡すと F.md を返す。索引に完全一致しないリンクを解釈し直す fallback の候補選択が build と異なる。
   - 対応: fallback の独立したパス・拡張子候補判定を、build の既存 resolver と同じ規則へ統一する。候補の ID 順や独自の優先順で選ばない。
   - 完了条件: 上記の両入力が F.md.md に解決される。複数の .md suffix を含む対象でも索引時と fallback の解決が一致する。登録済み原文・行指定・参照リンクの既存契約は維持する。
   - 保守性・リスク: 解決規則の二重管理を減らし、共有処理を利用する際の構築コストも確認する。表示文字の違いで別ノートを返す誤解決を防ぐ。
+  - 検証: ローカル macOS で core / CLI 集中 test、全 suite、build と実 CLI に成功。既報と多重 `.md` suffix の相対・root・alias 衝突を Build→Resolve の回帰で確認し、行指定の非原文一致・未登録 subpath は拒否、ノートと DB は bytes 無変更。103 / 10003-note 索引の各15回の実 CLI 中央値で exact raw は約6.3msを維持、fallback は約6.3→6.9ms / 8.4→18.2ms。path fallback 時だけ索引のパス一覧から共有 map を構築する。Ubuntu/macOS CI はこの変更では未実施。
 
 - [ ] 未閉鎖の括弧の後ろのリンクを検出し、有効な複数行リンクにも対応する（A4-03）
   - 問題: `書きかけの [ と [正しいリンク](B.md)` の最初の未閉鎖括弧で走査を打ち切り、後ろの有効なリンクを見落とす。現状の複数行構文の抑止処理も関係する。

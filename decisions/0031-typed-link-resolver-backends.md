@@ -14,6 +14,7 @@ ADR 0002 の独立実装は、二つしかない段階の抽象化コストを�
 
 - 解決順序・vault escape 検査・link type ごとの分岐を `resolveLinkWithBackend` に集約する。backend は順序を知らず、ストレージ固有の lookup だけを持つ。順序の変更を各実装へ同期する負担をなくすためである。
 - `linkResolverBackend[T]` は self、tag、path、basename の四つの lookup を持つ。build は map backend、resolve は DB backend、dry 検証は dry backend を使う。resolve のために全ファイルを読み込む案や、dry 検証を既存 backend の flag 分岐へ押し込む案は採らない。
+- resolve の DB backend は path fallback が必要な時だけ、索引の note / asset パス一覧から build と同じ map を構築し、同じ path lookup を使う。alias が衝突する候補の構築順も build のパス順に揃え、node ID 順で選ばない。本文の再解析や filesystem 全走査は行わない。原文一致・行指定・self・tag・basename の経路には map 構築を追加せず、basename は DB lookup を維持する。
 - 結果型だけを型パラメータとする。DB / build は実 node ID を返し、dry 検証は解決後の path を直接返す。dry は実在 note / asset だけを解決し、phantom / tag node を作らない。
 - dry の一時 ID 採番と ID / path の双方向変換は持たない。利用側には path が必要で、ID の同一性や永続化は要求されていないためである。結果型を合わせるためだけの状態を増やさない。
 - dry 検証の dispatcher を別に作る案は採らない。結果型の違いで解決順序を分けると、共通化で除いた同期負担が戻るためである。
