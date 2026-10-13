@@ -1474,7 +1474,7 @@ func TestBuildMeta_ConfiguredTypes(t *testing.T) {
 		{Key: "priority", Value: "42", SortValue: "100000000000000000042.00000000", ValueType: "number"},
 		{Key: "severity", Value: "high", SortValue: "00002", ValueType: "ordered"},
 		{Key: "title", Value: "My Note", SortValue: "My Note", ValueType: "string"},
-		{Key: "version", Value: "1.2.3", SortValue: "00001.00002.00003", ValueType: "semver"},
+		{Key: "version", Value: "1.2.3", SortValue: "1.2.3", ValueType: "semver"},
 	}
 	for i, exp := range expected {
 		if meta[i] != exp {

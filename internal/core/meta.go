@@ -187,25 +187,12 @@ func normalizeSemver(value string) (string, string) {
 		return value, fmt.Sprintf("prerelease/build metadata not supported: %q", value)
 	}
 
-	parts := strings.Split(s, ".")
-	if len(parts) <= 1 {
-		return value, fmt.Sprintf("cannot parse %q as semver", value)
-	}
-
-	// Pad to at least 3 segments
-	for len(parts) < 3 {
-		parts = append(parts, "0")
-	}
-
-	padded := make([]string, len(parts))
-	for i, p := range parts {
-		// Validate numeric
-		if !isDigits(p) {
+	for _, part := range strings.Split(s, ".") {
+		if !isDigits(part) {
 			return value, fmt.Sprintf("cannot parse %q as semver", value)
 		}
-		padded[i] = padLeft(p, 5)
 	}
-	return strings.Join(padded, "."), ""
+	return s, ""
 }
 
 func ninesComplement(s string) string {
@@ -214,4 +201,45 @@ func ninesComplement(s string) string {
 		buf[i] = byte('9' - (c - '0'))
 	}
 	return string(buf)
+}
+
+// storedSortValue keeps ordinary values in a binary partition and semver values
+// in a numeric partition. Tagging both avoids collisions with arbitrary strings.
+func storedSortValue(value, valueType string) string {
+	if valueType == string(MetaTypeSemver) && value != "" {
+		return "s:" + value
+	}
+	return "b:" + value
+}
+
+// compareSortValues defines one total order: binary values (including invalid
+// semver fallbacks) first, then valid semver values. Non-semver ordering is unchanged.
+func compareSortValues(a, b string) int {
+	if strings.HasPrefix(a, "s:") && strings.HasPrefix(b, "s:") {
+		return compareSemver(a[2:], b[2:])
+	}
+	return strings.Compare(a, b)
+}
+
+func compareSemver(a, b string) int {
+	left, right := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(left) || i < len(right); i++ {
+		var x, y string
+		if i < len(left) {
+			x = strings.TrimLeft(left[i], "0")
+		}
+		if i < len(right) {
+			y = strings.TrimLeft(right[i], "0")
+		}
+		if len(x) < len(y) {
+			return -1
+		}
+		if len(x) > len(y) {
+			return 1
+		}
+		if cmp := strings.Compare(x, y); cmp != 0 {
+			return cmp
+		}
+	}
+	return 0
 }

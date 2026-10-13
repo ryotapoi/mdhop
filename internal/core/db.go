@@ -9,8 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	_ "modernc.org/sqlite"
+	"modernc.org/sqlite"
 )
+
+// Register before any connection opens; modernc applies it to all new connections.
+func init() {
+	sqlite.MustRegisterCollationUtf8("mdhop_sort", compareSortValues)
+}
 
 // dbExecer abstracts *sql.DB and *sql.Tx for shared upsert/query functions.
 type dbExecer interface {
@@ -22,7 +27,7 @@ type dbExecer interface {
 const (
 	dataDirName                = ".mdhop"
 	dbFileName                 = "index.sqlite"
-	indexInterpretationVersion = 10
+	indexInterpretationVersion = 11
 )
 
 // NodeType is the value set of the `nodes.type` column. Go code uses these
@@ -162,7 +167,7 @@ func initSchema(db *sql.DB) error {
 			key        TEXT NOT NULL,
 			value      TEXT NOT NULL,
 			line       INTEGER NOT NULL,
-			sort_value TEXT,
+			sort_value TEXT COLLATE mdhop_sort,
 			value_type TEXT,
 			FOREIGN KEY(node_id) REFERENCES nodes(id)
 		);`,
@@ -312,7 +317,7 @@ func insertMeta(db dbExecer, nodeID int64, key, value string, line int, sortValu
 	_, err := db.Exec(
 		`INSERT INTO meta (node_id, key, value, line, sort_value, value_type)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		nodeID, key, value, line, sortValue, valueType,
+		nodeID, key, value, line, storedSortValue(sortValue, valueType), valueType,
 	)
 	return err
 }
@@ -337,6 +342,9 @@ func queryMetaByNode(db dbExecer, nodeID int64) ([]MetaRow, error) {
 		var r MetaRow
 		if err := rows.Scan(&r.Key, &r.Value, &r.SortValue, &r.ValueType); err != nil {
 			return nil, err
+		}
+		if len(r.SortValue) >= 2 {
+			r.SortValue = r.SortValue[2:]
 		}
 		result = append(result, r)
 	}

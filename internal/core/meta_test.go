@@ -139,15 +139,15 @@ func TestNormalizeSortValue_Semver(t *testing.T) {
 		wantValue   string
 		wantWarning bool
 	}{
-		{"3 segments", "v1.2.3", "00001.00002.00003", false},
-		{"no v prefix", "2.10.0", "00002.00010.00000", false},
-		{"2 segments", "1.2", "00001.00002.00000", false},
-		{"4 segments", "1.2.3.4", "00001.00002.00003.00004", false},
+		{"3 segments", "v1.2.3", "1.2.3", false},
+		{"no v prefix", "2.10.0", "2.10.0", false},
+		{"2 segments", "1.2", "1.2", false},
+		{"4 segments", "1.2.3.4", "1.2.3.4", false},
 		{"invalid", "not-semver", "not-semver", true},
 		{"prerelease", "1.2.3-beta", "1.2.3-beta", true},
 		{"empty", "", "", false},
-		{"V prefix", "V1.0.0", "00001.00000.00000", false},
-		{"single segment", "1", "1", true},
+		{"V prefix", "V1.0.0", "1.0.0", false},
+		{"single segment", "1", "1", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -170,7 +170,7 @@ func TestNormalizeSortValue_SemverOrder(t *testing.T) {
 		if warn != "" {
 			t.Fatalf("unexpected warning for %q: %s", input, warn)
 		}
-		if i > 0 && got <= prev {
+		if i > 0 && compareSemver(got, prev) <= 0 {
 			t.Errorf("order violation: normalized(%q)=%q should be > normalized(%q)=%q", input, got, inputs[i-1], prev)
 		}
 		prev = got

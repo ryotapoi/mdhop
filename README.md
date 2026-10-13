@@ -31,6 +31,8 @@ Markdown destinations `to.md` and `./to.md` point to the source note's directory
 
 Existing Markdown basename and vault-relative links change meaning. Adjust destinations to preserve your intended targets, then run `mdhop build` to rebuild the entire index. Old indexes cannot be queried or incrementally updated. No automatic conversion or compatibility mode is provided.
 
+Semver metadata compares dot-separated nonnegative integers numerically from left to right, treating missing trailing components as zero. Integer YAML numbers and strings, arbitrary digit lengths, and arbitrary component counts are accepted: `1 = 1.0 = 1.0.0` and `1 < 1.0.0.0.5 < 1.1 < 100`. Leading zeros and `v` / `V` prefixes do not affect comparison; original values are retained. Prerelease and build metadata remain unsupported. Invalid values retain warnings and string fallback; ascending order places fallbacks before valid semver values and sorts fallbacks lexically. Run `mdhop build` to regenerate the comparison format. Old indexes cannot be queried or partially updated; a normal build regenerates them.
+
 ## Quick Start
 
 ```bash

@@ -583,7 +583,7 @@ func TestWhereClause_CoalesceComparisonPerKeyTypes(t *testing.T) {
 	if !strings.Contains(sql, "m.value_type = ?") {
 		t.Fatalf("coalesce comparison should use type guards: %q", sql)
 	}
-	wantArgs := []any{"reviewed", "2025-07-04", "date", "updated", "2025-7-4", "string", "reviewed"}
+	wantArgs := []any{"reviewed", "b:2025-07-04", "date", "updated", "b:2025-7-4", "string", "reviewed"}
 	if len(args) != len(wantArgs) {
 		t.Fatalf("args = %v, want %v", args, wantArgs)
 	}

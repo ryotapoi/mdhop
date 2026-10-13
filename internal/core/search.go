@@ -220,7 +220,7 @@ func Search(vaultPath string, opts SearchOptions, locations ...Locations) (*Sear
 				dir = "DESC"
 			}
 			orderSQL = fmt.Sprintf(
-				" ORDER BY CASE WHEN m_sort.sort_value IS NULL THEN 1 ELSE 0 END ASC, m_sort.sort_value %s, n.path ASC",
+				" ORDER BY CASE WHEN m_sort.sort_value IS NULL THEN 1 ELSE 0 END ASC, m_sort.sort_value COLLATE mdhop_sort %s, n.path ASC",
 				dir,
 			)
 		}

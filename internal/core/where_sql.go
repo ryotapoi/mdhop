@@ -85,7 +85,7 @@ func buildNeqSQL(keys []string, cond WhereCond) (string, []any) {
 	var unionSQL []string
 	var args []any
 	for i, key := range keys {
-		branchArgs := []any{key, key, cond.whereValueForKey(key).value}
+		branchArgs := []any{key, key, storedWhereValue(cond.whereValueForKey(key))}
 		sql := "SELECT m.node_id FROM meta m WHERE m.key = ? AND m.node_id NOT IN (SELECT m2.node_id FROM meta m2 WHERE m2.key = ? AND (m2.sort_value = ?))"
 		if i > 0 {
 			sql += fmt.Sprintf(" AND NOT EXISTS (SELECT 1 FROM meta mh WHERE mh.node_id = m.node_id AND mh.key IN (%s))", placeholders(i))
@@ -115,13 +115,13 @@ func buildPositiveSQL(keys []string, cond WhereCond) (string, []any) {
 		switch cond.Op {
 		case WhereOpEq:
 			part = "m.sort_value = ?"
-			branchArgs = append(branchArgs, value.value)
+			branchArgs = append(branchArgs, storedWhereValue(value))
 		case WhereOpLike:
 			part = "m.value LIKE ? ESCAPE '\\'"
 			branchArgs = append(branchArgs, cond.Value)
 		case WhereOpGt, WhereOpLt, WhereOpGte, WhereOpLte:
 			part = fmt.Sprintf("(m.sort_value %s ? AND m.value_type = ?)", comparisonOpSQL[cond.Op])
-			branchArgs = append(branchArgs, value.value, value.valueType)
+			branchArgs = append(branchArgs, storedWhereValue(value), value.valueType)
 		}
 		sql := fmt.Sprintf("SELECT m.node_id FROM meta m WHERE m.key = ? AND (%s)", part)
 		if i > 0 {
@@ -156,4 +156,8 @@ func anySlice(values []string) []any {
 		args[i] = v
 	}
 	return args
+}
+
+func storedWhereValue(value whereValue) string {
+	return storedSortValue(value.value, value.valueType)
 }
