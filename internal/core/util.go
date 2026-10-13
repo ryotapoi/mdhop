@@ -69,7 +69,7 @@ func (r *vaultDiskPathResolver) resolvePath(rel string, allowMissing bool) (stri
 				continue
 			}
 			if name != "" {
-				return "", fmt.Errorf("ambiguous normalized disk path: %s", filepath.Join(current, component))
+				return "", fmt.Errorf("ambiguous normalized disk path: %s (disk entries: %+q and %+q)", normalizeTextNFC(filepath.Join(current, component)), filepath.Join(current, name), filepath.Join(current, entry.Name()))
 			}
 			name = entry.Name()
 		}

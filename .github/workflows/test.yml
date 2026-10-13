@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Observe Unicode move filesystem
+      - name: Observe Unicode path filesystem
         shell: bash
         run: |
           uname -a
@@ -29,8 +29,13 @@ jobs:
             df -P "${TMPDIR:-/tmp}"
             mount
           fi
-      - name: Unicode move regressions
-        run: go test -count=1 -v ./internal/core -run '^Test(MoveNFD|NFDSymlink)'
+      - name: Unicode path regressions
+        run: go test -count=1 -v ./internal/core -run '^Test(MoveNFD|NFDSymlink|BuildUnicode|BuildNormalizesUnicodePathsToNFC)'
       - name: All tests
         if: always()
         run: go test ./...
+      - name: Change CLI checks
+        if: always()
+        run: |
+          go build -o bin/mdhop ./cmd/mdhop
+          python3 change-verify.py
