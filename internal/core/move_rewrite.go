@@ -283,6 +283,7 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 		}
 
 		links := parseLinks(string(content)).Links
+		var targets map[movedEdgeKey]string
 		for _, link := range links {
 			if !isPathLinkType(link.linkType) {
 				continue
@@ -290,11 +291,13 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 
 			var preMoveTargetPath string
 			if link.isBasename || link.target != "" {
-				var err error
-				preMoveTargetPath, err = lookupEdgeTargetPath(db, m.nodeID, link.rawLink, link.lineStart, link.inTable)
-				if err != nil {
-					return nil, err
+				if targets == nil {
+					targets, err = loadMovedEdgeTargets(db, m.nodeID)
+					if err != nil {
+						return nil, err
+					}
 				}
+				preMoveTargetPath = targets[movedEdgeKey{link.rawLink, link.lineStart, link.inTable}]
 			}
 			rewrite, ok, err := rewriteMovedOutgoingLink(link, m.from, m.to, preMoveTargetPath, linkMaps)
 			if err != nil {
@@ -309,11 +312,63 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 	return movedFileRewrites, nil
 }
 
+type movedEdgeKey struct {
+	rawLink   string
+	lineStart int
+	inTable   bool
+}
+
+// loadMovedEdgeTargets keeps the pre-move targets for one note. Duplicate keys
+// retain the old LIMIT 1 selection, whose order depends on SQLite's query plan.
+func loadMovedEdgeTargets(db dbExecer, sourceID int64) (map[movedEdgeKey]string, error) {
+	typeSQL, typeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
+	rows, err := db.Query(fmt.Sprintf(`SELECT e.raw_link, e.line_start, e.in_table, COALESCE(tn.path, '')
+		FROM edges e JOIN nodes tn ON tn.id = e.target_id
+		WHERE e.source_id = ? AND %s`, typeSQL), append([]any{sourceID}, typeArgs...)...)
+	if err != nil {
+		return nil, err
+	}
+	targets := make(map[movedEdgeKey]string)
+	duplicates := make(map[movedEdgeKey]bool)
+	for rows.Next() {
+		var rawLink, path string
+		var line sql.NullInt64
+		var inTable int
+		if err := rows.Scan(&rawLink, &line, &inTable, &path); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		// These rows cannot match the old equality predicates.
+		if !line.Valid || (inTable != 0 && inTable != 1) {
+			continue
+		}
+		key := movedEdgeKey{rawLink, int(line.Int64), inTable == 1}
+		if _, exists := targets[key]; exists {
+			duplicates[key] = true
+		} else {
+			targets[key] = path
+		}
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	// Close the bulk cursor before querying on the single DB connection.
+	for key := range duplicates {
+		path, err := lookupEdgeTargetPath(db, sourceID, key.rawLink, key.lineStart, key.inTable)
+		if err != nil {
+			return nil, err
+		}
+		targets[key] = path
+	}
+	return targets, nil
+}
+
 // lookupEdgeTargetPath returns the target node path for the edge identified by
-// (sourceID, rawLink) among link types that can be rewritten.
+// (sourceID, rawLink, line, inTable) among link types that can be rewritten.
 // Returns ("", nil) when no matching edge exists or when the target is a
-// phantom node (whose path is stored as NULL); callers treat both cases as
-// "skip".
+// phantom node (whose path is stored as NULL).
 func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string, line int, inTable bool) (string, error) {
 	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	var path string
