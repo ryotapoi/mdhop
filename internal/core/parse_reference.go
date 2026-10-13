@@ -3,7 +3,7 @@ package core
 import "strings"
 
 func normalizeReferenceLabel(label string) string {
-	return strings.ToLower(strings.Join(strings.FieldsFunc(label, func(r rune) bool { return r == ' ' || r == '\t' }), " "))
+	return strings.ToLower(strings.Join(strings.FieldsFunc(label, func(r rune) bool { return r == ' ' || r == '\t' || r == '\r' || r == '\n' }), " "))
 }
 
 // referenceDefinition recognizes only independent, single-line definitions.
@@ -108,14 +108,6 @@ func markdownEscapeAt(line string, i int) bool {
 	return line[i] == '\\' && i+1 < len(line) && asciiPunctuation(line[i+1])
 }
 
-func markdownBracketEscaped(line string, i int) bool {
-	backslashes := 0
-	for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
-		backslashes++
-	}
-	return backslashes%2 == 1
-}
-
 // referenceBracketEnd shares inline bracket boundaries, while valid keeps
 // escaped and nested reference labels outside the supported reference grammar.
 func referenceBracketEnd(line string, start int) (int, bool) {
@@ -152,173 +144,130 @@ func markdownDestinationOccur(destination, raw string, typ LinkType, line int) (
 	return occ, true
 }
 
-// parseBodyMarkdown scans disjoint bracket spans, so undefined full references
-// cannot fall back to a shortcut and inline links cannot consume earlier references.
-func parseBodyMarkdown(raw, line string, lineNum int, definitions map[string]string, following []string) ([]linkOccur, string, int) {
-	pending := 0
-	masked := []byte(line)
-	var out []linkOccur
-	for i := 0; i < len(line); {
-		if line[i] != '[' {
-			i++
-			continue
+// markdownBoundaries pairs brackets and single-line destination parentheses
+// once. Unmatched openings have no span and cannot hide independent links.
+type markdownBoundaries struct {
+	close []int
+	valid []bool
+	line  []int
+}
+
+func scanMarkdownBoundaries(text string, lineNum int) markdownBoundaries {
+	b := markdownBoundaries{make([]int, len(text)), make([]bool, len(text)), make([]int, len(text))}
+	for i := range b.close {
+		b.close[i] = -1
+		b.valid[i] = true
+	}
+	var brackets, parens []int
+	for i := 0; i < len(text); i++ {
+		b.line[i] = lineNum
+		if text[i] == '\n' {
+			lineNum++
+			parens = nil
 		}
-		if markdownBracketEscaped(line, i) {
-			i++
-			continue
-		}
-		start := i
-		end, valid := referenceBracketEnd(line, start)
-		if end < 0 {
-			depth := unmatchedBracketDepth(line[start:])
-			if referenceContinuationCloses(following, 0, depth) {
-				pending = depth
-				break
+		if text[i] == '\\' {
+			if len(brackets) > 0 {
+				b.valid[brackets[len(brackets)-1]] = false
 			}
-			// An unmatched prose bracket does not own later independent links.
+			if markdownEscapeAt(text, i) {
+				i++
+				b.line[i] = lineNum
+			}
+			continue
+		}
+		switch text[i] {
+		case '[':
+			if len(brackets) > 0 {
+				b.valid[brackets[len(brackets)-1]] = false
+			}
+			brackets = append(brackets, i)
+		case ']':
+			if len(brackets) > 0 {
+				start := brackets[len(brackets)-1]
+				brackets = brackets[:len(brackets)-1]
+				b.close[start] = i
+			}
+		case '(':
+			parens = append(parens, i)
+		case ')':
+			if len(parens) > 0 {
+				start := parens[len(parens)-1]
+				parens = parens[:len(parens)-1]
+				b.close[start] = i
+			}
+		}
+	}
+	return b
+}
+
+type markdownSpan struct {
+	start, end  int
+	destination string
+	typ         LinkType
+}
+
+// markdownSpans scans disjoint constructs using the precomputed boundaries.
+// Unsupported nested/escaped references still own their entire closed span.
+func markdownSpans(raw, clean string, definitions map[string]string, b markdownBoundaries) []markdownSpan {
+	var spans []markdownSpan
+	for i := 0; i < len(clean); {
+		if markdownEscapeAt(clean, i) {
+			i += 2
+			continue
+		}
+		if clean[i] != '[' || b.close[i] < 0 {
 			i++
 			continue
 		}
+		start, end := i, b.close[i]
 		i = end + 1
-		if !valid && (i >= len(line) || line[i] != '(') {
-			// Consume the following reference label as part of this unsupported span.
-			if i < len(line) && line[i] == '[' {
-				if close, _ := referenceBracketEnd(line, i); close >= 0 {
-					i = close + 1
-				} else {
-					pending = unmatchedBracketDepth(line[i:])
-					break
-				}
-			} else if i < len(line) && line[i] == '(' {
-				if close := markdownDestinationEnd(line, i+1); close >= 0 {
-					i = close + 1
-				} else {
-					break
-				}
-			}
-			continue
-		}
 		label := raw[start+1 : end]
 		destination, typ, used := "", LinkTypeMarkdownReference, false
-		if i < len(line) && line[i] == '(' {
-			close := markdownDestinationEnd(line, i+1)
+		if i < len(clean) && clean[i] == '(' {
+			close := b.close[i]
 			if close < 0 {
-				break
+				continue
 			}
-			destination, typ, used = strings.TrimSpace(line[i+1:close]), LinkTypeMarkdown, true
+			destination, typ, used = strings.TrimSpace(clean[i+1:close]), LinkTypeMarkdown, true
 			i = close + 1
 		} else {
-			if i < len(line) && line[i] == '[' {
-				close, ok := referenceBracketEnd(line, i)
+			valid := b.valid[start]
+			if i < len(clean) && clean[i] == '[' {
+				close := b.close[i]
 				if close < 0 {
-					pending = unmatchedBracketDepth(line[i:])
-					break
+					continue
 				}
+				valid = valid && b.valid[i]
 				if close > i+1 {
 					label = raw[i+1 : close]
 				}
 				i = close + 1
-				if !ok {
-					continue
-				}
 			}
-			destination, used = definitions[normalizeReferenceLabel(label)]
+			if valid {
+				destination, used = definitions[normalizeReferenceLabel(label)]
+			}
 		}
 		if used {
-			if occ, ok := markdownDestinationOccur(destination, raw[start:i], typ, lineNum); ok {
-				out = append(out, occ)
-			}
-			for j := start; j < i; j++ {
-				masked[j] = ' '
-			}
+			spans = append(spans, markdownSpan{start, i, destination, typ})
 		}
 	}
-	return out, string(masked), pending
+	return spans
 }
 
-func unmatchedBracketDepth(line string) int {
-	depth := 0
-	for i := 0; i < len(line); i++ {
-		if markdownEscapeAt(line, i) {
-			i++
-			continue
+func parseBodyMarkdown(raw, clean string, lineNum int, definitions map[string]string) ([]linkOccur, string) {
+	b := scanMarkdownBoundaries(clean, lineNum)
+	masked := []byte(clean)
+	var out []linkOccur
+	for _, span := range markdownSpans(raw, clean, definitions, b) {
+		if occ, ok := markdownDestinationOccur(span.destination, raw[span.start:span.end], span.typ, b.line[span.start]); ok {
+			occ.lineEnd = b.line[span.end-1]
+			out = append(out, occ)
 		}
-		if line[i] == '[' {
-			depth++
-		}
-		if line[i] == ']' {
-			depth--
-		}
-	}
-	return depth
-}
-
-// maskReferenceContinuation rejects multiline labels as a whole instead of
-// indexing the trailing label of an unsupported full reference as a shortcut.
-func maskReferenceContinuation(line string, pending *int) string {
-	if *pending == 0 {
-		return line
-	}
-	masked := []byte(line)
-	i := 0
-	for i < len(line) && *pending > 0 {
-		if markdownEscapeAt(line, i) {
-			masked[i], masked[i+1] = ' ', ' '
-			i += 2
-			continue
-		}
-		if line[i] == '[' {
-			*pending++
-		}
-		if line[i] == ']' {
-			*pending--
-		}
-		masked[i] = ' '
-		i++
-	}
-	if *pending == 0 && i < len(line) && line[i] == '[' {
-		close, _ := referenceBracketEnd(line, i)
-		if close < 0 {
-			*pending = unmatchedBracketDepth(line[i:])
-			close = len(line) - 1
-		}
-		for ; i <= close; i++ {
-			masked[i] = ' '
-		}
-	}
-	return string(masked)
-}
-
-// referenceContinuationCloses looks ahead within the same body paragraph.
-// This distinguishes a closed unsupported multiline construct from an unmatched
-// prose bracket without mistaking its balanced inner spans for standalone links.
-func referenceContinuationCloses(lines []string, nextLine, depth int) bool {
-	for _, raw := range lines[nextLine:] {
-		if strings.TrimSpace(raw) == "" {
-			return false
-		}
-		if _, fence := parseFenceOpening(strings.TrimSpace(raw)); fence {
-			return false
-		}
-		if _, _, definition := referenceDefinition(raw); definition {
-			return false
-		}
-		clean := maskWikiLinks(stripInlineCode(raw))
-		for i := 0; i < len(clean); i++ {
-			if markdownEscapeAt(clean, i) {
-				i++
-				continue
-			}
-			if clean[i] == '[' {
-				depth++
-			}
-			if clean[i] == ']' {
-				depth--
-			}
-			if depth == 0 {
-				return true
+		for i := span.start; i < span.end; i++ {
+			if masked[i] != '\n' && masked[i] != '\r' {
+				masked[i] = ' '
 			}
 		}
 	}
-	return false
+	return out, string(masked)
 }

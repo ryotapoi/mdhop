@@ -26,4 +26,4 @@ CLI は行指定の解析・検証・help、core は索引の出現選択と fea
 
 行と原文の一致は同一世代の証明にならない。resolve に本文再読・mtime/hash 検査・世代 token・自動更新・排他制御を追加せず、並行編集・更新をまたぐ snapshot 保証は付けない（[要件](../docs/requirements.md)、[ADR 0036](0036-cache-management-and-location-policy.md)）。呼び出し元の UI / renderer の実装はこの判断に含まない。
 
-主対象は現在対応する単一行の本文リンクである。参照リンクの位置は定義行でなく使用箇所とする。frontmatter の座標は YAML scalar に由来し、タグの raw_link には生成された prefix もあるため、すべての edge の raw_link が本文の逐語的切り出しであるとは保証しない。既存の raw_link 表現を変えず、frontmatter や未対応の複数行文法の保証を広げない。
+本文の inline / reference Markdown リンクは、同一段落内で表示文字・使用側 label が複数物理行にわたる場合も対象とする。この場合は開始物理行と改行（CRLF を含む）を保持した原文で一致させる。参照リンクの位置は定義行でなく使用箇所とする。frontmatter の座標は YAML scalar に由来し、タグの raw_link には生成された prefix もあるため、すべての edge の raw_link が本文の逐語的切り出しであるとは保証しない。既存の raw_link 表現を変えず、frontmatter や未対応文法の保証を広げない。

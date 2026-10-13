@@ -116,7 +116,7 @@ func TestMarkdownBracketBoundaries(t *testing.T) {
 	}{
 		{`\[a\]b](#H)`, 0}, {`\\[a\]b](#H)`, 1},
 	} {
-		if got := parseMarkdownSelfLinks(tt.content, 1, nil); len(got) != tt.count {
+		if got := parseMarkdownSelfLinks(tt.content, 1); len(got) != tt.count {
 			t.Fatalf("self links %q = %+v", tt.content, got)
 		}
 	}
@@ -135,7 +135,7 @@ func TestMarkdownUnmatchedBracketKeepsLaterLink(t *testing.T) {
 			t.Fatalf("spans = %+v", spans)
 		}
 	}
-	if got := parseMarkdownSelfLinks(`[literal\] [a\]b](#H)`, 1, nil); len(got) != 1 {
+	if got := parseMarkdownSelfLinks(`[literal\] [a\]b](#H)`, 1); len(got) != 1 {
 		t.Fatalf("self links = %+v", got)
 	}
 	// A closed unsupported multiline label must still consume its inner link.

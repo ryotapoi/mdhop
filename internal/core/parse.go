@@ -1,6 +1,7 @@
 package core
 
 import (
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -51,38 +52,69 @@ func parseLinks(content string) parseResult {
 		}
 	})
 	tableLines := bodyTableLines(lines, fmEnd)
-	pendingReference := 0
-	previousBodyLine := 0
-	walkBodyLines(lines, fmEnd, func(lineNum int, raw, clean string) {
-		// Blank paragraphs and skipped fenced blocks cannot continue a label.
-		if strings.TrimSpace(raw) == "" || lineNum != previousBodyLine+1 {
-			pendingReference = 0
+	walkBodyParagraphs(lines, fmEnd, func(lineNum int, raw, clean string) {
+		// Wikilinks and tags retain their physical-line grammar.
+		for i, line := range strings.Split(clean, "\n") {
+			out = append(out, parseWikiLinks(line, lineNum+i, tableLines[lineNum+i])...)
 		}
-		previousBodyLine = lineNum
-		if _, _, definition := referenceDefinition(raw); definition {
-			pendingReference = 0
-			return
-		}
-		out = append(out, parseWikiLinks(clean, lineNum, tableLines[lineNum])...)
-		clean = maskWikiLinks(clean)
-		clean = maskReferenceContinuation(clean, &pendingReference)
-		links, tagLine, pending := parseBodyMarkdown(raw, clean, lineNum, definitions, lines[lineNum:])
-		if pending > 0 {
-			pendingReference = pending
-		}
-		// Suppress only a construct that actually closes within this paragraph.
-		// A literal unmatched bracket must not hide later independent links.
-		if pendingReference > 0 && !referenceContinuationCloses(lines, lineNum, pendingReference) {
-			pendingReference = 0
-		}
+		clean = maskParagraphWikiLinks(clean)
+		links, tagText := parseBodyMarkdown(raw, clean, lineNum, definitions)
 		for i := range links {
-			links[i].inTable = tableLines[lineNum]
+			links[i].inTable = tableLines[links[i].lineStart]
 		}
 		out = append(out, links...)
-		out = append(out, parseTags(tagLine, lineNum)...)
+		for i, line := range strings.Split(tagText, "\n") {
+			out = append(out, parseTags(line, lineNum+i)...)
+		}
 	})
+	sort.SliceStable(out, func(i, j int) bool { return out[i].lineStart < out[j].lineStart })
 	result.Links = out
 	return result
+}
+
+// walkBodyParagraphs joins consecutive body lines without changing any bytes.
+// Blank lines, fences, and reference definitions terminate a paragraph.
+func walkBodyParagraphs(lines []string, fmEnd int, fn func(int, string, string)) {
+	var rawLines, cleanLines []string
+	start, previous := 0, 0
+	flush := func() {
+		if len(rawLines) > 0 {
+			fn(start, strings.Join(rawLines, "\n"), strings.Join(cleanLines, "\n"))
+		}
+		rawLines, cleanLines = nil, nil
+	}
+	walkBodyLines(lines, fmEnd, func(lineNum int, raw, clean string) {
+		_, _, definition := referenceDefinition(raw)
+		if lineNum != previous+1 || strings.TrimSpace(raw) == "" || definition {
+			flush()
+		}
+		previous = lineNum
+		if strings.TrimSpace(raw) == "" || definition {
+			return
+		}
+		if len(rawLines) == 0 {
+			start = lineNum
+		}
+		rawLines = append(rawLines, raw)
+		cleanLines = append(cleanLines, clean)
+	})
+	flush()
+}
+
+func maskParagraphWikiLinks(text string) string {
+	lines := strings.Split(text, "\n")
+	for i := range lines {
+		lines[i] = maskWikiLinks(lines[i])
+	}
+	return strings.Join(lines, "\n")
+}
+
+func stripParagraphCode(text string) string {
+	lines := strings.Split(text, "\n")
+	for i := range lines {
+		lines[i] = stripInlineCode(lines[i])
+	}
+	return strings.Join(lines, "\n")
 }
 
 // walkBodyLines iterates the body lines of a Markdown document, skipping the
@@ -268,28 +300,6 @@ func wikiLinkSpans(line string) []wikiLinkSpan {
 	}
 }
 
-// markdownDestinationEnd finds the closing delimiter after a destination,
-// keeping balanced parentheses inside the destination.
-func markdownDestinationEnd(line string, start int) int {
-	depth := 0
-	for i := start; i < len(line); i++ {
-		if line[i] == '\\' && i+1 < len(line) && asciiPunctuation(line[i+1]) {
-			i++
-			continue
-		}
-		switch line[i] {
-		case '(':
-			depth++
-		case ')':
-			if depth == 0 {
-				return i
-			}
-			depth--
-		}
-	}
-	return -1
-}
-
 // markdownInlineDelimiter finds the outer display/destination boundary using
 // the same byte-preserving code mask as body parsing. Extra closing brackets
 // retain the existing parts-extraction behavior; body parsing validates syntax.
@@ -297,7 +307,7 @@ func markdownInlineDelimiter(raw string) int {
 	if !strings.HasPrefix(raw, "[") {
 		return -1
 	}
-	clean := stripInlineCode(raw)
+	clean := maskParagraphWikiLinks(stripParagraphCode(raw))
 	depth := 1
 	for i := 1; i+1 < len(clean); i++ {
 		if markdownEscapeAt(clean, i) {
@@ -318,7 +328,7 @@ func markdownInlineDelimiter(raw string) int {
 }
 
 func parseMarkdownLinks(line string, lineNum int) []linkOccur {
-	links, _, _ := parseBodyMarkdown(line, maskWikiLinks(stripInlineCode(line)), lineNum, nil, nil)
+	links, _ := parseBodyMarkdown(line, maskParagraphWikiLinks(stripParagraphCode(line)), lineNum, nil)
 	return links
 }
 

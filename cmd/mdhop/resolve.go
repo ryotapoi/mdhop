@@ -18,6 +18,8 @@ links fall back to normalized matching. Rebuild or update after editing notes.
 With --line, match only exact indexed raw text and line_start; no fallback.
 Lines are one-based physical source lines, including frontmatter, not display
 or wrapped lines. Reference links use the usage line, not the definition line.
+For multiline Markdown display text/reference labels, use the starting physical
+line and keep the original line breaks (including CRLF) in --link.
 Keep escapes, aliases, embeds, fragments, and spaces exactly as indexed.
 Use the same vault/DB and saved source used to build the index. After saving,
 complete build or an appropriate update/add and obtain positions again; changes

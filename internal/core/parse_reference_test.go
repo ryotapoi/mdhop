@@ -92,7 +92,7 @@ func TestParseMarkdownReferences(t *testing.T) {
 		{"unused external and self definitions", "[unused]: B.md\n[url]: https://example.com\n[self]: #Heading\n[missing] [url] [self]", nil, nil},
 		{"code and frontmatter", "---\nref: '[guide]'\n---\n[guide]: B.md\n`[guide]`\n~~~\n[guide]\n~~~\n[guide]", []string{"[guide]"}, []string{"B"}},
 		{"invalid definitions", "[guide]: B.md junk\n[x]: <C.md>junk\n[guide] [x]", nil, nil},
-		{"multiline label is not partial shortcut", "[id]: B.md\n[text\n][id] [text][\nid]", nil, nil},
+		{"multiline labels", "[id]: B.md\n[text\n][id] [text][\nid]", []string{"[text\n][id]", "[text][\nid]"}, []string{"B", "B"}},
 		{"nested multiline label is not partial shortcut", "[id]: B.md\n[text\n[inner]][id]", nil, nil},
 		{"three-line nested reference is not partial shortcut", "[text\n[id]\n][id]\n[id]: B.md\n", nil, nil},
 		{"nested syntax is not partial shortcut", "[id]: B.md\n[outer [inner]][id] [text][nested[id]]", nil, nil},

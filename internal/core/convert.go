@@ -169,7 +169,7 @@ func convertMarkdownToWikilink(rawLink string, table ...bool) string {
 		return rawLink
 	}
 
-	if strings.Contains(text, "]]") {
+	if strings.Contains(text, "]]") || strings.ContainsAny(text, "\r\n") {
 		return rawLink
 	}
 	separator := "|"
@@ -333,76 +333,30 @@ func isNoteTarget(target, sourcePath string, noteNameSet, notePathSet map[string
 func parseLinksForConvert(content string) parseResult {
 	pr := parseLinks(content)
 
-	// Additional pass: collect markdown self-links.
 	lines := strings.Split(content, "\n")
 	fmEnd := frontmatterEnd(lines)
 	tableLines := bodyTableLines(lines, fmEnd)
-	walkBodyLines(lines, fmEnd, func(lineNum int, raw, clean string) {
-		if _, _, definition := referenceDefinition(raw); definition {
-			return
-		}
-		links := parseMarkdownSelfLinks(maskWikiLinks(clean), lineNum, lines[lineNum:])
+	walkBodyParagraphs(lines, fmEnd, func(lineNum int, raw, clean string) {
+		links := parseMarkdownSelfLinks(raw, lineNum)
 		for i := range links {
-			links[i].inTable = tableLines[lineNum]
+			links[i].inTable = tableLines[links[i].lineStart]
 		}
 		pr.Links = append(pr.Links, links...)
 	})
 	return pr
 }
 
-// parseMarkdownSelfLinks extracts inline Markdown self-links [text](#fragment),
-// including balanced parentheses in the fragment.
-func parseMarkdownSelfLinks(line string, lineNum int, following []string) []linkOccur {
+// parseMarkdownSelfLinks uses the body parser's span model for convert-only
+// inline self-links, preserving the original display bytes.
+func parseMarkdownSelfLinks(raw string, lineNum int) []linkOccur {
+	clean := maskParagraphWikiLinks(stripParagraphCode(raw))
+	b := scanMarkdownBoundaries(clean, lineNum)
 	var out []linkOccur
-	remaining := line
-	for {
-		open := strings.Index(remaining, "[")
-		if open == -1 {
-			break
-		}
-		if markdownBracketEscaped(remaining, open) {
-			remaining = remaining[open+1:]
-			continue
-		}
-		// Skip wikilinks.
-		if open+1 < len(remaining) && remaining[open+1] == '[' {
-			remaining = remaining[open+2:]
-			continue
-		}
-		mid, _ := referenceBracketEnd(remaining, open)
-		if mid < 0 {
-			if referenceContinuationCloses(following, 0, unmatchedBracketDepth(remaining[open:])) {
-				break
-			}
-			remaining = remaining[open+1:]
-			continue
-		}
-		if mid+1 >= len(remaining) || remaining[mid+1] != '(' {
-			remaining = remaining[mid+1:]
-			continue
-		}
-		close := markdownDestinationEnd(remaining, mid+2)
-		if close == -1 {
-			break
-		}
-		rawTarget := strings.TrimSpace(remaining[mid+2 : close])
-		rawLink := remaining[open : close+1]
-
-		// Only self-links: target starts with # and has no path component.
-		target, subpath, external := markdownDestination(rawTarget)
+	for _, span := range markdownSpans(raw, clean, nil, b) {
+		target, subpath, external := markdownDestination(span.destination)
 		if target == "" && subpath != "" && !external {
-			out = append(out, linkOccur{
-				target:     "",
-				isBasename: false,
-				isRelative: false,
-				linkType:   LinkTypeMarkdown,
-				rawLink:    rawLink,
-				subpath:    subpath,
-				lineStart:  lineNum,
-				lineEnd:    lineNum,
-			})
+			out = append(out, linkOccur{linkType: LinkTypeMarkdown, rawLink: raw[span.start:span.end], subpath: subpath, lineStart: b.line[span.start], lineEnd: b.line[span.end-1]})
 		}
-		remaining = remaining[close+1:]
 	}
 	return out
 }

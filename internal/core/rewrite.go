@@ -174,7 +174,17 @@ func replaceBodyLinks(line string, rewrites []rewriteEntry) string {
 			oldDelimiter := markdownInlineDelimiter(re.rawLink)
 			newDelimiter := markdownInlineDelimiter(re.newRawLink)
 			if oldDelimiter >= 0 && newDelimiter >= 0 {
-				prefix := replaceBodyLinks(re.rawLink[:oldDelimiter+2], wikiRewrites)
+				var nested []rewriteEntry
+				for _, wiki := range wikiRewrites {
+					if wiki.lineStart > 0 {
+						wiki.lineStart -= re.lineStart - 1
+						if wiki.lineStart < 1 {
+							continue
+						}
+					}
+					nested = append(nested, wiki)
+				}
+				prefix := replaceBodyLinks(re.rawLink[:oldDelimiter+2], nested)
 				rewrites[i].newRawLink = prefix + re.newRawLink[newDelimiter+2:]
 			}
 		}
@@ -186,7 +196,9 @@ func replaceBodyLinks(line string, rewrites []rewriteEntry) string {
 	var replacements []replacement
 	for _, re := range rewrites {
 		for _, span := range bodyLinkSpans(line, re.rawLink, re.linkType) {
-			replacements = append(replacements, replacement{span, re.newRawLink})
+			if re.lineStart == 0 || 1+strings.Count(line[:span.start], "\n") == re.lineStart {
+				replacements = append(replacements, replacement{span, re.newRawLink})
+			}
 		}
 	}
 	sort.SliceStable(replacements, func(i, j int) bool {
@@ -209,53 +221,25 @@ func replaceBodyLinks(line string, rewrites []rewriteEntry) string {
 }
 
 func bodyLinkSpans(line, old string, linkType LinkType) []bodyLinkSpan {
-	clean := line
-	if linkType == LinkTypeMarkdown {
-		clean = maskWikiLinks(stripInlineCode(line))
-	}
+	clean := stripParagraphCode(line)
 	var spans []bodyLinkSpan
-	for i := 0; i < len(line); {
-		if linkType == LinkTypeMarkdown {
-			if clean[i] != '[' || markdownBracketEscaped(clean, i) {
-				i++
-				continue
-			}
-			end, _ := referenceBracketEnd(clean, i)
-			if end < 0 {
-				i++
-				continue
-			}
-			end++
-			if end < len(clean) && clean[end] == '(' {
-				close := markdownDestinationEnd(clean, end+1)
-				if close < 0 {
-					break
-				}
-				end = close + 1
-			}
-			if line[i:end] == old {
-				spans = append(spans, bodyLinkSpan{i, end})
-			}
-			i = end
-			continue
-		}
-		if line[i] == '`' {
-			backslashes := 0
-			for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
-				backslashes++
-			}
-			if backslashes%2 == 0 {
-				end := inlineCodeEnd(line, i)
-				i = end
-				continue
+	if linkType == LinkTypeMarkdown {
+		clean = maskParagraphWikiLinks(clean)
+		boundaries := scanMarkdownBoundaries(clean, 1)
+		for _, span := range markdownSpans(line, clean, nil, boundaries) {
+			if line[span.start:span.end] == old {
+				spans = append(spans, bodyLinkSpan{span.start, span.end})
 			}
 		}
+		return spans
+	}
+	for i := 0; i < len(clean); {
 		if strings.HasPrefix(clean[i:], old) {
 			spans = append(spans, bodyLinkSpan{i, i + len(old)})
 			i += len(old)
-			continue
+		} else {
+			i++
 		}
-		i++
 	}
 	return spans
 }
@@ -391,27 +375,39 @@ func rewriteContentCandidate(content []byte, rewrites []rewriteEntry) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	lines := strings.Split(string(candidate), "\n")
-	lineEntries := make(map[int][]int)
-	for i, re := range rewrites {
-		if re.linkType != LinkTypeFrontmatterWikilink {
-			lineEntries[re.lineStart] = append(lineEntries[re.lineStart], i)
-		}
+	text := string(candidate)
+	lines := strings.Split(text, "\n")
+	lineOffsets := make([]int, len(lines))
+	for i := 1; i < len(lines); i++ {
+		lineOffsets[i] = lineOffsets[i-1] + len(lines[i-1]) + 1
 	}
-	for lineNum, indexes := range lineEntries {
-		if lineNum < 1 || lineNum > len(lines) {
-			continue
+	var result strings.Builder
+	end := 0
+	// Use the parser's body boundaries before pairing any delimiters. Full
+	// document pairing could let unmatched prose or frontmatter own a link
+	// that the index correctly recognizes in a separate paragraph.
+	walkBodyParagraphs(lines, frontmatterEnd(lines), func(lineNum int, raw, _ string) {
+		var entries []rewriteEntry
+		var indexes []int
+		lastLine := lineNum + strings.Count(raw, "\n")
+		for i, re := range rewrites {
+			if re.linkType != LinkTypeFrontmatterWikilink && re.lineStart >= lineNum && re.lineStart <= lastLine {
+				re.lineStart -= lineNum - 1
+				entries = append(entries, re)
+				indexes = append(indexes, i)
+			}
 		}
-		entries := make([]rewriteEntry, 0, len(indexes))
-		for _, index := range indexes {
-			entries = append(entries, rewrites[index])
-		}
-		lines[lineNum-1] = replaceBodyLinks(lines[lineNum-1], entries)
+		start := lineOffsets[lineNum-1]
+		result.WriteString(text[end:start])
+		result.WriteString(replaceBodyLinks(raw, entries))
+		end = start + len(raw)
 		for i, index := range indexes {
 			rewrites[index].newRawLink = entries[i].newRawLink
 		}
-	}
-	return []byte(strings.Join(lines, "\n")), nil
+	})
+	result.WriteString(text[end:])
+	candidate = []byte(result.String())
+	return candidate, nil
 }
 
 func applyPreparedFileRewrites(prepared []preparedFileRewrite) (map[int64]int64, []rewriteBackup, []rollbackFailure, error) {

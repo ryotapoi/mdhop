@@ -14,6 +14,7 @@ mdhop は、Obsidian Vault 相当の Markdown リポジトリを事前解析し�
 - 曖昧なリンクは静かに候補を選ばずエラーにする。basename の衝突そのものを禁止せず、明確なパスやルート優先によって一意に解決できるリンクは許す。
 - wikilink の basename をできるだけ短く使いながら、衝突や移動で意味が変わる場合だけ書き換えて元の参照先を維持する。表記が一意に戻った際の短縮は明示操作とし、通常の更新で Git 差分を揺らさない。
 - Markdown link・参照リンク定義・画像・asset は元ノート相対で解決し、先頭 `/` は Vault ルート基準とする。裸名の Vault 全体探索やルートへのフォールバックを行わず、wikilink と frontmatter raw path の解釈は独立して維持する。
+- 本文の inline / reference Markdown リンクは同一段落内の複数行表示文字・使用側 label を扱い、原文の改行（LF/CRLF）と開始・終了物理行を保持する。位置指定 resolve は開始行と完全原文で選択する。参照 label の改行は空白へ正規化する。空行・fence・定義行を越えず、inline の宛先・title と参照定義は単一行に限る。nested / escaped reference label、多行 wikilink、任意の Markdown block 文法への拡張は行わない。
 - 書き換えは参照先と表示の意味を保存する。自動書き換えできない参照定義や frontmatter の raw path 値の意味を変える操作、予定した YAML source と値の対応を証明できない操作は、変更前に拒否する。
 - ノート操作の範囲は、正規化した Vault 相対の指定パスで判定する。`../a.md` 等で論理的な Vault 範囲を脱出する指定と、意図しない上書きは拒否する。ファイルとディレクトリは通常の filesystem の操作規則に従って扱い、symlink に独自の許可・拒否規則を設けない。symlink 参照先の物理的な位置は操作範囲の判定に使わない。復元失敗は報告する。
 
