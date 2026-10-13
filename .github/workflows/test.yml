@@ -34,3 +34,7 @@ jobs:
       - name: All tests
         if: always()
         run: go test ./...
+      - name: Temporary A3-02 CLI verification
+        run: |
+          go build -o bin/mdhop ./cmd/mdhop
+          python3 ci-a3-02-smoke.py
