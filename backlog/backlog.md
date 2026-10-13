@@ -256,10 +256,11 @@
   - 保守性・リスク: NFC を索引上の識別に使う既存設計を維持し、異なる実ファイルの誤統合・取り違えを防ぐ。エラー時は利用者が衝突する名前を変更して再 build する。
   - 検証: [Ubuntu/macOS CI](https://github.com/ryotapoi/mdhop/actions/runs/38338531171)（`1e6ba35e1d0f5f540363753d27f2381a7a7da47c`）で集中・全 suite・実 CLI に成功。Ubuntu 24 / ext4 は NFC/NFD の両 entry と異なる bytes を列挙し、新規 5 subcase を skip なしで確認。初回ノート・全量 asset・差分の祖先フォルダー衝突を拒否し、正規化パスと ASCII escape した両実名を診断、初回 DB 非公開・既存 DB bytes 保持・入力無変更・一時 DB 残留なしを確認。除外だけの衝突は登録対象外とし、一部の子を選択する場合は祖先衝突を拒否する。単一 NFD 候補と索引作成後の resolver / Add / move 衝突拒否も成功。macOS 15 は単一候補の成功と全 suite を保ち、新規衝突 5 subcase のみ列挙 count=1 の filesystem alias を理由に skip。ローカル macOS で集中・全 test、build、vet と実 CLI の単一 NFD 初回・全量・差分 build を確認。
 
-- [ ] move の CLI のフォルダー判定を共通の実パス解決に揃える（A1-02）
+- [x] move の CLI のフォルダー判定を共通の実パス解決に揃える（A1-02）
   - 問題: ディスク上のフォルダーが NFD 表記の Café、指定が NFC の Café の場合、正規化表記を区別する環境では末尾 `/` なしの move がフォルダーと認識せず、ファイル移動の経路で失敗する。
   - 対応: 指定を既存 resolver で実際のディスク表記へ解決してからフォルダーか判定する。A9-02 / A3-02 と共通の解決処理を使い、CLI に別の正規化探索を追加しない。
   - 完了条件: `move --from Café --to Archive` と --to-template の末尾 `/` なし指定でも、実在フォルダーを正しく選択する。末尾 `/` の明示指定を維持し、正規化名の衝突は一方を黙って選ばない。Ubuntu CI で該当環境の回帰を確認する。
+  - 検証: [Ubuntu/macOS CI](https://github.com/ryotapoi/mdhop/actions/runs/38339824346)（`9921423b2f7b08a984a3f07c567f9e923e399d76`）で core・CLI 集中、全 suite、実 CLI に成功。対象 Go・依存・fixture 414 files が作業 snapshot と一致。Ubuntu / ext4 は NFD entry bytes と NFC 直接 Stat の不在を観測し、末尾 `/` なしの --to・template apply / dry-run、明示 `/`、不在 source の明示 directory、symlink directory、移動済み file を確認。索引作成後の NFC/NFD directory 衝突 4 経路を含む新規 11 subcase は skip なしで成功し、衝突時の空 stdout・disk/DB bytes 無変更を確認。実 CLI は NFC JSON / DB、file とリンク更新、dry-run 無変更、および衝突時の非ゼロ終了を確認。macOS は成功経路と全 suite を実行し、衝突 4 subcase のみ列挙 count=1 の filesystem alias を理由に skip。ローカルで集中・全 test、build、vet と実 CLI も成功。
 
 - [ ] resolve の fallback を build と同じリンク解決規則に揃える（A5-1）
   - 問題: F.md と F.md.md が存在し、Source.md に `[original](F.md.md)` と `[[F]]` がある場合、resolve に登録済みの前者を渡すと F.md.md を返すが、表示文字だけ違う `[other](F.md.md)` を渡すと F.md を返す。索引に完全一致しないリンクを解釈し直す fallback の候補選択が build と異なる。
