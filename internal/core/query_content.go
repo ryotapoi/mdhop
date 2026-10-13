@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-func readHead(vaultPath string, source contentSource, n int) ([]string, error) {
-	fullPath, err := newVaultDiskPathResolver(vaultPath).existingPath(source.path)
+func readHead(diskPaths *vaultDiskPathResolver, source contentSource, n int) ([]string, error) {
+	fullPath, err := diskPaths.existingPath(source.path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("%w: %s", ErrFileNotFound, source.path)
@@ -50,9 +50,8 @@ func readHead(vaultPath string, source contentSource, n int) ([]string, error) {
 	return head, nil
 }
 
-func readSnippets(vaultPath string, sources []snippetSource, contextLines int, fileCache map[string][]string) ([]SnippetEntry, error) {
+func readSnippets(diskPaths *vaultDiskPathResolver, sources []snippetSource, contextLines int, fileCache map[string][]string) ([]SnippetEntry, error) {
 	var snippets []SnippetEntry
-	diskPaths := newVaultDiskPathResolver(vaultPath)
 
 	for _, source := range sources {
 		if _, ok := fileCache[source.path]; !ok {

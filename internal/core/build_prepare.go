@@ -67,7 +67,7 @@ func prepareBuildWithout(vaultPath, omittedAsset string, locations ...Locations)
 }
 
 func readBuildNote(inputs *buildInputs, rel string) (preparedNote, error) {
-	fullPath, err := newVaultDiskPathResolver(inputs.root).existingPath(rel)
+	fullPath, err := inputs.disk.existingPath(rel)
 	if err != nil {
 		return preparedNote{}, err
 	}

@@ -2,6 +2,7 @@ package core
 
 // addQueryPreviews runs after filtering, hiding, sorting, and paging.
 func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOptions, result *QueryResult) error {
+	diskPaths := newReadVaultDiskPathResolver(vault)
 	addHead := func(node *QueryNode) error {
 		if opts.IncludeHead == nil || node.Type != NodeTypeNote {
 			return nil
@@ -10,7 +11,7 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		if err != nil {
 			return err
 		}
-		node.Head, err = readHead(vault, source, *opts.IncludeHead)
+		node.Head, err = readHead(diskPaths, source, *opts.IncludeHead)
 		if err == nil && node.Head == nil {
 			node.Head = []string{}
 		}
@@ -32,7 +33,7 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		if err != nil {
 			return err
 		}
-		node.Snippet, err = readSnippets(vault, sources, *opts.IncludeSnippet, snippetCache)
+		node.Snippet, err = readSnippets(diskPaths, sources, *opts.IncludeSnippet, snippetCache)
 		if err == nil && node.Snippet == nil {
 			node.Snippet = []SnippetEntry{}
 		}

@@ -79,7 +79,7 @@ func Inspect(vaultPath, file string, opts InspectOptions, locations ...Locations
 		if err != nil {
 			return nil, err
 		}
-		result.Head, err = readHead(vaultPath, source, *opts.IncludeHead)
+		result.Head, err = readHead(newVaultDiskPathResolver(vaultPath), source, *opts.IncludeHead)
 		if err != nil {
 			return nil, err
 		}

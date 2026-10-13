@@ -96,7 +96,7 @@ func TestNFDSymlinkAdd(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			head, err := readHead(vault, source, 2)
+			head, err := readHead(newReadVaultDiskPathResolver(vault), source, 2)
 			if err != nil || !reflect.DeepEqual(head, []string{"# Content", "[[Target]]"}) {
 				t.Fatalf("content = %v, %v", head, err)
 			}

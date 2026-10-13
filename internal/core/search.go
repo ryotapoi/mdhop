@@ -286,6 +286,7 @@ func Search(vaultPath string, opts SearchOptions, locations ...Locations) (*Sear
 
 	wantMeta := wantMetaFields(opts.Fields)
 	wantHead := opts.IncludeHead > 0
+	diskPaths := newReadVaultDiskPathResolver(vaultPath)
 
 	items := make([]SearchResultItem, len(rowItems))
 	for i, rd := range rowItems {
@@ -310,7 +311,7 @@ func Search(vaultPath string, opts SearchOptions, locations ...Locations) (*Sear
 			if err != nil {
 				return nil, err
 			}
-			head, err := readHead(vaultPath, source, opts.IncludeHead)
+			head, err := readHead(diskPaths, source, opts.IncludeHead)
 			if err != nil {
 				return nil, err
 			}

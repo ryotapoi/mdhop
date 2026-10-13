@@ -30,7 +30,7 @@ jobs:
             mount
           fi
       - name: Unicode path regressions
-        run: go test -count=1 -v ./internal/core -run '^Test(MoveNFD|NFDSymlink|BuildUnicode|BuildNormalizesUnicodePathsToNFC)'
+        run: go test -count=1 -v ./internal/core -run '^Test(MoveNFD|NFDSymlink|BuildUnicode|BuildNormalizesUnicodePathsToNFC|ReadDiskPathResolver|BuildCachedDiskNames|ReadHeadSharedResolver)'
       - name: Move CLI directory regressions
         run: go test -count=1 -v ./cmd/mdhop -run '^TestRunMove'
       - name: All tests

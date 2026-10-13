@@ -306,10 +306,11 @@
   - 完了条件: 長い該当段落の変更前後を同条件で比較し、入力増加に伴う反復探索を抑える。必要な探索は保持し、リンク抽出・コード保護・段落/fence/参照定義境界の結果を維持する。一般の複数行リンクすべてが遅いとは扱わない。
   - 検証: A4-03 の実装済み改善を旧版と現行の128/512/2048行で直列交互に反復計測し、旧版の二次的増加が現行で抑えられること、抽出結果・既存境界test・実CLI full build索引を確認。今回の本番変更はなく、baseline/final差は改善と扱わない。通常段落の時間・割当増と測定限界を含む[計測記録](../cache/multiline-reference-performance.md)を保存。
 
-- [ ] improve-performance で build・preview のファイル名対応表の再構築を減らす（A3-04）
-  - 問題: 名前の Unicode 表記差により直接 Stat が失敗する環境で、ノートごとに resolver を作り直し、同じ Vault 全体の対応表を繰り返し構築する。個々のファイルの読取りが必要であることとは別の重複処理。
-  - 対応: 操作単位で既存 vaultDiskPathResolver を再利用する。build と preview の直接の読取り経路に共有する寿命を限定し、新しいグローバル cache は導入しない。
+- [x] improve-performance で build・preview のファイル名対応表の再構築を減らす（A3-04）
+  - 問題: A3-02 後は Vault 全体の対応表がなく、要求 path の各 component で同じ directory の ReadDir と実名の NFC 比較を反復する。exact/NFD とも個々の本文読取りとは別の重複処理。
+  - 対応: build の入力採取・本文、query の head/snippet、search の head で操作寿命 resolver と directory 対応を共有。directory 実体・mtime・size・mode が変われば再構築し、公開前は fresh に入力を再採取する。mutation resolver と本文 cache の契約は維持。global cache は導入しない。
   - 完了条件: NFC/NFD を区別する環境の代表入力で変更前後を比較し、一操作内で同じ対応表を繰り返し作らないことを確認する。通常の exact lookup、曖昧な実名、入力変動の既存契約を維持する。Ubuntu CI を使い、手元の macOS だけで成立と判断しない。
+  - 検証: Ubuntu ext4 で NFD実名の存在とNFC direct lookup不成立を観測。1,600ノートの full build中央値2.6062→0.2509秒、query(head/snippet)1.8735→0.2503秒、ReadDirはfull9,603→10（採取/最終確認各一回）、query6,400→5。exact・差分build・searchも出力/索引一致で改善。Ubuntu/macOS CIと全tests/build/vet成功、メモリの代償・再現手順は[計測記録](../cache/a3-04/results.md)。
 
 - [ ] 一括移動の同名衝突ごとに繰り返す全リンク取得をまとめる（A9-10）
   - 分類: 明確な重複処理の不具合修正。原因が既知なので、対象を絞って正しく修正する。性能計測や improve-performance の実行は完了条件にしない。
