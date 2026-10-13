@@ -241,11 +241,12 @@
   - 検証結果: [修正前 CI](https://github.com/ryotapoi/mdhop/actions/runs/38288161847) で NFD 実名の byte と NFC 直接 Stat の not-exist、単一 move の source-file-missing を確認。[修正後 CI](https://github.com/ryotapoi/mdhop/actions/runs/38289416612) は Ubuntu ext4 / macOS APFS の両方で NFD 回帰 13 RUN / 13 PASS / 0 FAIL / 0 SKIP と全 suite が成功。リンク・索引、already-moved、directory の asset / disk-only、template、stale 拒否、失敗時の元実名・内容・mtime・permission の復元を確認した。
   - 保守性・リスク: 既存 resolver の disk map へ統一し、論理パスと移動前に保持した実パスを区別して移動・復元する。正規化衝突の一般検出、symlink 配下の解決全般、CLI の末尾 `/` なしフォルダー判定、resolver 性能改善は各既存タスクで扱う。
 
-- [ ] 表記の異なる symlink フォルダー配下も既存 resolver で解決する（A3-02）
+- [x] 表記の異なる symlink フォルダー配下も既存 resolver で解決する（A3-02）
   - 問題: NFD 表記の Café というフォルダー symlink 配下に A.md が存在しても、NFC の Café/A.md を指定すると、両表記を区別する filesystem では既存 resolver が子ファイルを見つけられない。
   - 対応: パスの祖先を実際のディスク表記へ解決し、その配下の残りのパスを辿る。既存 resolver に集約して A9-02 の move 経路でも利用する。symlink は通常の filesystem の参照として扱い、物理的に Vault 外へ向くことだけを理由に拒否しない。
   - 完了条件: 正規化した指定から symlink フォルダー配下の実ファイルを add 等で利用できる。正規化後に複数候補がある場合は一方を黙って選ばない。Ubuntu CI で環境条件を確認して再現・回帰検証し、macOS の既存動作も保つ。
-  - 保守性・リスク: 独自の全 symlink 再帰走査を追加せず、必要なパスを既存の解決処理で辿る。祖先と子の実表記を扱う検証が必要。現状の指摘は操作拒否で、対象 filesystem での実行再現は未実施。
+  - 保守性・リスク: 独自の全 symlink 再帰走査を追加せず、共通 resolver が要求された各要素の実表記を辿る。書込範囲は論理 Vault 相対で判定し、末端 dangling symlink は削除・移動する entry の実表記を保持する。
+  - 検証: [修正前 CI](https://github.com/ryotapoi/mdhop/actions/runs/38336507725)（`1779fab4a05543d2904c030b66d2d6364100550b`）で Ubuntu 24 / ext4 の NFD entry bytes と NFC 直接 Stat の not-exist を確認し、resolver / Add / move の失敗を再現。[修正後 CI](https://github.com/ryotapoi/mdhop/actions/runs/38337108642)（`9d51824bc35b6d1f5caf354537a5cf525fe6a8f4`）は両 OS の集中・全 suite・実バイナリ確認に成功。Ubuntu は新規対象 skip 0、CLI の正規化衝突拒否で disk / DB 無変更。macOS 15 は NFD 実名と内外向き symlink の成功経路を確認し、filesystem が NFC/NFD を同一 entry とする衝突ケース 2 件のみ理由付き skip。ローカル macOS でも集中・全 test、build、vet と NFC 指定 Add / move の本文・DB を確認。
 
 - [ ] Unicode 正規化後に同じパスとなる複数のディスク項目があれば build を拒否する
   - 決定した仕様: mdhop は索引・リンクのパスを NFC に統一する。一つの正規化パスに複数の実ファイル・フォルダーが対応する構成は、どちらかを選ばずエラーにする。例は同じ親の下にある NFC の Café.md と NFD の Café.md。大小文字だけが異なるパスの扱いとは別の規則。

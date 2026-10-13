@@ -30,7 +30,7 @@ jobs:
             mount
           fi
       - name: Unicode move regressions
-        run: go test -count=1 -v ./internal/core -run '^TestMoveNFD'
+        run: go test -count=1 -v ./internal/core -run '^Test(MoveNFD|NFDSymlink)'
       - name: All tests
         if: always()
         run: go test ./...
