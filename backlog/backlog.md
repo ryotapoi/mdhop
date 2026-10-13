@@ -233,12 +233,13 @@
   - 完了条件: note→asset と asset→note の双方を、ファイル・本文・索引の変更前に拒否する。一括移動では該当する移動を含む全体を事前拒否する。ノート同士・asset 同士の移動と、`.md` の大小文字を区別しない分類を維持する。
   - 保守性・頻度・リスク: 種類移行に伴う索引・meta・リンクの更新分岐を増やさず、build に集約する。種類をまたぐ改名で発生し、頻度は未測定。move 直後と再 build 後の誤分類・参照結果の不一致を防ぐ。
 
-- [ ] move のディスク操作を Unicode 正規化前の実ファイル名へ解決する（A9-02）
-  - 問題: 索引では NFC の Café.md に統一するが、ディスクが NFD の Café.md の場合、両表現を区別する filesystem では move の直接の存在確認・読み取り・rename が実ファイルを見失う。手元の macOS では失敗を再現できていない。
+- [x] move のディスク操作を Unicode 正規化前の実ファイル名へ解決する（A9-02）
+  - 問題: 索引では NFC の Café.md に統一するが、ディスクが NFD の Café.md の場合、両表現を区別する filesystem では move の直接の存在確認・読み取り・rename が実ファイルを見失う。Ubuntu CI の ext4 で修正前の移動拒否を再現した。
   - 対応: 既存 vaultDiskPathResolver でディスク上の実際の綴りを取得し、索引・リンク用の論理パスと区別して存在確認・mtime 検査・読取・移動・復元へ渡す。
   - 完了条件: NFD 名の実ファイルを build で登録した後、NFC の指定で正しく移動でき、リンクと索引を更新する。失敗時も同じ実パスで復元する。既存の macOS 経路を維持する。
   - 検証環境: 既存 GitHub Actions の ubuntu-latest / macos-15 matrix を利用する。テスト内で NFD 名を生成し、NFC の直接アクセスでは見つからないという環境条件を確認してから、Ubuntu 側で修正前の失敗と修正後の成功を確認する。該当ケースが CI で未実行・skip のまま成功扱いにならないよう確認する。runner の実際の filesystem 条件と実行結果は着手時に記録する。
-  - 保守性・リスク: 既存 resolver に統一し、独自の Unicode 解決を増やさない。移動の各段階と rollback に実パスを渡す範囲の検証が必要。確認された懸念は移動拒否であり、対象 filesystem での実行検証は未実施。
+  - 検証結果: [修正前 CI](https://github.com/ryotapoi/mdhop/actions/runs/38288161847) で NFD 実名の byte と NFC 直接 Stat の not-exist、単一 move の source-file-missing を確認。[修正後 CI](https://github.com/ryotapoi/mdhop/actions/runs/38289416612) は Ubuntu ext4 / macOS APFS の両方で NFD 回帰 13 RUN / 13 PASS / 0 FAIL / 0 SKIP と全 suite が成功。リンク・索引、already-moved、directory の asset / disk-only、template、stale 拒否、失敗時の元実名・内容・mtime・permission の復元を確認した。
+  - 保守性・リスク: 既存 resolver の disk map へ統一し、論理パスと移動前に保持した実パスを区別して移動・復元する。正規化衝突の一般検出、symlink 配下の解決全般、CLI の末尾 `/` なしフォルダー判定、resolver 性能改善は各既存タスクで扱う。
 
 - [ ] 表記の異なる symlink フォルダー配下も既存 resolver で解決する（A3-02）
   - 問題: NFD 表記の Café というフォルダー symlink 配下に A.md が存在しても、NFC の Café/A.md を指定すると、両表記を区別する filesystem では既存 resolver が子ファイルを見つけられない。

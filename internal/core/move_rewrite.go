@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -263,9 +262,9 @@ func buildMovedFileRewrites(db dbExecer, vaultPath string, moves []moveInfo, dm 
 		}
 		var diskPath string
 		if needDiskMove {
-			diskPath = filepath.Join(vaultPath, m.from)
+			diskPath = m.fromDisk
 		} else {
-			diskPath = filepath.Join(vaultPath, m.to)
+			diskPath = m.toDisk
 		}
 		info, err := os.Stat(diskPath)
 		if err != nil {
