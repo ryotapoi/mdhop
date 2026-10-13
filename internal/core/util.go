@@ -27,12 +27,14 @@ func newVaultDiskPathResolver(vaultPath string) *vaultDiskPathResolver {
 	return &vaultDiskPathResolver{vaultPath: vaultPath}
 }
 
+// existingPath resolves an existing directory entry. Callers that read its
+// target use Stat or ReadFile, so a dangling terminal symlink retains its spelling.
 func (r *vaultDiskPathResolver) existingPath(rel string) (string, error) {
 	path, err := r.resolvePath(rel, false)
 	if err != nil {
 		return "", err
 	}
-	if _, err := os.Stat(path); err != nil {
+	if _, err := os.Lstat(path); err != nil {
 		return "", err
 	}
 	return path, nil

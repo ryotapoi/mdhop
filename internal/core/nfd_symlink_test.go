@@ -55,8 +55,12 @@ func TestNFDSymlinkResolver(t *testing.T) {
 			if err != nil || got != filepath.Join(vault, "Cafe\u0301/Re\u0301sume\u0301/Prive\u0301/De\u0301ad.md") {
 				t.Fatalf("terminal = %q, %v", got, err)
 			}
-			if _, err := resolver.existingPath("Café/Résumé/Privé/Déad.md"); !os.IsNotExist(err) {
-				t.Fatalf("dangling read error = %v", err)
+			got, err = resolver.existingPath("Café/Résumé/Privé/Déad.md")
+			if err != nil || got != filepath.Join(vault, "Cafe\u0301/Re\u0301sume\u0301/Prive\u0301/De\u0301ad.md") {
+				t.Fatalf("dangling entry = %q, %v", got, err)
+			}
+			if _, err := os.Stat(got); !os.IsNotExist(err) {
+				t.Fatalf("dangling target Stat = %v", err)
 			}
 		})
 	}
