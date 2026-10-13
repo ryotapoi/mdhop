@@ -35,15 +35,13 @@ func TestWritablePathSymlinkBoundary(t *testing.T) {
 	}
 	for _, root := range []string{vault, rootLink} {
 		resolver := newVaultDiskPathResolver(root)
-		for _, name := range []string{"External.md", "external-dir/Note.md", "Café.md"} {
-			if _, err := resolver.writablePath(name); err == nil {
-				t.Fatalf("%s: accepted external path %s", root, name)
+		for _, name := range []string{"External.md", "external-dir/Note.md", "Café.md", "Note.md", "Internal.md", "internal-dir/Note.md"} {
+			if _, err := resolver.writablePath(name); err != nil {
+				t.Fatalf("%s: rejected filesystem path %s: %v", root, name, err)
 			}
 		}
-		for _, name := range []string{"Note.md", "Internal.md", "internal-dir/Note.md"} {
-			if _, err := resolver.writablePath(name); err != nil {
-				t.Fatalf("%s: rejected internal path %s: %v", root, name, err)
-			}
+		if _, err := resolver.writablePath("../Note.md"); err == nil {
+			t.Fatal("accepted logical escape")
 		}
 	}
 }
@@ -67,7 +65,6 @@ func TestSetSymlinkBoundary(t *testing.T) {
 			if _, err := Build(vault); err != nil {
 				t.Fatal(err)
 			}
-			beforeDB := mustReadFile(t, dbPath(vault))
 			root := vault
 			if !external {
 				root = filepath.Join(t.TempDir(), "vault")
@@ -76,29 +73,17 @@ func TestSetSymlinkBoundary(t *testing.T) {
 				}
 			}
 			_, err := Set(root, SetOptions{File: "Link.md", Key: "status", Value: "done"})
-			if external {
-				if err == nil {
-					t.Fatal("set accepted external symlink")
-				}
-				if got := readTestFile(t, target); got != original {
-					t.Fatalf("external content changed: %q", got)
-				}
-				if string(mustReadFile(t, dbPath(vault))) != string(beforeDB) {
-					t.Fatal("index changed on rejected set")
-				}
-			} else {
-				if err != nil {
-					t.Fatal(err)
-				}
-				if !strings.Contains(readTestFile(t, target), "status: done") {
-					t.Fatal("internal target was not updated")
-				}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(readTestFile(t, target), "status: done") {
+				t.Fatal("target was not updated")
 			}
 		})
 	}
 }
 
-func TestRewriteCommandsRejectExternalSymlinkBeforeAnyWrite(t *testing.T) {
+func TestRewriteCommandsAllowExternalSymlink(t *testing.T) {
 	for _, command := range []string{"add", "convert", "convert-root-link"} {
 		t.Run(command, func(t *testing.T) {
 			vault := t.TempDir()
@@ -121,7 +106,6 @@ func TestRewriteCommandsRejectExternalSymlinkBeforeAnyWrite(t *testing.T) {
 			if _, err := Build(vault); err != nil {
 				t.Fatal(err)
 			}
-			beforeDB := mustReadFile(t, dbPath(vault))
 			var err error
 			if command == "add" {
 				if err := os.WriteFile(filepath.Join(vault, "B.md"), []byte("# Root B\n"), 0o644); err != nil {
@@ -138,16 +122,17 @@ func TestRewriteCommandsRejectExternalSymlinkBeforeAnyWrite(t *testing.T) {
 				}
 				_, err = Convert(root, ConvertOptions{ToFormat: "markdown"})
 			}
-			if err == nil {
-				t.Fatal("accepted external rewrite candidate")
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "[B](/sub/B.md)\n"
+			if command == "add" {
+				want = "[[sub/B]]\n"
 			}
 			for _, path := range []string{filepath.Join(vault, "A.md"), outside} {
-				if got := readTestFile(t, path); got != content {
-					t.Fatalf("%s changed: %q", path, got)
+				if got := readTestFile(t, path); got != want {
+					t.Fatalf("%s = %q; want %q", path, got, want)
 				}
-			}
-			if string(mustReadFile(t, dbPath(vault))) != string(beforeDB) {
-				t.Fatal("index changed on rejected rewrite")
 			}
 		})
 	}
@@ -172,18 +157,18 @@ func TestRewriteApplyAndRestoreRecheckSymlinkBoundary(t *testing.T) {
 	if err := os.Symlink(outside, path); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err := applyPreparedFileRewrites(prepared); err == nil {
-		t.Fatal("apply accepted replaced symlink")
+	if _, _, _, err := applyPreparedFileRewrites(prepared); err != nil {
+		t.Fatal(err)
 	}
 	backup := rewriteBackup{path: "Note.md", content: []byte("backup\n"), perm: 0o644, mtime: time.Unix(1234567890, 0)}
-	if failures := restoreBackupFiles(vault, []rewriteBackup{backup}); len(failures) != 1 {
+	if failures := restoreBackupFiles(vault, []rewriteBackup{backup}); len(failures) != 0 {
 		t.Fatalf("restore failures = %v", failures)
 	}
-	if failures := restoreSetBackup(vault, path, "Note.md", setBackup{content: backup.content, perm: backup.perm, modTime: time.Now()}); len(failures) != 1 {
+	if failures := restoreSetBackup(vault, path, "Note.md", setBackup{content: backup.content, perm: backup.perm, modTime: time.Now()}); len(failures) != 0 {
 		t.Fatalf("set restore failures = %v", failures)
 	}
-	if got := readTestFile(t, outside); got != "[[Old]]\n" {
-		t.Fatalf("external content changed: %q", got)
+	if got := readTestFile(t, outside); got != "backup\n" {
+		t.Fatalf("restored external content = %q", got)
 	}
 	// Missing ordinary files retain the existing rollback recreation behavior.
 	if err := os.Remove(path); err != nil {
@@ -197,7 +182,7 @@ func TestRewriteApplyAndRestoreRecheckSymlinkBoundary(t *testing.T) {
 	}
 }
 
-func TestRestoreRejectsSymlinkEscapeWithMissingTarget(t *testing.T) {
+func TestRestoreMissingTargetFilesystemSemantics(t *testing.T) {
 	for _, ancestor := range []bool{false, true} {
 		t.Run(map[bool]string{false: "dangling-leaf", true: "ancestor"}[ancestor], func(t *testing.T) {
 			vault := t.TempDir()
@@ -213,17 +198,26 @@ func TestRestoreRejectsSymlinkEscapeWithMissingTarget(t *testing.T) {
 				t.Fatal(err)
 			}
 			failures := restoreBackupFiles(vault, []rewriteBackup{{path: relative, content: []byte("backup\n"), perm: 0o644, mtime: time.Unix(1234567890, 0)}})
-			if len(failures) != 1 {
-				t.Fatalf("restore failures = %v", failures)
-			}
-			if _, err := os.Stat(missing); !os.IsNotExist(err) {
-				t.Fatalf("external target created: %v", err)
+			if ancestor {
+				if len(failures) != 0 {
+					t.Fatalf("restore failures = %v", failures)
+				}
+				if got := readTestFile(t, missing); got != "backup\n" {
+					t.Fatalf("restored content = %q", got)
+				}
+			} else {
+				if len(failures) != 1 {
+					t.Fatalf("dangling leaf failures = %v", failures)
+				}
+				if _, err := os.Stat(missing); !os.IsNotExist(err) {
+					t.Fatalf("dangling target created: %v", err)
+				}
 			}
 		})
 	}
 }
 
-func TestMovedRewriteRejectsExternalSymlink(t *testing.T) {
+func TestMovedRewriteAllowsExternalSymlink(t *testing.T) {
 	vault := t.TempDir()
 	outside := filepath.Join(t.TempDir(), "Outside.md")
 	if err := os.WriteFile(outside, []byte("[[Old]]\n"), 0o644); err != nil {
@@ -235,18 +229,18 @@ func TestMovedRewriteRejectsExternalSymlink(t *testing.T) {
 	moved := []movedFileRewrite{{move: moveInfo{from: "Note.md", to: "New.md", fromDisk: filepath.Join(vault, "Note.md"), toDisk: filepath.Join(vault, "New.md")}, original: []byte("[[Old]]\n"), content: []byte("[[Old]]\n"), perm: 0o644,
 		outRewrites: []outgoingRewrite{{rawLink: "[[Old]]", newRawLink: "[[New]]", linkType: LinkTypeWikilink, lineStart: 1}},
 	}}
-	if err := prepareMovedFileRewrites(vault, moved, true); err == nil {
-		t.Fatal("prepare accepted external moved note")
+	if err := prepareMovedFileRewrites(vault, moved, true); err != nil {
+		t.Fatal(err)
 	}
-	if _, _, err := applyMovedFileRewrites(vault, moved, true); err == nil {
-		t.Fatal("apply accepted external moved note")
+	if _, _, err := applyMovedFileRewrites(vault, moved, true); err != nil {
+		t.Fatal(err)
 	}
-	if got := readTestFile(t, outside); got != "[[Old]]\n" {
+	if got := readTestFile(t, outside); got != "[[New]]\n" {
 		t.Fatalf("external content changed: %q", got)
 	}
 }
 
-func TestRewriteRollbackRejectsReplacedSymlink(t *testing.T) {
+func TestRewriteRollbackRestoresThroughReplacedSymlink(t *testing.T) {
 	vault := t.TempDir()
 	path := filepath.Join(vault, "Note.md")
 	outside := filepath.Join(t.TempDir(), "Outside.md")
@@ -267,7 +261,7 @@ func TestRewriteRollbackRejectsReplacedSymlink(t *testing.T) {
 	}
 	t.Cleanup(func() { rewriteWriteFile = oldWrite })
 	_, _, failures, err := applyFileRewritesWithRollbackFailures(vault, []rewriteEntry{{sourcePath: "Note.md", rawLink: "[[Old]]", newRawLink: "[[New]]", linkType: LinkTypeWikilink, lineStart: 1}})
-	if err == nil || len(failures) != 1 {
+	if err == nil || len(failures) != 0 {
 		t.Fatalf("error = %v, restore failures = %v", err, failures)
 	}
 	if got := readTestFile(t, outside); got != "[[Old]]\n" {

@@ -20,8 +20,7 @@ func NormalizePath(path string) string {
 }
 
 type vaultDiskPathResolver struct {
-	vaultPath       string
-	normalizedPaths map[string]string
+	vaultPath string
 }
 
 func newVaultDiskPathResolver(vaultPath string) *vaultDiskPathResolver {
@@ -29,62 +28,68 @@ func newVaultDiskPathResolver(vaultPath string) *vaultDiskPathResolver {
 }
 
 func (r *vaultDiskPathResolver) existingPath(rel string) (string, error) {
-	normalized := NormalizePath(rel)
-	exact := filepath.Join(r.vaultPath, normalized)
-	if _, err := os.Stat(exact); err == nil {
-		return exact, nil
-	} else if !os.IsNotExist(err) {
+	path, err := r.resolvePath(rel, false)
+	if err != nil {
 		return "", err
 	}
-
-	if r.normalizedPaths == nil {
-		paths, err := collectNormalizedDiskPaths(r.vaultPath)
-		if err != nil {
-			return "", err
-		}
-		r.normalizedPaths = paths
+	if _, err := os.Stat(path); err != nil {
+		return "", err
 	}
-	if found, ok := r.normalizedPaths[normalized]; ok {
-		return found, nil
-	}
-	return "", &os.PathError{Op: "stat", Path: exact, Err: os.ErrNotExist}
+	return path, nil
 }
 
-// movePath retains directory-entry spelling, even on filesystems where Stat
-// accepts NFC aliases. Missing destinations inherit their existing parent's
-// disk spelling. Resolve these paths before a move invalidates the disk map.
+// movePath preserves directory-entry spelling and appends missing destination
+// components. A terminal symlink is an entry to rename, rather than its target.
 func (r *vaultDiskPathResolver) movePath(rel string) (string, error) {
-	if r.normalizedPaths == nil {
-		paths, err := collectNormalizedDiskPaths(r.vaultPath)
+	return r.resolvePath(rel, true)
+}
+
+// resolvePath follows only the requested components. ReadDir follows ancestor
+// symlinks using normal filesystem semantics, including targets outside the vault.
+func (r *vaultDiskPathResolver) resolvePath(rel string, allowMissing bool) (string, error) {
+	normalized := NormalizePath(rel)
+	if pathEscapesVault(normalized) {
+		return "", fmt.Errorf("path escapes vault: %s", rel)
+	}
+	current := r.vaultPath
+	if normalized == "." {
+		return current, nil
+	}
+	components := strings.Split(normalized, "/")
+	for i, component := range components {
+		entries, err := os.ReadDir(current)
 		if err != nil {
 			return "", err
 		}
-		r.normalizedPaths = paths
-	}
-	normalized := NormalizePath(rel)
-	var missing []string
-	for {
-		if found, ok := r.normalizedPaths[normalized]; ok {
-			for i := len(missing) - 1; i >= 0; i-- {
-				found = filepath.Join(found, missing[i])
+		name := ""
+		for _, entry := range entries {
+			if normalizeTextNFC(entry.Name()) != component {
+				continue
 			}
-			return found, nil
-		}
-		exact := filepath.Join(r.vaultPath, normalized)
-		if _, err := os.Lstat(exact); err == nil {
-			for i := len(missing) - 1; i >= 0; i-- {
-				exact = filepath.Join(exact, missing[i])
+			if name != "" {
+				return "", fmt.Errorf("ambiguous normalized disk path: %s", filepath.Join(current, component))
 			}
-			return exact, nil
-		} else if !os.IsNotExist(err) {
-			return "", err
+			name = entry.Name()
 		}
-		missing = append(missing, filepath.Base(normalized))
-		normalized = filepath.ToSlash(filepath.Dir(normalized))
+		if name == "" {
+			exact := filepath.Join(current, component)
+			// Preserve casing aliases already supported by the host filesystem.
+			if _, err := os.Lstat(exact); err == nil {
+				name = component
+			} else if !os.IsNotExist(err) {
+				return "", err
+			} else if allowMissing {
+				return filepath.Join(append([]string{current}, components[i:]...)...), nil
+			} else {
+				return "", err
+			}
+		}
+		current = filepath.Join(current, name)
 	}
+	return current, nil
 }
 
-// writablePath preserves disk spelling while rejecting symlink escapes.
+// writablePath preserves disk spelling and checks the logical vault boundary.
 func (r *vaultDiskPathResolver) writablePath(rel string) (string, error) {
 	path, err := r.existingPath(rel)
 	if err != nil {
@@ -96,42 +101,14 @@ func (r *vaultDiskPathResolver) writablePath(rel string) (string, error) {
 	return path, nil
 }
 
-// validateVaultWritePath permits missing ordinary path components when their
-// nearest existing ancestor resolves inside the vault. Dangling symlinks are rejected.
+// validateVaultWritePath checks the logical vault boundary and lets ordinary
+// filesystem operations follow symlinks. Dangling ancestors remain errors.
 func validateVaultWritePath(vaultPath, path string) error {
-	root, err := filepath.EvalSymlinks(vaultPath)
+	root, err := filepath.Abs(vaultPath)
 	if err != nil {
 		return err
 	}
-	root, err = filepath.Abs(root)
-	if err != nil {
-		return err
-	}
-	ancestor := path
-	var missing []string
-	for {
-		_, statErr := os.Lstat(ancestor)
-		if statErr == nil {
-			break
-		}
-		if !os.IsNotExist(statErr) {
-			return statErr
-		}
-		parent := filepath.Dir(ancestor)
-		if parent == ancestor {
-			return statErr
-		}
-		missing = append(missing, filepath.Base(ancestor))
-		ancestor = parent
-	}
-	target, err := filepath.EvalSymlinks(ancestor)
-	if err != nil {
-		return err
-	}
-	for i := len(missing) - 1; i >= 0; i-- {
-		target = filepath.Join(target, missing[i])
-	}
-	target, err = filepath.Abs(target)
+	target, err := filepath.Abs(path)
 	if err != nil {
 		return err
 	}
@@ -140,40 +117,24 @@ func validateVaultWritePath(vaultPath, path string) error {
 		return err
 	}
 	if pathEscapesVault(filepath.ToSlash(rel)) {
-		return fmt.Errorf("write path resolves outside vault: %s", path)
+		return fmt.Errorf("write path escapes vault: %s", path)
 	}
-	return nil
-}
-
-func collectNormalizedDiskPaths(vaultPath string) (map[string]string, error) {
-	// WalkDir does not follow symlinks, so resolve the root before walking.
-	walkRoot, err := canonicalVault(vaultPath)
-	if err != nil {
-		return nil, err
-	}
-	paths := make(map[string]string)
-	err = filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
+	ancestor := path
+	for {
+		_, err := os.Lstat(ancestor)
+		if err == nil {
+			_, err = filepath.EvalSymlinks(ancestor)
 			return err
 		}
-		if d.IsDir() && d.Name() == dataDirName {
-			return filepath.SkipDir
-		}
-		actualRel, err := filepath.Rel(walkRoot, path)
-		if err != nil {
+		if !os.IsNotExist(err) {
 			return err
 		}
-		normalized := NormalizePath(actualRel)
-		if _, ok := paths[normalized]; !ok {
-			// Keep the caller's root spelling for consumers using lexical paths.
-			paths[normalized] = filepath.Join(vaultPath, actualRel)
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return err
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+		ancestor = parent
 	}
-	return paths, nil
 }
 
 func basename(path string) string {

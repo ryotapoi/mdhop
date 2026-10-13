@@ -96,19 +96,7 @@ func TestNormalizedDiskPathsRootSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeStatusFile(t, vault, "Cafe\u0301/Resume\u0301.md", "NFD content\n")
-	paths, err := collectNormalizedDiskPaths(alias)
-	if err != nil {
-		t.Fatal(err)
-	}
-	path, ok := paths["Café/Resumé.md"]
-	if !ok {
-		t.Fatal("root alias did not collect NFD disk spelling")
-	}
-	if got := readTestFile(t, path); got != "NFD content\n" {
-		t.Fatalf("content = %q", got)
-	}
-	// On Linux exact NFC Stat fails, exercising the resolver's disk-map fallback.
-	path, err = newVaultDiskPathResolver(alias).existingPath("Café/Resumé.md")
+	path, err := newVaultDiskPathResolver(alias).existingPath("Café/Resumé.md")
 	if err != nil {
 		t.Fatal(err)
 	}
