@@ -248,12 +248,13 @@
   - 保守性・リスク: 独自の全 symlink 再帰走査を追加せず、共通 resolver が要求された各要素の実表記を辿る。書込範囲は論理 Vault 相対で判定し、末端 dangling symlink は削除・移動する entry の実表記を保持する。
   - 検証: [修正前 CI](https://github.com/ryotapoi/mdhop/actions/runs/38336507725)（`1779fab4a05543d2904c030b66d2d6364100550b`）で Ubuntu 24 / ext4 の NFD entry bytes と NFC 直接 Stat の not-exist を確認し、resolver / Add / move の失敗を再現。[修正後 CI](https://github.com/ryotapoi/mdhop/actions/runs/38337108642)（`9d51824bc35b6d1f5caf354537a5cf525fe6a8f4`）は両 OS の集中・全 suite・実バイナリ確認に成功。Ubuntu は新規対象 skip 0、CLI の正規化衝突拒否で disk / DB 無変更。macOS 15 は NFD 実名と内外向き symlink の成功経路を確認し、filesystem が NFC/NFD を同一 entry とする衝突ケース 2 件のみ理由付き skip。ローカル macOS でも集中・全 test、build、vet と NFC 指定 Add / move の本文・DB を確認。
 
-- [ ] Unicode 正規化後に同じパスとなる複数のディスク項目があれば build を拒否する
+- [x] Unicode 正規化後に同じパスとなる複数のディスク項目があれば build を拒否する
   - 決定した仕様: mdhop は索引・リンクのパスを NFC に統一する。一つの正規化パスに複数の実ファイル・フォルダーが対応する構成は、どちらかを選ばずエラーにする。例は同じ親の下にある NFC の Café.md と NFD の Café.md。大小文字だけが異なるパスの扱いとは別の規則。
   - 対応: build 対象のパスとその祖先の実表記から正規化後の衝突を検出し、衝突する元の表記を判別できる診断を返す。ノート・asset・親フォルダーのどれでも黙って統合しない。build の登録除外規則は維持する。
   - 完了条件: 同じ正規化パスに複数項目がある場合、初回・全量・差分 build で完成した索引として公開せず、既存索引を保持する。フォルダー名が衝突していて子の名前が異なる場合も検出する。表記差があっても候補が一つなら通常どおり登録・解決できる。Ubuntu CI で衝突する二つを実際に作って検証する。
   - 関連: A3-02 / A9-02 の resolver 改修でも衝突を一方の候補へ解決しない。索引作成後に生じた衝突の扱いを含め、共通の正規化・衝突判定へ揃える。
   - 保守性・リスク: NFC を索引上の識別に使う既存設計を維持し、異なる実ファイルの誤統合・取り違えを防ぐ。エラー時は利用者が衝突する名前を変更して再 build する。
+  - 検証: [Ubuntu/macOS CI](https://github.com/ryotapoi/mdhop/actions/runs/38338531171)（`1e6ba35e1d0f5f540363753d27f2381a7a7da47c`）で集中・全 suite・実 CLI に成功。Ubuntu 24 / ext4 は NFC/NFD の両 entry と異なる bytes を列挙し、新規 5 subcase を skip なしで確認。初回ノート・全量 asset・差分の祖先フォルダー衝突を拒否し、正規化パスと ASCII escape した両実名を診断、初回 DB 非公開・既存 DB bytes 保持・入力無変更・一時 DB 残留なしを確認。除外だけの衝突は登録対象外とし、一部の子を選択する場合は祖先衝突を拒否する。単一 NFD 候補と索引作成後の resolver / Add / move 衝突拒否も成功。macOS 15 は単一候補の成功と全 suite を保ち、新規衝突 5 subcase のみ列挙 count=1 の filesystem alias を理由に skip。ローカル macOS で集中・全 test、build、vet と実 CLI の単一 NFD 初回・全量・差分 build を確認。
 
 - [ ] move の CLI のフォルダー判定を共通の実パス解決に揃える（A1-02）
   - 問題: ディスク上のフォルダーが NFD 表記の Café、指定が NFC の Café の場合、正規化表記を区別する環境では末尾 `/` なしの move がフォルダーと認識せず、ファイル移動の経路で失敗する。
