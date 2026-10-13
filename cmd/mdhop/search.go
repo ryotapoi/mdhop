@@ -39,6 +39,14 @@ Fields:
   outgoing_count  Count of outgoing edges, including tag edges.
   incoming_count  Count of incoming edges.
 
+Text metadata keys and values escape backslash as \\, tab/LF/CR as \t/\n/\r,
+and other C0/DEL/C1 controls (U+0000–001F, U+007F–009F) as lowercase \xhh.
+The two hex digits represent a Unicode code point, including C1 controls.
+Normal Unicode, spaces, and quotes are preserved; no outer quotes are added.
+Decode escapes once from left to right to recover the original key or value:
+  actual ESC + [2J -> \x1b[2J; literal \x1b -> \\x1b
+JSON values and stored metadata are unchanged.
+
 Location paths may be absolute or relative to the current directory.
 Note paths and configuration globs remain relative to the vault.
 

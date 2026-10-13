@@ -18,6 +18,17 @@ var validSearchComputedFields = map[string]bool{
 
 const metaFieldPrefix = "meta."
 
+// Replace once so literal backslashes remain distinct from escaped controls.
+var searchMetaTextReplacer = func() *strings.Replacer {
+	escapes := []string{"\\", "\\\\", "\t", "\\t", "\n", "\\n", "\r", "\\r"}
+	for r := rune(0); r <= 0x9f; r++ {
+		if r < 0x20 || r >= 0x7f {
+			escapes = append(escapes, string(r), fmt.Sprintf(`\x%02x`, r))
+		}
+	}
+	return strings.NewReplacer(escapes...)
+}()
+
 // validateSearchFields accepts "meta" (all meta), "meta.<key>" (a single meta
 // key), and the computed fields. Other names are rejected.
 func validateSearchFields(fields []string) error {
@@ -146,7 +157,7 @@ func printSearchText(w io.Writer, r *core.SearchResult, fields []string) error {
 						fmt.Fprintln(w, "  meta:")
 						printed = true
 					}
-					fmt.Fprintf(w, "  - %s: %s\n", m.Key, m.Value)
+					fmt.Fprintf(w, "  - %s: %s\n", searchMetaTextReplacer.Replace(m.Key), searchMetaTextReplacer.Replace(m.Value))
 				}
 			}
 			if item.Head != nil && len(item.Head) > 0 {

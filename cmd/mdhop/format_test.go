@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -603,6 +604,119 @@ items:
 `
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// Decode independently of the formatter, interpreting xhh as a code point.
+func decodeSearchMetaText(t *testing.T, value string) string {
+	t.Helper()
+	var out strings.Builder
+	for i := 0; i < len(value); i++ {
+		if value[i] != '\\' {
+			out.WriteByte(value[i])
+			continue
+		}
+		i++
+		if i == len(value) {
+			t.Fatal("trailing escape")
+		}
+		switch value[i] {
+		case '\\':
+			out.WriteByte('\\')
+		case 't':
+			out.WriteByte('\t')
+		case 'n':
+			out.WriteByte('\n')
+		case 'r':
+			out.WriteByte('\r')
+		case 'x':
+			if i+2 >= len(value) {
+				t.Fatal("short hex escape")
+			}
+			code, err := strconv.ParseUint(value[i+1:i+3], 16, 8)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out.WriteRune(rune(code))
+			i += 2
+		default:
+			t.Fatalf("unknown escape: %q", value[i])
+		}
+	}
+	return out.String()
+}
+
+func TestPrintSearchText_MetaEscapes(t *testing.T) {
+	var controls strings.Builder
+	for r := rune(0); r <= 0x9f; r++ {
+		if r < 0x20 || r >= 0x7f {
+			controls.WriteRune(r)
+		}
+	}
+	cases := []struct {
+		name, original, escaped string
+	}{
+		{"representative", "日本語 😀 \"quoted\" \x1b[2J\n\t\r\x7f\u0080\u009f \\x1b \\\\ \\n", `日本語 😀 "quoted" \x1b[2J\n\t\r\x7f\x80\x9f \\x1b \\\\ \\n`},
+		{"all controls", controls.String(), ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			meta := []core.MetaRow{{Key: tc.original, Value: tc.original}, {Key: "status", Value: "active"}}
+			r := &core.SearchResult{Total: 1, Items: []core.SearchResultItem{{
+				Node: core.NodeInfo{Type: core.NodeTypeNote, Path: "A.md"},
+				Meta: append([]core.MetaRow(nil), meta...),
+			}}}
+			for _, fields := range [][]string{{"meta"}, {"meta." + tc.original}} {
+				var buf bytes.Buffer
+				if err := printSearchText(&buf, r, fields); err != nil {
+					t.Fatal(err)
+				}
+				lines := strings.Split(strings.TrimSuffix(buf.String(), "\n"), "\n")
+				wantLines := 5
+				if fields[0] == "meta" {
+					wantLines++
+					if lines[len(lines)-1] != "  - status: active" {
+						t.Fatalf("ordinary metadata changed: %q", buf.String())
+					}
+				}
+				if len(lines) != wantLines {
+					t.Fatalf("metadata broke output structure: %q", buf.String())
+				}
+				payload := strings.TrimPrefix(lines[4], "  - ")
+				for _, c := range payload {
+					if c < 0x20 || (c >= 0x7f && c <= 0x9f) {
+						t.Fatalf("raw control U+%04X in payload %q", c, payload)
+					}
+				}
+				key, value, ok := strings.Cut(payload, ": ")
+				if !ok {
+					t.Fatalf("missing metadata separator: %q", payload)
+				}
+				for _, escaped := range []string{key, value} {
+					if tc.escaped != "" && escaped != tc.escaped {
+						t.Errorf("escaped = %q, want %q", escaped, tc.escaped)
+					}
+					if decoded := decodeSearchMetaText(t, escaped); decoded != tc.original {
+						t.Errorf("decoded = %q, want %q", decoded, tc.original)
+					}
+				}
+			}
+			if !reflect.DeepEqual(r.Items[0].Meta, meta) {
+				t.Fatal("text formatter mutated input metadata")
+			}
+			var buf bytes.Buffer
+			if err := printSearchJSON(&buf, r, []string{"meta"}); err != nil {
+				t.Fatal(err)
+			}
+			var decoded searchJSONOutput
+			if err := json.Unmarshal(buf.Bytes(), &decoded); err != nil {
+				t.Fatal(err)
+			}
+			want := map[string][]string{tc.original: {tc.original}, "status": {"active"}}
+			if !reflect.DeepEqual(decoded.Items[0].Meta, want) {
+				t.Fatalf("JSON metadata changed: %q", buf.String())
+			}
+		})
 	}
 }
 
