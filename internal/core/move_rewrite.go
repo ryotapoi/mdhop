@@ -211,14 +211,14 @@ func collectCollateralRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveM
 		preRoot := hasRootInPathSet(bk, dm.preMovePathSet)
 		postRoot := hasRootInPathSet(bk, rm.pathSet)
 		if preRoot && postRoot {
-			continue
+			delete(affectedNoteBasenames, bk)
 		}
-		crs, err := queryCollateralRewrites(db, NodeTypeNote, bk, dm.movedNodeIDs)
-		if err != nil {
-			return nil, err
-		}
-		collateralRewrites = append(collateralRewrites, crs...)
 	}
+	crs, err := queryCollateralRewrites(db, NodeTypeNote, affectedNoteBasenames, dm.movedNodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	collateralRewrites = append(collateralRewrites, crs...)
 
 	affectedAssetBasenames := make(map[string]bool)
 	for _, m := range moves {
@@ -234,14 +234,14 @@ func collectCollateralRewritesForDir(db dbExecer, moves []moveInfo, dm *dirMoveM
 		preRoot := hasRootInPathSet(abk, dm.preMoveAssetPathSet)
 		postRoot := hasRootInPathSet(abk, rm.assetPathSet)
 		if preRoot && postRoot {
-			continue
+			delete(affectedAssetBasenames, abk)
 		}
-		crs, err := queryCollateralRewrites(db, NodeTypeAsset, abk, dm.movedNodeIDs)
-		if err != nil {
-			return nil, err
-		}
-		collateralRewrites = append(collateralRewrites, crs...)
 	}
+	crs, err = queryCollateralRewrites(db, NodeTypeAsset, affectedAssetBasenames, dm.movedNodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	collateralRewrites = append(collateralRewrites, crs...)
 	return collateralRewrites, nil
 }
 
@@ -329,11 +329,14 @@ func lookupEdgeTargetPath(db dbExecer, sourceID int64, rawLink string, line int,
 }
 
 // queryCollateralRewrites finds basename links to non-moved nodes of the given type
-// matching the normalized basename key that need rewriting after a collision or
+// matching the normalized basename keys that need rewriting after a collision or
 // root-priority change.
 // The JOIN condition tn.exists_flag = 1 excludes phantom nodes (path=NULL), which
 // have no disk content to rewrite.
-func queryCollateralRewrites(db dbExecer, nodeType NodeType, key string, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
+func queryCollateralRewrites(db dbExecer, nodeType NodeType, keys map[string]bool, movedNodeIDs map[int64]bool) ([]rewriteEntry, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
 	rewriteLinkTypeSQL, rewriteLinkTypeArgs := linkTypeSQLIn("e.link_type", rewriteLinkTypes)
 	rows, err := db.Query(fmt.Sprintf(
 		`SELECT e.id, e.raw_link, e.link_type, e.line_start, sn.path, sn.id, e.in_table, tn.path, tn.id
@@ -361,7 +364,7 @@ func queryCollateralRewrites(db dbExecer, nodeType NodeType, key string, movedNo
 		if nodeType == NodeTypeAsset {
 			targetKey = assetBasenameKey(targetPath)
 		}
-		if targetKey != key {
+		if !keys[targetKey] {
 			continue
 		}
 		if movedNodeIDs[re.sourceID] {

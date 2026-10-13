@@ -312,6 +312,99 @@ func TestMoveDir_CollateralMultipleBasenames(t *testing.T) {
 	}
 }
 
+func TestMoveDir_BatchMultipleCollateralCollisions(t *testing.T) {
+	// Rename distinct files in one batch so both note and asset basenames collide.
+	// Case and decomposed Unicode links must retain their pre-move targets.
+	const original = "[[readme]] [[e\u0301]] [[readme]] ![[icon.png]] ![[re\u0301sume\u0301.pdf]] [[C]] [[old/readme]] [[Stay]] ![[stay.svg]]\n"
+	const wantRef = "[[old/readme]] [[old/é]] [[old/readme]] ![[old/icon.png]] ![[old/résumé.pdf]] [[dst/README]] [[old/readme]] [[Stay]] ![[stay.svg]]\n"
+	vault := newMoveVault(t, map[string]string{
+		"old/readme.md": "old\n", "old/é.md": "old\n",
+		"old/icon.png": "old", "old/résumé.pdf": "old",
+		"Stay.md": "root\n", "stay.svg": "root",
+		"src/C.md": "[[readme]] ![[old/icon.png]] [[D]]\n", "src/D.md": "moved\n",
+		"src/one.png": "moved", "src/two.pdf": "moved",
+		"src/Stay.md": "moved\n", "src/stay.svg": "moved",
+		"ref.md": original,
+	})
+	db := openTestDB(t, dbPath(vault))
+	defer db.Close()
+	moves, err := loadMovesFromDB(db, "src", "dst")
+	if err != nil {
+		t.Fatal(err)
+	}
+	destinations := map[string]string{
+		"src/C.md": "dst/README.md", "src/D.md": "dst/É.md",
+		"src/one.png": "dst/ICON.PNG", "src/two.pdf": "dst/RÉSUMÉ.PDF",
+	}
+	for i := range moves {
+		if to, ok := destinations[moves[i].from]; ok {
+			moves[i].to = to
+		}
+	}
+	needDiskMove, err := classifyDiskState(vault, moves)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(vault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeMoves(vault, db, cfg, moves, nil, needDiskMove); err != nil {
+		t.Fatalf("execute batch: %v", err)
+	}
+	assertResult := func() {
+		t.Helper()
+		if got := readVaultFile(t, vault, "ref.md"); got != wantRef {
+			t.Errorf("ref.md = %q, want %q", got, wantRef)
+		}
+		if got := readVaultFile(t, vault, "dst/README.md"); got != "[[old/readme]] ![[old/icon.png]] [[dst/É]]\n" {
+			t.Errorf("moved source = %q", got)
+		}
+		want := map[string]string{
+			"[[old/readme]]": "note:path:old/readme.md", "[[old/é]]": "note:path:old/é.md",
+			"[[old/icon.png]]": "asset:path:old/icon.png", "[[old/résumé.pdf]]": "asset:path:old/résumé.pdf",
+			"[[dst/README]]": "note:path:dst/README.md", "[[Stay]]": "note:path:Stay.md", "[[stay.svg]]": "asset:path:stay.svg",
+		}
+		edges := queryEdges(t, dbPath(vault), "ref.md")
+		if len(edges) != 9 {
+			t.Fatalf("ref edges = %+v, want nine occurrences", edges)
+		}
+		counts := make(map[string]int)
+		for _, edge := range edges {
+			if target, ok := want[edge.rawLink]; !ok || edge.targetKey != target {
+				t.Errorf("unexpected ref edge: %+v", edge)
+			}
+			counts[edge.rawLink]++
+		}
+		for raw := range want {
+			count := 1
+			if raw == "[[old/readme]]" {
+				count = 3
+			}
+			if counts[raw] != count {
+				t.Errorf("%s count = %d, want %d", raw, counts[raw], count)
+			}
+		}
+		movedEdges := queryEdges(t, dbPath(vault), "dst/README.md")
+		wantMoved := map[string]string{
+			"[[old/readme]]": "note:path:old/readme.md", "[[old/icon.png]]": "asset:path:old/icon.png", "[[dst/É]]": "note:path:dst/É.md",
+		}
+		if len(movedEdges) != len(wantMoved) {
+			t.Fatalf("moved edges = %+v", movedEdges)
+		}
+		for _, edge := range movedEdges {
+			if target, ok := wantMoved[edge.rawLink]; !ok || edge.targetKey != target {
+				t.Errorf("unexpected moved edge: %+v", edge)
+			}
+		}
+	}
+	assertResult()
+	if _, err := BuildFull(vault); err != nil {
+		t.Fatalf("full rebuild: %v", err)
+	}
+	assertResult()
+}
+
 func TestMoveDir_CollateralRootPriority(t *testing.T) {
 	// A.md(root) + sub/A.md. B.md has [[A]].
 	// Move sub → newdir → basename "A" still has root A.md → no collateral.
