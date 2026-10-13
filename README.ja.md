@@ -119,7 +119,9 @@ mdhop move --from Notes/ --to-template "99-Archive/{client|others}/{updated:year
 
 キャッシュを削除した場合や Vault を移動した場合は `mdhop build` で再生成する。通常操作は旧 `<vault>/.mdhop/` を利用・移行・削除しない。
 
-`--config` があれば任意名の指定ファイルだけを読む。未指定時は `<vault>/mdhop.toml` だけを読み、既定ファイルがなければ設定なしで動作する。明示ファイルの欠落、読み取り失敗、不正設定は、設定フィルタを無効化していてもエラー。自動検出・併読・マージはしない。`init-meta --write` は選択した設定先を更新し、明示指定ファイルは存在している必要がある。
+`--config` があれば任意名の指定ファイルだけを読む。未指定時は `<vault>/mdhop.toml` だけを読み、既定ファイルがなければ設定なしで動作する。明示ファイルの欠落、読み取り失敗、TOML の構文・型エラー、不正なメタデータ設定は、設定フィルタを無効化していてもエラー。自動検出・併読・マージはしない。`init-meta --write` は選択した設定先を更新し、明示指定ファイルは存在している必要がある。
+
+`search --no-exclude` と `query --no-config-hide` / `--no-config-via` は、それぞれ無効化した設定フィルタのパターンを検査しない。設定ファイルの読み込み・デコードは行い、有効なフィルタの不正パターンは引き続きエラーになる。`migrate` は、索引の再生成で使用しないものも含めて全設定フィルタを検査する。
 
 ```sh
 mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml

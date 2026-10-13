@@ -121,7 +121,9 @@ A build with omitted `--db` records `{"vault":"/absolute/vault/path"}` in `origi
 
 If the cache is deleted or the vault moves, run `mdhop build` again. Normal commands neither use nor migrate or delete the old `<vault>/.mdhop/` directory.
 
-`--config` reads exactly the selected file, with any filename. Otherwise only `<vault>/mdhop.toml` is read; a missing default file means no configuration. Missing explicit files, read failures, and invalid configuration are errors, including when configuration filters are disabled. Files are neither discovered nor merged. `init-meta --write` updates the selected configuration file; an explicitly selected file must already exist.
+`--config` reads exactly the selected file, with any filename. Otherwise only `<vault>/mdhop.toml` is read; a missing default file means no configuration. Missing explicit files, read failures, TOML syntax or type errors, and invalid metadata settings are errors even when configuration filters are disabled. Files are neither discovered nor merged. `init-meta --write` updates the selected configuration file; an explicitly selected file must already exist.
+
+`search --no-exclude` and `query --no-config-hide` / `--no-config-via` skip pattern validation for the respective disabled configuration filters; they still read and decode the configuration file. Invalid patterns in enabled filters remain errors. `migrate` validates all configuration filters, including those unused by the rebuild.
 
 ```sh
 mdhop build --vault ./Notes --db ./indexes/notes.sqlite --config ./settings/notes.toml
