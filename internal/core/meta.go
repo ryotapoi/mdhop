@@ -56,9 +56,9 @@ func normalizeDate(value string) (string, string) {
 		case 0:
 			return t.Format("2006-01-02"), ""
 		case 1:
-			return t.Format("2006-01-02T15:04:05"), ""
+			return t.Format("2006-01-02T15:04:05.000000000"), ""
 		case 2:
-			return t.UTC().Format("2006-01-02T15:04:05Z"), ""
+			return t.UTC().Format("2006-01-02T15:04:05.000000000Z"), ""
 		}
 	}
 	return value, fmt.Sprintf("cannot parse %q as date", value)
