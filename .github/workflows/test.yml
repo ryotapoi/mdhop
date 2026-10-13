@@ -31,6 +31,13 @@ jobs:
           fi
       - name: Unicode path regressions
         run: go test -count=1 -v ./internal/core -run '^Test(MoveNFD|NFDSymlink|BuildUnicode|BuildNormalizesUnicodePathsToNFC)'
+      - name: Move CLI directory regressions
+        run: go test -count=1 -v ./cmd/mdhop -run '^TestRunMove'
       - name: All tests
         if: always()
         run: go test ./...
+      - name: Real CLI A1-02 smoke
+        if: always()
+        run: |
+          go build -o bin/mdhop ./cmd/mdhop
+          python3 ci-cli-smoke.py

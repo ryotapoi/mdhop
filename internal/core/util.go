@@ -19,6 +19,26 @@ func NormalizePath(path string) string {
 	return normalizeTextNFC(strings.TrimPrefix(clean, "./"))
 }
 
+// IsDirectory resolves a vault-relative path to its disk spelling before Stat.
+// Missing paths are not directories, allowing already completed file moves.
+func IsDirectory(vaultPath, rel string) (bool, error) {
+	path, err := newVaultDiskPathResolver(vaultPath).existingPath(rel)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return info.IsDir(), nil
+}
+
 type vaultDiskPathResolver struct {
 	vaultPath string
 }

@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/ryotapoi/mdhop/internal/core"
@@ -56,12 +55,11 @@ Examples:
 
 `
 
-func isDirArg(vaultPath, arg string) bool {
+func isDirArg(vaultPath, arg string) (bool, error) {
 	if strings.HasSuffix(arg, "/") {
-		return true
+		return true, nil
 	}
-	info, err := os.Stat(filepath.Join(vaultPath, arg))
-	return err == nil && info.IsDir()
+	return core.IsDirectory(vaultPath, arg)
 }
 
 func runMove(args []string) error {
@@ -95,7 +93,10 @@ func runMove(args []string) error {
 		return fmt.Errorf("--to and --to-template cannot be used together")
 	}
 
-	fromIsDir := isDirArg(*vault, *from)
+	fromIsDir, err := isDirArg(*vault, *from)
+	if err != nil {
+		return err
+	}
 	if *dryRun && *toTemplate == "" {
 		return fmt.Errorf("--dry-run is only supported with --to-template")
 	}
