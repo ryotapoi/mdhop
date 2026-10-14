@@ -321,3 +321,14 @@
   - 問題: ノートの各リンクについて SQL で対象を個別取得し、同じ source の edge 群を何度も照合する。数千リンクの目次では、書換え不要でも移動準備が遅くなる。
   - 対応: ノート単位で対象 edge と target を一度取得し、既存の照合キー raw_link / line_start / in_table で参照する案を improve-performance で計測・検証する。
   - 完了条件: 多数リンクの移動・plan の変更前後を反復比較し、個別 SQL の反復を減らす。重複キー・未解決 target の扱いと書換え結果を維持し、メモリ増加も確認する。最小案では新しい DB index/schema は追加しない。
+
+- [ ] CLI のエラー表示に含まれる端末制御文字を見える表記へ変換する（RR-059）
+  - 問題: `inspect --file` に ESC を含む未登録パスを指定すると、`cmd/mdhop/main.go` の `formatCommandError` がエラー文字列を無加工で stderr へ出力する。例えば `missing` + ESC + `[31m.md` が診断表示の色を変え得る。
+  - 対応: エラー診断に含まれる入力値・ファイル名由来の制御文字を、出力時に安全な見える表記へ変換する。既存の属性表示の変換規則と整合させる。
+  - 完了条件: 上記の実 CLI エラーで生 ESC が stderr に出ない。C0/DEL/C1 を含む値を安全に表示し、通常の診断内容・Unicode 文字・診断の改行・終了コードを維持する。実端末への制御列送信ではなく出力バイトで確認する。
+  - 検証範囲: RR-059 のうち確認済みのエラー表示を対象とする。全 path/head 表示や format/bidi 文字の問題は未確認であり、このタスクの前提に含めない。
+
+- [ ] 存在する directory symlink を status が削除済みと誤表示する問題を修正する（RR-118 / RR-119）
+  - 問題: `linked-dir` が実在ディレクトリへの symlink の場合、build は symlink 自体を terminal asset として索引に登録する。一方、`internal/core/status.go` は `os.Stat` でリンク先を調べ、通常ファイルでないことを理由に `deleted` へ分類する。何も変更していない build 直後にも誤表示する。
+  - 対応: build の登録対象と status の存在判定を整合させ、存在する directory symlink を削除済みと扱わないようにする。symlink 配下の再帰走査や `..` のパス解釈変更は含めない。
+  - 完了条件: 上記の symlink を除外せず build した直後の status に、偽の `deleted` が出ない。登録済み symlink 自体を削除した場合は削除を検出し、通常ファイルとファイルへの symlink の既存判定を維持する。symlink の収集・索引登録と status を通す回帰で確認する。
