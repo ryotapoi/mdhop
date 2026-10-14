@@ -16,9 +16,48 @@ import (
 )
 
 func TestFormatCommandError(t *testing.T) {
-	got := formatCommandError("search", errors.New("limit must be >= 0"))
-	if want := "error: search: limit must be >= 0\n"; got != want {
-		t.Errorf("formatCommandError() = %q, want %q", got, want)
+	cases := []struct {
+		name    string
+		command string
+		message string
+		want    string
+	}{
+		{
+			name: "ordinary diagnostic", command: "search", message: "limit must be >= 0",
+			want: "error: search: limit must be >= 0\n",
+		},
+		{
+			name: "reported escape sequence", command: "inspect", message: "file not found: missing\x1b[31m.md",
+			want: "error: inspect: file not found: missing\\x1b[31m.md\n",
+		},
+		{
+			name: "all controls", command: "inspect",
+			message: "\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f" +
+				"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x7f" +
+				"\u0080\u0081\u0082\u0083\u0084\u0085\u0086\u0087\u0088\u0089\u008a\u008b\u008c\u008d\u008e\u008f" +
+				"\u0090\u0091\u0092\u0093\u0094\u0095\u0096\u0097\u0098\u0099\u009a\u009b\u009c\u009d\u009e\u009f",
+			want: "error: inspect: " +
+				"\\x00\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\t\n\\x0b\\x0c\\r\\x0e\\x0f" +
+				"\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f\\x7f" +
+				"\\x80\\x81\\x82\\x83\\x84\\x85\\x86\\x87\\x88\\x89\\x8a\\x8b\\x8c\\x8d\\x8e\\x8f" +
+				"\\x90\\x91\\x92\\x93\\x94\\x95\\x96\\x97\\x98\\x99\\x9a\\x9b\\x9c\\x9d\\x9e\\x9f\n",
+		},
+		{
+			name: "unicode and preformatted multiline diagnostic", command: "inspect",
+			message: "日本語 😀 é: \"missing\\x1b.md\"\n  C:\\notes\\t.md\n",
+			want:    "error: inspect: 日本語 😀 é: \"missing\\x1b.md\"\n  C:\\notes\\t.md\n\n",
+		},
+		{
+			name: "command controls", command: "inspect\t\x1b", message: "failure",
+			want: "error: inspect\\t\\x1b: failure\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatCommandError(tc.command, errors.New(tc.message)); got != tc.want {
+				t.Errorf("formatCommandError() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

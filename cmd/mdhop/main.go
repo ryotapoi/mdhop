@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
+	"strings"
 )
 
 var version = "dev"
@@ -87,8 +88,20 @@ func main() {
 	}
 }
 
+// Preserve diagnostic newlines and already escaped text while making terminal
+// controls visible. C1 controls are escaped by code point, not UTF-8 byte.
+var commandErrorTextReplacer = func() *strings.Replacer {
+	escapes := []string{"\t", "\\t", "\r", "\\r"}
+	for r := rune(0); r <= 0x9f; r++ {
+		if (r < 0x20 && r != '\n') || r >= 0x7f {
+			escapes = append(escapes, string(r), fmt.Sprintf(`\x%02x`, r))
+		}
+	}
+	return strings.NewReplacer(escapes...)
+}()
+
 func formatCommandError(command string, err error) string {
-	return fmt.Sprintf("error: %s: %v\n", command, err)
+	return commandErrorTextReplacer.Replace(fmt.Sprintf("error: %s: %v\n", command, err))
 }
 
 func printVersion(w io.Writer) {
