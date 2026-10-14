@@ -145,3 +145,101 @@ func TestStatus_NoIndexDoesNotCreateDatabase(t *testing.T) {
 		t.Fatalf("status created database, stat error = %v", err)
 	}
 }
+
+func TestStatus_TracksTerminalSymlinks(t *testing.T) {
+	for _, directory := range []bool{true, false} {
+		name := "file"
+		if directory {
+			name = "directory"
+		}
+		t.Run(name, func(t *testing.T) {
+			vault := t.TempDir()
+			targetVault := t.TempDir()
+			target := filepath.Join(targetVault, "target")
+			if directory {
+				writeStatusFile(t, targetVault, "target/Child.md", "child\n")
+			} else {
+				writeStatusFile(t, targetVault, "target", "asset")
+			}
+			linkName := "linked-" + name
+			link := filepath.Join(vault, linkName)
+			if err := os.Symlink(target, link); err != nil {
+				t.Fatalf("create symlink: %v", err)
+			}
+			linkInfo, err := os.Lstat(link)
+			if err != nil {
+				t.Fatalf("stat symlink: %v", err)
+			}
+			// Keep the target and link mtimes in different seconds so comparing
+			// the link's own mtime against the indexed target mtime would fail.
+			indexedAt := time.Unix(linkInfo.ModTime().Unix()-100, 0)
+			if err := os.Chtimes(target, indexedAt, indexedAt); err != nil {
+				t.Fatalf("set target mtime: %v", err)
+			}
+			if _, err := Build(vault); err != nil {
+				t.Fatalf("build: %v", err)
+			}
+			db, err := openDBChecked(vault)
+			if err != nil {
+				t.Fatalf("open index: %v", err)
+			}
+			defer db.Close()
+			var nodeType string
+			var mtime int64
+			if err := db.QueryRow("SELECT type, mtime FROM nodes WHERE path = ?", linkName).Scan(&nodeType, &mtime); err != nil {
+				t.Fatalf("read indexed symlink: %v", err)
+			}
+			if nodeType != "asset" || mtime != indexedAt.Unix() {
+				t.Fatalf("indexed symlink = (%s, %d), want (asset, %d)", nodeType, mtime, indexedAt.Unix())
+			}
+			var count int
+			if err := db.QueryRow("SELECT COUNT(*) FROM nodes WHERE type IN ('note', 'asset')").Scan(&count); err != nil {
+				t.Fatalf("count indexed inputs: %v", err)
+			}
+			if count != 1 {
+				t.Fatalf("indexed inputs = %d, want only the terminal symlink", count)
+			}
+			result, err := Status(vault)
+			if err != nil {
+				t.Fatalf("status after build: %v", err)
+			}
+			if len(result.Untracked) != 0 || len(result.Modified) != 0 || len(result.Deleted) != 0 {
+				t.Fatalf("status after build = %#v, want clean", result)
+			}
+			changedAt := indexedAt.Add(time.Second)
+			if err := os.Chtimes(link, changedAt, changedAt); err != nil {
+				t.Fatalf("change target mtime through symlink: %v", err)
+			}
+			result, err = Status(vault)
+			if err != nil {
+				t.Fatalf("status after target change: %v", err)
+			}
+			if !reflect.DeepEqual(result.Modified, []string{linkName}) || len(result.Untracked) != 0 || len(result.Deleted) != 0 {
+				t.Errorf("status after target change = %#v, want only symlink modified", result)
+			}
+			if !directory {
+				if err := os.Remove(target); err != nil {
+					t.Fatalf("remove file target: %v", err)
+				}
+				result, err = Status(vault)
+				if err != nil {
+					t.Fatalf("status after target removal: %v", err)
+				}
+				if !reflect.DeepEqual(result.Deleted, []string{linkName}) || len(result.Untracked) != 0 || len(result.Modified) != 0 {
+					t.Errorf("status after target removal = %#v, want only symlink deleted", result)
+				}
+				writeStatusFile(t, targetVault, "target", "asset")
+			}
+			if err := os.Remove(link); err != nil {
+				t.Fatalf("remove symlink: %v", err)
+			}
+			result, err = Status(vault)
+			if err != nil {
+				t.Fatalf("status after symlink removal: %v", err)
+			}
+			if !reflect.DeepEqual(result.Deleted, []string{linkName}) || len(result.Untracked) != 0 || len(result.Modified) != 0 {
+				t.Errorf("status after symlink removal = %#v, want only symlink deleted", result)
+			}
+		})
+	}
+}

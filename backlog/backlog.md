@@ -329,7 +329,8 @@
   - 検証範囲: RR-059 のうち確認済みのエラー表示を対象とする。全 path/head 表示や format/bidi 文字の問題は未確認であり、このタスクの前提に含めない。
   - 実施: command error の表示境界で LF 以外の C0/DEL/C1 を可視化し、既存の改行・Unicode・backslash を保持する。全対象制御文字の unit test と、隔離 vault の実 CLI で出力バイト・終了コード・file/DB の無変更を確認済み。
 
-- [ ] 存在する directory symlink を status が削除済みと誤表示する問題を修正する（RR-118 / RR-119）
+- [x] 存在する directory symlink を status が削除済みと誤表示する問題を修正する（RR-118 / RR-119）
   - 問題: `linked-dir` が実在ディレクトリへの symlink の場合、build は symlink 自体を terminal asset として索引に登録する。一方、`internal/core/status.go` は `os.Stat` でリンク先を調べ、通常ファイルでないことを理由に `deleted` へ分類する。何も変更していない build 直後にも誤表示する。
   - 対応: build の登録対象と status の存在判定を整合させ、存在する directory symlink を削除済みと扱わないようにする。symlink 配下の再帰走査や `..` のパス解釈変更は含めない。
   - 完了条件: 上記の symlink を除外せず build した直後の status に、偽の `deleted` が出ない。登録済み symlink 自体を削除した場合は削除を検出し、通常ファイルとファイルへの symlink の既存判定を維持する。symlink の収集・索引登録と status を通す回帰で確認する。
+  - 実施: walk が収集する terminal directory symlink を存在として扱い、build と同じリンク先の秒精度 mtime を比較する。実 symlink の Build→Status 回帰、全 test・build、隔離 vault の実 CLI で正常・削除・索引未作成と file/DB の非変更性を確認済み。

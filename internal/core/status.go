@@ -109,7 +109,9 @@ func Status(vaultPath string, locations ...Locations) (*StatusResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !info.Mode().IsRegular() {
+		// The walk omits ordinary directories, but keeps directory symlinks
+		// as terminal inputs. Stat retains the target mtime used by build.
+		if !info.Mode().IsRegular() && !info.IsDir() {
 			result.Deleted = append(result.Deleted, path)
 			continue
 		}
