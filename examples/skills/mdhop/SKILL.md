@@ -16,7 +16,9 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 - In Markdown links, resolve destinations relative to the source note; a leading `/` starts at the vault root. Wikilinks keep their own basename lookup rules.
 - Keep the same vault, DB, and config selection across related commands. Use `--db` to separate indexes built with different configurations of the same vault.
 - Serialize index writes such as `build`, `update`, and `migrate`; concurrent reads during a build can use the completed index.
-- Do not use raw `mv`, `rm`, or `cp` for indexed vault files. Use `mdhop move`, `mdhop delete --rm`, and write-then-`mdhop add`.
+- Do not use raw `mv`, `rm`, or `cp` for indexed vault files, except when changing note/asset type as described below. Use `mdhop move` and `mdhop delete --rm`.
+- For new Markdown notes, write the notes, then run `mdhop add`; register new assets with `mdhop build`.
+- To change a file between note and asset types across the case-insensitive `.md` suffix boundary, rename it externally, then run `mdhop build`.
 - Do not hand-edit a single frontmatter key. Use `mdhop set` so the index stays in sync.
 - Finish editing file contents before `mdhop add` or `mdhop update`; the index should reflect the final file state.
 - After `repair`, `simplify`, `convert`, or `disambiguate --scan`, run `mdhop build`.
@@ -172,7 +174,7 @@ Run `mdhop meta-check --help` or `mdhop meta-validate --help` for issue/violatio
 
 ### Maintain the Index and Files
 
-Use `mdhop build` to create or refresh the index from the vault, `add` after creating files, `update` after editing files, `set` for one scalar or one whole string list, `move` for link-safe moves, and `delete` for index/disk removal.
+Use `mdhop build` to create or refresh the index from the vault and register new assets, `add` after creating Markdown notes, `update` after editing files, `set` for one scalar or one whole string list, `move` for link-safe moves, and `delete` for index/disk removal.
 
 ```bash
 mdhop build
