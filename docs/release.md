@@ -17,5 +17,5 @@
 ## 公開
 
 - 通知ファイルが対象タグに含まれ、配布するビルドの依存・Go version に合っていることを確認する。バイナリの配布物には `LICENSE` と `THIRD-PARTY-NOTICES.txt` を含める。
-- 必要な commit とタグを push し、指定版のタグで `gh release` を作成する。
+- 必要な commit とタグを push し、push で走る CI が Ubuntu・macOS の両方で成功してから、指定版のタグで `gh release` を作成する。CI が失敗したら公開しない。
 - Release 本文は、直前の GitHub Release 以降の主な変更の短い要約と、英語・日本語の CHANGELOG へのリンクとする。リンクは `main` ではなく今回のリリースタグのファイルに固定する。
