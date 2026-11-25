@@ -25,6 +25,9 @@ type QueryOptions struct {
 	Path           []string
 	IncludeHead    *int
 	IncludeSnippet *int
+	// IncludeLocation adds the first raw link and, when determinable, its
+	// location to backlinks and two-hop relations.
+	IncludeLocation bool
 }
 
 const (
@@ -59,7 +62,12 @@ type QueryNode struct {
 	NodeInfo
 	Head    []string
 	Snippet []SnippetEntry
-	id      int64
+	// RawLink and Location are set only with IncludeLocation. Location is nil
+	// when the link is in frontmatter, the source changed after indexing, or
+	// the raw link is not found on its indexed line.
+	RawLink  string
+	Location *LinkLocation
+	id       int64
 }
 
 // TwoHopEntry is a target and all visible shared outgoing destinations.

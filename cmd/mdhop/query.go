@@ -38,6 +38,8 @@ Options:
   --where <expr>            Metadata filter (repeatable; expressions are ANDed).
   --include-head <N>        Include the first N body lines of returned notes (N > 0).
   --include-snippet <N>     Include source link lines with N lines of context (N >= 0).
+  --include-location        Include the first link's raw text and location for backlinks
+                            and two-hop relations.
   --vault <path>            Vault root directory. Default: ".".
   --format json|text        Output format. Default: text.
 
@@ -58,6 +60,16 @@ next_offset is null at the end. A missing limit returns all remaining targets.
 --include-head previews returned notes only. --include-snippet 0 includes just
 the link line; outgoing snippets come from the entry, backlinks from the target,
 and two-hop snippets from the target's link to each visible via node.
+
+--include-location adds raw_link and location to each backlink (its first link
+to the entry) and each two-hop relation (the target's first link to that via).
+Outgoing links get neither. Within the first linking line, the leftmost link is
+chosen. location is {"start":{"line":L,"column":C},"end":{"line":L,"column":C}}:
+1-based physical lines including frontmatter (CRLF is one line break), 1-based
+Unicode code point columns, and an exclusive end. location is omitted, while the
+query still succeeds, when the first link is in frontmatter, the source file was
+deleted or modified since the last build, or the raw link is not found on its
+indexed line. Text output prints raw_link and location as L:C-L:C.
 
 Location paths may be absolute or relative to the current directory.
 Note paths and configuration globs remain relative to the vault.
@@ -87,6 +99,7 @@ func runQuery(args []string) error {
 	limit := fs.Int("limit", 0, "max targets for one relation")
 	offset := fs.Int("offset", 0, "targets to skip for one relation")
 	linkKey := fs.String("link-key", "", "frontmatter key for direct link results")
+	includeLocation := fs.Bool("include-location", false, "first link raw text and location")
 	noConfigHide := fs.Bool("no-config-hide", false, "ignore configured query hide")
 	noConfigVia := fs.Bool("no-config-via", false, "ignore configured query via")
 	var via, viaPaths, viaTags, excludeViaPaths, excludeViaTags multiString
@@ -154,15 +167,16 @@ func runQuery(args []string) error {
 	result, err := core.Query(*vault, core.EntrySpec{
 		File: *file, Tag: *tag, Phantom: *phantom, Name: *name,
 	}, core.QueryOptions{
-		Relations:      selected,
-		IncludeHead:    includeHead,
-		IncludeSnippet: includeSnippet,
-		Filter:         filter,
-		Limit:          pageLimit,
-		Offset:         pageOffset,
-		Where:          wc,
-		LinkKey:        *linkKey,
-		Path:           pathPatterns,
+		Relations:       selected,
+		IncludeHead:     includeHead,
+		IncludeSnippet:  includeSnippet,
+		IncludeLocation: *includeLocation,
+		Filter:          filter,
+		Limit:           pageLimit,
+		Offset:          pageOffset,
+		Where:           wc,
+		LinkKey:         *linkKey,
+		Path:            pathPatterns,
 	}, locations)
 	if err != nil {
 		return err

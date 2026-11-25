@@ -42,15 +42,7 @@ func parseLinks(content string) parseResult {
 		result.Meta = fm.meta
 	}
 
-	definitions := make(map[string]string)
-	walkBodyLines(lines, fmEnd, func(_ int, raw, _ string) {
-		label, destination, definition := referenceDefinition(raw)
-		if definition && label != "" && destination != "" {
-			if _, exists := definitions[label]; !exists {
-				definitions[label] = destination
-			}
-		}
-	})
+	definitions := bodyReferenceDefinitions(lines, fmEnd)
 	tableLines := bodyTableLines(lines, fmEnd)
 	walkBodyParagraphs(lines, fmEnd, func(lineNum int, raw, clean string) {
 		// Wikilinks and tags retain their physical-line grammar.
@@ -70,6 +62,21 @@ func parseLinks(content string) parseResult {
 	sort.SliceStable(out, func(i, j int) bool { return out[i].lineStart < out[j].lineStart })
 	result.Links = out
 	return result
+}
+
+// bodyReferenceDefinitions collects the first destination of each reference
+// label defined in the body.
+func bodyReferenceDefinitions(lines []string, fmEnd int) map[string]string {
+	definitions := make(map[string]string)
+	walkBodyLines(lines, fmEnd, func(_ int, raw, _ string) {
+		label, destination, definition := referenceDefinition(raw)
+		if definition && label != "" && destination != "" {
+			if _, exists := definitions[label]; !exists {
+				definitions[label] = destination
+			}
+		}
+	})
+	return definitions
 }
 
 // walkBodyParagraphs joins consecutive body lines without changing any bytes.

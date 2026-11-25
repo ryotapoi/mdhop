@@ -103,3 +103,28 @@ func TestPrintQueryPreviews(t *testing.T) {
 		}
 	}
 }
+
+func TestPrintQueryLocation(t *testing.T) {
+	location := &core.LinkLocation{Start: core.LinkPosition{Line: 4, Column: 2}, End: core.LinkPosition{Line: 5, Column: 7}}
+	r := &core.QueryResult{Entry: core.NodeInfo{Type: core.NodeTypeNote, Path: "Entry.md"},
+		Backlinks: []core.QueryNode{
+			{NodeInfo: core.NodeInfo{Type: core.NodeTypeNote, Path: "A.md"}, RawLink: "[a\nb](Entry.md)", Location: location},
+			{NodeInfo: core.NodeInfo{Type: core.NodeTypeNote, Path: "B.md"}, RawLink: "[[Entry]]"},
+		}}
+	var buf bytes.Buffer
+	if err := printQueryJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	assertJSONEqual(t, buf.Bytes(), `{"entry":{"type":"note","name":"","path":"Entry.md","exists":false},"backlinks":[
+		{"type":"note","name":"","path":"A.md","exists":false,"raw_link":"[a\nb](Entry.md)","location":{"start":{"line":4,"column":2},"end":{"line":5,"column":7}}},
+		{"type":"note","name":"","path":"B.md","exists":false,"raw_link":"[[Entry]]"}],
+		"page":{"offset":0,"limit":null,"next_offset":null}}`)
+	buf.Reset()
+	if err := printQueryText(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	want := "entry:\n  note \"Entry.md\"\nbacklinks:\n  note \"A.md\"\n    raw_link: \"[a\\nb](Entry.md)\"\n    location: 4:2-5:7\n  note \"B.md\"\n    raw_link: \"[[Entry]]\"\npage:\n  offset: 0\n  limit: null\n  next_offset: null\n"
+	if buf.String() != want {
+		t.Fatalf("text=%q want=%q", buf.String(), want)
+	}
+}

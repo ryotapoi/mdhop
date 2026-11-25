@@ -236,3 +236,45 @@ func TestRunQuery_PreviewFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestRunQuery_IncludeLocation(t *testing.T) {
+	vault := t.TempDir()
+	for path, content := range map[string]string{
+		"E.md": "# E\n",
+		"A.md": "---\nx: 1\n---\nsee [[E]]\n",
+		"B.md": "[[E]]\n",
+	} {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := core.Build(vault); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(vault, "B.md")); err != nil {
+		t.Fatal(err)
+	}
+	base := []string{"--vault", vault, "--file", "E.md", "--relations", "backlinks", "--format", "json"}
+	out := captureStdout(t, func() error { return runQuery(append(base, "--include-location")) })
+	var got struct {
+		Backlinks []map[string]any `json:"backlinks"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("json: %v\n%s", err, out)
+	}
+	byPath := map[string]map[string]any{}
+	for _, node := range got.Backlinks {
+		byPath[node["path"].(string)] = node
+	}
+	wantA := map[string]any{"start": map[string]any{"line": 4.0, "column": 5.0}, "end": map[string]any{"line": 4.0, "column": 10.0}}
+	if a := byPath["A.md"]; a["raw_link"] != "[[E]]" || !reflect.DeepEqual(a["location"], wantA) {
+		t.Fatalf("A.md=%v", a)
+	}
+	if b := byPath["B.md"]; b["raw_link"] != "[[E]]" || b["location"] != nil {
+		t.Fatalf("B.md=%v", b)
+	}
+	out = captureStdout(t, func() error { return runQuery(base) })
+	if strings.Contains(out, "raw_link") || strings.Contains(out, "location") {
+		t.Fatalf("unrequested location fields: %s", out)
+	}
+}

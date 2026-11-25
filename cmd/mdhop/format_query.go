@@ -135,8 +135,20 @@ func writeQueryPageNumber(w io.Writer, label string, value *int) {
 
 type jsonQueryNode struct {
 	jsonNodeInfo
-	Head    *[]string           `json:"head,omitempty"`
-	Snippet *[]jsonQuerySnippet `json:"snippet,omitempty"`
+	Head     *[]string           `json:"head,omitempty"`
+	Snippet  *[]jsonQuerySnippet `json:"snippet,omitempty"`
+	RawLink  string              `json:"raw_link,omitempty"`
+	Location *jsonLinkLocation   `json:"location,omitempty"`
+}
+
+type jsonLinkPosition struct {
+	Line   int `json:"line"`
+	Column int `json:"column"`
+}
+
+type jsonLinkLocation struct {
+	Start jsonLinkPosition `json:"start"`
+	End   jsonLinkPosition `json:"end"`
 }
 type jsonQuerySnippet struct {
 	SourcePath string   `json:"source_path"`
@@ -156,6 +168,13 @@ func toJSONQueryNode(node core.QueryNode) jsonQueryNode {
 			snippets[i] = jsonQuerySnippet{s.SourcePath, s.LineStart, s.LineEnd, s.Lines}
 		}
 		out.Snippet = &snippets
+	}
+	out.RawLink = node.RawLink
+	if loc := node.Location; loc != nil {
+		out.Location = &jsonLinkLocation{
+			Start: jsonLinkPosition{loc.Start.Line, loc.Start.Column},
+			End:   jsonLinkPosition{loc.End.Line, loc.End.Column},
+		}
 	}
 	return out
 }
@@ -185,5 +204,12 @@ func writeQueryPreviewText(w io.Writer, node core.QueryNode, indent string) {
 				}
 			}
 		}
+	}
+	if node.RawLink != "" {
+		quoted, _ := json.Marshal(node.RawLink)
+		fmt.Fprintf(w, "%sraw_link: %s\n", indent, quoted)
+	}
+	if loc := node.Location; loc != nil {
+		fmt.Fprintf(w, "%slocation: %d:%d-%d:%d\n", indent, loc.Start.Line, loc.Start.Column, loc.End.Line, loc.End.Column)
 	}
 }

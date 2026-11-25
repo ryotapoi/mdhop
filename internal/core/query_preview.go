@@ -39,12 +39,30 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		}
 		return err
 	}
+	var locator *linkLocator
+	if opts.IncludeLocation {
+		locator = newLinkLocator(diskPaths)
+	}
+	addLocation := func(node *QueryNode, sourceID, targetID int64, key string) error {
+		if locator == nil {
+			return nil
+		}
+		edges, err := queryFirstLinkEdges(db, sourceID, targetID, key)
+		if err != nil {
+			return err
+		}
+		node.RawLink, node.Location, err = locator.locate(edges)
+		return err
+	}
 	for i := range result.Backlinks {
 		node := &result.Backlinks[i]
 		if err := addHead(node); err != nil {
 			return err
 		}
 		if err := addSnippet(node, node.id, entryID, opts.LinkKey); err != nil {
+			return err
+		}
+		if err := addLocation(node, node.id, entryID, opts.LinkKey); err != nil {
 			return err
 		}
 	}
@@ -65,6 +83,9 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		for j := range target.Relation {
 			via := &target.Relation[j]
 			if err := addSnippet(via, target.id, via.id, ""); err != nil {
+				return err
+			}
+			if err := addLocation(via, target.id, via.id, ""); err != nil {
 				return err
 			}
 		}
