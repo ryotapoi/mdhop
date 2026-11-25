@@ -218,3 +218,69 @@ func TestMentionsLengthChangingCaseFolding(t *testing.T) {
 	}
 	assertMentions(t, "incoming", r.Incoming, "T.md@1:6-1:7=E")
 }
+
+func TestMentionsFilters(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"E.md":           "Ghost Keep Drop Day\n",
+		"notes/Keep.md":  "E\n",
+		"notes/Drop.md":  "E\n",
+		"daily/Day.md":   "E\n",
+		"archive/Old.md": "E\n",
+		"Other.md":       "[[Ghost]]\n",
+	})
+	newFilter := func(hide ...string) *QueryFilter {
+		t.Helper()
+		f, err := NewQueryFilter(Config{Query: QueryConfig{Hide: ExcludeConfig{Paths: []string{"archive/*"}}}},
+			QueryFilterOptions{Hide: ExcludeConfig{Paths: hide}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+	run := func(entry MentionsEntry, opts MentionsOptions) *MentionsResult {
+		t.Helper()
+		r, err := Mentions(vault, entry, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	keep := "notes/Keep.md@1:1-1:2=E"
+	drop := "notes/Drop.md@1:1-1:2=E"
+	day := "daily/Day.md@1:1-1:2=E"
+	ghost := "phantom:Ghost@1:1-1:6=Ghost"
+	outKeep := "notes/Keep.md@1:7-1:11=Keep"
+	outDrop := "notes/Drop.md@1:12-1:16=Drop"
+	outDay := "daily/Day.md@1:17-1:20=Day"
+	file := MentionsEntry{File: "E.md"}
+
+	// --path narrows notes in both directions and keeps pathless phantoms.
+	r := run(file, MentionsOptions{Filter: newFilter(), Path: []string{"notes/*"}})
+	assertMentions(t, "path incoming", r.Incoming, drop, keep)
+	assertMentions(t, "path outgoing", r.Outgoing, outDrop, outKeep, ghost)
+
+	// Caller hide adds to [query.hide] and wins over a matching --path.
+	r = run(file, MentionsOptions{Filter: newFilter("notes/Drop.md"), Path: []string{"notes/*", "archive/*"}})
+	assertMentions(t, "hide incoming", r.Incoming, keep)
+	assertMentions(t, "hide outgoing", r.Outgoing, outKeep, ghost)
+
+	// --no-phantom drops phantoms from outgoing only.
+	r = run(file, MentionsOptions{Filter: newFilter(), NoPhantom: true})
+	assertMentions(t, "no-phantom incoming", r.Incoming, day, drop, keep)
+	assertMentions(t, "no-phantom outgoing", r.Outgoing, outDay, outDrop, outKeep)
+	r = run(MentionsEntry{Phantom: "Ghost"}, MentionsOptions{Filter: newFilter(), NoPhantom: true})
+	assertMentions(t, "phantom entry", r.Incoming, "E.md@1:1-1:6=Ghost")
+
+	// Totals count filtered mentions before the limit.
+	limit := 1
+	r = run(file, MentionsOptions{Filter: newFilter(), Path: []string{"notes/*"}, Limit: &limit})
+	assertMentions(t, "limited incoming", r.Incoming, drop)
+	assertMentions(t, "limited outgoing", r.Outgoing, outDrop)
+	if r.Total.Incoming != 2 || *r.Total.Outgoing != 3 {
+		t.Fatalf("total=%d/%d", r.Total.Incoming, *r.Total.Outgoing)
+	}
+
+	if _, err := Mentions(vault, file, MentionsOptions{Path: []string{"a[b]"}}); err == nil || err.Error() != "unsupported glob pattern (character class): a[b]" {
+		t.Fatalf("glob err=%v", err)
+	}
+}

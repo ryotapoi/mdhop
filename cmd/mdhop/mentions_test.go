@@ -57,6 +57,34 @@ func TestMentionsJSONShape(t *testing.T) {
 	}
 }
 
+func TestMentionsFilterFlags(t *testing.T) {
+	vault := mentionsCLIVault(t)
+	for _, name := range []string{"Beta.md", "Gamma.md"} {
+		if err := os.WriteFile(filepath.Join(vault, name), []byte("Plan\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runBuild([]string{"--vault", vault}); err != nil {
+		t.Fatal(err)
+	}
+	out := captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json",
+			"--path", "*a.md", "--hide-path", "Alpha.md", "--hide-path", "Gamma.md", "--no-phantom"})
+	})
+	var got struct {
+		Incoming []struct{ Path string }
+		Outgoing []struct{ Path string }
+		Total    struct{ Incoming, Outgoing int }
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("parse %q: %v", out, err)
+	}
+	if len(got.Incoming) != 1 || got.Incoming[0].Path != "Beta.md" || len(got.Outgoing) != 0 ||
+		got.Total.Incoming != 1 || got.Total.Outgoing != 0 {
+		t.Fatalf("filtered: %s", out)
+	}
+}
+
 func TestMentionsPhantomTextOmitsOutgoing(t *testing.T) {
 	vault := mentionsCLIVault(t)
 	out := captureStdout(t, func() error {
@@ -82,6 +110,8 @@ func TestMentionsCLIErrors(t *testing.T) {
 	}{
 		{nil, "no entry specified"},
 		{[]string{"--file", "Plan.md", "--limit", "0"}, "limit must be positive"},
+		{[]string{"--file", "Plan.md", "--path", "a[b]"}, "unsupported glob pattern (character class): a[b]"},
+		{[]string{"--file", "Plan.md", "--hide-path", "a[b]"}, "query hide: unsupported glob pattern (character class): a[b]"},
 	} {
 		err := runMentions(append([]string{"--vault", vault}, tc.args...))
 		if err == nil || !strings.Contains(err.Error(), tc.want) {

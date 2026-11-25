@@ -19,12 +19,16 @@ type MentionsEntry struct {
 	Phantom string
 }
 
-// MentionsOptions controls name matching and the per-direction result size.
-// Partial disables the Latin letter boundary check. A nil Limit returns all.
+// MentionsOptions controls name matching, result filtering, and the
+// per-direction result size. Partial disables the Latin letter boundary check.
+// Path keeps notes matching any glob (phantoms have no path and are kept);
+// NoPhantom drops phantoms. Filters apply before Limit. A nil Limit returns all.
 type MentionsOptions struct {
-	Partial bool
-	Limit   *int
-	Filter  *QueryFilter
+	Partial   bool
+	Limit     *int
+	Filter    *QueryFilter
+	Path      []string
+	NoPhantom bool
 }
 
 // Mention is the first unlinked occurrence of a name in one note. MatchedText
@@ -37,7 +41,7 @@ type Mention struct {
 	id          int64
 }
 
-// MentionsTotal counts visible mentions before the limit. Outgoing is nil for
+// MentionsTotal counts filtered mentions before the limit. Outgoing is nil for
 // a phantom entry.
 type MentionsTotal struct {
 	Incoming int
@@ -66,6 +70,9 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 	if opts.Limit != nil && *opts.Limit <= 0 {
 		return nil, errors.New("limit must be positive")
 	}
+	if err := validateGlobPatterns(opts.Path); err != nil {
+		return nil, err
+	}
 	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
@@ -89,7 +96,7 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 	if err != nil {
 		return nil, err
 	}
-	candidates, err := mentionCandidates(db, entryID, linked, opts.Filter)
+	candidates, err := mentionCandidates(db, entryID, linked, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -166,8 +173,8 @@ func mentionLinkedIDs(db dbExecer, entryID int64) (map[int64]bool, error) {
 }
 
 // mentionCandidates returns visible notes and phantoms other than the entry
-// and its linked nodes.
-func mentionCandidates(db dbExecer, entryID int64, linked map[int64]bool, filter *QueryFilter) ([]queryNode, error) {
+// and its linked nodes, narrowed by the path and phantom options.
+func mentionCandidates(db dbExecer, entryID int64, linked map[int64]bool, opts MentionsOptions) ([]queryNode, error) {
 	rows, err := db.Query(`SELECT id, type, name, COALESCE(path,''), exists_flag FROM nodes WHERE type IN ('note','phantom')`)
 	if err != nil {
 		return nil, err
@@ -179,7 +186,13 @@ func mentionCandidates(db dbExecer, entryID int64, linked map[int64]bool, filter
 		if err != nil {
 			return nil, err
 		}
-		if id == entryID || linked[id] || filter.IsHidden(info) || mentionFold(info.Name) == "" {
+		if id == entryID || linked[id] || opts.Filter.IsHidden(info) || mentionFold(info.Name) == "" {
+			continue
+		}
+		if info.Type == NodeTypePhantom && opts.NoPhantom {
+			continue
+		}
+		if info.Type == NodeTypeNote && !pathMatchesFilters(info.Path, opts.Path, nil) {
 			continue
 		}
 		nodes = append(nodes, queryNode{id: id, info: info})
