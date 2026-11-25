@@ -6,6 +6,55 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.24.1] - 2026-11-26
+
+### Changed
+
+- Frontmatter wikilinks are recognized only when a quoted scalar, or each string element of an array, is entirely a single `[[foo]]`. Strings with several links or surrounding prose remain ordinary metadata and are no longer traversed or rewritten; `meta-check --kind auto` skips them.
+- Semver metadata compares dot-separated nonnegative integers numerically with any number of components and digits, treating missing trailing components as zero (`1 = 1.0.0`, `1 < 1.0.0.0.5 < 1.1 < 100`). Integer YAML numbers are accepted; original values are retained.
+- Date metadata keeps accepted fractional seconds, up to nanoseconds, for sorting and comparison.
+- Markdown link display text that spans lines within one paragraph is indexed as one link with its raw text and start/end lines; `resolve --line` uses the starting line. Valid links after an unclosed `[` are no longer missed.
+- `add` accepts only `.md` paths; a batch containing any other file fails before changes. Assets are registered by `build`.
+- `move` rejects, before any change, renames that cross the note/asset boundary (`.md` ↔ non-`.md`), renames that would turn existing attachment references into note references, and batch moves whose destination appears during the batch instead of overwriting it.
+- `build` fails without publishing the index when several disk entries normalize to the same Unicode (NFC) path, naming the conflicting spellings.
+- Explicitly empty `--db` or `--config` values are rejected instead of falling back to the default locations.
+- Text output of `search` metadata and CLI error messages show terminal control characters in a visible escaped form.
+
+### Fixed
+
+- Directory delete and move no longer select folders that differ only in letter case (for example, `Docs/` when `docs/` is given).
+- `set` no longer saves broken YAML: edits involving anchors or aliases are rejected, and flow-sequence lists containing apostrophes are replaced correctly.
+- `move` rejects moves that would change the meaning of unresolved relative raw paths configured through `meta.link_keys`; `add` rejects notes that would make raw paths pointing to assets ambiguous.
+- `disambiguate` keeps unresolved path links instead of retargeting them to a same-named file elsewhere, and matches NFC and NFD spellings of names.
+- Directory moves to the vault root register normalized paths such as `A.md` instead of `./A.md`.
+- Backslash escapes before `[` are handled the same way for inline and reference links.
+- `migrate` validates all configuration filters before removing the old index.
+- Reference links in CRLF notes and quoted frontmatter values with type tags (`!!str "[[B]]"`) are indexed.
+- `--where` comparison values ending in `NOT EXISTS` are treated as values.
+- `inspect --fields tags` compares tag hierarchies case-insensitively when choosing leaf tags.
+- `diagnose --fields anchors` accepts links to headings starting with `^`.
+- `basename_conflicts` lists Unicode case variants in path order with a representative name from the first path.
+- `build.exclude_paths` matches names regardless of Unicode normalization.
+- Empty folders such as `..archive/` are cleaned up after deletion, and `move` no longer treats names starting with `..` as outside the vault.
+- Link rewrites during `move` preserve Markdown links with code in the display text, rewrite the outer destination of image links, and apply several rewrites on one line once to the original text.
+- `convert` escapes `]` in wikilink display text and keeps the real path of extensionless assets.
+- `add` rejects case variants of registered files on case-insensitive filesystems.
+- `move`, `add`, and path resolution find files whose on-disk names, or symlinked parent folders, use a different Unicode normalization; `move` detects such folders without a trailing `/`.
+- `resolve` fallback uses the same resolution rules as `build`.
+- `status` no longer reports existing directory symlinks as deleted.
+
+### Performance
+
+- Reduced repeated work in template moves, `meta-check` directory checks, directory lookups during `build`, `query`, and `search` on normalization-sensitive filesystems, batch move name-collision checks, and link lookups for moved notes.
+
+### Upgrade
+
+- Run `mdhop build`. Older indexes cannot be queried or incrementally updated; a normal build fully regenerates them.
+
+### Documentation
+
+- Updated both READMEs, CLI help, the example agent skill, requirements, and current ADRs for the changes above, and corrected the description of pattern validation for disabled configuration filters.
+
 ## [v0.24.0] - 2026-10-12
 
 ### Changed
