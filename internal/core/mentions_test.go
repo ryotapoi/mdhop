@@ -1,0 +1,220 @@
+package core
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func mentionsVault(t *testing.T, files map[string]string) string {
+	t.Helper()
+	vault := t.TempDir()
+	for path, content := range files {
+		full := filepath.Join(vault, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	buildForQuery(t, vault)
+	return vault
+}
+
+// mentionSummary renders "identifier@L:C-L:C=matched" for compact assertions.
+func mentionSummary(mentions []Mention) []string {
+	out := []string{}
+	for _, m := range mentions {
+		id := m.Path
+		if m.Type == NodeTypePhantom {
+			id = "phantom:" + m.Name
+		}
+		l := m.Location
+		out = append(out, fmt.Sprintf("%s@%d:%d-%d:%d=%s", id, l.Start.Line, l.Start.Column, l.End.Line, l.End.Column, m.MatchedText))
+	}
+	return out
+}
+
+func assertMentions(t *testing.T, label string, got []Mention, want ...string) {
+	t.Helper()
+	summary := mentionSummary(got)
+	if strings.Join(summary, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("%s:\n got %q\nwant %q", label, summary, want)
+	}
+}
+
+func TestMentionsIncomingExclusions(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"E.md":        "[[Target]]\n",
+		"Back.md":     "[[E]] E\n",
+		"Target.md":   "E here\n",
+		"Masked.md":   "---\na: E\n---\nsee `E` [[x]] [E](y) https://e.com/E mailto:E@x E!\n",
+		"Fence.md":    "```\nE\n```\n",
+		"Ref.md":      "[r]: E\n",
+		"Word.md":     "Elephant E1\n",
+		"Hidden/H.md": "E\n",
+	})
+	filter, err := NewQueryFilter(Config{Query: QueryConfig{Hide: ExcludeConfig{Paths: []string{"Hidden/*"}}}}, QueryFilterOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Mentions(vault, MentionsEntry{File: "E.md"}, MentionsOptions{Filter: filter})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Back links to E and E links to Target, so neither direction returns them.
+	assertMentions(t, "incoming", r.Incoming, "Masked.md@4:49-4:50=E", "Word.md@1:10-1:11=E")
+	if r.Total.Incoming != 2 {
+		t.Fatalf("total incoming=%d", r.Total.Incoming)
+	}
+	if r.Incoming[0].Excerpt != "see `E` [[x]] [E](y) https://e.com/E mailto:E@x E!" {
+		t.Fatalf("excerpt=%q", r.Incoming[0].Excerpt)
+	}
+}
+
+func TestMentionsOutgoingBoundariesAndSharedNames(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"Plan.md":      "---\ntags: [Alpha]\n---\nAlpha Plan Back github git スキルアップ 仕様書 iOS26 Linked GHOST\n[[Linked]]\n",
+		"Alpha.md":     "a\n",
+		"sub/alpha.md": "b\n",
+		"git.md":       "g\n",
+		"スキル.md":       "s\n",
+		"仕様.md":        "p\n",
+		"ios.md":       "i\n",
+		"Linked.md":    "l\n",
+		"Back.md":      "[[Plan]]\n",
+		"Other.md":     "[[Ghost]]\n",
+	})
+	r, err := Mentions(vault, MentionsEntry{File: "Plan.md"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"Alpha.md@4:1-4:6=Alpha",
+		"git.md@4:24-4:27=git",
+		"ios.md@4:39-4:42=iOS",
+		"sub/alpha.md@4:1-4:6=Alpha",
+		"スキル.md@4:28-4:31=スキル",
+		"仕様.md@4:35-4:37=仕様",
+		"phantom:Ghost@4:52-4:57=GHOST",
+	}
+	assertMentions(t, "outgoing", r.Outgoing, want...)
+	if r.Total.Outgoing == nil || *r.Total.Outgoing != len(want) {
+		t.Fatalf("total outgoing=%v", r.Total.Outgoing)
+	}
+
+	r, err = Mentions(vault, MentionsEntry{File: "Plan.md"}, MentionsOptions{Partial: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := mentionSummary(r.Outgoing)[1]; got != "git.md@4:17-4:20=git" {
+		t.Fatalf("partial git=%s", got)
+	}
+
+	limit := 2
+	r, err = Mentions(vault, MentionsEntry{File: "Plan.md"}, MentionsOptions{Limit: &limit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "limited", r.Outgoing, want[:2]...)
+	if *r.Total.Outgoing != len(want) {
+		t.Fatalf("limited total=%d", *r.Total.Outgoing)
+	}
+}
+
+func TestMentionsPhantomEntryIncomingOnly(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"Other.md": "[[Ghost]] ghost\n",
+		"Note.md":  "a ghost story\n",
+	})
+	r, err := Mentions(vault, MentionsEntry{Phantom: "ghost"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "incoming", r.Incoming, "Note.md@1:3-1:8=ghost")
+	if r.Outgoing != nil || r.Total.Outgoing != nil {
+		t.Fatalf("phantom outgoing=%v total=%v", r.Outgoing, r.Total.Outgoing)
+	}
+}
+
+func TestMentionsNFDSourceAndCRLFLocation(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"Café.md":   "c\n",
+		"N.md":      "---\r\nx: 1\r\n---\r\nあ Cafe\u0301s CAFE\u0301\r\n",
+		"Plural.md": "Café's Cafés\n",
+	})
+	r, err := Mentions(vault, MentionsEntry{File: "Café.md"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Cafés is a longer Latin word; columns count the NFD code points.
+	assertMentions(t, "incoming", r.Incoming, "N.md@4:10-4:15=CAFE\u0301", "Plural.md@1:1-1:5=Café")
+	if r.Incoming[0].Excerpt != "あ Cafe\u0301s CAFE\u0301" {
+		t.Fatalf("excerpt=%q", r.Incoming[0].Excerpt)
+	}
+}
+
+func TestMentionsErrors(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"A.md":     "[[Ghost]] ![[img.png]]\n",
+		"img.png":  "x",
+		"Other.md": "o\n",
+	})
+	zero := 0
+	cases := []struct {
+		name  string
+		entry MentionsEntry
+		opts  MentionsOptions
+		want  string
+	}{
+		{"none", MentionsEntry{}, MentionsOptions{}, "no entry specified"},
+		{"both", MentionsEntry{File: "A.md", Phantom: "Ghost"}, MentionsOptions{}, "exactly one"},
+		{"limit", MentionsEntry{File: "A.md"}, MentionsOptions{Limit: &zero}, "limit must be positive"},
+		{"asset", MentionsEntry{File: "img.png"}, MentionsOptions{}, "requires an indexed note"},
+		{"phantom", MentionsEntry{Phantom: "Missing"}, MentionsOptions{}, "phantom not in index"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Mentions(vault, tc.entry, tc.opts)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err=%v, want %q", err, tc.want)
+			}
+		})
+	}
+	if _, err := Mentions(vault, MentionsEntry{File: "Missing.md"}, MentionsOptions{}); !errors.Is(err, ErrFileNotRegistered) {
+		t.Fatalf("unregistered err=%v", err)
+	}
+}
+
+func TestMentionsSkipsDeletedNotes(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"E.md":    "e\n",
+		"Gone.md": "E\n",
+		"Kept.md": "E\n",
+	})
+	if err := os.Remove(filepath.Join(vault, "Gone.md")); err != nil {
+		t.Fatal(err)
+	}
+	r, err := Mentions(vault, MentionsEntry{File: "E.md"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "incoming", r.Incoming, "Kept.md@1:1-1:2=E")
+}
+
+func TestMentionsLengthChangingCaseFolding(t *testing.T) {
+	// İ and the Kelvin sign change byte length when lower-cased.
+	vault := mentionsVault(t, map[string]string{
+		"E.md": "e\n",
+		"T.md": "İİ \u212a E mailto:E@x\n",
+	})
+	r, err := Mentions(vault, MentionsEntry{File: "E.md"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "incoming", r.Incoming, "T.md@1:6-1:7=E")
+}

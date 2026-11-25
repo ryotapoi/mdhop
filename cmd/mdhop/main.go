@@ -62,6 +62,8 @@ func main() {
 		err = runConvert(os.Args[2:])
 	case "search":
 		err = runSearch(os.Args[2:])
+	case "mentions":
+		err = runMentions(os.Args[2:])
 	case "reachable":
 		err = runReachable(os.Args[2:])
 	case "graph":
@@ -135,6 +137,7 @@ Query Commands:
   inspect    Inspect indexed attributes of one note
   query      Query related information for a node
   search     Search notes by metadata and path conditions
+  mentions   Find notes that write a name without linking to it
   reachable  Check link reachability from an entry note
   graph      Export the link graph as JSON or Graphviz dot
   stats      Show vault statistics

@@ -1,0 +1,91 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func mentionsCLIVault(t *testing.T) string {
+	t.Helper()
+	vault := t.TempDir()
+	files := map[string]string{
+		"Plan.md":  "Alpha Ghost\n",
+		"Alpha.md": "see Plan\n",
+		"Other.md": "[[Ghost]]\n",
+	}
+	for path, content := range files {
+		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runBuild([]string{"--vault", vault}); err != nil {
+		t.Fatal(err)
+	}
+	return vault
+}
+
+func TestMentionsJSONShape(t *testing.T) {
+	vault := mentionsCLIVault(t)
+	out := captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json"})
+	})
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("parse %q: %v", out, err)
+	}
+	want := map[string]string{
+		"entry":    `{"type":"note","name":"Plan","path":"Plan.md","exists":true}`,
+		"incoming": `[{"type":"note","name":"Alpha","path":"Alpha.md","exists":true,"matched_text":"Plan","location":{"start":{"line":1,"column":5},"end":{"line":1,"column":9}},"excerpt":"see Plan"}]`,
+		"outgoing": `[{"type":"note","name":"Alpha","path":"Alpha.md","exists":true,"matched_text":"Alpha","location":{"start":{"line":1,"column":1},"end":{"line":1,"column":6}},"excerpt":"Alpha Ghost"},{"type":"phantom","name":"Ghost","matched_text":"Ghost","location":{"start":{"line":1,"column":7},"end":{"line":1,"column":12}},"excerpt":"Alpha Ghost"}]`,
+		"total":    `{"incoming":1,"outgoing":2}`,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("keys: %s", out)
+	}
+	for key, w := range want {
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, got[key]); err != nil {
+			t.Fatal(err)
+		}
+		if compact.String() != w {
+			t.Fatalf("%s: %s", key, compact.String())
+		}
+	}
+}
+
+func TestMentionsPhantomTextOmitsOutgoing(t *testing.T) {
+	vault := mentionsCLIVault(t)
+	out := captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--phantom", "Ghost", "--limit", "1"})
+	})
+	want := "entry:\n  phantom \"Ghost\"\nincoming:\n  note \"Plan.md\"\n    matched_text: \"Ghost\"\n    location: 1:7-1:12\n    excerpt: \"Alpha Ghost\"\ntotal:\n  incoming: 1\n"
+	if out != want {
+		t.Fatalf("text:\n%q\nwant\n%q", out, want)
+	}
+	out = captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--phantom", "Ghost", "--format", "json"})
+	})
+	if strings.Contains(out, "outgoing") {
+		t.Fatalf("phantom JSON has outgoing: %s", out)
+	}
+}
+
+func TestMentionsCLIErrors(t *testing.T) {
+	vault := mentionsCLIVault(t)
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{nil, "no entry specified"},
+		{[]string{"--file", "Plan.md", "--limit", "0"}, "limit must be positive"},
+	} {
+		err := runMentions(append([]string{"--vault", vault}, tc.args...))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%v: err=%v, want %q", tc.args, err, tc.want)
+		}
+	}
+}
