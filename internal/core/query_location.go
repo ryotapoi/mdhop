@@ -160,31 +160,61 @@ func readLocationFile(diskPaths *vaultDiskPathResolver, source contentSource) (*
 	return file, nil
 }
 
-// find returns the leftmost body occurrence of edge.rawLink starting on
-// edge.lineStart and its byte offset within the paragraph.
+// find returns the leftmost parsed occurrence matching the edge on its
+// indexed line and its byte offset within the paragraph.
 func (f *locationFile) find(edge locationEdge) (*LinkLocation, int, bool) {
 	for _, p := range f.paragraphs {
 		last := p.start + strings.Count(p.raw, "\n")
 		if edge.lineStart < p.start || edge.lineStart > last {
 			continue
 		}
-		var starts []bodyLinkSpan
-		if edge.linkType == LinkTypeTag {
-			starts = f.tagSpans(p, edge.rawLink)
-		} else {
-			starts = bodyLinkSpans(p.raw, edge.rawLink, edge.linkType)
+		if span, ok := f.findSpan(p, edge); ok {
+			return &LinkLocation{
+				Start: paragraphPosition(p, span.start),
+				End:   paragraphPosition(p, span.end),
+			}, span.start, true
 		}
-		for _, span := range starts {
-			if p.start+strings.Count(p.raw[:span.start], "\n") == edge.lineStart {
-				return &LinkLocation{
-					Start: paragraphPosition(p, span.start),
-					End:   paragraphPosition(p, span.end),
-				}, span.start, true
-			}
-		}
-		return nil, 0, false
+		break
 	}
 	return nil, 0, false
+}
+
+func (f *locationFile) findSpan(p locationParagraph, edge locationEdge) (bodyLinkSpan, bool) {
+	switch edge.linkType {
+	case LinkTypeWikilink:
+		// Wikilinks are indexed from code-masked physical lines.
+		offset, lineNum := 0, p.start
+		for line := range strings.SplitSeq(p.clean, "\n") {
+			if lineNum == edge.lineStart {
+				for _, span := range wikiLinkSpans(line) {
+					if span.raw == edge.rawLink {
+						return bodyLinkSpan{offset + span.start, offset + span.end}, true
+					}
+				}
+				break
+			}
+			offset += len(line) + 1
+			lineNum++
+		}
+	case LinkTypeMarkdown, LinkTypeMarkdownReference:
+		clean := maskParagraphWikiLinks(p.clean)
+		boundaries := scanMarkdownBoundaries(clean, p.start)
+		for _, span := range markdownSpans(p.raw, clean, f.definitions, boundaries) {
+			if boundaries.line[span.start] != edge.lineStart || span.typ != edge.linkType || p.raw[span.start:span.end] != edge.rawLink {
+				continue
+			}
+			if _, ok := markdownDestinationOccur(span.destination, edge.rawLink, span.typ, edge.lineStart); ok {
+				return bodyLinkSpan{span.start, span.end}, true
+			}
+		}
+	case LinkTypeTag:
+		for _, span := range f.tagSpans(p, edge.rawLink) {
+			if p.start+strings.Count(p.raw[:span.start], "\n") == edge.lineStart {
+				return span, true
+			}
+		}
+	}
+	return bodyLinkSpan{}, false
 }
 
 // tagSpans applies the parser's tag text masking and tag boundaries, so a

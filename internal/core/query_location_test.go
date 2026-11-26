@@ -36,6 +36,7 @@ func assertLocation(t *testing.T, node QueryNode, raw string, want *LinkLocation
 func TestQueryIncludeLocationBacklinks(t *testing.T) {
 	vault := locationVault(t, map[string]string{
 		"E.md":         "# E\n",
+		"Other.md":     "# Other\n",
 		"FM.md":        "---\ntitle: é\n---\nあい [[E]] x [[E]]\n",
 		"CRLF.md":      "---\r\na: 1\r\n---\r\nx\r\n[[E]]\r\n",
 		"Multi.md":     "[see\nthis](E.md)\n",
@@ -43,6 +44,10 @@ func TestQueryIncludeLocationBacklinks(t *testing.T) {
 		"Mixed.md":     "[x](E.md) [[E]]\n",
 		"FMFirst.md":   "---\nrel: \"[[E]]\"\n---\nbody [[E]]\n",
 		"Paragraph.md": "[[Other]]\n\n[[E]]\n",
+		"InlineRef.md": "[guide](Other.md) [guide]\n\n[guide]: E.md\n",
+		"Escaped.md":   "\\[guide] [guide]\n\n[guide]: E.md\n",
+		"Nested.md":    "[[Other|[[E]]]] [[E]]\n",
+		"CodeRef.md":   "[see `code`][guide]\n\n[guide]: E.md\n",
 	})
 	r, err := Query(vault, EntrySpec{File: "E.md"}, QueryOptions{Relations: []string{FieldQueryBacklinks}, IncludeLocation: true})
 	if err != nil {
@@ -60,6 +65,10 @@ func TestQueryIncludeLocationBacklinks(t *testing.T) {
 		{"Mixed.md", "[x](E.md)", loc(1, 1, 1, 10)},
 		{"FMFirst.md", "[[E]]", nil},
 		{"Paragraph.md", "[[E]]", loc(3, 1, 3, 6)},
+		{"InlineRef.md", "[guide]", loc(1, 19, 1, 26)},
+		{"Escaped.md", "[guide]", loc(1, 10, 1, 17)},
+		{"Nested.md", "[[E]]", loc(1, 17, 1, 22)},
+		{"CodeRef.md", "[see `code`][guide]", loc(1, 1, 1, 20)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.path, func(t *testing.T) {
