@@ -82,8 +82,8 @@ func newLinkLocator(diskPaths *vaultDiskPathResolver) *linkLocator {
 	return &linkLocator{diskPaths: diskPaths, files: make(map[string]*locationFile)}
 }
 
-// locate returns the raw link of the first edge and its location when the
-// indexed file is unchanged and the raw link is found on the indexed line.
+// locate returns the raw link and location of the leftmost edge on the first
+// indexed line, falling back to the first indexed raw link without a location.
 func (l *linkLocator) locate(edges []locationEdge) (string, *LinkLocation, error) {
 	if len(edges) == 0 {
 		return "", nil, nil
@@ -104,9 +104,9 @@ func (l *linkLocator) locate(edges []locationEdge) (string, *LinkLocation, error
 	var best *LinkLocation
 	bestOffset := -1
 	for _, edge := range edges {
-		loc, offset, ok := file.find(edge)
-		if ok && (best == nil || offset < bestOffset) {
-			raw, best, bestOffset = edge.rawLink, loc, offset
+		link, loc, offset := file.find(edge)
+		if loc != nil && (best == nil || offset < bestOffset) {
+			raw, best, bestOffset = link, loc, offset
 		}
 	}
 	return raw, best, nil
@@ -161,23 +161,30 @@ func readLocationFile(diskPaths *vaultDiskPathResolver, source contentSource) (*
 	return file, nil
 }
 
-// find returns the leftmost parsed occurrence matching the edge on its
-// indexed line and its byte offset within the paragraph.
-func (f *locationFile) find(edge locationEdge) (*LinkLocation, int, bool) {
+// find returns the raw link, location, and paragraph byte offset of the
+// leftmost parsed occurrence matching the edge on its indexed line.
+func (f *locationFile) find(edge locationEdge) (string, *LinkLocation, int) {
 	for _, p := range f.paragraphs {
 		last := p.start + strings.Count(p.raw, "\n")
 		if edge.lineStart < p.start || edge.lineStart > last {
 			continue
 		}
 		if span, ok := f.findSpan(p, edge); ok {
-			return &LinkLocation{
+			raw := edge.rawLink
+			if edge.linkType == LinkTypeWikilink {
+				if original := p.raw[span.start:span.end]; original != raw {
+					// Keep the returned link independent of the source paragraph.
+					raw = strings.Clone(original)
+				}
+			}
+			return raw, &LinkLocation{
 				Start: paragraphPosition(p, span.start),
 				End:   paragraphPosition(p, span.end),
-			}, span.start, true
+			}, span.start
 		}
 		break
 	}
-	return nil, 0, false
+	return "", nil, 0
 }
 
 func (f *locationFile) findSpan(p locationParagraph, edge locationEdge) (bodyLinkSpan, bool) {

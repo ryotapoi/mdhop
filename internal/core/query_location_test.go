@@ -39,6 +39,7 @@ func TestQueryIncludeLocationBacklinks(t *testing.T) {
 		"CRLF.md":      "---\r\na: 1\r\n---\r\nx\r\n[[E]]\r\n",
 		"Multi.md":     "[see\nthis](E.md)\n",
 		"Code.md":      "`[[E]]` [[E]]\n",
+		"CodeAlias.md": "Lead\nあ [[E|`猫`]] [[E|`犬`]]\n",
 		"Mixed.md":     "[x](E.md) [[E]]\n",
 		"FMFirst.md":   "---\nrel: \"[[E]]\"\n---\nbody [[E]]\n",
 		"Paragraph.md": "[[Other]]\n\n[[E]]\n",
@@ -60,6 +61,7 @@ func TestQueryIncludeLocationBacklinks(t *testing.T) {
 		{"CRLF.md", "[[E]]", loc(5, 1, 5, 6)},
 		{"Multi.md", "[see\nthis](E.md)", loc(1, 1, 2, 12)},
 		{"Code.md", "[[E]]", loc(1, 9, 1, 14)},
+		{"CodeAlias.md", "[[E|`猫`]]", loc(2, 3, 2, 12)},
 		{"Mixed.md", "[x](E.md)", loc(1, 1, 1, 10)},
 		{"FMFirst.md", "[[E]]", nil},
 		{"Paragraph.md", "[[E]]", loc(3, 1, 3, 6)},
@@ -111,7 +113,7 @@ func TestQueryIncludeLocationChangedSourcesKeepRawLink(t *testing.T) {
 	vault := locationVault(t, map[string]string{
 		"E.md":          "# E\n",
 		"Deleted.md":    "[[E]]\n",
-		"Touched.md":    "[[E]]\n",
+		"Touched.md":    "[[E|`code`]]\n",
 		"Kept.md":       "[[E]]\n",
 		"Replaced/A.md": "[[E]]\n",
 	})
@@ -132,7 +134,7 @@ func TestQueryIncludeLocationChangedSourcesKeepRawLink(t *testing.T) {
 	}
 	assertLocation(t, previewNode(t, r.Backlinks, "Deleted.md"), "[[E]]", nil)
 	assertLocation(t, previewNode(t, r.Backlinks, "Replaced/A.md"), "[[E]]", nil)
-	assertLocation(t, previewNode(t, r.Backlinks, "Touched.md"), "[[E]]", nil)
+	assertLocation(t, previewNode(t, r.Backlinks, "Touched.md"), "[[E|      ]]", nil)
 	assertLocation(t, previewNode(t, r.Backlinks, "Kept.md"), "[[E]]", loc(1, 1, 1, 6))
 }
 
