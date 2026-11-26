@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"syscall"
 	"unicode"
 	"unicode/utf8"
 )
@@ -128,14 +129,14 @@ func (l *linkLocator) load(source contentSource) (*locationFile, error) {
 func readLocationFile(diskPaths *vaultDiskPathResolver, source contentSource) (*locationFile, error) {
 	fullPath, err := diskPaths.existingPath(source.path)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
 			return nil, nil
 		}
 		return nil, err
 	}
 	info, err := os.Stat(fullPath)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
 			return nil, nil
 		}
 		return nil, err
@@ -145,7 +146,7 @@ func readLocationFile(diskPaths *vaultDiskPathResolver, source contentSource) (*
 	}
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
 			return nil, nil
 		}
 		return nil, err

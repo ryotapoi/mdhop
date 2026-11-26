@@ -219,18 +219,29 @@ func TestMentionsErrors(t *testing.T) {
 
 func TestMentionsSkipsDeletedNotes(t *testing.T) {
 	vault := mentionsVault(t, map[string]string{
-		"E.md":    "e\n",
-		"Gone.md": "E\n",
-		"Kept.md": "E\n",
+		"E.md":          "e\n",
+		"Gone.md":       "E\n",
+		"Kept.md":       "E\n",
+		"Replaced/A.md": "E\n",
 	})
 	if err := os.Remove(filepath.Join(vault, "Gone.md")); err != nil {
 		t.Fatal(err)
 	}
-	r, err := Mentions(vault, MentionsEntry{File: "E.md"}, MentionsOptions{})
+	if err := os.RemoveAll(filepath.Join(vault, "Replaced")); err != nil {
+		t.Fatal(err)
+	}
+	writeVaultFile(t, vault, "Replaced", "regular file\n")
+	r, err := Mentions(vault, MentionsEntry{File: "E.md"}, MentionsOptions{Relations: []string{MentionsIncoming}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertMentions(t, "incoming", r.Incoming, "Kept.md@1:1-1:2=E")
+	if r.Total.Incoming == nil {
+		t.Fatal("missing incoming total")
+	}
+	if *r.Total.Incoming != 1 {
+		t.Fatalf("total incoming=%d, want 1", *r.Total.Incoming)
+	}
 }
 
 func TestMentionsLengthChangingCaseFolding(t *testing.T) {

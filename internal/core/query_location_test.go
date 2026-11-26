@@ -11,9 +11,7 @@ func locationVault(t *testing.T, files map[string]string) string {
 	t.Helper()
 	vault := t.TempDir()
 	for path, content := range files {
-		if err := os.WriteFile(filepath.Join(vault, path), []byte(content), 0644); err != nil {
-			t.Fatal(err)
-		}
+		writeVaultFile(t, vault, path, content)
 	}
 	buildForQuery(t, vault)
 	return vault
@@ -111,14 +109,19 @@ func TestQueryIncludeLocationTwoHopRelation(t *testing.T) {
 
 func TestQueryIncludeLocationChangedSourcesKeepRawLink(t *testing.T) {
 	vault := locationVault(t, map[string]string{
-		"E.md":       "# E\n",
-		"Deleted.md": "[[E]]\n",
-		"Touched.md": "[[E]]\n",
-		"Kept.md":    "[[E]]\n",
+		"E.md":          "# E\n",
+		"Deleted.md":    "[[E]]\n",
+		"Touched.md":    "[[E]]\n",
+		"Kept.md":       "[[E]]\n",
+		"Replaced/A.md": "[[E]]\n",
 	})
 	if err := os.Remove(filepath.Join(vault, "Deleted.md")); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.RemoveAll(filepath.Join(vault, "Replaced")); err != nil {
+		t.Fatal(err)
+	}
+	writeVaultFile(t, vault, "Replaced", "regular file\n")
 	later := time.Now().Add(time.Hour)
 	if err := os.Chtimes(filepath.Join(vault, "Touched.md"), later, later); err != nil {
 		t.Fatal(err)
@@ -128,6 +131,7 @@ func TestQueryIncludeLocationChangedSourcesKeepRawLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertLocation(t, previewNode(t, r.Backlinks, "Deleted.md"), "[[E]]", nil)
+	assertLocation(t, previewNode(t, r.Backlinks, "Replaced/A.md"), "[[E]]", nil)
 	assertLocation(t, previewNode(t, r.Backlinks, "Touched.md"), "[[E]]", nil)
 	assertLocation(t, previewNode(t, r.Backlinks, "Kept.md"), "[[E]]", loc(1, 1, 1, 6))
 }

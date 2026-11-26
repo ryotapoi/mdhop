@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"syscall"
 	"unicode"
 	"unicode/utf8"
 
@@ -289,7 +290,7 @@ func readMentionFile(diskPaths *vaultDiskPathResolver, path string) (string, boo
 			return string(content), true, nil
 		}
 	}
-	if errors.Is(err, fs.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
 		return "", false, nil
 	}
 	return "", false, err
