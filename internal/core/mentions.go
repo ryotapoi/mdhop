@@ -398,7 +398,29 @@ func limitMentions(mentions []Mention, order *mentionOrder, limit *int) ([]Menti
 }
 
 func mentionFold(s string) string {
-	return strings.ToLower(normalizeTextNFC(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return strings.Map(mentionFoldRune, normalizeTextNFC(s))
+		}
+	}
+	return strings.ToLower(s)
+}
+
+func mentionFoldRune(r rune) rune {
+	// Lowercase first to preserve existing matches such as İ with i.
+	r = unicode.ToLower(r)
+	if r < utf8.RuneSelf {
+		return r
+	}
+	// SimpleFold cycles in ascending order. Lowercase the minimum to
+	// share the ASCII keys for classes such as S, s, and ſ.
+	for {
+		next := unicode.SimpleFold(r)
+		if next <= r {
+			return unicode.ToLower(next)
+		}
+		r = next
+	}
 }
 
 // mentionSegment is one NFC normalization segment of the file text. A barrier
@@ -409,9 +431,9 @@ type mentionSegment struct {
 	starter            rune
 }
 
-// mentionText is the searchable body of one file. folded is the NFC lower-case
-// form of the body with excluded text replaced by NUL barriers; segment
-// offsets map it back to the original bytes.
+// mentionText is the searchable body of one file. folded is the case-folded
+// form of the NFC-normalized body with excluded text replaced by NUL
+// barriers; segment offsets map it back to the original bytes.
 type mentionText struct {
 	content  string
 	folded   string

@@ -287,6 +287,53 @@ func TestMentionsLengthChangingCaseFolding(t *testing.T) {
 	assertMentions(t, "incoming", r.Incoming, "T.md@1:6-1:7=E")
 }
 
+func TestMentionsGreekSigmaCaseFolding(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"ΟΣ.md":     "",
+		"Final.md":  "前 K ος οσ\r\n",
+		"Medial.md": "οσ ος\n",
+	})
+	r, err := Mentions(vault, MentionsEntry{File: "ΟΣ.md"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "incoming", r.Incoming, "Final.md@1:5-1:7=ος", "Medial.md@1:1-1:3=οσ")
+	for _, tc := range []struct {
+		file string
+		want string
+	}{
+		{"Final.md", "ΟΣ.md@1:5-1:7=ος"},
+		{"Medial.md", "ΟΣ.md@1:1-1:3=οσ"},
+	} {
+		t.Run(tc.file, func(t *testing.T) {
+			r, err := Mentions(vault, MentionsEntry{File: tc.file}, MentionsOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertMentions(t, "outgoing", r.Outgoing, tc.want)
+		})
+	}
+}
+
+func TestMentionsLatinCaseFolding(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"Entry.md": "aſ ſ S i İ\n",
+		"Other.md": "[[S]]\n",
+		"İ.md":     "",
+	})
+	r, err := Mentions(vault, MentionsEntry{File: "Entry.md"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "outgoing", r.Outgoing, "İ.md@1:8-1:9=i", "phantom:S@1:4-1:5=ſ")
+
+	r, err = Mentions(vault, MentionsEntry{Phantom: "S"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "incoming", r.Incoming, "Entry.md@1:4-1:5=ſ")
+}
+
 func TestMentionsFilters(t *testing.T) {
 	vault := mentionsVault(t, map[string]string{
 		"E.md":           "Ghost Keep Drop Day\n",
