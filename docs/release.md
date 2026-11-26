@@ -17,5 +17,13 @@
 ## 公開
 
 - 通知ファイルが対象タグに含まれ、配布するビルドの依存・Go version に合っていることを確認する。バイナリの配布物には `LICENSE` と `THIRD-PARTY-NOTICES.txt` を含める。
-- 必要な commit とタグを push し、push で走る CI が Ubuntu・macOS の両方で成功してから、指定版のタグで `gh release` を作成する。CI が失敗したら公開しない。
+- 必要な commit とタグを push し、タグが指すコミットの `Test` を確認する。`Test` が push で走るのは `main` の更新時なので、タグだけを push した場合は既存の実行を探す。`main` がタグより先に進んでいる場合も、タグのコミット SHA で絞り込む。
+
+  ```sh
+  tag=vX.Y.Z  # Replace with the release tag.
+  tag_sha=$(git rev-parse --verify "refs/tags/$tag^{commit}") &&
+    gh run list --workflow test.yml --branch main --event push --commit "$tag_sha" --status success
+  ```
+
+  一覧から実行 ID を選び、`gh run view <実行ID>` で Ubuntu と macOS の両方のジョブが同じ実行で成功していることを確認する。その成功を確認できてから、指定版のタグで `gh release` を作成する。両方の成功を確認できるまで公開を待つ。
 - Release 本文は、直前の GitHub Release 以降の主な変更の短い要約と、英語・日本語の CHANGELOG へのリンクとする。リンクは `main` ではなく今回のリリースタグのファイルに固定する。
