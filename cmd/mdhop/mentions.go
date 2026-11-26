@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 
@@ -126,10 +127,13 @@ func runMentions(args []string) error {
 		return err
 	}
 	opts := core.MentionsOptions{Partial: *partial, Filter: filter, Path: pathPatterns, NoPhantom: *noPhantom, Where: wc, Sort: *sortKey}
+	sortSet := false
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "limit":
 			opts.Limit = limit
+		case "sort":
+			sortSet = true
 		case "relations":
 			opts.Relations = []string{}
 			if *relations != "" {
@@ -140,6 +144,9 @@ func runMentions(args []string) error {
 			}
 		}
 	})
+	if sortSet && *sortKey == "" {
+		return fmt.Errorf("empty sort key")
+	}
 	result, err := core.Mentions(*vault, core.MentionsEntry{File: *file, Phantom: *phantom}, opts, locations)
 	if err != nil {
 		return err

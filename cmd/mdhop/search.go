@@ -97,14 +97,20 @@ func runSearch(args []string) error {
 	if err := validateFormat(*format); err != nil {
 		return err
 	}
-	sampleSet := false
+	sampleSet, sortSet := false, false
 	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "sample" {
+		switch f.Name {
+		case "sample":
 			sampleSet = true
+		case "sort":
+			sortSet = true
 		}
 	})
 	if sampleSet && *sample <= 0 {
 		return fmt.Errorf("sample must be > 0")
+	}
+	if sortSet && *sortKey == "" {
+		return fmt.Errorf("empty sort key")
 	}
 
 	fieldList := parseFields(*fields)

@@ -1592,6 +1592,19 @@ func TestRunSearch_UnknownField(t *testing.T) {
 	}
 }
 
+func TestRunSearch_SortFlag(t *testing.T) {
+	vault := setupVaultForCLI(t, "vault_search")
+	args := []string{"--vault", vault}
+	out := captureStdout(t, func() error { return runSearch(args) })
+	want := "total: 4\nitems:\n- note: A.md\n- note: D.md\n- note: sub/B.md\n- note: sub/C.md\n"
+	if out != want {
+		t.Fatalf("default order: got %q, want %q", out, want)
+	}
+	if err := runSearch(append(args, "--sort", "")); err == nil || err.Error() != "empty sort key" {
+		t.Fatalf("empty --sort: got %v, want empty sort key error", err)
+	}
+}
+
 func TestRunSearch_IsolationFlags(t *testing.T) {
 	vault := setupVaultForCLI(t, "vault_search_isolation")
 

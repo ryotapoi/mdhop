@@ -219,21 +219,31 @@ func TestMentionsSortFlag(t *testing.T) {
 	if err := runBuild([]string{"--vault", vault}); err != nil {
 		t.Fatal(err)
 	}
-	out := captureStdout(t, func() error {
-		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json", "--sort", "-meta.date", "--limit", "2"})
-	})
-	var got struct {
-		Incoming []struct{ Path string }
-		Outgoing []struct{ Type, Name string }
-		Total    struct{ Incoming, Outgoing int }
-	}
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("parse %q: %v", out, err)
-	}
-	if len(got.Incoming) != 2 || got.Incoming[0].Path != "Beta.md" || got.Incoming[1].Path != "Alpha.md" ||
-		len(got.Outgoing) != 2 || got.Outgoing[0].Name != "Beta" || got.Outgoing[1].Name != "Alpha" ||
-		got.Total.Incoming != 2 || got.Total.Outgoing != 3 {
-		t.Fatalf("sorted: %s", out)
+	for _, tc := range []struct {
+		name          string
+		sortArgs      []string
+		first, second string
+	}{
+		{name: "default path order", first: "Alpha", second: "Beta"},
+		{name: "descending date", sortArgs: []string{"--sort", "-meta.date"}, first: "Beta", second: "Alpha"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := []string{"--vault", vault, "--file", "Plan.md", "--format", "json", "--limit", "2"}
+			out := captureStdout(t, func() error { return runMentions(append(args, tc.sortArgs...)) })
+			var got struct {
+				Incoming []struct{ Path string }
+				Outgoing []struct{ Name string }
+				Total    struct{ Incoming, Outgoing int }
+			}
+			if err := json.Unmarshal([]byte(out), &got); err != nil {
+				t.Fatalf("parse %q: %v", out, err)
+			}
+			if len(got.Incoming) != 2 || got.Incoming[0].Path != tc.first+".md" || got.Incoming[1].Path != tc.second+".md" ||
+				len(got.Outgoing) != 2 || got.Outgoing[0].Name != tc.first || got.Outgoing[1].Name != tc.second ||
+				got.Total.Incoming != 2 || got.Total.Outgoing != 3 {
+				t.Fatalf("sorted: %s", out)
+			}
+		})
 	}
 }
 
@@ -253,6 +263,7 @@ func TestMentionsCLIErrors(t *testing.T) {
 		{[]string{"--file", "Plan.md", "--relations", "incoming,incoming"}, `relations: duplicate relation "incoming"`},
 		{[]string{"--phantom", "Ghost", "--relations", "outgoing"}, "relations: outgoing requires a --file entry"},
 		{[]string{"--file", "Plan.md", "--sort", "-"}, "empty sort key"},
+		{[]string{"--file", "Plan.md", "--sort", ""}, "empty sort key"},
 	} {
 		err := runMentions(append([]string{"--vault", vault}, tc.args...))
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
