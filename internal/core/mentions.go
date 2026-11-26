@@ -29,8 +29,9 @@ type MentionsEntry struct {
 // Limit. A nil Limit returns all. Relations selects the directions to
 // compute and return; nil selects both for a note entry and incoming for a
 // phantom entry. Sort orders each direction after filtering and before Limit
-// as search does ("key" ascending, "-key" descending, "" default order);
-// results without the key, including all phantoms, go last.
+// as search does. Use a computed field or "meta.<key>", with an optional "-"
+// prefix for descending order. Results without the key, including all
+// phantoms, go last.
 type MentionsOptions struct {
 	Partial   bool
 	Limit     *int
@@ -95,7 +96,7 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 	if err != nil {
 		return nil, err
 	}
-	sortKey, sortDesc, err := parseSortKey(opts.Sort)
+	key, err := parseSortKey(opts.Sort)
 	if err != nil {
 		return nil, err
 	}
@@ -127,8 +128,8 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 		return nil, err
 	}
 	var order *mentionOrder
-	if sortKey != "" {
-		if order, err = loadMentionOrder(db, sortKey, sortDesc); err != nil {
+	if key != (sortKey{}) {
+		if order, err = loadMentionOrder(db, key); err != nil {
 			return nil, err
 		}
 	}
@@ -301,22 +302,22 @@ type mentionOrder struct {
 
 // loadMentionOrder reads sort values as search does: computed fields for every
 // note, and for a meta key the minimum value (maximum when descending).
-func loadMentionOrder(db dbExecer, key string, desc bool) (*mentionOrder, error) {
-	o := &mentionOrder{desc: desc}
+func loadMentionOrder(db dbExecer, key sortKey) (*mentionOrder, error) {
+	o := &mentionOrder{desc: key.desc}
 	var q string
 	var args []any
-	if col, ok := computedSortColumn(key); ok {
+	if key.column != "" {
 		o.numeric = true
 		o.nums = make(map[int64]int64)
-		q = fmt.Sprintf("SELECT n.id, %s FROM nodes n WHERE n.type = 'note'", col)
+		q = fmt.Sprintf("SELECT n.id, %s FROM nodes n WHERE n.type = 'note'", key.column)
 	} else {
 		o.strs = make(map[int64]string)
 		agg := "MIN"
-		if desc {
+		if key.desc {
 			agg = "MAX"
 		}
 		q = fmt.Sprintf("SELECT node_id, %s(sort_value) FROM meta WHERE key = ? GROUP BY node_id", agg)
-		args = []any{key}
+		args = []any{key.metaKey}
 	}
 	rows, err := db.Query(q, args...)
 	if err != nil {

@@ -19,8 +19,8 @@ Options:
   --path <glob>        Optional, repeatable. Include note paths matching any glob.
   --exclude <glob>     Optional, repeatable. Exclude note paths matching the glob.
   --no-exclude         Ignore mdhop.toml exclude settings.
-  --sort <key|-key>    Sort by metadata key or computed field; prefix - for descending.
-                       Computed keys: lines, outgoing_count, incoming_count, mtime.
+  --sort <key|-key>    Sort by meta.<key> or a computed field. Prefix - for descending.
+                       Computed fields: lines, outgoing_count, incoming_count, mtime.
                        mtime is the file modification time (seconds) recorded at
                        the last build/update; files are not reread.
   --limit <N>          Limit result count.
@@ -54,7 +54,7 @@ Location paths may be absolute or relative to the current directory.
 Note paths and configuration globs remain relative to the vault.
 
 Examples:
-  mdhop search --where "status=active" --sort "-priority" --fields meta --format json
+  mdhop search --where "status=active" --sort "-meta.priority" --fields meta --format json
   mdhop search --where "status=active || status=review" --format json
   mdhop search --where "updated<today-90d" --count --format json
   mdhop search --where "status=active" --sample 10 --format json
@@ -69,7 +69,7 @@ func runSearch(args []string) error {
 	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output (meta, meta.<key>, lines, outgoing_count, incoming_count)")
-	sortKey := fs.String("sort", "", "sort by meta key or computed field (lines, outgoing_count, incoming_count, mtime; prefix with - for desc)")
+	sortKey := fs.String("sort", "", "sort by meta.<key> or a computed field (lines, outgoing_count, incoming_count, mtime). Prefix - for descending")
 	includeHead := fs.Int("include-head", 0, "include first N lines of each note")
 	limit := fs.Int("limit", 0, "max results (0 = unlimited)")
 	offset := fs.Int("offset", 0, "skip first N results")

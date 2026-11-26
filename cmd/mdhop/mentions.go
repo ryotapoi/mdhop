@@ -30,8 +30,8 @@ Options:
   --no-phantom     Do not return phantom names (outgoing only).
   --where <expr>   Return only notes whose frontmatter matches (repeatable, AND).
                    Same syntax as query --where.
-  --sort <key|-key>  Sort each direction by a metadata key or computed field
-                   (lines, outgoing_count, incoming_count, mtime); prefix -
+  --sort <key|-key>  Sort each direction by meta.<key> or a computed field
+                   (lines, outgoing_count, incoming_count, mtime). Prefix -
                    for descending. Default: path order. mtime is the file
                    modification time (seconds) recorded at the last
                    build/update; files are not reread.
@@ -64,11 +64,11 @@ without the key fails key=value, key!=value, comparisons, and ~, but passes
 key NOT EXISTS.
 
 --sort orders each direction after filtering and before --limit, so --limit
-returns the top N; total is unchanged. Keys follow search --sort: a meta key
-uses the smallest value ascending and the largest descending, and unknown keys
-are accepted. Notes without the key and all phantoms come last in either
-direction. Ties and results without the key are in path order, phantoms after
-notes.
+returns the top N. Total is unchanged. As in search, a frontmatter key uses
+the smallest value ascending and the largest descending. A frontmatter key
+absent from the index is allowed. Notes without the key and all phantoms come
+last in either direction. Ties and results without the key are in path order,
+with phantoms after notes.
 
 Each note appears once with its first mention: matched_text and location are
 taken from the file before NFC normalization, and excerpt is the physical line
@@ -81,7 +81,7 @@ are absent when not selected by --relations; outgoing is also absent for
 --phantom.
 
 Example:
-  mdhop mentions --file Plan.md --format json
+  mdhop mentions --file Plan.md --sort -meta.updated --format json
 `
 
 func runMentions(args []string) error {
@@ -97,7 +97,7 @@ func runMentions(args []string) error {
 	format := fs.String("format", "text", "output format (json or text)")
 	relations := fs.String("relations", "", "comma-separated directions")
 	noPhantom := fs.Bool("no-phantom", false, "exclude phantom names")
-	sortKey := fs.String("sort", "", "sort by meta key or computed field (lines, outgoing_count, incoming_count, mtime; prefix with - for desc)")
+	sortKey := fs.String("sort", "", "sort by meta.<key> or a computed field (lines, outgoing_count, incoming_count, mtime). Prefix - for descending")
 	var pathPatterns, hidePaths, whereExprs multiString
 	fs.Var(&pathPatterns, "path", "include note path glob (repeatable)")
 	fs.Var(&hidePaths, "hide-path", "hide note path glob (repeatable)")

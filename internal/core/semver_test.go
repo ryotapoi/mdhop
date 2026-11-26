@@ -164,9 +164,9 @@ func TestSemverDiskIndexQueriesAndConnections(t *testing.T) {
 			want = append([]string{"fallback.md"}, want...)
 		}
 		want = append(want, "backup.md", "missing.md", "types-a.md", "types-b.md")
-		key := "version"
+		key := "meta.version"
 		if desc {
-			key = "-version"
+			key = "-meta.version"
 		}
 		got, err := Search(vault, SearchOptions{Sort: key})
 		if err != nil {
@@ -190,7 +190,7 @@ func TestSemverDiskIndexQueriesAndConnections(t *testing.T) {
 		}
 	}
 	for _, key := range []string{"label", "amount", "rank", "date"} {
-		got, err := Search(vault, SearchOptions{Sort: key})
+		got, err := Search(vault, SearchOptions{Sort: "meta." + key})
 		if err != nil {
 			t.Fatal(err)
 		}

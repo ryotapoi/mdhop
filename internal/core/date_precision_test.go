@@ -48,8 +48,8 @@ func TestDatePrecisionQueries(t *testing.T) {
 		sort string
 		want []string
 	}{
-		{"date", []string{"0.md", "multi.md", "1.md", "2.md", "3.md", "backup.md"}},
-		{"-date", []string{"3.md", "multi.md", "2.md", "1.md", "0.md", "backup.md"}},
+		{"meta.date", []string{"0.md", "multi.md", "1.md", "2.md", "3.md", "backup.md"}},
+		{"-meta.date", []string{"3.md", "multi.md", "2.md", "1.md", "0.md", "backup.md"}},
 	} {
 		got, err := Search(vault, SearchOptions{Sort: tc.sort})
 		if err != nil || !slices.Equal(searchPaths(got.Items), tc.want) {

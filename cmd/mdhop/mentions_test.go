@@ -188,7 +188,7 @@ func TestMentionsSortFlag(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := captureStdout(t, func() error {
-		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json", "--sort", "-date", "--limit", "2"})
+		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json", "--sort", "-meta.date", "--limit", "2"})
 	})
 	var got struct {
 		Incoming []struct{ Path string }

@@ -448,11 +448,11 @@ func TestMentionsSort(t *testing.T) {
 	assertMentions(t, "default outgoing", r.Outgoing, outA, outB, outC, outD, ghost)
 
 	// D has no date and Ghost is a phantom: both stay last in either direction.
-	r = run(MentionsOptions{Sort: "date"})
-	assertMentions(t, "date outgoing", r.Outgoing, outA, outC, outB, outD, ghost)
-	r = run(MentionsOptions{Sort: "-date"})
-	assertMentions(t, "-date incoming", r.Incoming, inB, inC, inA, inD)
-	assertMentions(t, "-date outgoing", r.Outgoing, outB, outC, outA, outD, ghost)
+	r = run(MentionsOptions{Sort: "meta.date"})
+	assertMentions(t, "meta.date outgoing", r.Outgoing, outA, outC, outB, outD, ghost)
+	r = run(MentionsOptions{Sort: "-meta.date"})
+	assertMentions(t, "-meta.date incoming", r.Incoming, inB, inC, inA, inD)
+	assertMentions(t, "-meta.date outgoing", r.Outgoing, outB, outC, outA, outD, ghost)
 
 	// Computed fields come from the index; a phantom has none, and equal
 	// counts (B and D have 0) fall back to path order.
@@ -463,16 +463,26 @@ func TestMentionsSort(t *testing.T) {
 
 	// --limit keeps the top N after sorting; total counts before the limit.
 	limit := 2
-	r = run(MentionsOptions{Sort: "-date", Limit: &limit})
+	r = run(MentionsOptions{Sort: "-meta.date", Limit: &limit})
 	assertMentions(t, "limited incoming", r.Incoming, inB, inC)
 	assertMentions(t, "limited outgoing", r.Outgoing, outB, outC)
 	if *r.Total.Incoming != 4 || *r.Total.Outgoing != 5 {
 		t.Fatalf("total=%d/%d", *r.Total.Incoming, *r.Total.Outgoing)
 	}
+}
 
-	// An empty key fails before the index is opened.
-	if _, err := Mentions(t.TempDir(), MentionsEntry{File: "E.md"}, MentionsOptions{Sort: "-"}); err == nil || err.Error() != "empty sort key" {
-		t.Fatalf("err=%v", err)
+func TestMentionsInvalidSortKey(t *testing.T) {
+	vault := t.TempDir()
+	for _, tt := range []struct{ sort, want string }{
+		{"-", "empty sort key"},
+		{"-date", `invalid sort key "date": use meta.<key> for frontmatter`},
+	} {
+		t.Run(tt.sort, func(t *testing.T) {
+			_, err := Mentions(vault, MentionsEntry{File: "E.md"}, MentionsOptions{Sort: tt.sort})
+			if err == nil || err.Error() != tt.want {
+				t.Fatalf("err = %v, want %q", err, tt.want)
+			}
+		})
 	}
 }
 
@@ -480,14 +490,14 @@ func TestMentionsSortByMtime(t *testing.T) {
 	vault := writeVaultWithMtimes(t,
 		map[string]string{
 			"E.md":     "A B C Ghost\n",
-			"A.md":     "E\n",
+			"A.md":     "---\nmtime: apple\n---\nE\n",
 			"B.md":     "E\n",
-			"C.md":     "E\n",
+			"C.md":     "---\nmtime: zebra\n---\nE\n",
 			"Other.md": "[[Ghost]]\n",
 		},
 		map[string]int64{"A.md": 30, "B.md": 10, "C.md": 20},
 	)
-	inA, inB, inC := "A.md@1:1-1:2=E", "B.md@1:1-1:2=E", "C.md@1:1-1:2=E"
+	inA, inB, inC := "A.md@4:1-4:2=E", "B.md@1:1-1:2=E", "C.md@4:1-4:2=E"
 	outA, outB, outC := "A.md@1:1-1:2=A", "B.md@1:3-1:4=B", "C.md@1:5-1:6=C"
 	ghost := "phantom:Ghost@1:7-1:12=Ghost"
 
@@ -498,6 +508,8 @@ func TestMentionsSortByMtime(t *testing.T) {
 	}{
 		{"mtime", []string{inB, inC, inA}, []string{outB, outC, outA, ghost}},
 		{"-mtime", []string{inA, inC, inB}, []string{outA, outC, outB, ghost}},
+		{"meta.mtime", []string{inA, inC, inB}, []string{outA, outC, outB, ghost}},
+		{"-meta.mtime", []string{inC, inA, inB}, []string{outC, outA, outB, ghost}},
 	} {
 		t.Run(tt.sort, func(t *testing.T) {
 			r, err := Mentions(vault, MentionsEntry{File: "E.md"}, MentionsOptions{Sort: tt.sort})

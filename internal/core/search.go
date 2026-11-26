@@ -12,7 +12,7 @@ type SearchOptions struct {
 	Where       *WhereClause   // nil = no meta filtering
 	Exclude     *ExcludeFilter // nil = no path exclusion
 	Path        []string       // glob patterns for path inclusion filter
-	Sort        string         // "key" = asc, "-key" = desc, "" = path order
+	Sort        string         // computed field or "meta.<key>"; prefix with "-" for descending; "" = path order
 	Limit       int            // 0 = unlimited
 	Offset      int
 	Sample      int // 0 = disabled
@@ -63,7 +63,7 @@ func wantMetaFields(fields []string) bool {
 }
 
 // computedSortColumn maps a computed sort key to its SQL expression in the main
-// search query. Returns ("", false) for non-computed keys (handled as meta).
+// search query. Returns ("", false) for non-computed keys.
 func computedSortColumn(key string) (string, bool) {
 	switch key {
 	case FieldLines:
@@ -79,24 +79,29 @@ func computedSortColumn(key string) (string, bool) {
 	}
 }
 
-// parseSortKey parses a sort string into key and direction.
-// "" returns ("", false, nil) meaning no sort.
-// "-key" returns ("key", true, nil).
-// "key" returns ("key", false, nil).
-func parseSortKey(sort string) (string, bool, error) {
+// sortKey selects either a computed SQL expression or a frontmatter key.
+// The zero value keeps the default order.
+type sortKey struct {
+	column  string
+	metaKey string
+	desc    bool
+}
+
+func parseSortKey(sort string) (sortKey, error) {
 	if sort == "" {
-		return "", false, nil
+		return sortKey{}, nil
 	}
-	desc := false
-	key := sort
-	if strings.HasPrefix(sort, "-") {
-		desc = true
-		key = sort[1:]
-	}
+	key, desc := strings.CutPrefix(sort, "-")
 	if key == "" {
-		return "", false, fmt.Errorf("empty sort key")
+		return sortKey{}, fmt.Errorf("empty sort key")
 	}
-	return key, desc, nil
+	if col, ok := computedSortColumn(key); ok {
+		return sortKey{column: col, desc: desc}, nil
+	}
+	if metaKey, ok := strings.CutPrefix(key, "meta."); ok && metaKey != "" {
+		return sortKey{metaKey: metaKey, desc: desc}, nil
+	}
+	return sortKey{}, fmt.Errorf("invalid sort key %q: use meta.<key> for frontmatter", key)
 }
 
 // Search returns notes matching the given conditions.
@@ -137,7 +142,7 @@ func Search(vaultPath string, opts SearchOptions, locations ...Locations) (*Sear
 		return nil, err
 	}
 
-	sortKey, sortDesc, err := parseSortKey(opts.Sort)
+	order, err := parseSortKey(opts.Sort)
 	if err != nil {
 		return nil, err
 	}
@@ -203,28 +208,23 @@ func Search(vaultPath string, opts SearchOptions, locations ...Locations) (*Sear
 
 	if opts.Sample > 0 {
 		orderSQL = " ORDER BY n.path ASC"
-	} else if sortKey != "" {
-		if col, ok := computedSortColumn(sortKey); ok {
-			dir := "ASC"
-			if sortDesc {
-				dir = "DESC"
-			}
-			orderSQL = fmt.Sprintf(" ORDER BY %s %s, n.path ASC", col, dir)
+	} else if order != (sortKey{}) {
+		dir := "ASC"
+		if order.desc {
+			dir = "DESC"
+		}
+		if order.column != "" {
+			orderSQL = fmt.Sprintf(" ORDER BY %s %s, n.path ASC", order.column, dir)
 		} else {
 			aggFunc := "MIN"
-			if sortDesc {
+			if order.desc {
 				aggFunc = "MAX"
 			}
 			joinSQL = fmt.Sprintf(
 				" LEFT JOIN (SELECT node_id, %s(sort_value) AS sort_value FROM meta WHERE key = ? GROUP BY node_id) m_sort ON m_sort.node_id = n.id",
 				aggFunc,
 			)
-			joinArgs = []any{sortKey}
-
-			dir := "ASC"
-			if sortDesc {
-				dir = "DESC"
-			}
+			joinArgs = []any{order.metaKey}
 			orderSQL = fmt.Sprintf(
 				" ORDER BY CASE WHEN m_sort.sort_value IS NULL THEN 1 ELSE 0 END ASC, m_sort.sort_value COLLATE mdhop_sort %s, n.path ASC",
 				dir,

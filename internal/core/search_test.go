@@ -209,7 +209,12 @@ func writeVaultWithMtimes(t *testing.T, files map[string]string, offsets map[str
 func TestSearch_SortByMtime(t *testing.T) {
 	// C and D share a second, so they fall back to path order in both directions.
 	vault := writeVaultWithMtimes(t,
-		map[string]string{"A.md": "a\n", "B.md": "b\n", "C.md": "c\n", "D.md": "d\n"},
+		map[string]string{
+			"A.md": "---\nmtime: apple\nmeta.mtime: zebra\n---\na\n",
+			"B.md": "---\nmeta.mtime: apple\n---\nb\n",
+			"C.md": "---\nmtime: zebra\n---\nc\n",
+			"D.md": "d\n",
+		},
 		map[string]int64{"A.md": 30, "B.md": 10, "C.md": 20, "D.md": 20},
 	)
 	for _, tt := range []struct {
@@ -218,6 +223,10 @@ func TestSearch_SortByMtime(t *testing.T) {
 	}{
 		{"mtime", []string{"B.md", "C.md", "D.md", "A.md"}},
 		{"-mtime", []string{"A.md", "C.md", "D.md", "B.md"}},
+		{"meta.mtime", []string{"A.md", "C.md", "B.md", "D.md"}},
+		{"-meta.mtime", []string{"C.md", "A.md", "B.md", "D.md"}},
+		{"meta.meta.mtime", []string{"B.md", "A.md", "C.md", "D.md"}},
+		{"meta.unknown", []string{"A.md", "B.md", "C.md", "D.md"}},
 	} {
 		t.Run(tt.sort, func(t *testing.T) {
 			result, err := Search(vault, SearchOptions{Sort: tt.sort})
@@ -328,7 +337,7 @@ func TestSearch_WhereRelativeDate_UndeclaredKey(t *testing.T) {
 func TestSearch_SortAsc(t *testing.T) {
 	vault := setupSearchVault(t)
 
-	result, err := Search(vault, SearchOptions{Sort: "priority"})
+	result, err := Search(vault, SearchOptions{Sort: "meta.priority"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -363,8 +372,8 @@ func TestSearch_NumberPrecision(t *testing.T) {
 		name, sort, where string
 		want              string
 	}{
-		{"ascending", "priority", "", "A.md,B.md,C.md,D.md"},
-		{"descending", "-priority", "", "C.md,D.md,B.md,A.md"},
+		{"ascending", "meta.priority", "", "A.md,B.md,C.md,D.md"},
+		{"descending", "-meta.priority", "", "C.md,D.md,B.md,A.md"},
 		{"negative boundary", "", "priority<-1", "A.md"},
 		{"equal decimal", "", "priority=1.000000000", "C.md,D.md"},
 		{"not equal integer", "", "priority!=1", "A.md,B.md"},
@@ -393,7 +402,7 @@ func TestSearch_NumberPrecision(t *testing.T) {
 func TestSearch_SortDesc(t *testing.T) {
 	vault := setupSearchVault(t)
 
-	result, err := Search(vault, SearchOptions{Sort: "-priority"})
+	result, err := Search(vault, SearchOptions{Sort: "-meta.priority"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -563,7 +572,7 @@ func TestSearch_SampleWithLimitError(t *testing.T) {
 
 func TestSearch_SampleWithSortError(t *testing.T) {
 	vault := t.TempDir()
-	_, err := Search(vault, SearchOptions{Sample: 2, Sort: "priority"})
+	_, err := Search(vault, SearchOptions{Sample: 2, Sort: "meta.priority"})
 	if err == nil || !strings.Contains(err.Error(), "sample cannot be used with sort") {
 		t.Fatalf("expected sample/sort conflict error, got: %v", err)
 	}
@@ -836,7 +845,7 @@ func TestSearch_CountWithOutputOptionsError(t *testing.T) {
 		{name: "fields", opts: SearchOptions{Count: true, Fields: []string{"meta"}}, want: "count cannot be used with fields"},
 		{name: "include head", opts: SearchOptions{Count: true, IncludeHead: 1}, want: "count cannot be used with include-head"},
 		{name: "sample", opts: SearchOptions{Count: true, Sample: 1}, want: "count cannot be used with sample"},
-		{name: "sort", opts: SearchOptions{Count: true, Sort: "priority"}, want: "count cannot be used with sort"},
+		{name: "sort", opts: SearchOptions{Count: true, Sort: "meta.priority"}, want: "count cannot be used with sort"},
 		{name: "limit", opts: SearchOptions{Count: true, Limit: 1}, want: "count cannot be used with limit or offset"},
 		{name: "offset", opts: SearchOptions{Count: true, Offset: 1}, want: "count cannot be used with limit or offset"},
 	}
@@ -852,9 +861,18 @@ func TestSearch_CountWithOutputOptionsError(t *testing.T) {
 }
 
 func TestSearch_InvalidSortKey(t *testing.T) {
-	vault := setupSearchVault(t)
-	_, err := Search(vault, SearchOptions{Sort: "-"})
-	if err == nil {
-		t.Fatal("expected error for empty sort key")
+	vault := t.TempDir()
+	for _, tt := range []struct{ sort, want string }{
+		{"-", "empty sort key"},
+		{"priority", `invalid sort key "priority": use meta.<key> for frontmatter`},
+		{"meta.", `invalid sort key "meta.": use meta.<key> for frontmatter`},
+		{"-meta.", `invalid sort key "meta.": use meta.<key> for frontmatter`},
+	} {
+		t.Run(tt.sort, func(t *testing.T) {
+			_, err := Search(vault, SearchOptions{Sort: tt.sort})
+			if err == nil || err.Error() != tt.want {
+				t.Fatalf("err = %v, want %q", err, tt.want)
+			}
+		})
 	}
 }
