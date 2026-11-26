@@ -71,8 +71,8 @@ type locationFile struct {
 	definitions map[string]string
 }
 
-// linkLocator reads each source file at most once per query. A nil cached
-// file means its positions cannot be determined.
+// linkLocator caches sources reused across relations. A nil cached file
+// means its positions cannot be determined.
 type linkLocator struct {
 	diskPaths *vaultDiskPathResolver
 	files     map[string]*locationFile
@@ -84,7 +84,7 @@ func newLinkLocator(diskPaths *vaultDiskPathResolver) *linkLocator {
 
 // locate returns the raw link and location of the leftmost edge on the first
 // indexed line, falling back to the first indexed raw link without a location.
-func (l *linkLocator) locate(edges []locationEdge) (string, *LinkLocation, error) {
+func (l *linkLocator) locate(edges []locationEdge, cacheSource bool) (string, *LinkLocation, error) {
 	if len(edges) == 0 {
 		return "", nil, nil
 	}
@@ -96,7 +96,7 @@ func (l *linkLocator) locate(edges []locationEdge) (string, *LinkLocation, error
 	if first.lineStart <= 0 {
 		return first.rawLink, nil, nil
 	}
-	file, err := l.load(first.contentSource)
+	file, err := l.load(first.contentSource, cacheSource)
 	if err != nil || file == nil {
 		return first.rawLink, nil, err
 	}
@@ -112,7 +112,10 @@ func (l *linkLocator) locate(edges []locationEdge) (string, *LinkLocation, error
 	return raw, best, nil
 }
 
-func (l *linkLocator) load(source contentSource) (*locationFile, error) {
+func (l *linkLocator) load(source contentSource, cacheSource bool) (*locationFile, error) {
+	if !cacheSource {
+		return readLocationFile(l.diskPaths, source)
+	}
 	if file, ok := l.files[source.path]; ok {
 		return file, nil
 	}

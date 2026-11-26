@@ -40,10 +40,21 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		return err
 	}
 	var locator *linkLocator
+	var twoHopSources map[string]bool
 	if opts.IncludeLocation {
 		locator = newLinkLocator(diskPaths)
+		// Each backlink has a distinct source. Keep its parsed body only
+		// if a visible two-hop relation can use it again.
+		if len(result.Backlinks) > 0 && len(result.TwoHop) > 0 {
+			twoHopSources = make(map[string]bool)
+			for _, target := range result.TwoHop {
+				if len(target.Relation) > 0 {
+					twoHopSources[target.Path] = true
+				}
+			}
+		}
 	}
-	addLocation := func(node *QueryNode, sourceID, targetID int64, key string) error {
+	addLocation := func(node *QueryNode, sourceID, targetID int64, key string, cacheSource bool) error {
 		if locator == nil {
 			return nil
 		}
@@ -51,7 +62,7 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		if err != nil {
 			return err
 		}
-		node.RawLink, node.Location, err = locator.locate(edges)
+		node.RawLink, node.Location, err = locator.locate(edges, cacheSource)
 		return err
 	}
 	for i := range result.Backlinks {
@@ -62,7 +73,7 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 		if err := addSnippet(node, node.id, entryID, opts.LinkKey); err != nil {
 			return err
 		}
-		if err := addLocation(node, node.id, entryID, opts.LinkKey); err != nil {
+		if err := addLocation(node, node.id, entryID, opts.LinkKey, twoHopSources[node.Path]); err != nil {
 			return err
 		}
 	}
@@ -85,7 +96,7 @@ func addQueryPreviews(db dbExecer, vault string, entryID int64, opts QueryOption
 			if err := addSnippet(via, target.id, via.id, ""); err != nil {
 				return err
 			}
-			if err := addLocation(via, target.id, via.id, ""); err != nil {
+			if err := addLocation(via, target.id, via.id, "", true); err != nil {
 				return err
 			}
 		}
