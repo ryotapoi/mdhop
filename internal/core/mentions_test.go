@@ -284,3 +284,69 @@ func TestMentionsFilters(t *testing.T) {
 		t.Fatalf("glob err=%v", err)
 	}
 }
+
+func TestMentionsWhere(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"E.md":          "Keep Drop Bare Day Ghost\n",
+		"notes/Keep.md": "---\nstatus: active\n---\nE\n",
+		"notes/Drop.md": "---\nstatus: stale\n---\nE\n",
+		"daily/Day.md":  "---\nstatus: active\n---\nE\n",
+		"Bare.md":       "E\n",
+		"Other.md":      "[[Ghost]]\n",
+	})
+	run := func(opts MentionsOptions, exprs ...string) *MentionsResult {
+		t.Helper()
+		wc, err := ParseWhere(exprs, MetaConfig{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		opts.Where = wc
+		r, err := Mentions(vault, MentionsEntry{File: "E.md"}, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	keep := "notes/Keep.md@4:1-4:2=E"
+	day := "daily/Day.md@4:1-4:2=E"
+	outKeep := "notes/Keep.md@1:1-1:5=Keep"
+	outDay := "daily/Day.md@1:16-1:19=Day"
+
+	// Without --where, every candidate is returned.
+	r := run(MentionsOptions{})
+	assertMentions(t, "all incoming", r.Incoming, "Bare.md@1:1-1:2=E", day, "notes/Drop.md@4:1-4:2=E", keep)
+	assertMentions(t, "all outgoing", r.Outgoing, "Bare.md@1:11-1:15=Bare", outDay, "notes/Drop.md@1:6-1:10=Drop", outKeep, "phantom:Ghost@1:20-1:25=Ghost")
+
+	// Both directions keep matching notes only; notes without the key and
+	// phantoms fail key!=value, as in query.
+	r = run(MentionsOptions{}, "status != stale")
+	assertMentions(t, "neq incoming", r.Incoming, day, keep)
+	assertMentions(t, "neq outgoing", r.Outgoing, outDay, outKeep)
+
+	// key NOT EXISTS keeps notes without the key but still drops phantoms.
+	r = run(MentionsOptions{}, "status NOT EXISTS")
+	assertMentions(t, "not-exists incoming", r.Incoming, "Bare.md@1:1-1:2=E")
+	assertMentions(t, "not-exists outgoing", r.Outgoing, "Bare.md@1:11-1:15=Bare")
+
+	// --where combines with --path, --no-phantom, and --limit by AND; totals
+	// count filtered mentions before the limit.
+	limit := 1
+	r = run(MentionsOptions{Path: []string{"notes/*", "daily/*"}, NoPhantom: true, Limit: &limit}, "status = active")
+	assertMentions(t, "limited incoming", r.Incoming, day)
+	assertMentions(t, "limited outgoing", r.Outgoing, outDay)
+	if r.Total.Incoming != 2 || *r.Total.Outgoing != 2 {
+		t.Fatalf("total=%d/%d", r.Total.Incoming, *r.Total.Outgoing)
+	}
+
+	// --hide-path also applies on top of --where.
+	filter, err := NewQueryFilter(Config{}, QueryFilterOptions{Hide: ExcludeConfig{Paths: []string{"daily/*"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r = run(MentionsOptions{Filter: filter}, "status = active")
+	assertMentions(t, "hide incoming", r.Incoming, keep)
+	assertMentions(t, "hide outgoing", r.Outgoing, outKeep)
+	if r.Total.Incoming != 1 || *r.Total.Outgoing != 1 {
+		t.Fatalf("hide total=%d/%d", r.Total.Incoming, *r.Total.Outgoing)
+	}
+}

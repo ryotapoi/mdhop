@@ -25,6 +25,8 @@ Options:
   --path <glob>    Return only notes whose path matches any glob (repeatable).
   --hide-path <glob>  Hide notes whose path matches a glob (repeatable).
   --no-phantom     Do not return phantom names (outgoing only).
+  --where <expr>   Return only notes whose frontmatter matches (repeatable, AND).
+                   Same syntax as query --where.
   --limit <N>      Return at most N mentions per direction (N > 0). Default: all.
   --vault <path>   Vault root directory. Default: ".".
   --format json|text  Output format. Default: text.
@@ -43,6 +45,11 @@ are not returned. Notes sharing a name are all returned.
 --hide-path is hidden. Phantoms have no path, so only --no-phantom removes
 them. Globs follow query: case-sensitive, * crosses /, and [] character
 classes are unsupported. Quote globs to prevent shell expansion.
+
+--where also narrows both directions before --limit and combines with the
+other options by AND. As in query, it never returns phantoms, and a note
+without the key fails key=value, key!=value, comparisons, and ~, but passes
+key NOT EXISTS.
 
 Each note appears once with its first mention: matched_text and location are
 taken from the file before NFC normalization, and excerpt is the physical line
@@ -68,9 +75,10 @@ func runMentions(args []string) error {
 	limit := fs.Int("limit", 0, "maximum mentions per direction")
 	format := fs.String("format", "text", "output format (json or text)")
 	noPhantom := fs.Bool("no-phantom", false, "exclude phantom names")
-	var pathPatterns, hidePaths multiString
+	var pathPatterns, hidePaths, whereExprs multiString
 	fs.Var(&pathPatterns, "path", "include note path glob (repeatable)")
 	fs.Var(&hidePaths, "hide-path", "hide note path glob (repeatable)")
+	fs.Var(&whereExprs, "where", "metadata filter expression (repeatable, AND)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -86,7 +94,11 @@ func runMentions(args []string) error {
 	if err != nil {
 		return err
 	}
-	opts := core.MentionsOptions{Partial: *partial, Filter: filter, Path: pathPatterns, NoPhantom: *noPhantom}
+	wc, err := core.ParseWhere(whereExprs, cfg.Meta)
+	if err != nil {
+		return err
+	}
+	opts := core.MentionsOptions{Partial: *partial, Filter: filter, Path: pathPatterns, NoPhantom: *noPhantom, Where: wc}
 	fs.Visit(func(f *flag.Flag) {
 		if f.Name == "limit" {
 			opts.Limit = limit

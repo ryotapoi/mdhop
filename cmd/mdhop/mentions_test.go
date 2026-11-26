@@ -85,6 +85,41 @@ func TestMentionsFilterFlags(t *testing.T) {
 	}
 }
 
+func TestMentionsWhereFlag(t *testing.T) {
+	vault := mentionsCLIVault(t)
+	files := map[string]string{
+		"Plan.md":  "Alpha Beta Gamma Ghost\n",
+		"Alpha.md": "---\nstatus: active\ntype: concept\n---\nsee Plan\n",
+		"Beta.md":  "---\nstatus: active\ntype: log\n---\nPlan\n",
+		"Gamma.md": "---\nstatus: stale\ntype: concept\n---\nPlan\n",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(vault, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runBuild([]string{"--vault", vault}); err != nil {
+		t.Fatal(err)
+	}
+	out := captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json",
+			"--where", "status = active", "--where", "type = concept"})
+	})
+	var got struct {
+		Incoming []struct{ Path string }
+		Outgoing []struct{ Type, Path string }
+		Total    struct{ Incoming, Outgoing int }
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("parse %q: %v", out, err)
+	}
+	if len(got.Incoming) != 1 || got.Incoming[0].Path != "Alpha.md" ||
+		len(got.Outgoing) != 1 || got.Outgoing[0].Type != "note" || got.Outgoing[0].Path != "Alpha.md" ||
+		got.Total.Incoming != 1 || got.Total.Outgoing != 1 {
+		t.Fatalf("where: %s", out)
+	}
+}
+
 func TestMentionsPhantomTextOmitsOutgoing(t *testing.T) {
 	vault := mentionsCLIVault(t)
 	out := captureStdout(t, func() error {
@@ -112,6 +147,7 @@ func TestMentionsCLIErrors(t *testing.T) {
 		{[]string{"--file", "Plan.md", "--limit", "0"}, "limit must be positive"},
 		{[]string{"--file", "Plan.md", "--path", "a[b]"}, "unsupported glob pattern (character class): a[b]"},
 		{[]string{"--file", "Plan.md", "--hide-path", "a[b]"}, "query hide: unsupported glob pattern (character class): a[b]"},
+		{[]string{"--file", "Plan.md", "--where", "a=1 && b=2 || c=3"}, "cannot mix && and ||"},
 	} {
 		err := runMentions(append([]string{"--vault", vault}, tc.args...))
 		if err == nil || !strings.Contains(err.Error(), tc.want) {

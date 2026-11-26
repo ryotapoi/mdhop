@@ -22,13 +22,16 @@ type MentionsEntry struct {
 // MentionsOptions controls name matching, result filtering, and the
 // per-direction result size. Partial disables the Latin letter boundary check.
 // Path keeps notes matching any glob (phantoms have no path and are kept);
-// NoPhantom drops phantoms. Filters apply before Limit. A nil Limit returns all.
+// NoPhantom drops phantoms. Where keeps only notes matching the meta
+// conditions, so it also drops phantoms, as in query. Filters apply before
+// Limit. A nil Limit returns all.
 type MentionsOptions struct {
 	Partial   bool
 	Limit     *int
 	Filter    *QueryFilter
 	Path      []string
 	NoPhantom bool
+	Where     *WhereClause
 }
 
 // Mention is the first unlinked occurrence of a name in one note. MatchedText
@@ -173,9 +176,17 @@ func mentionLinkedIDs(db dbExecer, entryID int64) (map[int64]bool, error) {
 }
 
 // mentionCandidates returns visible notes and phantoms other than the entry
-// and its linked nodes, narrowed by the path and phantom options.
+// and its linked nodes, narrowed by the path, phantom, and where options.
 func mentionCandidates(db dbExecer, entryID int64, linked map[int64]bool, opts MentionsOptions) ([]queryNode, error) {
-	rows, err := db.Query(`SELECT id, type, name, COALESCE(path,''), exists_flag FROM nodes WHERE type IN ('note','phantom')`)
+	q := `SELECT id, type, name, COALESCE(path,''), exists_flag FROM nodes WHERE type IN ('note','phantom')`
+	var args []any
+	if opts.Where != nil {
+		q += " AND type = 'note'"
+		where, values := opts.Where.MetaFilterSQL("id")
+		q += where
+		args = values
+	}
+	rows, err := db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
