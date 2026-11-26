@@ -103,6 +103,36 @@ func TestMentionsIncomingAfterAngleURL(t *testing.T) {
 	}
 }
 
+func TestMentionsEmailAutolinks(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"dev.md":               "",
+		"Only.md":              "<dev@example.com>\n",
+		"Before.md":            "dev<dev@example.com>\n",
+		"After.md":             "前置き\r\n<dev+tag@Example.org>dev\r\n",
+		"Bare.md":              "dev@example.com\n",
+		"Invalid.md":           "<dev@-example.com>\n",
+		"Escaped.md":           "\\<dev@example.com>\n",
+		"Backtick.md":          "<dev`@example.com>dev\n",
+		"UnclosedCode.md":      "literal ``<dev`@example.com>dev\n",
+		"UnclosedCodePlain.md": "literal `<dev@example.com>dev\n",
+		"ClosedCode.md":        "``dev<dev`@example.com>dev``\n",
+	})
+	r, err := Mentions(vault, MentionsEntry{File: "dev.md"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "incoming", r.Incoming,
+		"After.md@2:22-2:25=dev",
+		"Backtick.md@1:19-1:22=dev",
+		"Bare.md@1:1-1:4=dev",
+		"Before.md@1:1-1:4=dev",
+		"Escaped.md@1:3-1:6=dev",
+		"Invalid.md@1:2-1:5=dev",
+		"UnclosedCode.md@1:29-1:32=dev",
+		"UnclosedCodePlain.md@1:27-1:30=dev",
+	)
+}
+
 func TestMentionsOutgoingBoundariesAndSharedNames(t *testing.T) {
 	vault := mentionsVault(t, map[string]string{
 		"Plan.md":      "---\ntags: [Alpha]\n---\nAlpha Plan Back github git スキルアップ 仕様書 iOS26 Linked GHOST\n[[Linked]]\n",

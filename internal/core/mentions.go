@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"syscall"
@@ -442,6 +443,7 @@ func newMentionText(content string) *mentionText {
 	definitions := bodyReferenceDefinitions(lines, fmEnd)
 	var folded strings.Builder
 	walkBodyParagraphs(lines, fmEnd, func(lineNum int, raw, clean string) {
+		clean = mentionInlineCodeMask(raw, clean)
 		_, masked := parseBodyMarkdown(raw, maskParagraphWikiLinks(clean), lineNum, definitions)
 		barrier := mentionBarriers(raw, maskURLs(masked))
 		base := lineOffsets[lineNum-1]
@@ -559,8 +561,83 @@ func mentionBarriers(raw, masked string) []bool {
 	return barrier
 }
 
-// maskURLs blanks text from a "scheme://" or "mailto:" prefix to the next
-// whitespace, stopping after a closing '>' if the prefix follows '<'.
+// CommonMark 0.31.2 uses the HTML5 email address grammar for email autolinks.
+// https://spec.commonmark.org/0.31.2/#autolinks
+const emailAutolinkDomainLabel = `[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?`
+
+var emailAutolink = regexp.MustCompile(`^<[A-Za-z0-9.!#$%&'*+/=?^_\x60{|}~-]+@` +
+	emailAutolinkDomainLabel + `(?:\.` + emailAutolinkDomainLabel + `)*>`)
+
+// mentionInlineCodeMask shields backticks in email autolinks from the inline
+// code pass. It also shields unclosed delimiters before an email autolink so
+// that the regular code pass leaves the link and adjacent text visible.
+func mentionInlineCodeMask(raw, clean string) string {
+	if !strings.Contains(raw, "`") || !strings.Contains(raw, "@") {
+		return clean
+	}
+	type backtickRun struct{ start, end int }
+	var protected []byte
+	offset := 0
+	for line := range strings.SplitSeq(raw, "\n") {
+		var unclosed []backtickRun
+		lastRunStart := len(strings.TrimRight(line, "`"))
+		lastAngle := strings.LastIndexByte(line, '<')
+		for i := 0; i <= lastAngle; {
+			if markdownEscapeAt(line, i) {
+				i += 2
+				continue
+			}
+			if line[i] == '`' {
+				end := inlineCodeEnd(line, i)
+				if end < len(line) {
+					i = end
+					continue
+				}
+				start := i
+				for i < len(line) && line[i] == '`' {
+					i++
+				}
+				// inlineCodeEnd also returns the line end for a closing run at EOF.
+				if lastRunStart >= i && len(line)-lastRunStart == i-start {
+					break
+				}
+				unclosed = append(unclosed, backtickRun{start, i})
+				continue
+			}
+			if line[i] != '<' {
+				i++
+				continue
+			}
+			link := emailAutolink.FindString(line[i:])
+			if link == "" {
+				i++
+				continue
+			}
+			if len(unclosed) > 0 || strings.Contains(link, "`") {
+				if protected == nil {
+					protected = []byte(raw)
+				}
+				for _, run := range unclosed {
+					for j := run.start; j < run.end; j++ {
+						protected[offset+j] = ' '
+					}
+				}
+				unclosed = unclosed[:0]
+				copy(protected[offset+i:], strings.ReplaceAll(link, "`", "!"))
+			}
+			i += len(link)
+		}
+		offset += len(line) + 1
+	}
+	if protected == nil {
+		return clean
+	}
+	return stripParagraphCode(string(protected))
+}
+
+// maskURLs blanks email autolinks and text from a "scheme://" or "mailto:"
+// prefix to the next whitespace, stopping after a closing '>' if the prefix
+// follows '<'.
 // It preserves byte offsets and line breaks.
 func maskURLs(text string) string {
 	masked := []byte(text)
@@ -583,6 +660,19 @@ func maskURLs(text string) string {
 		return end
 	}
 	for i := 0; i < len(text); {
+		if markdownEscapeAt(text, i) {
+			i += 2
+			continue
+		}
+		if text[i] == '<' {
+			if link := emailAutolink.FindString(text[i:]); link != "" {
+				for j := range len(link) {
+					masked[i+j] = ' '
+				}
+				i += len(link)
+				continue
+			}
+		}
 		// Compare in place: lower-casing may change byte lengths before i.
 		if len(text)-i >= len("mailto:") && strings.EqualFold(text[i:i+len("mailto:")], "mailto:") {
 			i = blankURL(i)
