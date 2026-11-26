@@ -31,8 +31,10 @@ Options:
   --where <expr>   Return only notes whose frontmatter matches (repeatable, AND).
                    Same syntax as query --where.
   --sort <key|-key>  Sort each direction by a metadata key or computed field
-                   (lines, outgoing_count, incoming_count); prefix - for
-                   descending. Default: path order.
+                   (lines, outgoing_count, incoming_count, mtime); prefix -
+                   for descending. Default: path order. mtime is the file
+                   modification time (seconds) recorded at the last
+                   build/update; files are not reread.
   --limit <N>      Return at most N mentions per direction (N > 0). Default: all.
   --vault <path>   Vault root directory. Default: ".".
   --format json|text  Output format. Default: text.
@@ -95,7 +97,7 @@ func runMentions(args []string) error {
 	format := fs.String("format", "text", "output format (json or text)")
 	relations := fs.String("relations", "", "comma-separated directions")
 	noPhantom := fs.Bool("no-phantom", false, "exclude phantom names")
-	sortKey := fs.String("sort", "", "sort by meta key or computed field (prefix with - for desc)")
+	sortKey := fs.String("sort", "", "sort by meta key or computed field (lines, outgoing_count, incoming_count, mtime; prefix with - for desc)")
 	var pathPatterns, hidePaths, whereExprs multiString
 	fs.Var(&pathPatterns, "path", "include note path glob (repeatable)")
 	fs.Var(&hidePaths, "hide-path", "hide note path glob (repeatable)")

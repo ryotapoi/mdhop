@@ -20,6 +20,9 @@ Options:
   --exclude <glob>     Optional, repeatable. Exclude note paths matching the glob.
   --no-exclude         Ignore mdhop.toml exclude settings.
   --sort <key|-key>    Sort by metadata key or computed field; prefix - for descending.
+                       Computed keys: lines, outgoing_count, incoming_count, mtime.
+                       mtime is the file modification time (seconds) recorded at
+                       the last build/update; files are not reread.
   --limit <N>          Limit result count.
   --offset <N>         Skip result rows before returning results.
   --sample <N>         Randomly sample N matches; cannot be combined with --limit, --offset, or --sort.
@@ -66,7 +69,7 @@ func runSearch(args []string) error {
 	config := fs.String("config", "", "configuration file path (relative to current directory)")
 	format := fs.String("format", "text", "output format (json or text)")
 	fields := fs.String("fields", "", "comma-separated fields to output (meta, meta.<key>, lines, outgoing_count, incoming_count)")
-	sortKey := fs.String("sort", "", "sort by meta key or computed field (lines, outgoing_count, incoming_count; prefix with - for desc)")
+	sortKey := fs.String("sort", "", "sort by meta key or computed field (lines, outgoing_count, incoming_count, mtime; prefix with - for desc)")
 	includeHead := fs.Int("include-head", 0, "include first N lines of each note")
 	limit := fs.Int("limit", 0, "max results (0 = unlimited)")
 	offset := fs.Int("offset", 0, "skip first N results")

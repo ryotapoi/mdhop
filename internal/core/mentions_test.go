@@ -475,3 +475,40 @@ func TestMentionsSort(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestMentionsSortByMtime(t *testing.T) {
+	vault := writeVaultWithMtimes(t,
+		map[string]string{
+			"E.md":     "A B C Ghost\n",
+			"A.md":     "E\n",
+			"B.md":     "E\n",
+			"C.md":     "E\n",
+			"Other.md": "[[Ghost]]\n",
+		},
+		map[string]int64{"A.md": 30, "B.md": 10, "C.md": 20},
+	)
+	inA, inB, inC := "A.md@1:1-1:2=E", "B.md@1:1-1:2=E", "C.md@1:1-1:2=E"
+	outA, outB, outC := "A.md@1:1-1:2=A", "B.md@1:3-1:4=B", "C.md@1:5-1:6=C"
+	ghost := "phantom:Ghost@1:7-1:12=Ghost"
+
+	// The phantom has no mtime and stays last in either direction.
+	for _, tt := range []struct {
+		sort    string
+		in, out []string
+	}{
+		{"mtime", []string{inB, inC, inA}, []string{outB, outC, outA, ghost}},
+		{"-mtime", []string{inA, inC, inB}, []string{outA, outC, outB, ghost}},
+	} {
+		t.Run(tt.sort, func(t *testing.T) {
+			r, err := Mentions(vault, MentionsEntry{File: "E.md"}, MentionsOptions{Sort: tt.sort})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertMentions(t, tt.sort+" incoming", r.Incoming, tt.in...)
+			assertMentions(t, tt.sort+" outgoing", r.Outgoing, tt.out...)
+			if *r.Total.Incoming != 3 || *r.Total.Outgoing != 4 {
+				t.Fatalf("total=%d/%d", *r.Total.Incoming, *r.Total.Outgoing)
+			}
+		})
+	}
+}

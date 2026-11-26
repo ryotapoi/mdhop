@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func setupSearchVault(t *testing.T) string {
@@ -182,6 +183,49 @@ func TestSearch_SortByComputedField(t *testing.T) {
 	}
 	if resultLines.Items[0].Node.Path != "D.md" {
 		t.Errorf("first by lines = %q, want D.md", resultLines.Items[0].Node.Path)
+	}
+}
+
+// writeVaultWithMtimes writes files whose modification times are base plus the
+// given seconds, then builds the index.
+func writeVaultWithMtimes(t *testing.T, files map[string]string, offsets map[string]int64) string {
+	t.Helper()
+	vault := t.TempDir()
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for path, content := range files {
+		full := filepath.Join(vault, filepath.FromSlash(path))
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		mt := base.Add(time.Duration(offsets[path]) * time.Second)
+		if err := os.Chtimes(full, mt, mt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	buildForQuery(t, vault)
+	return vault
+}
+
+func TestSearch_SortByMtime(t *testing.T) {
+	// C and D share a second, so they fall back to path order in both directions.
+	vault := writeVaultWithMtimes(t,
+		map[string]string{"A.md": "a\n", "B.md": "b\n", "C.md": "c\n", "D.md": "d\n"},
+		map[string]int64{"A.md": 30, "B.md": 10, "C.md": 20, "D.md": 20},
+	)
+	for _, tt := range []struct {
+		sort string
+		want []string
+	}{
+		{"mtime", []string{"B.md", "C.md", "D.md", "A.md"}},
+		{"-mtime", []string{"A.md", "C.md", "D.md", "B.md"}},
+	} {
+		t.Run(tt.sort, func(t *testing.T) {
+			result, err := Search(vault, SearchOptions{Sort: tt.sort})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			assertSearchPaths(t, result.Items, tt.want)
+		})
 	}
 }
 

@@ -47,6 +47,10 @@ const (
 	FieldIncomingCount = "incoming_count"
 )
 
+// SortMtime is a computed key valid only in --sort (not --fields). It orders by
+// the file modification time in seconds recorded at the last index update.
+const SortMtime = "mtime"
+
 // wantMetaFields reports whether any meta output was requested via "meta"
 // (all keys) or "meta.<key>" (a specific key).
 func wantMetaFields(fields []string) bool {
@@ -64,6 +68,8 @@ func computedSortColumn(key string) (string, bool) {
 	switch key {
 	case FieldLines:
 		return "COALESCE(n.lines,0)", true
+	case SortMtime:
+		return "COALESCE(n.mtime,0)", true
 	case FieldOutgoingCount:
 		return "(SELECT COUNT(*) FROM edges e_sort WHERE e_sort.source_id = n.id)", true
 	case FieldIncomingCount:
