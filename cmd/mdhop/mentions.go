@@ -34,7 +34,7 @@ Options:
                    (lines, outgoing_count, incoming_count, mtime). Prefix -
                    for descending. Default: path order. mtime is the file
                    modification time (seconds) recorded at the last
-                   build/update; files are not reread.
+                   build/update.
   --limit <N>      Return at most N mentions per direction (N > 0). Default: all.
   --vault <path>   Vault root directory. Default: ".".
   --format json|text  Output format. Default: text.
@@ -72,8 +72,9 @@ with phantoms after notes.
 
 Each note appears once with its first mention: matched_text and location are
 taken from the file before NFC normalization, and excerpt is the physical line
-of the match start. location has the query --include-location form. Bodies are
-read from disk as they are now; notes deleted since the last build are skipped.
+of the match start. location has the query --include-location form. Mentions
+reads current note bodies from disk (skipping missing incoming candidate files)
+and uses the index for candidate names and links to or from the entry.
 
 The JSON fields are entry, incoming, outgoing, and total, which counts each
 returned direction after filtering and before --limit. incoming and outgoing
