@@ -85,6 +85,38 @@ func TestMentionsFilterFlags(t *testing.T) {
 	}
 }
 
+func TestMentionsConfigFilters(t *testing.T) {
+	vault := mentionsCLIVault(t)
+	args := []string{"--vault", vault, "--file", "Plan.md", "--format", "json"}
+	want := captureStdout(t, func() error { return runMentions(args) })
+	for _, tc := range []struct {
+		name    string
+		config  string
+		wantErr string
+	}{
+		{name: "via include", config: "[query.via.include]"},
+		{name: "via exclude", config: "[query.via.exclude]"},
+		{name: "legacy exclude", config: "[exclude]"},
+		{name: "hide", config: "[query.hide]", wantErr: "query hide: unsupported glob pattern (character class): a[b]"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(filepath.Join(vault, "mdhop.toml"), []byte(tc.config+"\npaths = ['a[b]']\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantErr != "" {
+				if err := runMentions(args); err == nil || err.Error() != tc.wantErr {
+					t.Fatalf("err=%v, want %q", err, tc.wantErr)
+				}
+				return
+			}
+			out := captureStdout(t, func() error { return runMentions(args) })
+			if out != want {
+				t.Fatalf("got:\n%s\nwant:\n%s", out, want)
+			}
+		})
+	}
+}
+
 func TestMentionsWhereFlag(t *testing.T) {
 	vault := mentionsCLIVault(t)
 	files := map[string]string{

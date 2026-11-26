@@ -116,7 +116,7 @@
   - 完了条件: 結果が変わらず、同じ例で直接の backlinks のピークメモリが下がる。
   - 手がかり: `internal/core/query_location.go:63–81,114–159`。
 
-- [ ] mentions が使わない via 設定の誤りで止まらないようにする
+- [x] mentions が使わない via 設定の誤りで止まらないようにする
   - 目的: `[query.via.include]` や、via の除外に引き継がれる `[exclude]` に未対応の glob があると、via を使わない mentions がエラーで終了する。mentions には `--no-config-via` もない。
   - 対応: mentions がフィルタを作るときは via を無効にする。mentions が使う hide と `--path` の検証は残す。
   - 完了条件: via だけが不正な設定で結果が返り、hide の誤りはこれまでどおりエラーになる。

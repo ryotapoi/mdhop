@@ -114,7 +114,10 @@ func runMentions(args []string) error {
 	if err != nil {
 		return err
 	}
-	filter, err := core.NewQueryFilter(cfg, core.QueryFilterOptions{Hide: core.ExcludeConfig{Paths: hidePaths}})
+	filter, err := core.NewQueryFilter(cfg, core.QueryFilterOptions{
+		Hide:        core.ExcludeConfig{Paths: hidePaths},
+		NoConfigVia: true,
+	})
 	if err != nil {
 		return err
 	}
