@@ -421,3 +421,57 @@ func TestMentionsRelations(t *testing.T) {
 		}
 	}
 }
+
+func TestMentionsSort(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"E.md":     "A B C D Ghost\n",
+		"A.md":     "---\ndate: 2026-01-02\n---\nE\n",
+		"B.md":     "---\ndate: 2026-03-01\n---\nE [[C]]\n",
+		"C.md":     "---\ndate: 2026-02-01\n---\nE\n",
+		"D.md":     "E [[C]] [[A]]\n",
+		"Other.md": "[[Ghost]] [[C]]\n",
+	})
+	run := func(opts MentionsOptions) *MentionsResult {
+		t.Helper()
+		r, err := Mentions(vault, MentionsEntry{File: "E.md"}, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	inA, inB, inC, inD := "A.md@4:1-4:2=E", "B.md@4:1-4:2=E", "C.md@4:1-4:2=E", "D.md@1:1-1:2=E"
+	outA, outB, outC, outD := "A.md@1:1-1:2=A", "B.md@1:3-1:4=B", "C.md@1:5-1:6=C", "D.md@1:7-1:8=D"
+	ghost := "phantom:Ghost@1:9-1:14=Ghost"
+
+	// An empty sort keeps the default order.
+	r := run(MentionsOptions{Sort: ""})
+	assertMentions(t, "default outgoing", r.Outgoing, outA, outB, outC, outD, ghost)
+
+	// D has no date and Ghost is a phantom: both stay last in either direction.
+	r = run(MentionsOptions{Sort: "date"})
+	assertMentions(t, "date outgoing", r.Outgoing, outA, outC, outB, outD, ghost)
+	r = run(MentionsOptions{Sort: "-date"})
+	assertMentions(t, "-date incoming", r.Incoming, inB, inC, inA, inD)
+	assertMentions(t, "-date outgoing", r.Outgoing, outB, outC, outA, outD, ghost)
+
+	// Computed fields come from the index; a phantom has none, and equal
+	// counts (B and D have 0) fall back to path order.
+	r = run(MentionsOptions{Sort: "-incoming_count"})
+	assertMentions(t, "-incoming_count outgoing", r.Outgoing, outC, outA, outB, outD, ghost)
+	r = run(MentionsOptions{Sort: "incoming_count"})
+	assertMentions(t, "incoming_count incoming", r.Incoming, inB, inD, inA, inC)
+
+	// --limit keeps the top N after sorting; total counts before the limit.
+	limit := 2
+	r = run(MentionsOptions{Sort: "-date", Limit: &limit})
+	assertMentions(t, "limited incoming", r.Incoming, inB, inC)
+	assertMentions(t, "limited outgoing", r.Outgoing, outB, outC)
+	if *r.Total.Incoming != 4 || *r.Total.Outgoing != 5 {
+		t.Fatalf("total=%d/%d", *r.Total.Incoming, *r.Total.Outgoing)
+	}
+
+	// An empty key fails before the index is opened.
+	if _, err := Mentions(t.TempDir(), MentionsEntry{File: "E.md"}, MentionsOptions{Sort: "-"}); err == nil || err.Error() != "empty sort key" {
+		t.Fatalf("err=%v", err)
+	}
+}

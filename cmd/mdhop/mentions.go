@@ -30,6 +30,9 @@ Options:
   --no-phantom     Do not return phantom names (outgoing only).
   --where <expr>   Return only notes whose frontmatter matches (repeatable, AND).
                    Same syntax as query --where.
+  --sort <key|-key>  Sort each direction by a metadata key or computed field
+                   (lines, outgoing_count, incoming_count); prefix - for
+                   descending. Default: path order.
   --limit <N>      Return at most N mentions per direction (N > 0). Default: all.
   --vault <path>   Vault root directory. Default: ".".
   --format json|text  Output format. Default: text.
@@ -58,6 +61,13 @@ other options by AND. As in query, it never returns phantoms, and a note
 without the key fails key=value, key!=value, comparisons, and ~, but passes
 key NOT EXISTS.
 
+--sort orders each direction after filtering and before --limit, so --limit
+returns the top N; total is unchanged. Keys follow search --sort: a meta key
+uses the smallest value ascending and the largest descending, and unknown keys
+are accepted. Notes without the key and all phantoms come last in either
+direction. Ties and results without the key are in path order, phantoms after
+notes.
+
 Each note appears once with its first mention: matched_text and location are
 taken from the file before NFC normalization, and excerpt is the physical line
 of the match start. location has the query --include-location form. Bodies are
@@ -85,6 +95,7 @@ func runMentions(args []string) error {
 	format := fs.String("format", "text", "output format (json or text)")
 	relations := fs.String("relations", "", "comma-separated directions")
 	noPhantom := fs.Bool("no-phantom", false, "exclude phantom names")
+	sortKey := fs.String("sort", "", "sort by meta key or computed field (prefix with - for desc)")
 	var pathPatterns, hidePaths, whereExprs multiString
 	fs.Var(&pathPatterns, "path", "include note path glob (repeatable)")
 	fs.Var(&hidePaths, "hide-path", "hide note path glob (repeatable)")
@@ -108,7 +119,7 @@ func runMentions(args []string) error {
 	if err != nil {
 		return err
 	}
-	opts := core.MentionsOptions{Partial: *partial, Filter: filter, Path: pathPatterns, NoPhantom: *noPhantom, Where: wc}
+	opts := core.MentionsOptions{Partial: *partial, Filter: filter, Path: pathPatterns, NoPhantom: *noPhantom, Where: wc, Sort: *sortKey}
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "limit":

@@ -1,6 +1,8 @@
 package core
 
 import (
+	"cmp"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -26,7 +28,9 @@ type MentionsEntry struct {
 // conditions, so it also drops phantoms, as in query. Filters apply before
 // Limit. A nil Limit returns all. Relations selects the directions to
 // compute and return; nil selects both for a note entry and incoming for a
-// phantom entry.
+// phantom entry. Sort orders each direction after filtering and before Limit
+// as search does ("key" ascending, "-key" descending, "" default order);
+// results without the key, including all phantoms, go last.
 type MentionsOptions struct {
 	Partial   bool
 	Limit     *int
@@ -35,6 +39,7 @@ type MentionsOptions struct {
 	NoPhantom bool
 	Where     *WhereClause
 	Relations []string
+	Sort      string
 }
 
 // Mention directions selectable by MentionsOptions.Relations.
@@ -90,6 +95,10 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 	if err != nil {
 		return nil, err
 	}
+	sortKey, sortDesc, err := parseSortKey(opts.Sort)
+	if err != nil {
+		return nil, err
+	}
 	db, err := openDBChecked(vaultPath, locations...)
 	if err != nil {
 		return nil, err
@@ -117,6 +126,12 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 	if err != nil {
 		return nil, err
 	}
+	var order *mentionOrder
+	if sortKey != "" {
+		if order, err = loadMentionOrder(db, sortKey, sortDesc); err != nil {
+			return nil, err
+		}
+	}
 	diskPaths := newReadVaultDiskPathResolver(vaultPath)
 	result := &MentionsResult{Entry: info}
 
@@ -140,7 +155,7 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 			}
 		}
 		var total int
-		result.Incoming, total = limitMentions(incoming, opts.Limit)
+		result.Incoming, total = limitMentions(incoming, order, opts.Limit)
 		result.Total.Incoming = &total
 	}
 
@@ -169,7 +184,7 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 			}
 		}
 		var total int
-		result.Outgoing, total = limitMentions(outgoing, opts.Limit)
+		result.Outgoing, total = limitMentions(outgoing, order, opts.Limit)
 		result.Total.Outgoing = &total
 	}
 	return result, nil
@@ -275,11 +290,97 @@ func readMentionFile(diskPaths *vaultDiskPathResolver, path string) (string, boo
 	return "", false, err
 }
 
-func limitMentions(mentions []Mention, limit *int) ([]Mention, int) {
+// mentionOrder holds the search --sort value of each note that has the key.
+// Computed fields compare as numbers and meta keys by compareSortValues.
+type mentionOrder struct {
+	numeric bool
+	desc    bool
+	nums    map[int64]int64
+	strs    map[int64]string
+}
+
+// loadMentionOrder reads sort values as search does: computed fields for every
+// note, and for a meta key the minimum value (maximum when descending).
+func loadMentionOrder(db dbExecer, key string, desc bool) (*mentionOrder, error) {
+	o := &mentionOrder{desc: desc}
+	var q string
+	var args []any
+	if col, ok := computedSortColumn(key); ok {
+		o.numeric = true
+		o.nums = make(map[int64]int64)
+		q = fmt.Sprintf("SELECT n.id, %s FROM nodes n WHERE n.type = 'note'", col)
+	} else {
+		o.strs = make(map[int64]string)
+		agg := "MIN"
+		if desc {
+			agg = "MAX"
+		}
+		q = fmt.Sprintf("SELECT node_id, %s(sort_value) FROM meta WHERE key = ? GROUP BY node_id", agg)
+		args = []any{key}
+	}
+	rows, err := db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		if o.numeric {
+			var n int64
+			if err := rows.Scan(&id, &n); err != nil {
+				return nil, err
+			}
+			o.nums[id] = n
+			continue
+		}
+		var v sql.NullString
+		if err := rows.Scan(&id, &v); err != nil {
+			return nil, err
+		}
+		if v.Valid {
+			o.strs[id] = v.String
+		}
+	}
+	return o, rows.Err()
+}
+
+// compare orders mentions with the key before those without it; ok is false
+// when both lack the key or their values are equal.
+func (o *mentionOrder) compare(a, b int64) (less, ok bool) {
+	var c int
+	if o.numeric {
+		x, xok := o.nums[a]
+		y, yok := o.nums[b]
+		if xok != yok {
+			return xok, true
+		}
+		c = cmp.Compare(x, y)
+	} else {
+		x, xok := o.strs[a]
+		y, yok := o.strs[b]
+		if xok != yok {
+			return xok, true
+		}
+		c = compareSortValues(x, y)
+	}
+	if c == 0 {
+		return false, false
+	}
+	return (c < 0) != o.desc, true
+}
+
+// limitMentions sorts by order (nil for the default order), then by the
+// default order, and keeps at most limit mentions.
+func limitMentions(mentions []Mention, order *mentionOrder, limit *int) ([]Mention, int) {
 	if mentions == nil {
 		mentions = []Mention{}
 	}
 	sort.Slice(mentions, func(i, j int) bool {
+		if order != nil {
+			if less, ok := order.compare(mentions[i].id, mentions[j].id); ok {
+				return less
+			}
+		}
 		return queryNodeLess(queryNode{mentions[i].id, mentions[i].NodeInfo}, queryNode{mentions[j].id, mentions[j].NodeInfo})
 	})
 	total := len(mentions)
