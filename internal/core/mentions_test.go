@@ -68,8 +68,8 @@ func TestMentionsIncomingExclusions(t *testing.T) {
 	}
 	// Back links to E and E links to Target, so neither direction returns them.
 	assertMentions(t, "incoming", r.Incoming, "Masked.md@4:49-4:50=E", "Word.md@1:10-1:11=E")
-	if r.Total.Incoming != 2 {
-		t.Fatalf("total incoming=%d", r.Total.Incoming)
+	if *r.Total.Incoming != 2 {
+		t.Fatalf("total incoming=%d", *r.Total.Incoming)
 	}
 	if r.Incoming[0].Excerpt != "see `E` [[x]] [E](y) https://e.com/E mailto:E@x E!" {
 		t.Fatalf("excerpt=%q", r.Incoming[0].Excerpt)
@@ -276,8 +276,8 @@ func TestMentionsFilters(t *testing.T) {
 	r = run(file, MentionsOptions{Filter: newFilter(), Path: []string{"notes/*"}, Limit: &limit})
 	assertMentions(t, "limited incoming", r.Incoming, drop)
 	assertMentions(t, "limited outgoing", r.Outgoing, outDrop)
-	if r.Total.Incoming != 2 || *r.Total.Outgoing != 3 {
-		t.Fatalf("total=%d/%d", r.Total.Incoming, *r.Total.Outgoing)
+	if *r.Total.Incoming != 2 || *r.Total.Outgoing != 3 {
+		t.Fatalf("total=%d/%d", *r.Total.Incoming, *r.Total.Outgoing)
 	}
 
 	if _, err := Mentions(vault, file, MentionsOptions{Path: []string{"a[b]"}}); err == nil || err.Error() != "unsupported glob pattern (character class): a[b]" {
@@ -334,8 +334,8 @@ func TestMentionsWhere(t *testing.T) {
 	r = run(MentionsOptions{Path: []string{"notes/*", "daily/*"}, NoPhantom: true, Limit: &limit}, "status = active")
 	assertMentions(t, "limited incoming", r.Incoming, day)
 	assertMentions(t, "limited outgoing", r.Outgoing, outDay)
-	if r.Total.Incoming != 2 || *r.Total.Outgoing != 2 {
-		t.Fatalf("total=%d/%d", r.Total.Incoming, *r.Total.Outgoing)
+	if *r.Total.Incoming != 2 || *r.Total.Outgoing != 2 {
+		t.Fatalf("total=%d/%d", *r.Total.Incoming, *r.Total.Outgoing)
 	}
 
 	// --hide-path also applies on top of --where.
@@ -346,7 +346,78 @@ func TestMentionsWhere(t *testing.T) {
 	r = run(MentionsOptions{Filter: filter}, "status = active")
 	assertMentions(t, "hide incoming", r.Incoming, keep)
 	assertMentions(t, "hide outgoing", r.Outgoing, outKeep)
-	if r.Total.Incoming != 1 || *r.Total.Outgoing != 1 {
-		t.Fatalf("hide total=%d/%d", r.Total.Incoming, *r.Total.Outgoing)
+	if *r.Total.Incoming != 1 || *r.Total.Outgoing != 1 {
+		t.Fatalf("hide total=%d/%d", *r.Total.Incoming, *r.Total.Outgoing)
+	}
+}
+
+func TestMentionsRelations(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"E.md":     "A B Ghost\n",
+		"A.md":     "E\n",
+		"B.md":     "E\n",
+		"Other.md": "[[Ghost]] E\n",
+	})
+	run := func(entry MentionsEntry, opts MentionsOptions) *MentionsResult {
+		t.Helper()
+		r, err := Mentions(vault, entry, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	file := MentionsEntry{File: "E.md"}
+	in := []string{"A.md@1:1-1:2=E", "B.md@1:1-1:2=E", "Other.md@1:11-1:12=E"}
+	out := []string{"A.md@1:1-1:2=A", "B.md@1:3-1:4=B", "phantom:Ghost@1:5-1:10=Ghost"}
+
+	r := run(file, MentionsOptions{Relations: []string{"incoming"}})
+	assertMentions(t, "incoming only", r.Incoming, in...)
+	if *r.Total.Incoming != 3 || r.Outgoing != nil || r.Total.Outgoing != nil {
+		t.Fatalf("incoming only: outgoing=%v total=%v", r.Outgoing, r.Total.Outgoing)
+	}
+
+	r = run(file, MentionsOptions{Relations: []string{"outgoing"}})
+	assertMentions(t, "outgoing only", r.Outgoing, out...)
+	if *r.Total.Outgoing != 3 || r.Incoming != nil || r.Total.Incoming != nil {
+		t.Fatalf("outgoing only: incoming=%v total=%v", r.Incoming, r.Total.Incoming)
+	}
+
+	r = run(file, MentionsOptions{Relations: []string{"outgoing", "incoming"}})
+	assertMentions(t, "both incoming", r.Incoming, in...)
+	assertMentions(t, "both outgoing", r.Outgoing, out...)
+
+	// --limit applies to each selected direction; total counts before it.
+	limit := 1
+	r = run(file, MentionsOptions{Relations: []string{"outgoing"}, Limit: &limit})
+	assertMentions(t, "limited outgoing", r.Outgoing, out[0])
+	if *r.Total.Outgoing != 3 || r.Total.Incoming != nil {
+		t.Fatalf("limited total=%v/%d", r.Total.Incoming, *r.Total.Outgoing)
+	}
+	r = run(file, MentionsOptions{Relations: []string{"incoming", "outgoing"}, Limit: &limit})
+	assertMentions(t, "limited both incoming", r.Incoming, in[0])
+	assertMentions(t, "limited both outgoing", r.Outgoing, out[0])
+
+	// A phantom entry has no body, so only incoming can be selected.
+	phantom := MentionsEntry{Phantom: "Ghost"}
+	r = run(phantom, MentionsOptions{Relations: []string{"incoming"}})
+	assertMentions(t, "phantom incoming", r.Incoming, "E.md@1:5-1:10=Ghost")
+	if r.Outgoing != nil || r.Total.Outgoing != nil {
+		t.Fatalf("phantom outgoing=%v", r.Outgoing)
+	}
+
+	for _, tc := range []struct {
+		entry     MentionsEntry
+		relations []string
+		want      string
+	}{
+		{file, []string{}, "relations: select at least one relation"},
+		{file, []string{"backlinks"}, `relations: unknown relation "backlinks"`},
+		{file, []string{"incoming", "incoming"}, `relations: duplicate relation "incoming"`},
+		{phantom, []string{"outgoing"}, "relations: outgoing requires a --file entry"},
+		{phantom, []string{"incoming", "outgoing"}, "relations: outgoing requires a --file entry"},
+	} {
+		if _, err := Mentions(vault, tc.entry, MentionsOptions{Relations: tc.relations}); err == nil || err.Error() != tc.want {
+			t.Fatalf("%v: err=%v, want %q", tc.relations, err, tc.want)
+		}
 	}
 }

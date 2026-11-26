@@ -39,10 +39,11 @@
   - 完了条件: 両方向での絞り込み、frontmatter を持たない結果の扱い、`--path`・`--hide-path`・`--no-phantom`・`--limit` との組み合わせを例題テストで固定する。指定しない場合の出力は変わらない。
   - 結果（2026-11-26）: 両方向の候補選定で効き、方向ごとの総数は絞り込み後・`--limit` 前の件数とする。式の解析と条件は query と同じで、指定時は未作成リンク名を常に除き、該当キーを持たないノートは `key = v`・`key != v`・比較・`~` では除かれ、`key NOT EXISTS` では残る。`--path`・`--hide-path`・`[query.hide]`・`--no-phantom` とは AND で合成する。
 
-- [ ] mentions に返す方向を選ぶ `--relations` を追加する
+- [x] mentions に返す方向を選ぶ `--relations` を追加する
   - 目的: `--file` 入口で、入口の名前が書かれているノート（incoming）か、入口の本文に書かれている名前（outgoing）の片方だけを見たいときに、もう片方を返さないようにする。
   - 対応: `--relations <list>` を追加し、値は `incoming,outgoing` のカンマ区切りとする。省略時は両方。オプション名と、選ばなかった方向の出力上の扱い（項目を出さない／総数の扱い）は query の `--relations` に合わせる。出力の項目名 `incoming` / `outgoing` は変えない（言及はリンクではないため backlinks と呼ばず、`incoming` は search の `--no-incoming`・`incoming_count` で既にある語）。`--phantom` 入口で `outgoing` を指定した場合の扱いも決める。
   - 完了条件: 各値の組み合わせ、不正な値、`--phantom` 入口との組み合わせ、`--limit` との関係を例題テストで固定する。指定しない場合の出力は変わらない。
+  - 結果（2026-11-26）: 値の解析と不正値（空・未知・重複）は query と同じで、索引を開く前に検証する。選ばなかった方向は JSON の配列と `total` 内の件数、text の節と `total:` 下の行をいずれも出さず、計算もしない。`--phantom` 入口で `outgoing` を含めるとエラー（`relations: outgoing requires a --file entry`）とし、`--phantom --relations incoming` は未指定時と同じ出力になる。`--limit` は query と違い単一方向の指定を求めず、選んだ方向ごとに効き、`total` は選んだ方向だけ絞り込み後・`--limit` 前の件数とする。
 
 - [ ] mentions に並び順を指定する `--sort` を追加する
   - 目的: 言及の多いノートで、新しいものなど見たい順に結果を並べ、`--limit` と組み合わせて上位だけを見られるようにする。既定はパス順で、日付入りの日報では古い順になる。

@@ -24,7 +24,9 @@ type MentionsEntry struct {
 // Path keeps notes matching any glob (phantoms have no path and are kept);
 // NoPhantom drops phantoms. Where keeps only notes matching the meta
 // conditions, so it also drops phantoms, as in query. Filters apply before
-// Limit. A nil Limit returns all.
+// Limit. A nil Limit returns all. Relations selects the directions to
+// compute and return; nil selects both for a note entry and incoming for a
+// phantom entry.
 type MentionsOptions struct {
 	Partial   bool
 	Limit     *int
@@ -32,7 +34,14 @@ type MentionsOptions struct {
 	Path      []string
 	NoPhantom bool
 	Where     *WhereClause
+	Relations []string
 }
+
+// Mention directions selectable by MentionsOptions.Relations.
+const (
+	MentionsIncoming = "incoming"
+	MentionsOutgoing = "outgoing"
+)
 
 // Mention is the first unlinked occurrence of a name in one note. MatchedText
 // and Location refer to the file text before NFC normalization.
@@ -44,14 +53,15 @@ type Mention struct {
 	id          int64
 }
 
-// MentionsTotal counts filtered mentions before the limit. Outgoing is nil for
-// a phantom entry.
+// MentionsTotal counts filtered mentions before the limit. A direction that
+// is not returned is nil.
 type MentionsTotal struct {
-	Incoming int
+	Incoming *int
 	Outgoing *int
 }
 
-// MentionsResult keeps Outgoing nil for a phantom entry.
+// MentionsResult keeps a direction that is not returned nil: Outgoing for a
+// phantom entry and any direction not selected by Relations.
 type MentionsResult struct {
 	Entry    NodeInfo
 	Incoming []Mention
@@ -74,6 +84,10 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 		return nil, errors.New("limit must be positive")
 	}
 	if err := validateGlobPatterns(opts.Path); err != nil {
+		return nil, err
+	}
+	wantIncoming, wantOutgoing, err := mentionDirections(opts.Relations, entry.File != "")
+	if err != nil {
 		return nil, err
 	}
 	db, err := openDBChecked(vaultPath, locations...)
@@ -106,27 +120,31 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 	diskPaths := newReadVaultDiskPathResolver(vaultPath)
 	result := &MentionsResult{Entry: info}
 
-	needle := mentionFold(info.Name)
-	var incoming []Mention
-	for _, c := range candidates {
-		if c.info.Type != NodeTypeNote {
-			continue
+	if wantIncoming {
+		needle := mentionFold(info.Name)
+		var incoming []Mention
+		for _, c := range candidates {
+			if c.info.Type != NodeTypeNote {
+				continue
+			}
+			content, ok, err := readMentionFile(diskPaths, c.info.Path)
+			if err != nil {
+				return nil, err
+			}
+			// Most notes do not contain the name at all; skip parsing them.
+			if !ok || !strings.Contains(mentionFold(content), needle) {
+				continue
+			}
+			if m, found := newMentionText(content).first(needle, opts.Partial); found {
+				incoming = append(incoming, m.with(c))
+			}
 		}
-		content, ok, err := readMentionFile(diskPaths, c.info.Path)
-		if err != nil {
-			return nil, err
-		}
-		// Most notes do not contain the name at all; skip parsing them.
-		if !ok || !strings.Contains(mentionFold(content), needle) {
-			continue
-		}
-		if m, found := newMentionText(content).first(needle, opts.Partial); found {
-			incoming = append(incoming, m.with(c))
-		}
+		var total int
+		result.Incoming, total = limitMentions(incoming, opts.Limit)
+		result.Total.Incoming = &total
 	}
-	result.Incoming, result.Total.Incoming = limitMentions(incoming, opts.Limit)
 
-	if info.Type == NodeTypeNote {
+	if wantOutgoing {
 		content, ok, err := readMentionFile(diskPaths, info.Path)
 		if err != nil {
 			return nil, err
@@ -155,6 +173,36 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 		result.Total.Outgoing = &total
 	}
 	return result, nil
+}
+
+// mentionDirections validates the selected relations as query does. Outgoing
+// is defined only for a note entry, so selecting it for a phantom is an error.
+func mentionDirections(relations []string, fileEntry bool) (incoming, outgoing bool, err error) {
+	if relations == nil {
+		return true, fileEntry, nil
+	}
+	if len(relations) == 0 {
+		return false, false, errors.New("relations: select at least one relation")
+	}
+	for _, r := range relations {
+		var dir *bool
+		switch r {
+		case MentionsIncoming:
+			dir = &incoming
+		case MentionsOutgoing:
+			dir = &outgoing
+		default:
+			return false, false, fmt.Errorf("relations: unknown relation %q", r)
+		}
+		if *dir {
+			return false, false, fmt.Errorf("relations: duplicate relation %q", r)
+		}
+		*dir = true
+	}
+	if outgoing && !fileEntry {
+		return false, false, errors.New("relations: outgoing requires a --file entry")
+	}
+	return incoming, outgoing, nil
 }
 
 // mentionLinkedIDs returns nodes linked with the entry in either direction.

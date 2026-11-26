@@ -137,6 +137,41 @@ func TestMentionsPhantomTextOmitsOutgoing(t *testing.T) {
 	}
 }
 
+func TestMentionsRelationsFlag(t *testing.T) {
+	vault := mentionsCLIVault(t)
+	out := captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json", "--relations", " outgoing "})
+	})
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("parse %q: %v", out, err)
+	}
+	var total bytes.Buffer
+	if err := json.Compact(&total, got["total"]); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["incoming"]; ok || total.String() != `{"outgoing":2}` {
+		t.Fatalf("outgoing JSON: %s", out)
+	}
+	out = captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--relations", "incoming"})
+	})
+	want := "entry:\n  note \"Plan.md\"\nincoming:\n  note \"Alpha.md\"\n    matched_text: \"Plan\"\n    location: 1:5-1:9\n    excerpt: \"see Plan\"\ntotal:\n  incoming: 1\n"
+	if out != want {
+		t.Fatalf("text:\n%q\nwant\n%q", out, want)
+	}
+	// Both directions in any order and spacing match the default output.
+	def := captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json"})
+	})
+	out = captureStdout(t, func() error {
+		return runMentions([]string{"--vault", vault, "--file", "Plan.md", "--format", "json", "--relations", "outgoing , incoming"})
+	})
+	if out != def {
+		t.Fatalf("both:\n%s\nwant\n%s", out, def)
+	}
+}
+
 func TestMentionsCLIErrors(t *testing.T) {
 	vault := mentionsCLIVault(t)
 	for _, tc := range []struct {
@@ -148,10 +183,19 @@ func TestMentionsCLIErrors(t *testing.T) {
 		{[]string{"--file", "Plan.md", "--path", "a[b]"}, "unsupported glob pattern (character class): a[b]"},
 		{[]string{"--file", "Plan.md", "--hide-path", "a[b]"}, "query hide: unsupported glob pattern (character class): a[b]"},
 		{[]string{"--file", "Plan.md", "--where", "a=1 && b=2 || c=3"}, "cannot mix && and ||"},
+		{[]string{"--file", "Plan.md", "--relations", ""}, "relations: select at least one relation"},
+		{[]string{"--file", "Plan.md", "--relations", "bad"}, `relations: unknown relation "bad"`},
+		{[]string{"--file", "Plan.md", "--relations", "incoming,incoming"}, `relations: duplicate relation "incoming"`},
+		{[]string{"--phantom", "Ghost", "--relations", "outgoing"}, "relations: outgoing requires a --file entry"},
 	} {
 		err := runMentions(append([]string{"--vault", vault}, tc.args...))
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Fatalf("%v: err=%v, want %q", tc.args, err, tc.want)
 		}
+	}
+	// Relations are validated before the index is opened.
+	if err := runMentions([]string{"--vault", t.TempDir(), "--file", "Plan.md", "--relations", "bad"}); err == nil ||
+		err.Error() != `relations: unknown relation "bad"` {
+		t.Fatalf("no index: err=%v", err)
 	}
 }

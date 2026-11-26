@@ -10,7 +10,7 @@ import (
 
 type mentionsJSONOutput struct {
 	Entry    jsonNodeInfo      `json:"entry"`
-	Incoming []jsonMention     `json:"incoming"`
+	Incoming *[]jsonMention    `json:"incoming,omitempty"`
 	Outgoing *[]jsonMention    `json:"outgoing,omitempty"`
 	Total    jsonMentionsTotal `json:"total"`
 }
@@ -23,7 +23,7 @@ type jsonMention struct {
 }
 
 type jsonMentionsTotal struct {
-	Incoming int  `json:"incoming"`
+	Incoming *int `json:"incoming,omitempty"`
 	Outgoing *int `json:"outgoing,omitempty"`
 }
 
@@ -45,9 +45,12 @@ func toJSONMentions(mentions []core.Mention) []jsonMention {
 
 func printMentionsJSON(w io.Writer, r *core.MentionsResult) error {
 	out := mentionsJSONOutput{
-		Entry:    toJSONNodeInfo(r.Entry),
-		Incoming: toJSONMentions(r.Incoming),
-		Total:    jsonMentionsTotal{Incoming: r.Total.Incoming, Outgoing: r.Total.Outgoing},
+		Entry: toJSONNodeInfo(r.Entry),
+		Total: jsonMentionsTotal{Incoming: r.Total.Incoming, Outgoing: r.Total.Outgoing},
+	}
+	if r.Incoming != nil {
+		items := toJSONMentions(r.Incoming)
+		out.Incoming = &items
 	}
 	if r.Outgoing != nil {
 		items := toJSONMentions(r.Outgoing)
@@ -61,12 +64,16 @@ func printMentionsText(w io.Writer, r *core.MentionsResult) error {
 	w = output
 	fmt.Fprintln(w, "entry:")
 	writeQueryNodeText(w, r.Entry, "  ")
-	writeMentionsText(w, "incoming", r.Incoming)
+	if r.Incoming != nil {
+		writeMentionsText(w, "incoming", r.Incoming)
+	}
 	if r.Outgoing != nil {
 		writeMentionsText(w, "outgoing", r.Outgoing)
 	}
 	fmt.Fprintln(w, "total:")
-	fmt.Fprintf(w, "  incoming: %d\n", r.Total.Incoming)
+	if r.Total.Incoming != nil {
+		fmt.Fprintf(w, "  incoming: %d\n", *r.Total.Incoming)
+	}
 	if r.Total.Outgoing != nil {
 		fmt.Fprintf(w, "  outgoing: %d\n", *r.Total.Outgoing)
 	}

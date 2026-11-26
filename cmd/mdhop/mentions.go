@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 
 	"github.com/ryotapoi/mdhop/internal/core"
 )
@@ -19,6 +20,8 @@ Entry options:
   --phantom <name>  Phantom entry. Returns incoming only.
 
 Options:
+  --relations <list>  Comma-separated incoming,outgoing. Default: both
+                      (incoming only for --phantom).
   --db <path>      Index DB path. Default: <cache>/mdhop/vaults/<vault-hash>/index.sqlite.
   --config <path>  Read only this config file. Default: <vault>/mdhop.toml; missing default allowed.
   --partial        Also match inside Latin words.
@@ -46,6 +49,10 @@ are not returned. Notes sharing a name are all returned.
 them. Globs follow query: case-sensitive, * crosses /, and [] character
 classes are unsupported. Quote globs to prevent shell expansion.
 
+--relations returns only the selected directions; an unselected direction is
+absent from the output and from total. outgoing requires --file, so selecting
+it with --phantom is an error.
+
 --where also narrows both directions before --limit and combines with the
 other options by AND. As in query, it never returns phantoms, and a note
 without the key fails key=value, key!=value, comparisons, and ~, but passes
@@ -56,8 +63,10 @@ taken from the file before NFC normalization, and excerpt is the physical line
 of the match start. location has the query --include-location form. Bodies are
 read from disk as they are now; notes deleted since the last build are skipped.
 
-The JSON fields are entry, incoming, outgoing (absent for --phantom), and
-total, which counts each direction after filtering and before --limit.
+The JSON fields are entry, incoming, outgoing, and total, which counts each
+returned direction after filtering and before --limit. incoming and outgoing
+are absent when not selected by --relations; outgoing is also absent for
+--phantom.
 
 Example:
   mdhop mentions --file Plan.md --format json
@@ -74,6 +83,7 @@ func runMentions(args []string) error {
 	partial := fs.Bool("partial", false, "match inside Latin words")
 	limit := fs.Int("limit", 0, "maximum mentions per direction")
 	format := fs.String("format", "text", "output format (json or text)")
+	relations := fs.String("relations", "", "comma-separated directions")
 	noPhantom := fs.Bool("no-phantom", false, "exclude phantom names")
 	var pathPatterns, hidePaths, whereExprs multiString
 	fs.Var(&pathPatterns, "path", "include note path glob (repeatable)")
@@ -100,8 +110,17 @@ func runMentions(args []string) error {
 	}
 	opts := core.MentionsOptions{Partial: *partial, Filter: filter, Path: pathPatterns, NoPhantom: *noPhantom, Where: wc}
 	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "limit" {
+		switch f.Name {
+		case "limit":
 			opts.Limit = limit
+		case "relations":
+			opts.Relations = []string{}
+			if *relations != "" {
+				opts.Relations = strings.Split(*relations, ",")
+				for i := range opts.Relations {
+					opts.Relations[i] = strings.TrimSpace(opts.Relations[i])
+				}
+			}
 		}
 	})
 	result, err := core.Mentions(*vault, core.MentionsEntry{File: *file, Phantom: *phantom}, opts, locations)
