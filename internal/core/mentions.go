@@ -152,7 +152,11 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 				continue
 			}
 			if m, found := newMentionText(content).first(needle, opts.Partial); found {
-				incoming = append(incoming, m.with(c))
+				mention := m.with(c)
+				// Keep only the result strings alive while scanning other note bodies.
+				mention.MatchedText = strings.Clone(mention.MatchedText)
+				mention.Excerpt = strings.Clone(mention.Excerpt)
+				incoming = append(incoming, mention)
 			}
 		}
 		var total int
