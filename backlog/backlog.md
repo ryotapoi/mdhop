@@ -56,3 +56,10 @@
   - 対応: `--sort` のキーに mtime を表す計算フィールドを追加する（名前は既存の計算フィールド `lines` などとの整合で決める）。値は索引に保存済みの mtime を使い、本文やファイルを読まない。そのため最後の build / update 以降の変更は反映されない。
   - 完了条件: search と mentions の両方で昇順・降順を例題テストで固定し、help に索引時点の値であることを書く。既存のキー（同名の frontmatter キーを含む）の挙動は変わらない。
   - 結果（2026-11-26）: キー名は索引の列名どおり `mtime` とし、search と mentions で共通に使える（`--sort` 専用で `--fields` には加えない）。値は最後の build / update（add・move などの索引更新を含む）時点の秒単位の mtime で、並べ替え時にファイルを読まない。同じ秒のノートは既定のパス順、未作成リンク名は昇順・降順とも末尾。計算フィールドは同名の frontmatter キーより優先する既存の規則により、frontmatter に `mtime` キーを持つ vault では `--sort mtime` が frontmatter の値ではなく索引の mtime で並ぶ。それ以外のキーの挙動は変わらない。
+
+- [ ] `--sort` で frontmatter のキーを `meta.<key>` と書くようにする（破壊的変更）
+  - 目的: `--sort` のキーは frontmatter のキーと計算フィールド（`lines`・`outgoing_count`・`incoming_count`・`mtime`）を同じ書き方で受け付けるため、同名の frontmatter キーが計算フィールドに隠れる（frontmatter の `mtime` や `lines` では並べられない）。また未知の名前を黙って frontmatter のキーとして扱うため、打ち間違いがエラーにならない。frontmatter のキーを `meta.<key>` と書く `--fields` と規則を揃え、衝突を仕組みでなくす。
+  - 対応: search と mentions の `--sort` で、計算フィールドは名前だけ（`--sort -mtime`）、frontmatter のキーは `meta.<key>`（`--sort -meta.updated`）と書く。どちらでもない名前だけのキーはエラーにする。`-` による降順、キーを持たない結果の位置、同順位の並びなど、並べ方は変えない。frontmatter のキーしか扱わない `--where` は名前だけのまま変えない。
+  - 完了条件: search と mentions の両方で、計算フィールド・`meta.<key>`・名前だけの未知のキー（エラー）・計算フィールドと同名の frontmatter キー（`meta.mtime` で frontmatter の値で並ぶ）を例題テストで固定する。help と既存テスト・例の `--sort` の書き方を新しい規則に合わせる。
+  - 未決の問い: エラーを索引を開く前に出すか（計算フィールドの一覧だけで判定できる）。エラーメッセージで `meta.<key>` への書き換えを案内するか。
+  - 手がかり: キーの振り分けは `internal/core/search.go` の `computedSortColumn`・`parseSortKey`（mentions も同じ関数を使う）、`meta.<key>` の扱いは同ファイルの `wantMetaFields`。版を切るときに CHANGELOG へ破壊的変更として書く。
