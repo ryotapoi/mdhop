@@ -174,27 +174,53 @@ func Mentions(vaultPath string, entry MentionsEntry, opts MentionsOptions, locat
 		if !ok {
 			return nil, fmt.Errorf("entry file not found: %s", info.Path)
 		}
-		text := newMentionText(content)
-		byName := make(map[string][]queryNode)
-		for _, c := range candidates {
-			key := mentionFold(c.info.Name)
-			byName[key] = append(byName[key], c)
-		}
-		outgoing := []Mention{}
-		for key, nodes := range byName {
-			m, found := text.first(key, opts.Partial)
-			if !found {
-				continue
-			}
-			for _, c := range nodes {
-				outgoing = append(outgoing, m.with(c))
-			}
-		}
+		outgoing := findOutgoingMentions(content, candidates, opts.Partial)
 		var total int
 		result.Outgoing, total = limitMentions(outgoing, order, opts.Limit)
 		result.Total.Outgoing = &total
 	}
 	return result, nil
+}
+
+func findOutgoingMentions(content string, candidates []queryNode, partial bool) []Mention {
+	if len(candidates) == 0 {
+		return nil
+	}
+	byName := make(map[string][]queryNode)
+	for _, c := range candidates {
+		key := mentionFold(c.info.Name)
+		byName[key] = append(byName[key], c)
+	}
+	text := newMentionText(content)
+	if len(byName) > 1 {
+		dropAbsentMentionPrefixes(text.folded, byName)
+	}
+	var outgoing []Mention
+	for key, nodes := range byName {
+		m, found := text.first(key, partial)
+		if !found {
+			continue
+		}
+		for _, c := range nodes {
+			outgoing = append(outgoing, m.with(c))
+		}
+	}
+	return outgoing
+}
+
+// Check two-byte prefixes together so names whose prefixes are absent do not
+// each require a substring search. One-byte names go straight to first.
+func dropAbsentMentionPrefixes(folded string, byName map[string][]queryNode) {
+	var seen [1 << 16]bool
+	pair := func(a, b byte) uint16 { return uint16(a)<<8 | uint16(b) }
+	for i := 1; i < len(folded); i++ {
+		seen[pair(folded[i-1], folded[i])] = true
+	}
+	for key := range byName {
+		if len(key) >= 2 && !seen[pair(key[0], key[1])] {
+			delete(byName, key)
+		}
+	}
 }
 
 // mentionDirections validates the selected relations as query does. Outgoing
@@ -423,23 +449,25 @@ func mentionFoldRune(r rune) rune {
 	}
 }
 
-// mentionSegment is one NFC normalization segment of the file text. A barrier
-// segment covers excluded text and never takes part in a match.
+// mentionSegment maps one NFC normalization segment to the original file.
+// Excluded text has a zero starter. Paragraph separators cannot be match
+// endpoints, and their rawEnd is the next paragraph's start.
 type mentionSegment struct {
 	rawStart, rawEnd   int
 	foldStart, foldEnd int
 	starter            rune
+	separator          bool
 }
 
 // mentionText is the searchable body of one file. folded is the case-folded
 // form of the NFC-normalized body with excluded text replaced by NUL
-// barriers; segment offsets map it back to the original bytes.
+// barriers. The offset map omits unmasked single-byte ASCII segments, where
+// each folded byte advances the raw offset by one.
 type mentionText struct {
-	content  string
-	folded   string
-	segments []mentionSegment
-	startAt  map[int]int
-	endAt    map[int]int
+	content         string
+	folded          string
+	firstBodyOffset int
+	segments        []mentionSegment
 }
 
 // mentionMatch is a matched range of the original content.
@@ -454,7 +482,7 @@ func (m mentionMatch) with(node queryNode) Mention {
 }
 
 func newMentionText(content string) *mentionText {
-	t := &mentionText{content: content, startAt: make(map[int]int), endAt: make(map[int]int)}
+	t := &mentionText{content: content}
 	lines := strings.Split(content, "\n")
 	lineOffsets := make([]int, len(lines))
 	for i, offset := 1, 0; i < len(lines); i++ {
@@ -469,8 +497,22 @@ func newMentionText(content string) *mentionText {
 		_, masked := parseBodyMarkdown(raw, maskParagraphWikiLinks(clean), lineNum, definitions)
 		barrier := mentionBarriers(raw, maskURLs(masked))
 		base := lineOffsets[lineNum-1]
+		if len(t.segments) == 0 {
+			t.firstBodyOffset = base
+		} else {
+			t.segments[len(t.segments)-1].rawEnd = base
+		}
 		for i := 0; i < len(raw); {
 			end := i + norm.NFC.NextBoundaryInString(raw[i:], true)
+			if end == i+1 && raw[i] < utf8.RuneSelf && !barrier[i] {
+				b := raw[i]
+				if b >= 'A' && b <= 'Z' {
+					b += 'a' - 'A'
+				}
+				folded.WriteByte(b)
+				i = end
+				continue
+			}
 			seg := mentionSegment{rawStart: base + i, rawEnd: base + end, foldStart: folded.Len()}
 			seg.starter, _ = utf8.DecodeRuneInString(raw[i:end])
 			blocked := false
@@ -484,17 +526,38 @@ func newMentionText(content string) *mentionText {
 				folded.WriteString(mentionFold(raw[i:end]))
 			}
 			seg.foldEnd = folded.Len()
-			t.startAt[seg.foldStart] = len(t.segments)
-			t.endAt[seg.foldEnd] = len(t.segments)
 			t.segments = append(t.segments, seg)
 			i = end
 		}
 		// Separate paragraphs so a name never spans two of them.
-		t.segments = append(t.segments, mentionSegment{rawStart: base + len(raw), rawEnd: base + len(raw), foldStart: folded.Len(), foldEnd: folded.Len() + 1})
+		t.segments = append(t.segments, mentionSegment{
+			foldStart: folded.Len(), foldEnd: folded.Len() + 1, separator: true,
+		})
 		folded.WriteByte(0)
 	})
 	t.folded = folded.String()
 	return t
+}
+
+// segmentAt returns the segment containing offset, reconstructing omitted
+// ASCII segments from the previous recorded offset.
+func (t *mentionText) segmentAt(offset int) mentionSegment {
+	if offset < 0 || offset >= len(t.folded) {
+		return mentionSegment{separator: true}
+	}
+	i := sort.Search(len(t.segments), func(i int) bool { return t.segments[i].foldEnd > offset })
+	if i < len(t.segments) && t.segments[i].foldStart <= offset {
+		return t.segments[i]
+	}
+	rawStart := t.firstBodyOffset + offset
+	if i > 0 {
+		prev := t.segments[i-1]
+		rawStart = prev.rawEnd + offset - prev.foldEnd
+	}
+	return mentionSegment{
+		rawStart: rawStart, rawEnd: rawStart + 1, foldStart: offset, foldEnd: offset + 1,
+		starter: rune(t.folded[offset]),
+	}
 }
 
 // first returns the earliest occurrence of needle, an already folded name,
@@ -510,28 +573,26 @@ func (t *mentionText) first(needle string, partial bool) (mentionMatch, bool) {
 		}
 		start := from + i
 		from = start + 1
-		first, ok := t.startAt[start]
-		if !ok {
+		first := t.segmentAt(start)
+		if first.separator || first.foldStart != start {
 			continue
 		}
-		last, ok := t.endAt[start+len(needle)]
-		if !ok {
+		end := start + len(needle)
+		last := t.segmentAt(end - 1)
+		if last.separator || last.foldEnd != end {
 			continue
 		}
-		if !partial && (t.latinJoin(first-1, first) || t.latinJoin(last, last+1)) {
+		if !partial && (t.latinJoin(start-1, first.starter) || t.latinJoin(end, last.starter)) {
 			continue
 		}
-		return t.match(t.segments[first].rawStart, t.segments[last].rawEnd), true
+		return t.match(first.rawStart, last.rawEnd), true
 	}
 }
 
 // latinJoin reports whether two adjacent segments both start with a Latin
 // letter, which places a match boundary in the middle of a Latin word.
-func (t *mentionText) latinJoin(a, b int) bool {
-	if a < 0 || b >= len(t.segments) {
-		return false
-	}
-	return isLatinLetter(t.segments[a].starter) && isLatinLetter(t.segments[b].starter)
+func (t *mentionText) latinJoin(neighbor int, starter rune) bool {
+	return isLatinLetter(starter) && isLatinLetter(t.segmentAt(neighbor).starter)
 }
 
 func isLatinLetter(r rune) bool {

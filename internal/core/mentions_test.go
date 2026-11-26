@@ -183,6 +183,45 @@ func TestMentionsOutgoingBoundariesAndSharedNames(t *testing.T) {
 	}
 }
 
+func TestMentionsOutgoingOffsetsAcrossParagraphs(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"Entry.md":  "---\r\nkind: Test\r\n---\r\nq\u0301 `CAFE\u0301` Cafe\u0301s\r\n\r\n前 İ CAFE\u0301 q\r\n",
+		"Café.md":   "",
+		"i.md":      "",
+		"q.md":      "",
+		"\u0301.md": "",
+	})
+	r, err := Mentions(vault, MentionsEntry{File: "Entry.md"}, MentionsOptions{
+		Relations: []string{MentionsOutgoing},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "outgoing", r.Outgoing,
+		"Café.md@6:5-6:10=CAFE\u0301",
+		"i.md@6:3-6:4=İ",
+		"q.md@6:11-6:12=q",
+	)
+	for _, m := range r.Outgoing {
+		if m.Excerpt != "前 İ CAFE\u0301 q" {
+			t.Fatalf("%s excerpt=%q", m.Path, m.Excerpt)
+		}
+	}
+}
+
+func TestMentionsOutgoingMissingEntryWithNoCandidates(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{"Entry.md": "entry\n"})
+	if err := os.Remove(filepath.Join(vault, "Entry.md")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Mentions(vault, MentionsEntry{File: "Entry.md"}, MentionsOptions{
+		Relations: []string{MentionsOutgoing},
+	})
+	if err == nil || err.Error() != "entry file not found: Entry.md" {
+		t.Fatalf("err=%v, want entry file not found", err)
+	}
+}
+
 func TestMentionsPhantomEntryIncomingOnly(t *testing.T) {
 	vault := mentionsVault(t, map[string]string{
 		"Other.md": "[[Ghost]] ghost\n",
