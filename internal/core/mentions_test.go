@@ -76,6 +76,33 @@ func TestMentionsIncomingExclusions(t *testing.T) {
 	}
 }
 
+func TestMentionsIncomingAfterAngleURL(t *testing.T) {
+	vault := mentionsVault(t, map[string]string{
+		"東京.md":       "",
+		"Adjacent.md": "<https://example.org/東京>東京へ移動\n",
+		"Spaced.md":   "<https://example.org/東京> 東京へ移動\n",
+		"Mailto.md":   "<MAILTO:東京@example.org>東京へ移動\n",
+		"Bare.md":     "https://example.org/東京>東京へ移動\n",
+		"Unclosed.md": "<https://example.org/東京\u3000東京へ移動>\n",
+	})
+	r, err := Mentions(vault, MentionsEntry{File: "東京.md"}, MentionsOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, "incoming", r.Incoming,
+		"Adjacent.md@1:25-1:27=東京",
+		"Mailto.md@1:24-1:26=東京",
+		"Spaced.md@1:26-1:28=東京",
+		"Unclosed.md@1:25-1:27=東京",
+	)
+	if r.Total.Incoming == nil {
+		t.Fatal("missing incoming total")
+	}
+	if got := *r.Total.Incoming; got != 4 {
+		t.Fatalf("total incoming=%d, want 4", got)
+	}
+}
+
 func TestMentionsOutgoingBoundariesAndSharedNames(t *testing.T) {
 	vault := mentionsVault(t, map[string]string{
 		"Plan.md":      "---\ntags: [Alpha]\n---\nAlpha Plan Back github git スキルアップ 仕様書 iOS26 Linked GHOST\n[[Linked]]\n",

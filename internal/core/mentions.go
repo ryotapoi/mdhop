@@ -555,10 +555,12 @@ func mentionBarriers(raw, masked string) []bool {
 }
 
 // maskURLs blanks text from a "scheme://" or "mailto:" prefix to the next
-// whitespace, keeping byte offsets and line breaks.
+// whitespace, stopping after a closing '>' if the prefix follows '<'.
+// It preserves byte offsets and line breaks.
 func maskURLs(text string) string {
 	masked := []byte(text)
-	blankUntilSpace := func(start int) int {
+	blankURL := func(start int) int {
+		angled := start > 0 && text[start-1] == '<'
 		end := start
 		for end < len(text) {
 			r, size := utf8.DecodeRuneInString(text[end:])
@@ -566,6 +568,9 @@ func maskURLs(text string) string {
 				break
 			}
 			end += size
+			if angled && r == '>' {
+				break
+			}
 		}
 		for i := start; i < end; i++ {
 			masked[i] = ' '
@@ -575,7 +580,7 @@ func maskURLs(text string) string {
 	for i := 0; i < len(text); {
 		// Compare in place: lower-casing may change byte lengths before i.
 		if len(text)-i >= len("mailto:") && strings.EqualFold(text[i:i+len("mailto:")], "mailto:") {
-			i = blankUntilSpace(i)
+			i = blankURL(i)
 			continue
 		}
 		if strings.HasPrefix(text[i:], "://") {
@@ -587,7 +592,7 @@ func maskURLs(text string) string {
 				start++
 			}
 			if start < i && isURIScheme(text[start:i]) {
-				i = blankUntilSpace(start)
+				i = blankURL(start)
 				continue
 			}
 		}
