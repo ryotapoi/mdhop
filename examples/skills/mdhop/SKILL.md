@@ -10,7 +10,7 @@ Use `mdhop` to work with an Obsidian-style Markdown vault through its SQLite lin
 ## Rules
 
 - Use `--format json` for agent-facing output.
-- Use `--relations` on `query` and `--fields` on `inspect`, `search`, `resolve`, `reachable`, `stats`, and `diagnose` to select only the data you need.
+- Use `--relations` on `query` and `mentions`, and `--fields` on `inspect`, `search`, `resolve`, `reachable`, `stats`, and `diagnose` to select only the data you need.
 - Run vault commands from the vault root, or pass `--vault <path>`. `cache-list` needs no vault and accepts no `--vault`, `--db`, or `--config`.
 - Treat note paths and configuration globs as vault-relative. `--vault`, `--db`, and `--config` accept absolute paths or paths relative to the current directory.
 - In Markdown links, resolve destinations relative to the source note; a leading `/` starts at the vault root. Wikilinks keep their own basename lookup rules.
@@ -115,7 +115,19 @@ mdhop query --file Notes/Design.md --relations twohop --include-head 5 --include
 mdhop inspect --file Notes/Design.md --fields tags,meta --include-head 5 --format json
 ```
 
-`--limit` and `--offset` require exactly one explicit relation. The JSON `page.next_offset` tells you whether another page exists. `--via*` selects or filters two-hop paths; `--exclude-via*` removes paths before finding targets. `--hide*` removes matching targets from display and hides via identifiers while preserving targets found through them. Use `--link-key <key>` only for direct backlinks and outgoing links. Head lines and snippets are read only when requested; `--include-snippet 0` returns the link line itself. Run `mdhop query --help` for filters and `mdhop inspect --help` for note attributes.
+`--limit` and `--offset` require exactly one explicit relation. The JSON `page.next_offset` tells you whether another page exists. `--via*` selects or filters two-hop paths; `--exclude-via*` removes paths before finding targets. `--hide*` removes matching targets from display and hides via identifiers while preserving targets found through them. Use `--link-key <key>` only for direct backlinks and outgoing links. Head lines and snippets are read only when requested; `--include-snippet 0` returns the link line itself. `--include-location` adds the raw text and line/column range of the first link for backlinks and two-hop relations, omitting the location for files edited since the last index update. Run `mdhop query --help` for filters and `mdhop inspect --help` for note attributes.
+
+### Find Unlinked Mentions
+
+Use `mdhop mentions` to find notes that write the entry's name without linking to it, and known note or phantom names written in the entry body without links. It reads current note bodies, so it is slower than `query`; candidate names and existing links come from the index.
+
+```bash
+mdhop mentions --file Notes/Design.md --format json
+mdhop mentions --file Notes/Design.md --relations incoming --hide-path 'daily/*' --sort -mtime --limit 20 --format json
+mdhop mentions --phantom 'Event Sourcing' --where 'status!=stale' --format json
+```
+
+Run `mdhop mentions --help` for matching rules, filters, and output fields.
 
 ### Resolve One Link
 

@@ -6,6 +6,28 @@ This changelog was reconstructed from the project's [GitHub Releases](https://gi
 
 ## [Unreleased]
 
+## [v0.25.0] - 2026-11-27
+
+### Added
+
+- Added `mentions` to find unlinked name mentions. `--file` returns notes that write the entry's name without linking to it (`incoming`) and known note and phantom names written in the entry body without links (`outgoing`); `--phantom` returns incoming only. Names are compared case-insensitively after NFC normalization and, by default, do not match inside Latin words (`--partial` allows it). Frontmatter, code, links, reference definitions, URLs, and email autolinks are not searched; the entry, notes already linked with it in either direction, and `[query.hide]` notes are excluded. Each note appears once with its first match's text, location, and excerpt, plus per-direction totals. Note bodies are read from disk; candidate names and existing links come from the index.
+- `mentions` accepts `--relations incoming,outgoing`, `--path`, `--hide-path`, `--no-phantom`, `--where`, `--sort`, and `--limit` (per direction). Filters apply before `--limit`, and totals count filtered results.
+- Added `query --include-location`, which returns the raw text and start/end line and column of the first link from each backlink to the entry and from each two-hop target to its via node. Lines are 1-based physical lines including frontmatter; columns count Unicode code points; the end is exclusive. Links in frontmatter, and files deleted or edited since the last index update, return the raw link without a location while the query still succeeds. The index format is unchanged.
+- `search --sort` and `mentions --sort` accept `mtime`, the file modification time (seconds) recorded at the last build or index update.
+
+### Changed
+
+- **Breaking:** `search --sort` and `mentions --sort` require `meta.<key>` for frontmatter keys (for example, `--sort -meta.updated`). Bare names are accepted only for computed fields (`lines`, `outgoing_count`, `incoming_count`, `mtime`); any other bare name, and an empty `meta.`, fail before the index is opened. A frontmatter key named like a computed field, such as `meta.mtime`, can now be used for sorting. `--where` keeps bare frontmatter keys.
+- **Breaking:** `search --sort ''` now fails instead of using the default path order. Omitting `--sort` is unchanged.
+
+### Upgrade
+
+- Rewrite frontmatter sort keys such as `--sort priority` to `--sort meta.priority`. No index rebuild is required.
+
+### Documentation
+
+- Updated both READMEs, CLI help, and the example agent skill for `mentions` and `query --include-location`.
+
 ## [v0.24.1] - 2026-11-26
 
 ### Changed

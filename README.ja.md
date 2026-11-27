@@ -82,6 +82,7 @@ mdhop resolve --from Notes/A.md --link '[[B]]'
 | `query` | 一つの入口の backlinks / outgoing / twohop を返す |
 | `inspect` | 索引済み note 一件の tags / meta と任意 head を返す |
 | `search` | frontmatter メタデータ・パス・孤立検出条件で Vault 全体からノートを検索 |
+| `mentions` | リンクせずにノート名・未作成リンク名を書いているノートを探す（本文を読む） |
 | `reachable` | 入口 note からリンクで到達できる / できない note を列挙 |
 | `graph` | リンクグラフを JSON / Graphviz dot で出力 |
 | `stats` | ノート数・リンク数などの統計情報 |

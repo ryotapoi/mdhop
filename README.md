@@ -82,6 +82,7 @@ Moving an inline destination preserves display line endings and code text. Refer
 | `query` | Return backlinks / outgoing / twohop for one node |
 | `inspect` | Read indexed tags / metadata and optional head for one note |
 | `search` | Find notes vault-wide by frontmatter metadata, path, or isolation filters |
+| `mentions` | Find notes that write a note or phantom name without linking to it (reads note bodies) |
 | `reachable` | List notes reachable / unreachable from an entry note via links |
 | `graph` | Export the link graph as JSON or Graphviz dot |
 | `stats` | Show vault statistics (note count, link count, etc.) |

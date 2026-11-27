@@ -6,6 +6,28 @@
 
 ## [Unreleased]
 
+## [v0.25.0] - 2026-11-27
+
+### 追加
+
+- リンクしていない名前の言及を探す `mentions` を追加。`--file` は、入口の名前をリンクせずに書いているノート（`incoming`）と、入口の本文にリンクせずに書かれている既知のノート名・未作成リンク名（`outgoing`）を返す。`--phantom` は incoming だけを返す。名前は NFC に揃えて大文字小文字を区別せずに比べ、既定では英字の途中に当てない（`--partial` で当てる）。frontmatter・コード・リンク・参照定義・URL・メールアドレスの自動リンクは探さず、入口自身、入口とどちらかの向きでリンク済みのノート、`[query.hide]` のノートは返さない。1ノート1件で、最初の一致の原文・位置・抜粋と方向ごとの総数を返す。本文は今のファイルから読み、候補の名前とリンク済みかどうかは索引で判断する。
+- `mentions` は `--relations incoming,outgoing`・`--path`・`--hide-path`・`--no-phantom`・`--where`・`--sort`・`--limit`（方向ごと）を受け付ける。絞り込みは `--limit` の前に効き、総数は絞り込み後の件数。
+- `query --include-location` を追加。各 backlink が入口を指す最初のリンクと、各 2-hop の対象が経由先を指す最初のリンクについて、原文と開始・終了の行・列を返す。行は frontmatter を含む1始まりの物理行、列は Unicode コードポイント単位、終端は含まない。frontmatter 内のリンクや、最後の索引更新以降に削除・編集されたファイルでは、問い合わせは成功し、位置なしで原文を返す。索引の形式は変えない。
+- `search --sort` と `mentions --sort` に、最後の build・索引更新で記録したファイルの更新日時（秒）を表す `mtime` を追加。
+
+### 変更
+
+- **破壊的変更:** `search --sort` と `mentions --sort` で、frontmatter のキーは `meta.<key>` と書く（例: `--sort -meta.updated`）。名前だけで書けるのは計算フィールド（`lines`・`outgoing_count`・`incoming_count`・`mtime`）だけで、それ以外の名前だけのキーや空の `meta.` は索引を開く前にエラーになる。`meta.mtime` のように計算フィールドと同名の frontmatter キーでも並べられるようになった。`--where` は名前だけのキーのまま。
+- **破壊的変更:** `search --sort ''` は既定のパス順で成功せず、エラーになる。`--sort` を省略した場合は変わらない。
+
+### アップグレード
+
+- `--sort priority` のような frontmatter キーの指定を `--sort meta.priority` に書き換えること。索引の再生成は不要。
+
+### 文書
+
+- `mentions` と `query --include-location` に合わせ、README 日英・CLI ヘルプ・agent skill 例を更新。
+
 ## [v0.24.1] - 2026-11-26
 
 ### 変更
